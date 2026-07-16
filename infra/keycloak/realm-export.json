@@ -1,0 +1,81 @@
+{
+  "realm": "sispoa",
+  "displayName": "SISPAD-PEI-POA Sacaba",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "resetPasswordAllowed": true,
+  "roles": {
+    "realm": [
+      {"name": "default-roles-sispoa", "composite": false},
+      {"name": "offline_access", "composite": false},
+      {"name": "uma_authorization", "composite": false}
+    ],
+    "client": {
+      "sispoa-frontend": [
+        {"name": "admin_poa"},
+        {"name": "planificador"},
+        {"name": "presupuesto"},
+        {"name": "jefe_unidad"},
+        {"name": "tecnico"},
+        {"name": "seguimiento"},
+        {"name": "auditor"}
+      ]
+    }
+  },
+  "clients": [
+    {
+      "clientId": "sispoa-frontend",
+      "name": "SISPAD Frontend",
+      "enabled": true,
+      "publicClient": true,
+      "redirectUris": ["http://localhost/*", "http://localhost:4200/*"],
+      "webOrigins": ["http://localhost:4200", "http://localhost"],
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "protocol": "openid-connect",
+      "attributes": {
+        "post.logout.redirect.uris": "http://localhost/*"
+      },
+      "defaultClientScopes": ["openid", "profile", "email", "roles"],
+      "optionalClientScopes": ["address", "phone"]
+    },
+    {
+      "clientId": "sispoa-backend",
+      "name": "SISPAD Backend",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "sispoa_oidc_secret",
+      "redirectUris": ["http://localhost/*"],
+      "serviceAccountsEnabled": true,
+      "protocol": "openid-connect"
+    }
+  ],
+  "users": [
+    {
+      "username": "admin",
+      "email": "admin@sacaba.gob.bo",
+      "firstName": "Administrador",
+      "lastName": "Sistema",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{"type": "password", "value": "admin123", "temporary": false}],
+      "realmRoles": ["default-roles-sispoa"],
+      "clientRoles": {"sispoa-frontend": ["admin_poa"]}
+    },
+    {
+      "username": "tecnico",
+      "email": "tecnico@sacaba.gob.bo",
+      "firstName": "Técnico",
+      "lastName": "Demo",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{"type": "password", "value": "tecnico123", "temporary": false}],
+      "realmRoles": ["default-roles-sispoa"],
+      "clientRoles": {"sispoa-frontend": ["tecnico"]}
+    }
+  ]
+}

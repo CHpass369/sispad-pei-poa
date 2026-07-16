@@ -1,0 +1,42 @@
+# Entorno
+.env
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+*.egg
+
+# Node / Angular
+node_modules/
+frontend/sispoa/node_modules/
+frontend/sispoa/.angular/
+frontend/sispoa/dist/
+
+# Docker
+backups/
+*.dump
+
+# Media / archivos subidos
+media/
+staticfiles/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Engram (memoria local del agente)
+.engram/
+
+# Logs
+*.log

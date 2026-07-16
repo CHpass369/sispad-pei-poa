@@ -1,0 +1,303 @@
+# =============================================================================
+# SISPAD-PEI-POA — Infraestructura Docker
+# Fase 1: Fundación — Servicios base (PostGIS, Redis, Backend, Frontend)
+# =============================================================================
+
+# ------------------------------------------------------------------
+# Anclas YAML para reutilización de variables de entorno Django
+# ------------------------------------------------------------------
+x-django-env: &django-env
+  DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-changeme-generar-clave-segura}
+  DJANGO_DEBUG: ${DJANGO_DEBUG:-False}
+  DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}
+  DB_ENGINE: ${DB_ENGINE:-django.contrib.gis.db.backends.postgis}
+  DB_NAME: ${DB_NAME:-gams_sis_poa}
+  DB_USER: ${DB_USER:-sispoa_user}
+  DB_PASSWORD: ${DB_PASSWORD:-changeme-segura}
+  DB_HOST: ${DB_HOST:-sispoa-postgres}
+  DB_PORT: ${DB_PORT:-5432}
+  CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:4200,http://127.0.0.1:4200}
+  CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://sispoa-redis:6379/0}
+  CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://sispoa-redis:6379/0}
+  REDIS_URL: ${REDIS_URL:-redis://sispoa-redis:6379/1}
+
+# ------------------------------------------------------------------
+# Servicios
+# ------------------------------------------------------------------
+services:
+
+  # --- PostgreSQL + PostGIS ---
+  postgres-postgis:
+    image: postgis/postgis:17-3.4
+    container_name: sispoa-postgres
+    profiles: [dev, full]
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-gams_sis_poa}
+      POSTGRES_USER: ${POSTGRES_USER:-sispoa_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme-segura}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - backend-net
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-sispoa_user} -d ${POSTGRES_DB:-gams_sis_poa}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    ports:
+      - "5432:5432"
+
+  # --- Redis ---
+  redis:
+    image: redis:7-alpine
+    container_name: sispoa-redis
+    profiles: [dev, full]
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    networks:
+      - async-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --- Backend Django ---
+  backend:
+    build:
+      context: .
+      dockerfile: infra/docker/backend/Dockerfile
+    container_name: sispoa-backend
+    profiles: [dev, full]
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      <<: *django-env
+      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.settings}
+    volumes:
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    depends_on:
+      postgres-postgis:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - backend-net
+      - async-net
+    expose:
+      - "8000"
+
+  # --- Frontend Angular ---
+  frontend:
+    build:
+      context: .
+      dockerfile: infra/docker/frontend/Dockerfile
+    container_name: sispoa-frontend
+    profiles: [dev, full]
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_started
+    networks:
+      - frontend-net
+      - backend-net
+    ports:
+      - "80:80"
+
+  # --- Nginx Reverse Proxy Unificado (perfil "full") ---
+  # Cuando se usa este servicio, el frontend también publica puerto 80.
+  # Para evitar conflictos en perfil "full", comenta los ports del frontend
+  # o usa solo un perfil a la vez.
+  nginx-proxy:
+    container_name: sispoa-nginx
+    image: nginx:alpine
+    profiles: [full]
+    restart: unless-stopped
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./infra/nginx/includes:/etc/nginx/includes
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_started
+      frontend:
+        condition: service_started
+    networks:
+      - frontend-net
+      - backend-net
+
+  # --- Celery Worker (tareas asíncronas) ---
+  celery-worker:
+    container_name: sispoa-celery-worker
+    build:
+      context: .
+      dockerfile: infra/docker/celery/Dockerfile
+      args:
+        CELERY_COMMAND: worker
+    profiles: [full]
+    restart: unless-stopped
+    volumes:
+      - media_volume:/app/media
+      - static_volume:/app/staticfiles
+    environment:
+      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.settings}
+    env_file: .env
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres-postgis:
+        condition: service_healthy
+    networks:
+      - backend-net
+      - async-net
+
+  # --- Celery Beat (tareas programadas) ---
+  celery-beat:
+    container_name: sispoa-celery-beat
+    build:
+      context: .
+      dockerfile: infra/docker/celery/Dockerfile
+      args:
+        CELERY_COMMAND: beat
+    profiles: [full]
+    restart: unless-stopped
+    volumes:
+      - media_volume:/app/media
+      - static_volume:/app/staticfiles
+    environment:
+      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.settings}
+    env_file: .env
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres-postgis:
+        condition: service_healthy
+    networks:
+      - backend-net
+      - async-net
+
+  # --- MinIO S3 — almacenamiento de objetos (Fase 4) ---
+  minio:
+    container_name: sispoa-minio
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    profiles: [full]
+    restart: unless-stopped
+    volumes:
+      - minio_data:/data
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - storage-net
+
+  # --- GeoServer — servicios de mapas OGC (Fase 4) ---
+  geoserver:
+    container_name: sispoa-geoserver
+    image: oscarfonts/geoserver:2.25.0
+    profiles: [full]
+    restart: unless-stopped
+    volumes:
+      - geoserver_data:/var/geoserver/data
+    environment:
+      GEOSERVER_ADMIN_USER: ${GEOSERVER_ADMIN_USER:-admin}
+      GEOSERVER_ADMIN_PASSWORD: ${GEOSERVER_ADMIN_PASSWORD:-changeme-geoserver}
+      INITIAL_MEMORY: 512M
+      MAXIMUM_MEMORY: 1024M
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres-postgis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/geoserver/web/"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    networks:
+      - backend-net
+      - storage-net
+
+  # --- Keycloak — OIDC Provider (Fase 5) ---
+  # Solo se levanta con --profile full
+  keycloak:
+    container_name: sispoa-keycloak
+    image: quay.io/keycloak/keycloak:25.0.1
+    command: start --import-realm
+    profiles: [full]
+    restart: unless-stopped
+    volumes:
+      - ./infra/keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_BOOTSTRAP_ADMIN_USERNAME:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_BOOTSTRAP_ADMIN_PASSWORD:-keycloak_secret}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://sispoa-postgres:5432/${POSTGRES_DB:-gams_sis_poa}
+      KC_DB_USERNAME: ${POSTGRES_USER:-sispoa_user}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:-changeme-segura}
+      KC_HOSTNAME: localhost
+      KC_HTTP_PORT: 8080
+      KC_HEALTH_ENABLED: "true"
+    ports:
+      # Host port 8081 para evitar conflicto con GeoServer (8080)
+      - "8081:8080"
+    depends_on:
+      postgres-postgis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "curl",
+          "-f",
+          "http://localhost:8080/realms/sispoa/.well-known/openid-configuration",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+    networks:
+      - backend-net
+
+# ------------------------------------------------------------------
+# Volúmenes persistentes
+# ------------------------------------------------------------------
+volumes:
+  pgdata:
+  redis_data:
+  static_volume:
+  media_volume:
+  minio_data:
+  geoserver_data:
+
+# ------------------------------------------------------------------
+# Redes segmentadas por propósito
+# ------------------------------------------------------------------
+networks:
+  frontend-net:
+    driver: bridge
+  backend-net:
+    driver: bridge
+  storage-net:
+    driver: bridge
+  async-net:
+    driver: bridge

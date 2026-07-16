@@ -1,0 +1,84 @@
+<div class="p-6">
+  <a routerLink="/gestion" class="text-blue-600 hover:text-blue-800 text-sm mb-4 inline-block">&larr; Volver a gestiones</a>
+
+  <div *ngIf="cargando" class="text-center py-8 text-gray-500">Cargando...</div>
+  <div *ngIf="error" class="text-center py-8 text-red-600">{{ error }}</div>
+
+  <div *ngIf="gestion && !cargando">
+    <!-- Cabecera -->
+    <div class="bg-white rounded shadow-sm border p-6 mb-6">
+      <div class="flex justify-between items-start">
+        <div>
+          <h1 class="text-2xl font-semibold text-gray-800">
+            Gestión {{ gestion.anio }}
+          </h1>
+          <p class="text-sm text-gray-500 mt-1">
+            {{ gestion.fecha_inicio | date:'dd/MM/yyyy' }} — {{ gestion.fecha_fin | date:'dd/MM/yyyy' }}
+          </p>
+        </div>
+        <span class="inline-block px-3 py-1 rounded text-sm font-semibold {{ obtenerClaseEstado(gestion.estado) }}">
+          {{ estados[gestion.estado] || gestion.estado }}
+        </span>
+      </div>
+    </div>
+
+    <!-- Ciclos de Formulación -->
+    <div class="bg-white rounded shadow-sm border p-6 mb-6">
+      <h2 class="text-lg font-semibold text-gray-800 mb-4">Ciclos de Formulación</h2>
+      <div *ngIf="!gestion.ciclos_formulacion || gestion.ciclos_formulacion.length === 0" class="text-gray-500 text-sm">
+        No hay ciclos registrados.
+      </div>
+      <div *ngIf="gestion.ciclos_formulacion && gestion.ciclos_formulacion.length > 0" class="space-y-3">
+        <div
+          *ngFor="let ciclo of gestion.ciclos_formulacion"
+          class="flex items-center justify-between p-3 border rounded"
+        >
+          <div>
+            <p class="font-medium text-gray-800">{{ ciclo.nombre }}</p>
+            <p class="text-sm text-gray-500">
+              {{ ciclo.fecha_inicio | date:'dd/MM/yyyy' }} — {{ ciclo.fecha_fin | date:'dd/MM/yyyy' }}
+            </p>
+          </div>
+          <span
+            *ngIf="ciclo.activo"
+            class="inline-block px-2 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-700"
+          >
+            Activo
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Etapas -->
+    <div class="bg-white rounded shadow-sm border p-6">
+      <h2 class="text-lg font-semibold text-gray-800 mb-4">Etapas</h2>
+      <div *ngIf="!gestion.etapas || gestion.etapas.length === 0" class="text-gray-500 text-sm">
+        No hay etapas registradas.
+      </div>
+      <div *ngIf="gestion.etapas && gestion.etapas.length > 0" class="space-y-2">
+        <div
+          *ngFor="let etapa of gestion.etapas"
+          class="flex items-center justify-between p-3 border rounded {{ obtenerClaseEtapa(etapa.completada) }}"
+        >
+          <div class="flex items-center gap-3">
+            <span class="text-sm font-bold text-gray-400">#{{ etapa.orden }}</span>
+            <div>
+              <p class="font-medium">{{ etapa.nombre }}</p>
+              <p *ngIf="etapa.fecha_completada" class="text-xs text-gray-500">
+                Completada: {{ etapa.fecha_completada | date:'dd/MM/yyyy' }}
+              </p>
+            </div>
+          </div>
+          <span
+            class="inline-block px-2 py-0.5 rounded text-xs font-semibold"
+            [class.bg-green-100]="etapa.completada"
+            [class.text-green-700]="etapa.completada"
+            [class.text-gray-500]="!etapa.completada"
+          >
+            {{ etapa.completada ? 'Completada' : 'Pendiente' }}
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

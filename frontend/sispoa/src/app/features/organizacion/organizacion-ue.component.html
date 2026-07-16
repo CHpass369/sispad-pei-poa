@@ -1,0 +1,88 @@
+<div>
+  <div class="flex justify-between items-center mb-4">
+    <h3 class="text-lg font-semibold text-gray-800">Unidades Ejecutoras</h3>
+    <button
+      class="px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+      (click)="abrirFormulario()"
+    >
+      + Nueva UE
+    </button>
+  </div>
+
+  <!-- Formulario inline -->
+  <div *ngIf="mostrarFormulario" class="mb-4 p-4 border rounded bg-gray-50">
+    <h4 class="font-medium mb-3">{{ editando ? 'Editar' : 'Nueva' }} Unidad Ejecutora</h4>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Código</label>
+        <input type="text" [(ngModel)]="form.codigo" class="w-full border rounded px-3 py-1.5 text-sm" />
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Sigla</label>
+        <input type="text" [(ngModel)]="form.sigla" class="w-full border rounded px-3 py-1.5 text-sm" />
+      </div>
+      <div class="md:col-span-2">
+        <label class="block text-xs font-medium text-gray-600 mb-1">Nombre</label>
+        <input type="text" [(ngModel)]="form.nombre" class="w-full border rounded px-3 py-1.5 text-sm" />
+      </div>
+      <div class="md:col-span-2">
+        <label class="block text-xs font-medium text-gray-600 mb-1">Responsable</label>
+        <input type="text" [(ngModel)]="form.responsable" class="w-full border rounded px-3 py-1.5 text-sm" />
+      </div>
+    </div>
+    <p *ngIf="error" class="text-red-600 text-xs mb-2">{{ error }}</p>
+    <div class="flex gap-2">
+      <button class="px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs" (click)="guardar()">
+        {{ editando ? 'Actualizar' : 'Crear' }}
+      </button>
+      <button class="px-3 py-1.5 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 text-xs" (click)="cerrarFormulario()">
+        Cancelar
+      </button>
+    </div>
+  </div>
+
+  <!-- Tabla -->
+  <div *ngIf="cargando" class="text-center py-4 text-gray-500">Cargando...</div>
+  <div *ngIf="!cargando && unidades.length === 0" class="text-center py-4 text-gray-500">
+    No hay unidades ejecutoras registradas.
+  </div>
+  <div *ngIf="!cargando && unidades.length > 0" class="overflow-x-auto">
+    <table class="min-w-full bg-white border rounded text-sm">
+      <thead>
+        <tr class="bg-gray-50 border-b text-left text-xs font-semibold text-gray-600 uppercase">
+          <th class="px-3 py-2">Código</th>
+          <th class="px-3 py-2">Sigla</th>
+          <th class="px-3 py-2">Nombre</th>
+          <th class="px-3 py-2">Responsable</th>
+          <th class="px-3 py-2">Estado</th>
+          <th class="px-3 py-2">Acciones</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-200">
+        <tr *ngFor="let ue of unidades" class="hover:bg-gray-50">
+          <td class="px-3 py-2 font-mono text-xs">{{ ue.codigo }}</td>
+          <td class="px-3 py-2 font-medium">{{ ue.sigla }}</td>
+          <td class="px-3 py-2">{{ ue.nombre }}</td>
+          <td class="px-3 py-2">{{ ue.responsable }}</td>
+          <td class="px-3 py-2">
+            <span
+              class="inline-block px-2 py-0.5 rounded text-xs font-semibold"
+              [class.bg-green-100]="ue.activo"
+              [class.text-green-700]="ue.activo"
+              [class.bg-red-100]="!ue.activo"
+              [class.text-red-700]="!ue.activo"
+            >
+              {{ ue.activo ? 'Activo' : 'Inactivo' }}
+            </span>
+          </td>
+          <td class="px-3 py-2">
+            <div class="flex gap-2">
+              <button class="text-blue-600 hover:text-blue-800 text-xs" (click)="editar(ue)">Editar</button>
+              <button class="text-red-600 hover:text-red-800 text-xs" (click)="eliminar(ue.id)">Eliminar</button>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>

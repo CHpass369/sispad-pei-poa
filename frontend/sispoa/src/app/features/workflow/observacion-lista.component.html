@@ -1,0 +1,67 @@
+<div class="p-6">
+  <h1 class="text-2xl font-semibold text-gray-800 mb-6">Observaciones</h1>
+
+  <!-- Filtro -->
+  <div class="mb-6">
+    <label class="inline-flex items-center gap-2 text-sm cursor-pointer">
+      <input
+        type="checkbox"
+        [(ngModel)]="soloPendientes"
+        (change)="aplicarFiltros()"
+        class="rounded border-gray-300"
+      />
+      <span class="text-gray-700">Mostrar solo observaciones pendientes</span>
+    </label>
+  </div>
+
+  <!-- Tabla -->
+  <div *ngIf="cargando" class="text-center py-8 text-gray-500">Cargando...</div>
+  <div *ngIf="error" class="text-center py-8 text-red-600">{{ error }}</div>
+  <div *ngIf="!cargando && filtradas.length === 0" class="text-center py-8 text-gray-500">
+    No hay observaciones registradas.
+  </div>
+
+  <div *ngIf="!cargando && filtradas.length > 0" class="overflow-x-auto">
+    <table class="min-w-full bg-white border rounded shadow-sm text-sm">
+      <thead>
+        <tr class="bg-gray-50 border-b text-left text-xs font-semibold text-gray-600 uppercase">
+          <th class="px-4 py-3">Severidad</th>
+          <th class="px-4 py-3">Descripción</th>
+          <th class="px-4 py-3">Campo</th>
+          <th class="px-4 py-3">Creado por</th>
+          <th class="px-4 py-3">Fecha</th>
+          <th class="px-4 py-3">Estado</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-200">
+        <tr *ngFor="let o of filtradas" class="hover:bg-gray-50">
+          <td class="px-4 py-3">
+            <span class="inline-block px-2.5 py-1 rounded-full text-xs font-semibold {{ obtenerClaseSeveridad(o.severidad) }}">
+              {{ severidades[o.severidad] || o.severidad }}
+            </span>
+          </td>
+          <td class="px-4 py-3 max-w-md">
+            <p class="text-gray-800">{{ o.descripcion }}</p>
+          </td>
+          <td class="px-4 py-3 font-mono text-xs text-gray-600">{{ o.campo }}</td>
+          <td class="px-4 py-3">{{ o.creado_por_nombre }}</td>
+          <td class="px-4 py-3">{{ o.fecha_creacion | date:'dd/MM/yyyy' }}</td>
+          <td class="px-4 py-3">
+            <span
+              class="inline-block px-2 py-0.5 rounded text-xs font-semibold"
+              [class.bg-green-100]="o.resuelta"
+              [class.text-green-700]="o.resuelta"
+              [class.bg-yellow-100]="!o.resuelta"
+              [class.text-yellow-700]="!o.resuelta"
+            >
+              {{ o.resuelta ? 'Resuelta' : 'Pendiente' }}
+            </span>
+            <p *ngIf="o.resuelta && o.fecha_resolucion" class="text-xs text-gray-400 mt-0.5">
+              {{ o.fecha_resolucion | date:'dd/MM/yyyy' }}
+            </p>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>

@@ -1,0 +1,73 @@
+<div class="container-fluid py-3">
+  <!-- Encabezado -->
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0">Catálogos</h4>
+    <button class="btn btn-success btn-sm" (click)="importarArchivo()" [disabled]="loading || !tipoSeleccionado">
+      <span class="me-1">&#x2191;</span> Importar XLSX/CSV
+    </button>
+  </div>
+
+  <!-- Filtros -->
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="row g-2 align-items-end">
+        <!-- Selector de tipo -->
+        <div class="col-md-4">
+          <label class="form-label fw-semibold small" for="tipoCatalogo">Tipo de catálogo</label>
+          <select
+            id="tipoCatalogo"
+            class="form-select form-select-sm"
+            [(ngModel)]="tipoSeleccionado"
+            (change)="onTipoChange()"
+          >
+            <option value="">— Seleccione un catálogo —</option>
+            <option *ngFor="let t of tipos" [value]="t.valor">{{ t.etiqueta }}</option>
+          </select>
+        </div>
+
+        <!-- Gestión -->
+        <div class="col-md-2">
+          <label class="form-label fw-semibold small" for="gestion">Gestión</label>
+          <input
+            id="gestion"
+            type="number"
+            class="form-control form-control-sm"
+            [(ngModel)]="gestion"
+            placeholder="Año"
+          />
+        </div>
+
+        <!-- Búsqueda -->
+        <div class="col-md-4">
+          <label class="form-label fw-semibold small" for="search">Búsqueda</label>
+          <input
+            id="search"
+            type="text"
+            class="form-control form-control-sm"
+            [(ngModel)]="searchTerm"
+            (keyup.enter)="buscar()"
+            placeholder="Buscar…"
+          />
+        </div>
+
+        <div class="col-md-2 d-grid">
+          <button class="btn btn-primary btn-sm" (click)="buscar()" [disabled]="!tipoSeleccionado">
+            Buscar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabla de datos -->
+  <div class="card">
+    <div class="card-body p-0">
+      <app-tabla-generica
+        [columns]="columnas"
+        [data]="data"
+        [loading]="loading"
+        [pageSize]="15"
+      ></app-tabla-generica>
+    </div>
+  </div>
+</div>

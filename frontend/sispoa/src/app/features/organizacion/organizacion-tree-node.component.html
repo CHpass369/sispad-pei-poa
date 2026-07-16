@@ -1,0 +1,32 @@
+<div
+  class="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer hover:bg-blue-50 transition text-sm"
+  [class.bg-blue-100]="seleccionado"
+  (click)="onClick()"
+>
+  <!-- Expandir/colapsar -->
+  <button
+    *ngIf="nodo.hijos && nodo.hijos.length > 0"
+    class="w-4 h-4 flex items-center justify-center text-gray-400 hover:text-gray-600 text-xs"
+    (click)="toggleExpandir($event)"
+  >
+    {{ expandido ? '▼' : '▶' }}
+  </button>
+  <span *ngIf="!nodo.hijos || nodo.hijos.length === 0" class="w-4"></span>
+
+  <!-- Contenido -->
+  <span class="font-medium text-gray-800">{{ nodo.sigla }}</span>
+  <span class="text-gray-500">—</span>
+  <span class="text-gray-600 truncate">{{ nodo.nombre }}</span>
+</div>
+
+<!-- Hijos (recursivo) -->
+<div *ngIf="expandido && nodo.hijos && nodo.hijos.length > 0" class="ml-4 border-l border-gray-200 pl-2">
+  <div *ngFor="let hijo of nodo.hijos; trackBy: trackByFn">
+    <app-organizacion-tree-node
+      [nodo]="hijo"
+      [seleccionado]="seleccionado"
+      [nivel]="nivel + 1"
+      (seleccionar)="seleccionar.emit($event)"
+    ></app-organizacion-tree-node>
+  </div>
+</div>
