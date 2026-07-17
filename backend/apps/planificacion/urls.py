@@ -2,12 +2,14 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     PlanViewSet, NodoPlanificacionViewSet,
     AccionMedianoPlazoViewSet, AccionCortoPlazoViewSet,
-    ArticulacionPlanificacionViewSet, FormulacionViewSet
+    ArticulacionPlanificacionViewSet, FormulacionViewSet,
+    PlanVersionViewSet
 )
 from .articulacion_api import ArticulacionViewSet
 
 router = DefaultRouter()
 router.register(r'planes', PlanViewSet)
+router.register(r'versiones-plan', PlanVersionViewSet)
 router.register(r'nodos-planificacion', NodoPlanificacionViewSet)
 router.register(r'acciones-mediano-plazo', AccionMedianoPlazoViewSet)
 router.register(r'acciones-corto-plazo', AccionCortoPlazoViewSet)

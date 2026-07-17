@@ -1,5 +1,8 @@
 from rest_framework import serializers
-from .models import Plan, NodoPlanificacion, AccionMedianoPlazo, AccionCortoPlazo, ArticulacionPlanificacion
+from .models import (
+    Plan, NodoPlanificacion, AccionMedianoPlazo, AccionCortoPlazo,
+    ArticulacionPlanificacion, PlanVersion
+)
 
 
 class PlanSerializer(serializers.ModelSerializer):
@@ -30,3 +33,10 @@ class ArticulacionPlanificacionSerializer(serializers.ModelSerializer):
     class Meta:
         model = ArticulacionPlanificacion
         fields = '__all__'
+
+
+class PlanVersionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PlanVersion
+        fields = '__all__'
+        read_only_fields = ['created_at', 'updated_at']

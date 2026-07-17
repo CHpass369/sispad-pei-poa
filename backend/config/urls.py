@@ -30,6 +30,11 @@ urlpatterns = [
     path(f'{api_prefix}', include('apps.reportes.urls')),
     path(f'{api_prefix}', include('apps.auditoria.urls')),
     path(f'{api_prefix}poau/', include('apps.poau.urls')),
+    path(f'{api_prefix}', include('apps.evaluacion.urls')),
+    path(f'{api_prefix}', include('apps.modificaciones.urls')),
+    path(f'{api_prefix}', include('apps.notificaciones.urls')),
+    path(f'{api_prefix}', include('apps.seguimiento.urls')),
+    path(f'{api_prefix}', include('apps.acciones_correctivas.urls')),
     path(f'{api_prefix}schema/', SpectacularAPIView.as_view(), name='schema'),
     path(f'{api_prefix}docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='docs'),
 ]

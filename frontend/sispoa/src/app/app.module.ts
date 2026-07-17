@@ -10,6 +10,7 @@ import { TokenInterceptor } from './core/interceptors/token.interceptor';
 import { ErrorInterceptor } from './core/interceptors/error.interceptor';
 import { SidebarComponent } from './layout/sidebar/sidebar.component';
 import { HeaderComponent } from './layout/header/header.component';
+import { BreadcrumbsModule } from './core/components/breadcrumbs/breadcrumbs.module';
 import { SharedModule } from './shared/shared.module';
 
 @NgModule({
@@ -25,6 +26,7 @@ import { SharedModule } from './shared/shared.module';
     FormsModule,
     ReactiveFormsModule,
     SharedModule,
+    BreadcrumbsModule,
     RouterModule.forRoot(routes),
   ],
   providers: [

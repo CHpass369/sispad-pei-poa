@@ -6,6 +6,14 @@ from .serializers import (
     EnvioFormulacionSerializer, RevisionSerializer,
     ObservacionSerializer, AprobacionSerializer
 )
+from .services import verificar_permisos_estado
+
+
+def _verificar_transicion(usuario, envio, accion):
+    resultado = verificar_permisos_estado(usuario, envio.estado_anterior, accion)
+    if not resultado['permitido']:
+        return resultado
+    return None
 
 
 class EnvioFormulacionViewSet(viewsets.ModelViewSet):
@@ -16,6 +24,14 @@ class EnvioFormulacionViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def devolver(self, request, pk=None):
         envio = self.get_object()
+
+        error = _verificar_transicion(request.user, envio, 'observar')
+        if error:
+            return Response(
+                {'error': error['mensaje']},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         revision = Revision.objects.create(
             envio=envio,
             tipo_revision=request.data.get('tipo_revision', 'planificacion'),
@@ -51,9 +67,23 @@ class ObservacionViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def subsanar(self, request, pk=None):
         obs = self.get_object()
-        obs.respuesta = request.data.get('respuesta', '')
+
+        if obs.estado not in ('abierta', 'respondida'):
+            return Response(
+                {'error': f'No se puede subsanar una observación en estado "{obs.get_estado_display()}"'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        respuesta = request.data.get('respuesta', '')
+        if not respuesta.strip():
+            return Response(
+                {'error': 'La respuesta es obligatoria para subsanar una observación'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        obs.respuesta = respuesta
         obs.evidencia_subsanacion = request.data.get('evidencia', '')
-        obs.estado = 'respondida'
+        obs.estado = 'aceptada'
         obs.save()
         return Response(ObservacionSerializer(obs).data)
 
@@ -65,21 +95,23 @@ class AprobacionViewSet(viewsets.ModelViewSet):
 
 
 class ConsolidacionViewSet(viewsets.ViewSet):
-    """ViewSet para operaciones de consolidación presupuestaria."""
 
     @action(detail=False, methods=['post'])
     def consolidar(self, request):
-        """Ejecuta consolidación para una gestión específica.
-
-        POST /api/v1/consolidacion/consolidar/
-        Body: {"gestion": 2026}
-        """
         gestion = request.data.get('gestion')
         if not gestion:
             return Response(
                 {'error': 'El parámetro "gestion" es requerido'},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+        error = _verificar_transicion(request.user, type('Envio', (), {'estado_anterior': 'enviado'})(), 'aprobar')
+        if error:
+            return Response(
+                {'error': error['mensaje']},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         try:
             from .consolidacion import consolidar_poa_institucional
             resultado = consolidar_poa_institucional(gestion)
@@ -92,10 +124,6 @@ class ConsolidacionViewSet(viewsets.ViewSet):
 
     @action(detail=False, methods=['get'])
     def reporte(self, request):
-        """Obtiene resultados de consolidación para una gestión.
-
-        GET /api/v1/consolidacion/reporte/?gestion=2026
-        """
         gestion = request.query_params.get('gestion')
         if not gestion:
             return Response(
@@ -114,10 +142,6 @@ class ConsolidacionViewSet(viewsets.ViewSet):
 
     @action(detail=False, methods=['get'])
     def verificar(self, request):
-        """Verifica consistencia presupuestaria para una gestión.
-
-        GET /api/v1/consolidacion/verificar/?gestion=2026
-        """
         gestion = request.query_params.get('gestion')
         if not gestion:
             return Response(
@@ -136,10 +160,6 @@ class ConsolidacionViewSet(viewsets.ViewSet):
 
     @action(detail=False, methods=['get'])
     def acta(self, request):
-        """Genera acta de consolidación para una gestión.
-
-        GET /api/v1/consolidacion/acta/?gestion=2026
-        """
         gestion = request.query_params.get('gestion')
         if not gestion:
             return Response(

@@ -1,5 +1,6 @@
 import uuid
 from django.db import models
+from django.conf import settings
 from django.core.validators import MinValueValidator
 from apps.core.models import TimeStampedModel
 from apps.catalogos.models import FuenteFinanciamiento, OrganismoFinanciador
@@ -60,3 +61,53 @@ class DistribucionTecho(TimeStampedModel):
 
     def __str__(self):
         return f'Distribución {self.techo.gestion}: Bs {self.monto_asignado}'
+
+
+class MovimientoTecho(TimeStampedModel):
+    MOVEMENT_TYPE_CHOICES = [
+        ('asignacion', 'Asignación'),
+        ('incremento', 'Incremento'),
+        ('reduccion', 'Reducción'),
+        ('transferencia', 'Transferencia'),
+        ('reserva', 'Reserva'),
+        ('liberacion', 'Liberación'),
+        ('ajuste', 'Ajuste'),
+        ('reversion', 'Reversión'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    techo = models.ForeignKey(TechoPresupuestario, on_delete=models.PROTECT, related_name='movimientos')
+    movement_type = models.CharField(max_length=20, choices=MOVEMENT_TYPE_CHOICES)
+    source_ceiling = models.ForeignKey(
+        TechoPresupuestario, on_delete=models.PROTECT,
+        null=True, blank=True, related_name='movimientos_origen'
+    )
+    destination_ceiling = models.ForeignKey(
+        TechoPresupuestario, on_delete=models.PROTECT,
+        null=True, blank=True, related_name='movimientos_destino'
+    )
+    amount = models.DecimalField(max_digits=20, decimal_places=2, validators=[MinValueValidator(0)])
+    justification = models.TextField()
+    document = models.TextField(null=True, blank=True)
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+        related_name='movimientos_techo_solicitados'
+    )
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='movimientos_techo_aprobados'
+    )
+    date = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Movimiento de techo'
+        verbose_name_plural = 'Movimientos de techo'
+        ordering = ['-date']
+        indexes = [
+            models.Index(fields=['techo', 'movement_type']),
+            models.Index(fields=['date']),
+        ]
+
+    def __str__(self):
+        return f'{self.get_movement_type_display()} - {self.techo}: Bs {self.amount}'

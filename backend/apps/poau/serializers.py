@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import POAU, POAUActividad, EjecucionFisica, EjecucionFinanciera
 from apps.planificacion.models import AccionCortoPlazo
+from apps.core.validators import validar_ejecucion_no_negativa
 
 
 class POAUActividadSerializer(serializers.ModelSerializer):
@@ -109,7 +110,6 @@ class POAUActividadSerializer(serializers.ModelSerializer):
 
 
 class POAUListSerializer(serializers.ModelSerializer):
-    """Serializer liviano para listados de POAU"""
     unidad_nombre = serializers.CharField(
         source='unidad.nombre', read_only=True,
     )
@@ -137,6 +137,20 @@ class POAUSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ['created_at', 'updated_at']
 
+    def validate(self, data):
+        instance = self.instance
+        if instance and instance.estado != 'borrador':
+            if self.partial:
+                raise serializers.ValidationError(
+                    f'No se puede modificar un POAU en estado "{instance.get_estado_display()}". '
+                    f'Solo los POAUs en borrador pueden ser editados.'
+                )
+            else:
+                raise serializers.ValidationError(
+                    f'El POAU está en estado "{instance.get_estado_display()}" y no puede ser modificado.'
+                )
+        return data
+
 
 class EjecucionFisicaSerializer(serializers.ModelSerializer):
     class Meta:
@@ -144,9 +158,23 @@ class EjecucionFisicaSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ['id']
 
+    def validate(self, data):
+        ejecutado = data.get('ejecutado', getattr(self.instance, 'ejecutado', None))
+        resultado = validar_ejecucion_no_negativa(ejecutado)
+        if not resultado['valido']:
+            raise serializers.ValidationError({'ejecutado': resultado['mensaje']})
+        return data
+
 
 class EjecucionFinancieraSerializer(serializers.ModelSerializer):
     class Meta:
         model = EjecucionFinanciera
         fields = '__all__'
         read_only_fields = ['id']
+
+    def validate(self, data):
+        ejecutado = data.get('ejecutado', getattr(self.instance, 'ejecutado', None))
+        resultado = validar_ejecucion_no_negativa(ejecutado)
+        if not resultado['valido']:
+            raise serializers.ValidationError({'ejecutado': resultado['mensaje']})
+        return data

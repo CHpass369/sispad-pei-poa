@@ -28,6 +28,17 @@ class LineamientoEstrategicoSerializer(serializers.ModelSerializer):
         model = LineamientoEstrategico
         fields = '__all__'
 
+    def validate(self, data):
+        politica = data.get('politica') or getattr(self.instance, 'politica', None)
+        if politica:
+            gestion = data.get('gestion') or getattr(self.instance, 'gestion', None)
+            if politica.gestion != gestion:
+                raise serializers.ValidationError(
+                    f'La gestión del lineamiento ({gestion}) debe coincidir '
+                    f'con la gestión de la política ({politica.gestion}).'
+                )
+        return data
+
 
 class ProgramacionAnualPADSerializer(serializers.ModelSerializer):
     class Meta:
@@ -44,11 +55,23 @@ class ProgramacionAnualPADSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, data):
-        # Validar FK solo en uso standalone (no nested desde resultado/producto)
         if not self.parent:
             if not data.get('resultado') and not data.get('producto'):
                 raise serializers.ValidationError(
                     "Debe especificar al menos resultado o producto territorial"
+                )
+        resultado = data.get('resultado') or getattr(self.instance, 'resultado', None)
+        producto = data.get('producto') or getattr(self.instance, 'producto', None)
+        if resultado and producto:
+            raise serializers.ValidationError(
+                "Una programación debe estar asociada a un resultado O un producto, no a ambos."
+            )
+        anio = data.get('anio') or getattr(self.instance, 'anio', None)
+        if anio and resultado:
+            gestion = getattr(resultado.lineamiento, 'gestion', None) if resultado else None
+            if gestion and anio > gestion + 5:
+                raise serializers.ValidationError(
+                    f'El año ({anio}) está demasiado lejos de la gestión del resultado ({gestion}).'
                 )
         return data
 
@@ -69,7 +92,6 @@ class ProductoTerritorialSerializer(serializers.ModelSerializer):
     programaciones = serializers.ListField(
         child=serializers.DictField(), required=False, write_only=True
     )
-    # JSONFields deprecated — solo lectura
     programacion_fisica = serializers.JSONField(read_only=True)
     programacion_financiera = serializers.JSONField(read_only=True)
 
@@ -83,13 +105,22 @@ class ProductoTerritorialSerializer(serializers.ModelSerializer):
         }
 
     def _crear_programaciones(self, instance, prog_data, fk_field='producto'):
-        """Crea programaciones para un producto con FK forzado."""
         for item in prog_data:
-            # Filtrar campos FK que vienen como None del serializer
             item = {k: v for k, v in item.items()
                     if k not in ('id', 'resultado', 'producto')}
             kwargs = {fk_field: instance, **item}
             ProgramacionAnualPAD.objects.create(**kwargs)
+
+    def validate(self, data):
+        resultado = data.get('resultado') or getattr(self.instance, 'resultado', None)
+        if resultado and resultado.lineamiento:
+            gestion = data.get('gestion') or getattr(self.instance, 'gestion', None)
+            if gestion and resultado.lineamiento.gestion != gestion:
+                raise serializers.ValidationError(
+                    f'La gestión del producto ({gestion}) debe coincidir '
+                    f'con la gestión del lineamiento del resultado ({resultado.lineamiento.gestion}).'
+                )
+        return data
 
     def create(self, validated_data):
         prog_data = validated_data.pop('programaciones', [])
@@ -112,6 +143,17 @@ class ArticulacionSIPEBSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ['created_at', 'updated_at']
 
+    def validate(self, data):
+        resultado = data.get('resultado') or getattr(self.instance, 'resultado', None)
+        if resultado and resultado.lineamiento:
+            gestion = data.get('gestion') or getattr(self.instance, 'gestion', None)
+            if gestion and resultado.lineamiento.gestion != gestion:
+                raise serializers.ValidationError(
+                    f'La gestión de la articulación SIPEB ({gestion}) '
+                    f'debe coincidir con la gestión del resultado ({resultado.lineamiento.gestion}).'
+                )
+        return data
+
 
 class ResultadoTerritorialSerializer(serializers.ModelSerializer):
     productos = ProductoTerritorialSerializer(many=True, read_only=True)
@@ -119,7 +161,6 @@ class ResultadoTerritorialSerializer(serializers.ModelSerializer):
     programaciones = serializers.ListField(
         child=serializers.DictField(), required=False, write_only=True
     )
-    # JSONFields deprecated — solo lectura
     programacion_fisica = serializers.JSONField(read_only=True)
     programacion_financiera = serializers.JSONField(read_only=True)
 
@@ -129,13 +170,21 @@ class ResultadoTerritorialSerializer(serializers.ModelSerializer):
         read_only_fields = ['created_at', 'updated_at']
 
     def _crear_programaciones(self, instance, prog_data, fk_field='resultado'):
-        """Crea programaciones para un resultado con FK forzado."""
         for item in prog_data:
-            # Filtrar campos FK que vienen como None del serializer
             item = {k: v for k, v in item.items()
                     if k not in ('id', 'resultado', 'producto')}
             kwargs = {fk_field: instance, **item}
             ProgramacionAnualPAD.objects.create(**kwargs)
+
+    def validate(self, data):
+        lineamiento = data.get('lineamiento') or getattr(self.instance, 'lineamiento', None)
+        gestion = data.get('gestion') or getattr(self.instance, 'gestion', None)
+        if lineamiento and gestion and lineamiento.gestion != gestion:
+            raise serializers.ValidationError(
+                f'La gestión del resultado ({gestion}) debe coincidir '
+                f'con la gestión del lineamiento ({lineamiento.gestion}).'
+            )
+        return data
 
     def create(self, validated_data):
         prog_data = validated_data.pop('programaciones', [])
@@ -153,7 +202,6 @@ class ResultadoTerritorialSerializer(serializers.ModelSerializer):
 
 
 class ResultadoTerritorialListSerializer(serializers.ModelSerializer):
-    """Serializer liviano para listados, evita N+1 en productos y articulación"""
     lineamiento_nombre = serializers.CharField(
         source='lineamiento.nombre', read_only=True
     )
@@ -170,10 +218,8 @@ class ResultadoTerritorialListSerializer(serializers.ModelSerializer):
 
 
 class CadenaCompletaSerializer(serializers.Serializer):
-    """Serializer para la cadena PGDESA → PDESA → PDS → PAD → PEI → POA"""
     resultado = ResultadoTerritorialSerializer()
     articulacion = ArticulacionSIPEBSerializer(source='articulacion_sipeb')
     productos = ProductoTerritorialSerializer(many=True, source='productos.all')
-    # PEI y POA se agregan via @action cuando exista vinculación
     pei = serializers.ListField(child=serializers.DictField(), default=[])
     poa = serializers.ListField(child=serializers.DictField(), default=[])

@@ -157,3 +157,37 @@ class ArticulacionPlanificacion(TimeStampedModel):
         verbose_name = 'Articulación de planificación'
         verbose_name_plural = 'Articulaciones de planificación'
         unique_together = [('nodo_origen', 'nodo_destino', 'gestion')]
+
+
+class PlanVersion(TimeStampedModel):
+    STATUS_CHOICES = [
+        ('borrador', 'Borrador'),
+        ('aprobado', 'Aprobado'),
+        ('obsoleto', 'Obsoleto'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    plan = models.ForeignKey(Plan, on_delete=models.CASCADE, related_name='versiones')
+    version_number = models.PositiveIntegerField()
+    version_name = models.CharField(max_length=200)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='borrador')
+    valid_from = models.DateField()
+    valid_to = models.DateField(null=True, blank=True)
+    approved_at = models.DateTimeField(null=True, blank=True)
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='planificaciones_aprobadas'
+    )
+    change_reason = models.TextField()
+    immutable = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Versión de plan'
+        verbose_name_plural = 'Versiones de plan'
+        ordering = ['plan', '-version_number']
+        unique_together = [('plan', 'version_number')]
+
+    def __str__(self):
+        return f'{self.plan} v{self.version_number} - {self.version_name}'

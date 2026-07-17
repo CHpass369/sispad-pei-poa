@@ -82,5 +82,57 @@ export const routes: Routes = [
     canActivate: [AuthGuard],
     loadChildren: () => import('./features/auditoria/auditoria.module').then(m => m.AuditoriaModule),
   },
+  {
+    path: 'admin-usuarios',
+    canActivate: [AuthGuard],
+    loadChildren: () => import('./features/admin-usuarios/admin-usuarios.module').then(m => m.AdminUsuariosModule),
+  },
+  {
+    path: 'seguimiento',
+    canActivate: [AuthGuard],
+    loadChildren: () => import('./features/seguimiento/seguimiento.module').then(m => m.SeguimientoModule),
+  },
+  {
+    path: 'evaluacion',
+    canActivate: [AuthGuard],
+    loadChildren: () => import('./features/evaluacion/evaluacion.module').then(m => m.EvaluacionModule),
+  },
+  {
+    path: 'modificaciones',
+    canActivate: [AuthGuard],
+    loadChildren: () => import('./features/modificaciones/modificaciones.module').then(m => m.ModificacionesModule),
+  },
+  {
+    path: 'consolidacion',
+    canActivate: [AuthGuard],
+    loadChildren: () => import('./features/consolidacion/consolidacion.module').then(m => m.ConsolidacionModule),
+  },
+  {
+    path: 'notificaciones',
+    canActivate: [AuthGuard],
+    loadChildren: () => import('./features/notificaciones/notificaciones.module').then(m => m.NotificacionesModule),
+  },
+  {
+    path: 'documentos',
+    canActivate: [AuthGuard],
+    loadChildren: () => import('./features/documentos/documentos.module').then(m => m.DocumentosModule),
+    data: { breadcrumb: 'Documentos' }
+  },
+  {
+    path: 'normativa',
+    canActivate: [AuthGuard],
+    loadChildren: () => import('./features/normativa/normativa.module').then(m => m.NormativaModule),
+    data: { breadcrumb: 'Normativa' }
+  },
+  {
+    path: 'recursos',
+    canActivate: [AuthGuard],
+    loadChildren: () => import('./features/recursos/recursos.module').then(m => m.RecursosModule),
+    data: { breadcrumb: 'Recursos' }
+  },
+  {
+    path: 'portal',
+    loadChildren: () => import('./features/portal-publico/portal-publico.module').then(m => m.PortalPublicoModule),
+  },
   { path: '**', redirectTo: '/dashboard' },
 ];

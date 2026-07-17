@@ -2,11 +2,15 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db import transaction
-from .models import Plan, NodoPlanificacion, AccionMedianoPlazo, AccionCortoPlazo, ArticulacionPlanificacion
+from django.utils import timezone
+from .models import (
+    Plan, NodoPlanificacion, AccionMedianoPlazo, AccionCortoPlazo,
+    ArticulacionPlanificacion, PlanVersion
+)
 from .serializers import (
     PlanSerializer, NodoPlanificacionSerializer,
     AccionMedianoPlazoSerializer, AccionCortoPlazoSerializer,
-    ArticulacionPlanificacionSerializer
+    ArticulacionPlanificacionSerializer, PlanVersionSerializer
 )
 from apps.indicadores.models import Indicador, MetaProgramada, Operacion
 
@@ -16,6 +20,77 @@ class PlanViewSet(viewsets.ModelViewSet):
     serializer_class = PlanSerializer
     filterset_fields = ['tipo', 'activo']
     search_fields = ['codigo', 'nombre']
+
+    @action(detail=True, methods=['post'])
+    def versionar(self, request, pk=None):
+        plan = self.get_object()
+        data = request.data
+        version_name = data.get('version_name', '')
+        change_reason = data.get('change_reason', '')
+        valid_from = data.get('valid_from')
+        valid_to = data.get('valid_to')
+
+        if not version_name or not change_reason:
+            return Response(
+                {'error': 'version_name y change_reason son requeridos'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        last_version = PlanVersion.objects.filter(plan=plan).order_by('-version_number').first()
+        next_number = (last_version.version_number + 1) if last_version else 1
+
+        if last_version and last_version.status == 'borrador':
+            last_version.status = 'obsoleto'
+            last_version.save()
+
+        with transaction.atomic():
+            version = PlanVersion.objects.create(
+                plan=plan,
+                version_number=next_number,
+                version_name=version_name,
+                status='borrador',
+                valid_from=valid_from or timezone.now().date(),
+                valid_to=valid_to,
+                change_reason=change_reason,
+                created_by=request.user,
+            )
+
+        return Response(
+            PlanVersionSerializer(version).data,
+            status=status.HTTP_201_CREATED
+        )
+
+
+class PlanVersionViewSet(viewsets.ModelViewSet):
+    queryset = PlanVersion.objects.all()
+    serializer_class = PlanVersionSerializer
+    filterset_fields = ['plan', 'status']
+
+    @action(detail=True, methods=['post'])
+    def aprobar(self, request, pk=None):
+        version = self.get_object()
+        if version.status != 'borrador':
+            return Response(
+                {'error': 'Solo las versiones en borrador pueden ser aprobadas'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        if version.immutable:
+            return Response(
+                {'error': 'Esta versión es inmutable y no puede ser modificada'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        with transaction.atomic():
+            PlanVersion.objects.filter(
+                plan=version.plan, status='aprobado'
+            ).update(status='obsoleto')
+
+            version.status = 'aprobado'
+            version.approved_at = timezone.now()
+            version.approved_by = request.user
+            version.save()
+
+        return Response(PlanVersionSerializer(version).data)
 
 
 class NodoPlanificacionViewSet(viewsets.ModelViewSet):
@@ -68,7 +143,6 @@ class FormulacionViewSet(viewsets.ViewSet):
 
         try:
             with transaction.atomic():
-                # 1. Buscar o crear AccionCortoPlazo
                 acp, created = AccionCortoPlazo.objects.get_or_create(
                     codigo=accion_data.get('codigo'),
                     gestion=gestion,
@@ -81,7 +155,6 @@ class FormulacionViewSet(viewsets.ViewSet):
                     }
                 )
 
-                # 2. Crear indicador si viene
                 if producto_data.get('indicador_nombre'):
                     ind, _ = Indicador.objects.get_or_create(
                         codigo=f'IND-{accion_data.get("codigo")}',
@@ -104,7 +177,6 @@ class FormulacionViewSet(viewsets.ViewSet):
                         }
                     )
 
-                # 3. Crear operaciones
                 for op_data in operaciones_data:
                     if op_data.get('nombre'):
                         Operacion.objects.create(

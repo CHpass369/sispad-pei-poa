@@ -4,8 +4,8 @@ Soporta PDF (reportlab), XLSX (openpyxl), CSV y GeoJSON.
 """
 import csv, io, json
 from decimal import Decimal
-from datetime import datetime
-from django.db.models import Sum, Count, Q, DecimalField, IntegerField
+from datetime import datetime, timedelta
+from django.db.models import Sum, Count, Q, DecimalField, IntegerField, Avg, F, Value
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 
@@ -701,3 +701,616 @@ def generar_evaluacion_cuadro3_xlsx(gestion: int) -> tuple:
     wb.save(buffer)
     buffer.seek(0)
     return buffer, _build_response_filename('evaluacion_cuadro3', 'xlsx', gestion)
+
+
+# ===== 1. REPORTE DE AVANCE DE PROGRAMACIÓN =====
+def reporte_avance_programacion(gestion):
+    """Avance de programación por UE/POAU con % físico/financiero y semáforo de color."""
+    from apps.poau.models import POAU, POAUActividad, EjecucionFisica, EjecucionFinanciera
+
+    poaus = POAU.objects.filter(gestion=gestion).select_related('unidad', 'producto_territorial')
+    resultados = []
+
+    for poau in poaus:
+        actividades = POAUActividad.objects.filter(poau=poau)
+        total_prog_fis = Decimal('0')
+        total_ejec_fis = Decimal('0')
+        total_prog_fin = Decimal('0')
+        total_ejec_fin = Decimal('0')
+
+        for act in actividades:
+            ef_fisica = EjecucionFisica.objects.filter(actividad=act).aggregate(
+                prog=Coalesce(Sum('programado'), 0, output_field=DecimalField(max_digits=20, decimal_places=4)),
+                ejec=Coalesce(Sum('ejecutado'), 0, output_field=DecimalField(max_digits=20, decimal_places=4)),
+            )
+            ef_finan = EjecucionFinanciera.objects.filter(actividad=act).aggregate(
+                prog=Coalesce(Sum('programado'), 0, output_field=DecimalField(max_digits=20, decimal_places=2)),
+                ejec=Coalesce(Sum('ejecutado'), 0, output_field=DecimalField(max_digits=20, decimal_places=2)),
+            )
+            total_prog_fis += Decimal(str(ef_fisica['prog']))
+            total_ejec_fis += Decimal(str(ef_fisica['ejec']))
+            total_prog_fin += Decimal(str(ef_finan['prog']))
+            total_ejec_fin += Decimal(str(ef_finan['ejec']))
+
+        pct_fisico = float(total_ejec_fis / total_prog_fis * 100) if total_prog_fis > 0 else 0
+        pct_financiero = float(total_ejec_fin / total_prog_fin * 100) if total_prog_fin > 0 else 0
+
+        if pct_fisico >= 80:
+            semaforo = 'verde'
+        elif pct_fisico >= 50:
+            semaforo = 'amarillo'
+        else:
+            semaforo = 'rojo'
+
+        resultados.append({
+            'poau_id': str(poau.id),
+            'poau_codigo': poau.codigo,
+            'poau_nombre': poau.nombre,
+            'unidad': str(poau.unidad) if poau.unidad else '',
+            'total_actividades': actividades.count(),
+            'programado_fisico': float(total_prog_fis),
+            'ejecutado_fisico': float(total_ejec_fis),
+            'porcentaje_fisico': round(pct_fisico, 2),
+            'programado_financiero': float(total_prog_fin),
+            'ejecutado_financiero': float(total_ejec_fin),
+            'porcentaje_financiero': round(pct_financiero, 2),
+            'semaforo': semaforo,
+        })
+
+    return resultados
+
+
+# ===== 2. REPORTE DE EJECUCIÓN PRESUPUESTARIA POR FUENTE =====
+def reporte_ejecucion_presupuestaria_por_fuente(fuente_id=None):
+    """Ejecución presupuestaria por fuente de financiamiento con total, ejecutado y saldo."""
+    from apps.poau.models import EjecucionFinanciera, POAUActividad, POAU
+
+    lineas = LineaPresupuestaria.objects.filter(activo=True)
+    if fuente_id:
+        lineas = lineas.filter(fuente_id=fuente_id)
+
+    fuentes_data = lineas.values(
+        'fuente__id', 'fuente__codigo', 'fuente__denominacion'
+    ).annotate(
+        total_asignado=Coalesce(Sum('importe'), 0, output_field=DecimalField(max_digits=20, decimal_places=2)),
+    ).order_by('fuente__codigo')
+
+    resultados = []
+    for fd in fuentes_data:
+        ejecutado = EjecucionFinanciera.objects.filter(
+            actividad__poau__gestion=F('actividad__poau__gestion')
+        ).aggregate(
+            total=Coalesce(Sum('ejecutado'), 0, output_field=DecimalField(max_digits=20, decimal_places=2))
+        )['total']
+
+        total = float(fd['total_asignado'])
+        ejec = float(ejecutado)
+        saldo = total - ejec
+
+        resultados.append({
+            'fuente_id': fd['fuente__id'],
+            'fuente_codigo': fd['fuente__codigo'],
+            'fuente_nombre': fd['fuente__denominacion'],
+            'total_asignado': total,
+            'ejecutado': ejec,
+            'saldo': round(saldo, 2),
+            'porcentaje_ejecucion': round((ejec / total * 100) if total > 0 else 0, 2),
+        })
+
+    return resultados
+
+
+# ===== 3. REPORTE DE PRESUPUESTO POR LÍNEA =====
+def reporte_presupuesto_por_linea(linea_id=None):
+    """Detalle de movimientos de una línea presupuestaria."""
+    lineas = LineaPresupuestaria.objects.filter(activo=True).select_related(
+        'programa', 'objeto_gasto', 'fuente', 'organismo', 'ue'
+    )
+    if linea_id:
+        lineas = lineas.filter(id=linea_id)
+
+    resultados = []
+    for lp in lineas:
+        movimientos = []
+        techos_asociados = DistribucionTecho.objects.filter(
+            programa=lp.programa, activo=True
+        )
+        for dist in techos_asociados:
+            movs = MovimientoTecho.objects.filter(techo=dist.techo).order_by('-date')
+            for mv in movs:
+                movimientos.append({
+                    'tipo': mv.get_movement_type_display(),
+                    'monto': float(mv.amount),
+                    'fecha': mv.date.isoformat() if mv.date else '',
+                    'justificacion': mv.justification,
+                })
+
+        resultados.append({
+            'linea_id': str(lp.id),
+            'gestion': lp.gestion,
+            'programa': lp.programa.codigo,
+            'objeto_gasto': lp.objeto_gasto.denominacion,
+            'fuente': lp.fuente.denominacion,
+            'ue': str(lp.ue),
+            'importe': float(lp.importe),
+            'importe_anterior': float(lp.importe_gestion_anterior or 0),
+            'importe_plurianual': float(lp.importe_plurianual or 0),
+            'movimientos': movimientos,
+        })
+
+    return resultados
+
+
+# ===== 4. REPORTE COMPARATIVO MENSUAL =====
+def reporte_comparativo_mensual(gestion):
+    """Comparación mensual de ejecución física vs financiera."""
+    from apps.poau.models import POAUActividad, EjecucionFisica, EjecucionFinanciera
+
+    meses = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12']
+    resultados = []
+
+    for mes in meses:
+        periodo = f'{gestion}-{mes}'
+        fisica = EjecucionFisica.objects.filter(
+            actividad__poau__gestion=gestion,
+            periodo=periodo,
+            tipo_periodo='mensual',
+        ).aggregate(
+            programado=Coalesce(Sum('programado'), 0, output_field=DecimalField(max_digits=20, decimal_places=4)),
+            ejecutado=Coalesce(Sum('ejecutado'), 0, output_field=DecimalField(max_digits=20, decimal_places=4)),
+        )
+
+        financiera = EjecucionFinanciera.objects.filter(
+            actividad__poau__gestion=gestion,
+            periodo=periodo,
+            tipo_periodo='mensual',
+        ).aggregate(
+            programado=Coalesce(Sum('programado'), 0, output_field=DecimalField(max_digits=20, decimal_places=2)),
+            ejecutado=Coalesce(Sum('ejecutado'), 0, output_field=DecimalField(max_digits=20, decimal_places=2)),
+        )
+
+        prog_fis = float(fisica['programado'])
+        ejec_fis = float(fisica['ejecutado'])
+        prog_fin = float(financiera['programado'])
+        ejec_fin = float(financiera['ejecutado'])
+
+        avance_fis = (ejec_fis / prog_fis * 100) if prog_fis > 0 else 0
+        avance_fin = (ejec_fin / prog_fin * 100) if prog_fin > 0 else 0
+
+        resultados.append({
+            'periodo': periodo,
+            'programado_fisico': prog_fis,
+            'ejecutado_fisico': ejec_fis,
+            'avance_fisico': round(avance_fis, 2),
+            'programado_financiero': prog_fin,
+            'ejecutado_financiero': ejec_fin,
+            'avance_financiero': round(avance_fin, 2),
+            'diferencia_fisico': round(prog_fis - ejec_fis, 4),
+            'diferencia_financiero': round(prog_fin - ejec_fin, 2),
+        })
+
+    return resultados
+
+
+# ===== 5. REPORTE DE INDICADORES POR SECTOR =====
+def reporte_indicadores_por_sector(sector_id=None):
+    """Indicadores agregados por sector con promedios de avance."""
+    from apps.indicadores.models import Indicador, MetaProgramada
+    from apps.pad.models import ResultadoTerritorial, SectorPAD
+
+    sectores = SectorPAD.objects.all()
+    if sector_id:
+        sectores = sectores.filter(id=sector_id)
+
+    resultados = []
+    for sector in sectores:
+        resultados_territoriales = ResultadoTerritorial.objects.filter(
+            sector=sector
+        )
+        total_resultados = resultados_territoriales.count()
+        metas = MetaProgramada.objects.filter(
+            indicador__isnull=False
+        )
+        indicadores_count = Indicador.objects.filter(activo=True).count()
+
+        metas_con_prog = metas.aggregate(
+            promedio=Avg('meta_anual'),
+            total=Coalesce(Sum('meta_anual'), 0, output_field=DecimalField(max_digits=20, decimal_places=4)),
+        )
+
+        resultados.append({
+            'sector_id': str(sector.id),
+            'sector_codigo': sector.codigo,
+            'sector_nombre': sector.nombre,
+            'total_resultados_territoriales': total_resultados,
+            'total_indicadores': indicadores_count,
+            'total_metas': float(metas_con_prog['total'] or 0),
+            'promedio_meta': float(metas_con_prog['promedio'] or 0),
+        })
+
+    return resultados
+
+
+# ===== 6. REPORTE DE ACCIONES CORRECTIVAS PENDIENTES =====
+def reporte_acciones_correctivas_pendientes():
+    """Acciones correctivas pendientes con fechas límite y responsable."""
+    from apps.acciones_correctivas.models import AccionCorrectiva
+
+    pendientes = AccionCorrectiva.objects.filter(
+        status__in=['pendiente', 'en_ejecucion']
+    ).select_related('responsible', 'responsible_unit')
+
+    resultados = []
+    for ac in pendientes:
+        vencida = ac.esta_vencida
+        resultados.append({
+            'id': str(ac.id),
+            'descripcion': ac.description,
+            'causa': ac.cause,
+            'responsable': str(ac.responsible) if ac.responsible else '',
+            'unidad_responsable': str(ac.responsible_unit) if ac.responsible_unit else '',
+            'fecha_inicio': ac.start_date.isoformat() if ac.start_date else '',
+            'fecha_limite': ac.due_date.isoformat() if ac.due_date else '',
+            'resultado_esperado': ac.expected_result,
+            'estado': ac.get_status_display(),
+            'vencida': vencida,
+            'porcentaje_cumplimiento': ac.porcentaje_cumplimiento,
+            'gestion': ac.gestion,
+        })
+
+    return resultados
+
+
+# ===== 7. REPORTE DE SOLICITUDES DE MODIFICACIÓN PENDIENTES =====
+def reporte_solicitudes_modificacion_pendientes():
+    """Solicitudes de modificación pendientes con sus tipos."""
+    from apps.modificaciones.models import SolicitudModificacion
+
+    solicitudes = SolicitudModificacion.objects.filter(
+        estado__in=['borrador', 'en_revision']
+    ).select_related('solicitado_por', 'poau')
+
+    resultados = []
+    for sol in solicitudes:
+        cambios_count = sol.cambios.count()
+        tiene_impacto = hasattr(sol, 'impacto')
+        impacto_financiero = 0
+        if tiene_impacto and sol.impacto:
+            impacto_financiero = float(sol.impacto.impacto_financiero)
+
+        resultados.append({
+            'id': str(sol.id),
+            'tipo': sol.get_tipo_display(),
+            'tipo_codigo': sol.tipo,
+            'gestion_fiscal': sol.gestion_fiscal,
+            'entidad_afectada': sol.entidad_afectada_tipo,
+            'motivo': sol.motivo,
+            'solicitado_por': str(sol.solicitado_por) if sol.solicitado_por else '',
+            'estado': sol.get_estado_display(),
+            'fecha_efectiva': sol.fecha_efectiva.isoformat() if sol.fecha_efectiva else '',
+            'total_cambios': cambios_count,
+            'impacto_financiero': impacto_financiero,
+            'poau_codigo': sol.poau.codigo if sol.poau else '',
+        })
+
+    return resultados
+
+
+# ===== 8. REPORTE DE EVALUACIONES POR PERÍODO =====
+def reporte_evaluaciones_por_periodo(fecha_inicio, fecha_fin):
+    """Evaluaciones en un período con puntajes y criterios."""
+    from apps.evaluacion.models import Evaluacion, CriterioEvaluacion, ResultadoEvaluacion
+
+    evaluaciones = Evaluacion.objects.filter(
+        created_at__date__gte=fecha_inicio,
+        created_at__date__lte=fecha_fin,
+    ).select_related('plan')
+
+    resultados = []
+    for ev in evaluaciones:
+        criterios = CriterioEvaluacion.objects.filter(evaluacion=ev)
+        datos_criterios = []
+        for c in criterios:
+            datos_criterios.append({
+                'criterio': c.get_criterion_display(),
+                'puntaje': float(c.score),
+                'peso': float(c.weight),
+                'puntaje_ponderado': float(c.weighted_score),
+            })
+
+        resultados_eval = ResultadoEvaluacion.objects.filter(evaluacion=ev)
+        puntaje_global = sum(float(r.score_global) for r in resultados_eval)
+        promedio = puntaje_global / len(resultados_eval) if resultados_eval else 0
+
+        resultados.append({
+            'evaluacion_id': str(ev.id),
+            'plan': str(ev.plan),
+            'gestion': ev.fiscal_year,
+            'tipo': ev.get_evaluation_type_display(),
+            'periodo': ev.get_period_display(),
+            'estado': ev.get_status_display(),
+            'conclusiones': ev.conclusions,
+            'criterios': datos_criterios,
+            'puntaje_global': round(puntaje_global, 2),
+            'promedio_resultados': round(promedio, 2),
+            'total_resultados': resultados_eval.count(),
+        })
+
+    return resultados
+
+
+# ===== 9. REPORTE DE DESEMPEÑO DE UNIDAD EJECUTORA =====
+def reporte_desempeño_unidad_ejecutora(gestion, unidad_id):
+    """Desempeño de una UE con todos sus indicadores y presupuestos."""
+    from apps.poau.models import POAU, POAUActividad, EjecucionFisica, EjecucionFinanciera
+    from apps.indicadores.models import MetaProgramada
+
+    poaus = POAU.objects.filter(gestion=gestion, unidad_id=unidad_id)
+    resultados = []
+
+    for poau in poaus:
+        actividades = POAUActividad.objects.filter(poau=poau)
+        datos_actividades = []
+
+        for act in actividades:
+            ef_fis = EjecucionFisica.objects.filter(actividad=act).aggregate(
+                prog=Coalesce(Sum('programado'), 0, output_field=DecimalField(max_digits=20, decimal_places=4)),
+                ejec=Coalesce(Sum('ejecutado'), 0, output_field=DecimalField(max_digits=20, decimal_places=4)),
+            )
+            ef_fin = EjecucionFinanciera.objects.filter(actividad=act).aggregate(
+                prog=Coalesce(Sum('programado'), 0, output_field=DecimalField(max_digits=20, decimal_places=2)),
+                ejec=Coalesce(Sum('ejecutado'), 0, output_field=DecimalField(max_digits=20, decimal_places=2)),
+            )
+
+            prog_fis = float(ef_fis['prog'])
+            ejec_fis = float(ef_fis['ejec'])
+            prog_fin = float(ef_fin['prog'])
+            ejec_fin = float(ef_fin['ejec'])
+
+            datos_actividades.append({
+                'actividad_codigo': act.codigo,
+                'actividad_nombre': act.nombre,
+                'presupuesto_anual': float(act.presupuesto_anual or 0),
+                'meta_fisica_anual': float(act.meta_fisica_anual or 0),
+                'programado_fisico': prog_fis,
+                'ejecutado_fisico': ejec_fis,
+                'avance_fisico': round((ejec_fis / prog_fis * 100) if prog_fis > 0 else 0, 2),
+                'programado_financiero': prog_fin,
+                'ejecutado_financiero': ejec_fin,
+                'avance_financiero': round((ejec_fin / prog_fin * 100) if prog_fin > 0 else 0, 2),
+            })
+
+        total_presupuesto = sum(a['presupuesto_anual'] for a in datos_actividades)
+        total_ejec_fis = sum(a['ejecutado_fisico'] for a in datos_actividades)
+        total_prog_fis = sum(a['programado_fisico'] for a in datos_actividades)
+
+        resultados.append({
+            'poau_id': str(poau.id),
+            'poau_codigo': poau.codigo,
+            'poau_nombre': poau.nombre,
+            'estado': poau.get_estado_display(),
+            'total_actividades': len(datos_actividades),
+            'total_presupuesto': round(total_presupuesto, 2),
+            'avance_fisico_global': round(
+                (total_ejec_fis / total_prog_fis * 100) if total_prog_fis > 0 else 0, 2
+            ),
+            'actividades': datos_actividades,
+        })
+
+    return resultados
+
+
+# ===== 10. REPORTE DE ALERTAS ACTIVAS =====
+def reporte_alertas_activas():
+    """Alertas activas con severidad, entidad afectada y fecha."""
+    from apps.seguimiento.models import Alerta
+
+    alertas = Alerta.objects.filter(activa=True).select_related(
+        'entrada', 'entrada__actividad', 'entrada__actividad__poau'
+    )
+
+    resultados = []
+    for al in alertas:
+        entidad = ''
+        if al.entrada and al.entrada.actividad:
+            act = al.entrada.actividad
+            entidad = f'{act.codigo} - {act.nombre[:80]}'
+            if act.poau:
+                entidad = f'[{act.poau.codigo}] {entidad}'
+
+        resultados.append({
+            'alerta_id': str(al.id),
+            'tipo': al.get_tipo_display(),
+            'tipo_codigo': al.tipo,
+            'severidad': al.get_severidad_display(),
+            'severidad_codigo': al.severidad,
+            'mensaje': al.mensaje,
+            'entidad_afectada': entidad,
+            'fecha_creacion': al.created_at.isoformat() if al.created_at else '',
+        })
+
+    return resultados
+
+
+# ===== 11. REPORTE DE SEGUIMIENTO RECIENTE =====
+def reporte_seguimiento_reciente(dias=30):
+    """Entradas de seguimiento recientes en todas las actividades."""
+    from apps.seguimiento.models import EntradaSeguimiento, ReporteSeguimiento
+
+    fecha_limite = timezone.now() - timedelta(days=dias)
+    entradas = EntradaSeguimiento.objects.filter(
+        created_at__gte=fecha_limite
+    ).select_related(
+        'reporte', 'actividad', 'actividad__poau'
+    ).order_by('-created_at')
+
+    resultados = []
+    for ent in entradas:
+        avance_fis = float(ent.porcentaje_avance_fisico)
+        avance_fin = float(ent.porcentaje_avance_financiero)
+
+        resultados.append({
+            'entrada_id': str(ent.id),
+            'reporte_periodo': ent.reporte.periodo if ent.reporte else '',
+            'reporte_estado': ent.reporte.get_estado_display() if ent.reporte else '',
+            'actividad_codigo': ent.actividad.codigo if ent.actividad else '',
+            'actividad_nombre': ent.actividad.nombre[:80] if ent.actividad else '',
+            'poau_codigo': ent.actividad.poau.codigo if ent.actividad and ent.actividad.poau else '',
+            'avance_fisico': round(avance_fis, 2),
+            'avance_financiero': round(avance_fin, 2),
+            'desviacion': float(ent.desviacion),
+            'causa_desviacion': ent.causa_desviacion,
+            'accion_correctiva': ent.accion_correctiva or '',
+            'fecha': ent.created_at.isoformat() if ent.created_at else '',
+        })
+
+    return resultados
+
+
+# ===== 12. REPORTE DE SUPUESTOS CRÍTICOS =====
+def reporte_supuestos_criticos(gestion):
+    """Supuestos críticos con nivel de riesgo y mitigación."""
+    from apps.indicadores.models import Supuesto
+
+    supuestos = Supuesto.objects.filter(
+        accion_corto_plazo__gestion=gestion
+    ).select_related('accion_corto_plazo')
+
+    resultados = []
+    for sup in supuestos:
+        prob = sup.probabilidad.lower() if sup.probabilidad else ''
+        if prob in ('alta', 'high'):
+            nivel_riesgo = 'alto'
+        elif prob in ('media', 'medium'):
+            nivel_riesgo = 'medio'
+        else:
+            nivel_riesgo = 'bajo'
+
+        resultados.append({
+            'supuesto_id': str(sup.id),
+            'descripcion': sup.descripcion,
+            'riesgo_externo': sup.riesgo_externo,
+            'probabilidad': sup.probabilidad,
+            'nivel_riesgo': nivel_riesgo,
+            'accion_corto_plazo': str(sup.accion_corto_plazo),
+            'acp_codigo': sup.accion_corto_plazo.codigo if sup.accion_corto_plazo else '',
+            'acp_nombre': sup.accion_corto_plazo.nombre[:80] if sup.accion_corto_plazo else '',
+        })
+
+    return resultados
+
+
+# ===== 13. REPORTE DE PRODUCTOS POR PAD =====
+def reporte_productos_por_pad(pad_id):
+    """Productos de un PAD con resultados y líneas presupuestarias."""
+    from apps.pad.models import ProductoTerritorial, ResultadoTerritorial
+
+    resultado = ResultadoTerritorial.objects.filter(id=pad_id).first()
+    if not resultado:
+        resultado = ResultadoTerritorial.objects.filter(lineamiento__politica__id=pad_id).first()
+
+    if not resultado:
+        return []
+
+    productos = ProductoTerritorial.objects.filter(
+        resultado=resultado
+    ).select_related('resultado')
+
+    resultados = []
+    for prod in productos:
+        presupuesto = LineaPresupuestaria.objects.filter(
+            activo=True
+        ).aggregate(
+            total=Coalesce(Sum('importe'), 0, output_field=DecimalField(max_digits=20, decimal_places=2))
+        )
+
+        resultados.append({
+            'producto_id': str(prod.id),
+            'producto_codigo': prod.codigo,
+            'producto_nombre': prod.nombre,
+            'resultado_codigo': resultado.codigo,
+            'resultado_nombre': resultado.nombre,
+            'indicador': prod.indicador,
+            'linea_base': float(prod.linea_base or 0),
+            'meta_2030': float(prod.meta_2030 or 0),
+            'cuenta_financiamiento': prod.cuenta_con_financiamiento,
+            'presupuesto_total_pad': float(prod.presupuesto_total_pad or 0),
+            'presupuesto_general': float(presupuesto['total']),
+            'gestion': prod.gestion,
+        })
+
+    return resultados
+
+
+# ===== 14. REPORTE DE PROGRAMACIÓN PRESUPUESTARIA =====
+def reporte_programacion_presupuestaria(gestion):
+    """Programación presupuestaria completa por POAU y actividad."""
+    from apps.poau.models import POAU, POAUActividad
+
+    poaus = POAU.objects.filter(gestion=gestion).select_related('unidad')
+    resultados = []
+
+    for poau in poaus:
+        actividades = POAUActividad.objects.filter(poau=poau).select_related('objeto_gasto')
+        datos_actividades = []
+
+        for act in actividades:
+            meta_sum = Decimal('0')
+            for q in [act.meta_q1, act.meta_q2, act.meta_q3, act.meta_q4]:
+                if q is not None:
+                    meta_sum += q
+
+            datos_actividades.append({
+                'actividad_codigo': act.codigo,
+                'actividad_nombre': act.nombre,
+                'objeto_gasto': act.objeto_gasto.denominacion if act.objeto_gasto else '',
+                'meta_fisica_anual': float(act.meta_fisica_anual or 0),
+                'suma_trimestres': float(meta_sum),
+                'presupuesto_anual': float(act.presupuesto_anual or 0),
+                'q1': float(act.meta_q1 or 0),
+                'q2': float(act.meta_q2 or 0),
+                'q3': float(act.meta_q3 or 0),
+                'q4': float(act.meta_q4 or 0),
+            })
+
+        total_presupuesto = sum(a['presupuesto_anual'] for a in datos_actividades)
+
+        resultados.append({
+            'poau_id': str(poau.id),
+            'poau_codigo': poau.codigo,
+            'poau_nombre': poau.nombre,
+            'unidad': str(poau.unidad) if poau.unidad else '',
+            'estado': poau.get_estado_display(),
+            'total_actividades': len(datos_actividades),
+            'presupuesto_total': round(total_presupuesto, 2),
+            'actividades': datos_actividades,
+        })
+
+    return resultados
+
+
+# ===== 15. REPORTE DE HISTORIAL DE APROBACIONES =====
+def reporte_historial_aprobaciones(gestion):
+    """Historial de aprobaciones con fechas, usuarios y acciones."""
+    aprobaciones = Aprobacion.objects.filter(
+        gestion=gestion
+    ).select_related('aprobado_por', 'documento').order_by('-created_at')
+
+    resultados = []
+    for ap in aprobaciones:
+        resultados.append({
+            'aprobacion_id': str(ap.id),
+            'tipo': ap.get_tipo_display(),
+            'tipo_codigo': ap.tipo,
+            'estado': ap.get_estado_display(),
+            'estado_codigo': ap.estado,
+            'aprobado_por': str(ap.aprobado_por) if ap.aprobado_por else '',
+            'comentario': ap.comentario,
+            'version': ap.version,
+            'huella_documento': ap.huella_documento,
+            'es_reapertura': ap.es_reapertura,
+            'motivo_reapertura': ap.motivo_reapertura,
+            'fecha': ap.created_at.isoformat() if hasattr(ap, 'created_at') and ap.created_at else '',
+        })
+
+    return resultados

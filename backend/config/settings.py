@@ -33,6 +33,11 @@ LOCAL_APPS = [
     'apps.reportes',
     'apps.auditoria',
     'apps.poau',
+    'apps.evaluacion',
+    'apps.modificaciones',
+    'apps.notificaciones',
+    'apps.seguimiento',
+    'apps.acciones_correctivas',
 ]
 
 THIRD_PARTY_APPS = [
@@ -139,6 +144,15 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'EXCEPTION_HANDLER': 'apps.core.exceptions.api_exception_handler',
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '50/hour',
+        'user': '200/hour',
+        'login': '5/minute',
+    },
 }
 
 SIMPLE_JWT = {

@@ -1,5 +1,48 @@
 # Changelog
 
+All notable changes to this project will be documented in this file.
+
+## [Unreleased]
+
+### Added
+- Backend: evaluacion app (models, services, views, serializers)
+- Backend: modificaciones app (models, services, views, serializers)
+- Backend: notificaciones app (models, services, views, serializers)
+- Backend: seguimiento app (models, services, views, serializers)
+- Backend: acciones_correctivas app (models, services, views, serializers)
+- Backend: MovimientoTecho model and services for budget movements
+- Backend: PlanVersion model for plan versioning
+- Backend: Core validators (Section 37 critical validations)
+- Backend: Core alerts engine
+- Backend: 15 new report functions
+- Backend: Demo seed script (seed_demo.py)
+- Frontend: admin-usuarios module
+- Frontend: seguimiento module with dashboard
+- Frontend: evaluacion module
+- Frontend: modificaciones module
+- Frontend: consolidacion module
+- Frontend: portal-publico (public, no auth)
+- Frontend: notificaciones module
+- Frontend: dashboard (role-based)
+- Frontend: Breadcrumbs component
+- Frontend: Permissions service
+- Frontend: Responsive layout improvements
+- Tests: 163+ backend tests (workflow, techos, poau, pad)
+- Tests: 8 frontend test specs
+- Documentation: Installation guide
+- Documentation: Architecture documentation
+- Documentation: API reference
+- Documentation: Roles documentation
+
+### Changed
+- settings.py: registered 5 new apps
+- urls.py: added 5 new URL patterns
+- app-routing.module.ts: added new routes
+
+### Fixed
+- Budget validation rules enforcement
+- Workflow state transition guards
+
 ## [1.0.0] — 2026-07-15
 
 ### Added — Fase 1: Núcleo institucional
