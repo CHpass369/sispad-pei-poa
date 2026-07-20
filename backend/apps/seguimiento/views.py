@@ -75,6 +75,9 @@ class ReporteSeguimientoViewSet(viewsets.ModelViewSet):
 
 
 class EntradaSeguimientoViewSet(viewsets.ModelViewSet):
+    queryset = EntradaSeguimiento.objects.select_related(
+        'actividad', 'reporte', 'reporte__unidad_organizacional'
+    ).all()
     serializer_class = EntradaSeguimientoSerializer
     filterset_fields = [
         'reporte', 'reporte__gestion', 'reporte__periodo',

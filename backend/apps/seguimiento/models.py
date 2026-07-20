@@ -197,7 +197,7 @@ class Alerta(TimeStampedModel):
     class Meta:
         verbose_name = 'Alerta'
         verbose_name_plural = 'Alertas'
-        ordering = ['-creado_at']
+        ordering = ['-created_at']
         indexes = [
             models.Index(fields=['activa', 'tipo']),
             models.Index(fields=['severidad']),

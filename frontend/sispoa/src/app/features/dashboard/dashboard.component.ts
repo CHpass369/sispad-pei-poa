@@ -10,7 +10,7 @@ import { ApiService } from '../../core/services/api.service';
       <div class="page-header">
         <div class="header-left">
           <h2>Bienvenido, {{ userName }}</h2>
-          <p class="text-secondary">{{ fechaActual | date:'EEEE d \'de\' MMMM yyyy' }}</p>
+          <p class="text-secondary">{{ fechaActual | date:'fullDate' }}</p>
         </div>
         <div class="header-right">
           <span class="badge badge-role">{{ rolDisplay }}</span>
