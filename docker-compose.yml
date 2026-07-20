@@ -52,7 +52,7 @@ services:
       retries: 5
       start_period: 30s
     ports:
-      - "5432:5432"
+      - "5433:5432"
 
   # --- Redis ---
   redis:
@@ -111,7 +111,7 @@ services:
       - frontend-net
       - backend-net
     ports:
-      - "80:80"
+      - "8080:80"
 
   # --- Nginx Reverse Proxy Unificado (perfil "full") ---
   # Cuando se usa este servicio, el frontend también publica puerto 80.
