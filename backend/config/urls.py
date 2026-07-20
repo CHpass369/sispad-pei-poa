@@ -1,7 +1,9 @@
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, include, re_path
 from django.conf import settings
 from django.conf.urls.static import static
+from pathlib import Path
+from django.http import FileResponse, Http404
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from apps.core.views_root import root_redirect, health_check
 
@@ -37,6 +39,34 @@ urlpatterns = [
     path(f'{api_prefix}', include('apps.acciones_correctivas.urls')),
     path(f'{api_prefix}schema/', SpectacularAPIView.as_view(), name='schema'),
     path(f'{api_prefix}docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='docs'),
+]
+
+# Servir frontend Angular compilado (SPA)
+import mimetypes
+
+FRONTEND_DIR = Path(settings.BASE_DIR / 'static_assets')
+
+def serve_frontend(request, path=''):
+    """Sirve estáticos o index.html para SPA. No intercepta api/ admin/ ni health/."""
+    # No tocar rutas de API, admin o health
+    if path.startswith('api/') or path.startswith('admin/') or path.startswith('health/'):
+        from django.http import HttpResponse
+        return HttpResponse(status=404)
+
+    filepath = FRONTEND_DIR / path
+    if filepath.exists() and filepath.is_file():
+        content_type, _ = mimetypes.guess_type(str(filepath))
+        return FileResponse(open(filepath, 'rb'), content_type=content_type or 'application/octet-stream')
+
+    # SPA catch-all: servir index.html
+    idx = FRONTEND_DIR / 'index.html'
+    if idx.exists():
+        return FileResponse(open(idx, 'rb'), content_type='text/html')
+    raise Http404('Frontend no compilado')
+
+# Catch-all para todo lo que no sea api/admin/health
+urlpatterns += [
+    re_path(r'^(?P<path>.*)$', serve_frontend, name='spa'),
 ]
 
 if settings.DEBUG:

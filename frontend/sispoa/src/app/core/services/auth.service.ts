@@ -28,7 +28,7 @@ export class AuthService {
     return this.http.post<LoginResponse>(`${this.api}/login/`, data).pipe(
       tap(res => {
         localStorage.setItem(this.tokenKey, JSON.stringify(res));
-        this.loadUser();
+        // loadUser se llamará después de navegar al dashboard
       })
     );
   }

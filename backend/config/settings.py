@@ -1,8 +1,14 @@
 import os
 from pathlib import Path
 from datetime import timedelta
+from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Cargar .env automaticamente para desarrollo local
+dotenv_path = BASE_DIR.parent / '.env'
+if dotenv_path.exists():
+    load_dotenv(dotenv_path)
 
 SECRET_KEY = os.environ.get(
     'DJANGO_SECRET_KEY',
