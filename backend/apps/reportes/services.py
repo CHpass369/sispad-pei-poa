@@ -32,6 +32,11 @@ from apps.organizacion.models import UnidadOrganizacional
 from apps.techos.models import TechoPresupuestario, DistribucionTecho
 from apps.inversion.models import ProyectoInversion
 from apps.workflow.models import Observacion, Aprobacion
+from apps.articulacion.models import (
+    ArticulacionPADPEI, ProductoPAD, ProductoPEI, ResultadoPAD, ResultadoPEI,
+    AccionPOA, OperacionPOAU, ActividadPOAU, TareaPOAU,
+    AsignacionObjetoGasto, SeguimientoPresupuesto,
+)
 
 
 HEADER_FILL = PatternFill(start_color='1B5E3B', end_color='1B5E3B', fill_type='solid')
@@ -1314,3 +1319,218 @@ def reporte_historial_aprobaciones(gestion):
         })
 
     return resultados
+
+
+# ===== MATRIZ 1 — ARTICULACIÓN PAD → PEI =====
+def generar_matriz_pad_pei_xlsx(gestion=None) -> tuple:
+    """Genera XLSX de la Matriz 1 (PAD→PEI) con estilo institucional."""
+    if not HAS_OPENPYXL:
+        raise RuntimeError('openpyxl no está instalado')
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Matriz PAD-PEI'
+
+    ws.merge_cells('A1:I1')
+    ws['A1'] = 'GOBIERNO AUTÓNOMO MUNICIPAL DE SACABA'
+    ws['A1'].font = Font(bold=True, size=14, color='1B5E3B')
+
+    ws.merge_cells('A2:I2')
+    titulo_gestion = f'MATRIZ 1 — Articulación PAD → PEI (Gestión {gestion})' if gestion else 'MATRIZ 1 — Articulación PAD → PEI'
+    ws['A2'] = titulo_gestion
+    ws['A2'].font = Font(bold=True, size=11, color='1B5E3B')
+
+    headers = ['Código Resultado PAD', 'Resultado PAD', 'Código Producto PAD',
+               'Producto PAD', 'Código Resultado PEI', 'Resultado PEI',
+               'Código Producto PEI', 'Producto PEI', 'Estado']
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=4, column=col, value=h)
+        cell.fill = HEADER_FILL
+        cell.font = HEADER_FONT
+        cell.alignment = Alignment(horizontal='center', wrap_text=True)
+
+    articulaciones = ArticulacionPADPEI.objects.select_related(
+        'producto_pad__resultado_pad', 'producto_pei__resultado_pei'
+    ).all()
+    if gestion:
+        pass  # PAD/PEI no tienen gestión directa, se filtran por vigencia si aplica
+
+    row = 5
+    for art in articulaciones:
+        prod_pad = art.producto_pad
+        prod_pei = art.producto_pei
+        res_pad = prod_pad.resultado_pad if prod_pad else None
+        res_pei = prod_pei.resultado_pei if prod_pei else None
+
+        datos = [
+            res_pad.codigo_resultado if res_pad else '—',
+            (res_pad.denominacion or '—')[:120] if res_pad else '—',
+            prod_pad.codigo_producto if prod_pad else '—',
+            (prod_pad.denominacion or '—')[:120] if prod_pad else '—',
+            res_pei.codigo_resultado if res_pei else '—',
+            (res_pei.denominacion or '—')[:120] if res_pei else '—',
+            prod_pei.codigo_producto if prod_pei else '—',
+            (prod_pei.denominacion or '—')[:120] if prod_pei else '—',
+            art.estado or '—',
+        ]
+        for col, val in enumerate(datos, 1):
+            cell = ws.cell(row=row, column=col, value=val)
+            cell.border = BORDER_THIN
+            cell.font = Font(size=9)
+            if col in (1, 3, 5, 7):
+                cell.font = Font(size=9, bold=True)
+        row += 1
+
+    for col_letter, width in [('A', 22), ('B', 35), ('C', 22), ('D', 35),
+                               ('E', 22), ('F', 35), ('G', 22), ('H', 35), ('I', 15)]:
+        ws.column_dimensions[col_letter].width = width
+
+    filename = _build_response_filename('matriz_pad_pei', 'xlsx', gestion or 0)
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return output, filename
+
+
+# ===== MATRIZ 2 — ARTICULACIÓN PEI → POA =====
+def generar_matriz_pei_poa_xlsx(gestion=None) -> tuple:
+    """Genera XLSX de la Matriz 2 (PEI→POA) con estilo institucional."""
+    if not HAS_OPENPYXL:
+        raise RuntimeError('openpyxl no está instalado')
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Matriz PEI-POA'
+
+    ws.merge_cells('A1:H1')
+    ws['A1'] = 'GOBIERNO AUTÓNOMO MUNICIPAL DE SACABA'
+    ws['A1'].font = Font(bold=True, size=14, color='1B5E3B')
+
+    ws.merge_cells('A2:H2')
+    titulo_gestion = f'MATRIZ 2 — Articulación PEI → POA (Gestión {gestion})' if gestion else 'MATRIZ 2 — Articulación PEI → POA'
+    ws['A2'] = titulo_gestion
+    ws['A2'].font = Font(bold=True, size=11, color='1B5E3B')
+
+    headers = ['Código Acción POA', 'Acción POA', 'Producto PEI', 'Indicador',
+               'Unidad Medida', 'Meta Gestión', 'Presupuesto (Bs)', 'Estado']
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=4, column=col, value=h)
+        cell.fill = HEADER_FILL
+        cell.font = HEADER_FONT
+        cell.alignment = Alignment(horizontal='center', wrap_text=True)
+
+    acciones = AccionPOA.objects.select_related('producto_pei').all()
+    if gestion:
+        acciones = acciones.filter(gestion=gestion)
+
+    row = 5
+    for act in acciones:
+        datos = [
+            act.codigo_accion,
+            act.denominacion[:150],
+            act.producto_pei.denominacion[:120] if act.producto_pei else '—',
+            act.indicador or '—',
+            act.unidad_medida or '—',
+            float(act.meta_gestion) if act.meta_gestion is not None else '—',
+            float(act.presupuesto_programado) if act.presupuesto_programado is not None else 0,
+            act.estado or '—',
+        ]
+        for col, val in enumerate(datos, 1):
+            cell = ws.cell(row=row, column=col, value=val)
+            cell.border = BORDER_THIN
+            cell.font = Font(size=9)
+            if col in (7,):
+                cell.number_format = '#,##0.00'
+        row += 1
+
+    for col_letter, width in [('A', 22), ('B', 40), ('C', 35), ('D', 30),
+                               ('E', 14), ('F', 16), ('G', 18), ('H', 15)]:
+        ws.column_dimensions[col_letter].width = width
+
+    filename = _build_response_filename('matriz_pei_poa', 'xlsx', gestion or 0)
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return output, filename
+
+
+# ===== MATRIZ 5 — OBJETOS DE GASTO =====
+def generar_matriz_objetos_gasto_xlsx(gestion=None) -> tuple:
+    """Genera XLSX de la Matriz 5 (Objetos de Gasto) con estilo institucional."""
+    if not HAS_OPENPYXL:
+        raise RuntimeError('openpyxl no está instalado')
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Objetos de Gasto'
+
+    ws.merge_cells('A1:G1')
+    ws['A1'] = 'GOBIERNO AUTÓNOMO MUNICIPAL DE SACABA'
+    ws['A1'].font = Font(bold=True, size=14, color='1B5E3B')
+
+    ws.merge_cells('A2:G2')
+    titulo_gestion = f'MATRIZ 5 — Objetos de Gasto (Gestión {gestion})' if gestion else 'MATRIZ 5 — Objetos de Gasto'
+    ws['A2'] = titulo_gestion
+    ws['A2'].font = Font(bold=True, size=11, color='1B5E3B')
+
+    headers = ['Código', 'Objeto de Gasto', 'Grupo', 'Tipo Gasto', 'FF/OF',
+               'Monto Programado (Bs)', 'Monto Vigente (Bs)']
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=4, column=col, value=h)
+        cell.fill = HEADER_FILL
+        cell.font = HEADER_FONT
+        cell.alignment = Alignment(horizontal='center', wrap_text=True)
+
+    asignaciones = AsignacionObjetoGasto.objects.all()
+    if gestion:
+        asignaciones = asignaciones.filter(gestion=gestion)
+
+    row = 5
+    total_programado = 0
+    total_vigente = 0
+    for asig in asignaciones:
+        ff_of = f'{asig.fuente_financiamiento}/{asig.organismo_financiador}'
+        monto_prog = float(asig.monto_programado or 0)
+        monto_vig = float(asig.monto_vigente or 0)
+        datos = [
+            asig.codigo_asignacion,
+            asig.descripcion_objeto[:120],
+            asig.grupo_gasto or '—',
+            asig.tipo_gasto or '—',
+            ff_of,
+            monto_prog,
+            monto_vig,
+        ]
+        for col, val in enumerate(datos, 1):
+            cell = ws.cell(row=row, column=col, value=val)
+            cell.border = BORDER_THIN
+            cell.font = Font(size=9)
+            if col in (6, 7):
+                cell.number_format = '#,##0.00'
+        total_programado += monto_prog
+        total_vigente += monto_vig
+        row += 1
+
+    # Total row
+    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=5)
+    ws.cell(row=row, column=1, value='TOTAL GENERAL').font = Font(bold=True, size=10, color='1B5E3B')
+    ws.cell(row=row, column=6, value=round(total_programado, 2)).number_format = '#,##0.00'
+    ws.cell(row=row, column=6).font = Font(bold=True)
+    ws.cell(row=row, column=7, value=round(total_vigente, 2)).number_format = '#,##0.00'
+    ws.cell(row=row, column=7).font = Font(bold=True)
+    for c in range(1, 8):
+        ws.cell(row=row, column=c).border = Border(
+            left=Side(style='thin'), right=Side(style='thin'),
+            top=Side(style='double'), bottom=Side(style='double')
+        )
+        ws.cell(row=row, column=c).fill = PatternFill(start_color='E8F5E9', end_color='E8F5E9', fill_type='solid')
+
+    for col_letter, width in [('A', 18), ('B', 40), ('C', 16), ('D', 16),
+                               ('E', 18), ('F', 22), ('G', 22)]:
+        ws.column_dimensions[col_letter].width = width
+
+    filename = _build_response_filename('matriz_objetos_gasto', 'xlsx', gestion or 0)
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return output, filename

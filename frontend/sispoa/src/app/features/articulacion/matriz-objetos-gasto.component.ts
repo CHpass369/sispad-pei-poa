@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { ApiService } from '../../core/services/api.service';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-matriz-objetos-gasto',
@@ -36,7 +37,13 @@ import { ApiService } from '../../core/services/api.service';
           </div>
           <div class="field">
             <label>&nbsp;</label>
-            <span class="badge badge-info">{{ filtrados.length }} registros</span>
+            <span class="badge badge-info">Mostrando {{ filtrados.length }} de {{ asignaciones.length }} registros</span>
+          </div>
+          <div class="field export-field">
+            <label>&nbsp;</label>
+            <button class="btn btn-sm btn-outline-success" (click)="exportarXLSX()">
+              ⬇ Exportar XLSX
+            </button>
           </div>
         </div>
       </div>
@@ -130,6 +137,9 @@ import { ApiService } from '../../core/services/api.service';
     .num { text-align: right; font-family: 'Courier New', monospace; font-size: 0.6875rem; }
     .empty-cell { text-align: center; color: var(--text-secondary); padding: 2rem; font-size: 0.875rem; }
     .badge { font-size: 0.6875rem; }
+    .export-field { margin-left: auto; }
+    .btn-outline-success { border: 1px solid var(--primary); color: var(--primary); background: transparent; padding: 0.375rem 0.75rem; border-radius: 4px; cursor: pointer; font-size: 0.75rem; }
+    .btn-outline-success:hover { background: var(--primary); color: white; }
   `],
 })
 export class MatrizObjetosGastoComponent implements OnInit {
@@ -201,5 +211,11 @@ export class MatrizObjetosGastoComponent implements OnInit {
       items = items.filter(i => i.gestion === Number(this.filtroGestion));
     }
     this.filtrados = items;
+  }
+
+  exportarXLSX(): void {
+    const gestion = this.filtroGestion || new Date().getFullYear();
+    const url = `${environment.apiUrl}/api/v1/reportes/articulacion_objetos_gasto/?gestion=${gestion}`;
+    window.open(url, '_blank');
   }
 }

@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { ApiService } from '../../core/services/api.service';
+import { environment } from '../../../environments/environment';
 
 interface OperacionExpandida {
   data: any;
@@ -33,8 +34,24 @@ interface ActividadExpandida {
                    (input)="aplicarFiltro()">
           </div>
           <div class="field">
+            <label>Estado</label>
+            <select [(ngModel)]="filtroEstado" class="form-control" (change)="aplicarFiltro()">
+              <option value="">Todos</option>
+              <option value="REFERENCIAL">Referencial</option>
+              <option value="ENVIADO">Enviado</option>
+              <option value="APROBADO">Aprobado</option>
+              <option value="OBSERVADO">Observado</option>
+            </select>
+          </div>
+          <div class="field">
             <label>&nbsp;</label>
             <span class="badge badge-info">{{ stats.ops }} ops · {{ stats.acts }} acts · {{ stats.tars }} tars</span>
+          </div>
+          <div class="field export-field">
+            <label>&nbsp;</label>
+            <button class="btn btn-sm btn-outline-success" (click)="exportarXLSX()">
+              ⬇ Exportar XLSX
+            </button>
           </div>
         </div>
       </div>
@@ -57,7 +74,7 @@ interface ActividadExpandida {
               </tr>
             </thead>
             <tbody>
-              <ng-container *ngFor="let op of operaciones">
+              <ng-container *ngFor="let op of operacionesFiltradas">
                 <tr class="fila-op" (click)="op.expandida = !op.expandida">
                   <td class="toggle-cell">
                     <span class="toggle-icon" [class.expandido]="op.expandida">▶</span>
@@ -71,8 +88,11 @@ interface ActividadExpandida {
                   <td>{{ op.data.fecha_inicio || '—' }}</td>
                   <td>{{ op.data.fecha_fin || '—' }}</td>
                   <td>
-                    <span class="badge badge-info" *ngIf="op.data.estado==='REFERENCIAL'">{{ op.data.estado }}</span>
-                    <span class="badge badge-success" *ngIf="op.data.estado!=='REFERENCIAL'">{{ op.data.estado }}</span>
+                    <span class="badge"
+                          [class.badge-info]="op.data.estado==='REFERENCIAL'"
+                          [class.badge-warning]="op.data.estado==='ENVIADO'"
+                          [class.badge-success]="op.data.estado==='APROBADO'"
+                          [class.badge-danger]="op.data.estado==='OBSERVADO'">{{ op.data.estado }}</span>
                   </td>
                 </tr>
                 <ng-container *ngIf="op.expandida">
@@ -111,7 +131,7 @@ interface ActividadExpandida {
               <tr *ngIf="cargando">
                 <td colspan="10" class="empty-cell">Cargando datos...</td>
               </tr>
-              <tr *ngIf="!cargando && operaciones.length === 0">
+              <tr *ngIf="!cargando && operacionesFiltradas.length === 0">
                 <td colspan="10" class="empty-cell">No se encontraron operaciones</td>
               </tr>
             </tbody>
@@ -128,7 +148,7 @@ interface ActividadExpandida {
 
     .filtros-card { padding: 1rem; margin-bottom: 1rem; }
     .filtros { display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap; }
-    .filtros .field { min-width: 200px; }
+    .filtros .field { min-width: 160px; }
     .filtros .field label { display: block; font-size: 0.6875rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.25rem; }
 
     .table-scroll { overflow-x: auto; }
@@ -185,12 +205,17 @@ interface ActividadExpandida {
     .num { text-align: right; font-family: 'Courier New', monospace; font-size: 0.75rem; }
     .empty-cell { text-align: center; color: var(--text-secondary); padding: 2rem; font-size: 0.875rem; }
     .badge { font-size: 0.6875rem; }
+    .export-field { margin-left: auto; }
+    .btn-outline-success { border: 1px solid var(--primary); color: var(--primary); background: transparent; padding: 0.375rem 0.75rem; border-radius: 4px; cursor: pointer; font-size: 0.75rem; }
+    .btn-outline-success:hover { background: var(--primary); color: white; }
   `],
 })
 export class MatrizPOAPOAUComponent implements OnInit {
   cargando = true;
   operaciones: OperacionExpandida[] = [];
+  operacionesFiltradas: OperacionExpandida[] = [];
   filtro = '';
+  filtroEstado = '';
   stats = { ops: 0, acts: 0, tars: 0 };
 
   constructor(private api: ApiService) {}
@@ -253,12 +278,22 @@ export class MatrizPOAPOAUComponent implements OnInit {
   }
 
   aplicarFiltro(): void {
-    if (!this.filtro.trim()) {
-      // No filter: restore all
-      return;
+    let items = this.operaciones;
+    if (this.filtro.trim()) {
+      const q = this.filtro.trim().toLowerCase();
+      items = items.filter(op =>
+        op.data.codigo_operacion?.toLowerCase().includes(q) ||
+        op.data.denominacion?.toLowerCase().includes(q)
+      );
     }
-    const q = this.filtro.trim().toLowerCase();
-    // We don't filter the displayed list for now, just leave full dataset
-    // Filter would require re-building the hierarchy
+    if (this.filtroEstado) {
+      items = items.filter(op => op.data.estado === this.filtroEstado);
+    }
+    this.operacionesFiltradas = items;
+  }
+
+  exportarXLSX(): void {
+    const url = `${environment.apiUrl}/api/v1/reportes/articulacion_matriz_pei_poa/?gestion=2026`;
+    window.open(url, '_blank');
   }
 }

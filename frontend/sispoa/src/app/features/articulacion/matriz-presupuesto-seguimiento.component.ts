@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { ApiService } from '../../core/services/api.service';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-matriz-presupuesto-seguimiento',
@@ -37,7 +38,13 @@ import { ApiService } from '../../core/services/api.service';
           </div>
           <div class="field">
             <label>&nbsp;</label>
-            <span class="badge badge-info">{{ filtrados.length }} registros</span>
+            <span class="badge badge-info">Mostrando {{ filtrados.length }} de {{ seguimientos.length }} registros</span>
+          </div>
+          <div class="field export-field">
+            <label>&nbsp;</label>
+            <button class="btn btn-sm btn-outline-success" (click)="exportarXLSX()">
+              ⬇ Exportar XLSX
+            </button>
           </div>
         </div>
       </div>
@@ -152,6 +159,9 @@ import { ApiService } from '../../core/services/api.service';
     .text-danger { color: #C62828; font-weight: 600; }
     .empty-cell { text-align: center; color: var(--text-secondary); padding: 2rem; font-size: 0.875rem; }
     .badge { font-size: 0.6875rem; }
+    .export-field { margin-left: auto; }
+    .btn-outline-success { border: 1px solid var(--primary); color: var(--primary); background: transparent; padding: 0.375rem 0.75rem; border-radius: 4px; cursor: pointer; font-size: 0.75rem; }
+    .btn-outline-success:hover { background: var(--primary); color: white; }
   `],
 })
 export class MatrizPresupuestoSeguimientoComponent implements OnInit {
@@ -223,5 +233,10 @@ export class MatrizPresupuestoSeguimientoComponent implements OnInit {
       items = items.filter(i => i.estado === this.filtroEstado);
     }
     this.filtrados = items;
+  }
+
+  exportarXLSX(): void {
+    const url = `${environment.apiUrl}/api/v1/reportes/articulacion_matriz_pei_poa/?gestion=${this.filtroGestion || new Date().getFullYear()}`;
+    window.open(url, '_blank');
   }
 }

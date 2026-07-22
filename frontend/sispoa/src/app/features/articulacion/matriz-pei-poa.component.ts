@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { ApiService } from '../../core/services/api.service';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-matriz-pei-poa',
@@ -25,8 +26,9 @@ import { ApiService } from '../../core/services/api.service';
             <select [(ngModel)]="filtroEstado" class="form-control" (change)="aplicarFiltros()">
               <option value="">Todos</option>
               <option value="REFERENCIAL">Referencial</option>
-              <option value="VALIDADO">Validado</option>
+              <option value="ENVIADO">Enviado</option>
               <option value="APROBADO">Aprobado</option>
+              <option value="OBSERVADO">Observado</option>
               <option value="EJECUCION">En Ejecución</option>
               <option value="FINALIZADO">Finalizado</option>
             </select>
@@ -40,7 +42,13 @@ import { ApiService } from '../../core/services/api.service';
           </div>
           <div class="field">
             <label>&nbsp;</label>
-            <span class="badge badge-info">{{ filtrados.length }} registros</span>
+            <span class="badge badge-info">Mostrando {{ filtrados.length }} de {{ acciones.length }} registros</span>
+          </div>
+          <div class="field export-field">
+            <label>&nbsp;</label>
+            <button class="btn btn-sm btn-outline-success" (click)="exportarXLSX()">
+              ⬇ Exportar XLSX
+            </button>
           </div>
         </div>
       </div>
@@ -73,7 +81,8 @@ import { ApiService } from '../../core/services/api.service';
                 <td>{{ item.fuente_financiamiento || '—' }}</td>
                 <td>
                   <span class="badge" [class.badge-success]="item.estado==='APROBADO'||item.estado==='FINALIZADO'"
-                        [class.badge-warning]="item.estado==='VALIDADO'||item.estado==='EJECUCION'"
+                        [class.badge-warning]="item.estado==='ENVIADO'||item.estado==='EJECUCION'"
+                        [class.badge-danger]="item.estado==='OBSERVADO'"
                         [class.badge-info]="item.estado==='REFERENCIAL'">
                     {{ item.estado }}
                   </span>
@@ -136,6 +145,9 @@ import { ApiService } from '../../core/services/api.service';
     .num { text-align: right; font-family: 'Courier New', monospace; font-size: 0.75rem; }
     .empty-cell { text-align: center; color: var(--text-secondary); padding: 2rem; font-size: 0.875rem; }
     .badge { font-size: 0.6875rem; }
+    .export-field { margin-left: auto; }
+    .btn-outline-success { border: 1px solid var(--primary); color: var(--primary); background: transparent; padding: 0.375rem 0.75rem; border-radius: 4px; cursor: pointer; font-size: 0.75rem; }
+    .btn-outline-success:hover { background: var(--primary); color: white; }
   `],
 })
 export class MatrizPEIPOAComponent implements OnInit {
@@ -205,5 +217,10 @@ export class MatrizPEIPOAComponent implements OnInit {
       items = items.filter(i => i.gestion === Number(this.filtroGestion));
     }
     this.filtrados = items;
+  }
+
+  exportarXLSX(): void {
+    const url = `${environment.apiUrl}/api/v1/reportes/articulacion_matriz_pei_poa/?gestion=${this.filtroGestion || new Date().getFullYear()}`;
+    window.open(url, '_blank');
   }
 }

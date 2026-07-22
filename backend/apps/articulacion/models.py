@@ -164,6 +164,25 @@ class ResultadoPAD(TimeStampedModel):
             models.Index(fields=['vigencia_desde', 'estado']),
         ]
 
+    def save(self, *args, **kwargs):
+        old_estado = None
+        if self.pk:
+            try:
+                old_estado = ResultadoPAD.objects.get(pk=self.pk).estado
+            except ResultadoPAD.DoesNotExist:
+                pass
+        super().save(*args, **kwargs)
+        if old_estado is not None and old_estado != self.estado:
+            from .services import registrar_auditoria
+            try:
+                registrar_auditoria(
+                    usuario=None, accion='modificar', entidad='ResultadoPAD',
+                    entidad_id=self.id,
+                    detalle=f'Estado cambió de {old_estado} a {self.estado}'
+                )
+            except Exception:
+                pass
+
     def __str__(self):
         return f'[{self.codigo_resultado}] {self.denominacion[:80]}'
 
@@ -267,6 +286,25 @@ class ArticulacionPADPEI(TimeStampedModel):
         verbose_name = 'Articulación PAD-PEI'
         verbose_name_plural = 'Articulaciones PAD-PEI'
         unique_together = [('producto_pad', 'producto_pei')]
+
+    def save(self, *args, **kwargs):
+        old_estado = None
+        if self.pk:
+            try:
+                old_estado = ArticulacionPADPEI.objects.get(pk=self.pk).estado
+            except ArticulacionPADPEI.DoesNotExist:
+                pass
+        super().save(*args, **kwargs)
+        if old_estado is not None and old_estado != self.estado:
+            from .services import registrar_auditoria
+            try:
+                registrar_auditoria(
+                    usuario=None, accion='modificar', entidad='ArticulacionPADPEI',
+                    entidad_id=self.id,
+                    detalle=f'Estado cambió de {old_estado} a {self.estado}'
+                )
+            except Exception:
+                pass
 
     def __str__(self):
         return f'{self.producto_pad.codigo_producto} ↔ {self.producto_pei.codigo_producto}'
@@ -387,6 +425,25 @@ class AccionPOA(TimeStampedModel):
             models.Index(fields=['producto_pei']),
         ]
 
+    def save(self, *args, **kwargs):
+        old_estado = None
+        if self.pk:
+            try:
+                old_estado = AccionPOA.objects.get(pk=self.pk).estado
+            except AccionPOA.DoesNotExist:
+                pass
+        super().save(*args, **kwargs)
+        if old_estado is not None and old_estado != self.estado:
+            from .services import registrar_auditoria
+            try:
+                registrar_auditoria(
+                    usuario=None, accion='modificar', entidad='AccionPOA',
+                    entidad_id=self.id,
+                    detalle=f'Estado cambió de {old_estado} a {self.estado}'
+                )
+            except Exception:
+                pass
+
     def __str__(self):
         return f'[{self.codigo_accion}] {self.denominacion[:80]}'
 
@@ -437,6 +494,25 @@ class OperacionPOAU(TimeStampedModel):
             models.Index(fields=['accion_poa']),
         ]
 
+    def save(self, *args, **kwargs):
+        old_estado = None
+        if self.pk:
+            try:
+                old_estado = OperacionPOAU.objects.get(pk=self.pk).estado
+            except OperacionPOAU.DoesNotExist:
+                pass
+        super().save(*args, **kwargs)
+        if old_estado is not None and old_estado != self.estado:
+            from .services import registrar_auditoria
+            try:
+                registrar_auditoria(
+                    usuario=None, accion='modificar', entidad='OperacionPOAU',
+                    entidad_id=self.id,
+                    detalle=f'Estado cambió de {old_estado} a {self.estado}'
+                )
+            except Exception:
+                pass
+
     def __str__(self):
         return f'[{self.codigo_operacion}] {self.denominacion[:80]}'
 
@@ -481,6 +557,25 @@ class ActividadPOAU(TimeStampedModel):
         indexes = [
             models.Index(fields=['operacion']),
         ]
+
+    def save(self, *args, **kwargs):
+        old_estado = None
+        if self.pk:
+            try:
+                old_estado = ActividadPOAU.objects.get(pk=self.pk).estado
+            except ActividadPOAU.DoesNotExist:
+                pass
+        super().save(*args, **kwargs)
+        if old_estado is not None and old_estado != self.estado:
+            from .services import registrar_auditoria
+            try:
+                registrar_auditoria(
+                    usuario=None, accion='modificar', entidad='ActividadPOAU',
+                    entidad_id=self.id,
+                    detalle=f'Estado cambió de {old_estado} a {self.estado}'
+                )
+            except Exception:
+                pass
 
     def __str__(self):
         return f'[{self.codigo_actividad}] {self.denominacion[:80]}'
@@ -542,6 +637,25 @@ class TareaPOAU(TimeStampedModel):
         indexes = [
             models.Index(fields=['actividad']),
         ]
+
+    def save(self, *args, **kwargs):
+        old_estado = None
+        if self.pk:
+            try:
+                old_estado = TareaPOAU.objects.get(pk=self.pk).estado
+            except TareaPOAU.DoesNotExist:
+                pass
+        super().save(*args, **kwargs)
+        if old_estado is not None and old_estado != self.estado:
+            from .services import registrar_auditoria
+            try:
+                registrar_auditoria(
+                    usuario=None, accion='modificar', entidad='TareaPOAU',
+                    entidad_id=self.id,
+                    detalle=f'Estado cambió de {old_estado} a {self.estado}'
+                )
+            except Exception:
+                pass
 
     def __str__(self):
         return f'[{self.codigo_tarea}] {self.denominacion[:80]}'
@@ -655,6 +769,25 @@ class SeguimientoPresupuesto(TimeStampedModel):
             models.Index(fields=['accion_poa']),
         ]
 
+    def save(self, *args, **kwargs):
+        old_estado = None
+        if self.pk:
+            try:
+                old_estado = SeguimientoPresupuesto.objects.get(pk=self.pk).estado
+            except SeguimientoPresupuesto.DoesNotExist:
+                pass
+        super().save(*args, **kwargs)
+        if old_estado is not None and old_estado != self.estado:
+            from .services import registrar_auditoria
+            try:
+                registrar_auditoria(
+                    usuario=None, accion='modificar', entidad='SeguimientoPresupuesto',
+                    entidad_id=self.id,
+                    detalle=f'Estado cambió de {old_estado} a {self.estado}'
+                )
+            except Exception:
+                pass
+
     def __str__(self):
         return f'SP {self.id_cadena} - G{self.gestion}'
 
@@ -720,6 +853,25 @@ class AsignacionObjetoGasto(TimeStampedModel):
         indexes = [
             models.Index(fields=['gestion', 'estado']),
         ]
+
+    def save(self, *args, **kwargs):
+        old_estado = None
+        if self.pk:
+            try:
+                old_estado = AsignacionObjetoGasto.objects.get(pk=self.pk).estado
+            except AsignacionObjetoGasto.DoesNotExist:
+                pass
+        super().save(*args, **kwargs)
+        if old_estado is not None and old_estado != self.estado:
+            from .services import registrar_auditoria
+            try:
+                registrar_auditoria(
+                    usuario=None, accion='modificar', entidad='AsignacionObjetoGasto',
+                    entidad_id=self.id,
+                    detalle=f'Estado cambió de {old_estado} a {self.estado}'
+                )
+            except Exception:
+                pass
 
     def __str__(self):
         return f'[{self.codigo_asignacion}] G{self.gestion} - {self.descripcion_objeto[:60]}'
