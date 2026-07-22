@@ -30,7 +30,7 @@ export class GestionDetalleComponent implements OnInit {
 
   cargarGestion(id: number): void {
     this.cargando = true;
-    this.api.get<Gestion>(`/api/v1/gestiones/${id}/`).subscribe({
+    this.api.get<Gestion>(`/gestiones/${id}/`).subscribe({
       next: (data) => {
         this.gestion = data;
         this.cargando = false;

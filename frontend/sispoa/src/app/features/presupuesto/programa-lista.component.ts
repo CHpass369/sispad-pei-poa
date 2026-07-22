@@ -90,7 +90,7 @@ export class ProgramaListaComponent implements OnInit {
   constructor(private api: ApiService) {}
 
   ngOnInit(): void {
-    this.api.get<any[]>('/programas-presupuestarios/').subscribe({
+    this.api.get<any[]>('/programas/').subscribe({
       next: d => {
         this.items = d;
         this.filteredItems = [...d];

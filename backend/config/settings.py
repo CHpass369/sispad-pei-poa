@@ -44,6 +44,7 @@ LOCAL_APPS = [
     'apps.notificaciones',
     'apps.seguimiento',
     'apps.acciones_correctivas',
+    'apps.articulacion',
 ]
 
 THIRD_PARTY_APPS = [

@@ -26,13 +26,21 @@ print("=" * 70)
 # FUNCIONES AUXILIARES
 # =========================================================================
 def g(model, defaults=None, **kwargs):
-    obj, created = model.objects.get_or_create(defaults=defaults or {}, **kwargs)
+    defaults = defaults or {}
+    from datetime import date
+    if hasattr(model, 'fecha_vigencia_desde') and 'fecha_vigencia_desde' not in defaults and 'fecha_vigencia_desde' not in kwargs:
+        defaults['fecha_vigencia_desde'] = date(2026, 1, 1)
+    obj, created = model.objects.get_or_create(defaults=defaults, **kwargs)
     if created:
         print(f"  + {model.__name__}: {kwargs.get('codigo', kwargs.get('nombre', kwargs.get('email', str(kwargs)[:60])))}")
     return obj
 
 def gb(model, defaults=None, **kwargs):
-    obj, created = model.objects.get_or_create(defaults=defaults or {}, **kwargs)
+    defaults = defaults or {}
+    from datetime import date
+    if hasattr(model, 'fecha_vigencia_desde') and 'fecha_vigencia_desde' not in defaults and 'fecha_vigencia_desde' not in kwargs:
+        defaults['fecha_vigencia_desde'] = date(2026, 1, 1)
+    obj, created = model.objects.get_or_create(defaults=defaults, **kwargs)
     return obj
 
 # =========================================================================

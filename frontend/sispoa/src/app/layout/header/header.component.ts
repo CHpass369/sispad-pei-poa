@@ -1,9 +1,10 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, Output, ChangeDetectionStrategy } from '@angular/core';
 import { AuthService } from '../../core/services/auth.service';
 
 @Component({
   standalone: false,
   selector: 'app-header',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <header class="header">
       <div class="header-left">
@@ -15,9 +16,9 @@ import { AuthService } from '../../core/services/auth.service';
         <h2>{{ pageTitle }}</h2>
       </div>
       <div class="header-right">
-        <span class="user-info">
-          {{ (auth.user$ | async)?.first_name }} {{ (auth.user$ | async)?.last_name }}
-        </span>
+        <ng-container *ngIf="auth.user$ | async as user">
+          <span class="user-info">{{ user.first_name }} {{ user.last_name }}</span>
+        </ng-container>
         <button class="btn btn-outline btn-sm" (click)="auth.logout()">Salir</button>
       </div>
     </header>

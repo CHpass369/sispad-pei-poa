@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Output } from '@angular/core';
+import { Component, EventEmitter, Output, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { AuthService } from '../../core/services/auth.service';
 import { PermissionsService } from '../../core/services/permissions.service';
 
@@ -17,6 +17,7 @@ interface NavSection {
 @Component({
   standalone: false,
   selector: 'app-sidebar',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <aside class="sidebar" [class.sidebar-collapsed]="collapsed" [class.sidebar-open]="mobileOpen">
       <div class="sidebar-overlay" *ngIf="mobileOpen" (click)="toggleMobile()"></div>
@@ -138,6 +139,7 @@ export class SidebarComponent {
     {
       title: 'FORMULACIÓN',
       items: [
+        { route: '/articulacion', label: 'Articulación PAD-PEI-POA', icon: '🔗', roles: ['superadmin', 'tecnico_admin', 'planificador'] },
         { route: '/articulador', label: 'ARTICULADOR PAD', icon: '◈', roles: ['superadmin', 'tecnico_admin', 'planificador'] },
         { route: '/poau', label: 'POAU por Unidad', icon: '◷', roles: ['superadmin', 'tecnico_admin', 'jefe_ue', 'director'] },
         { route: '/planificacion/formulacion', label: 'Formulación POA', icon: '✎', roles: ['superadmin', 'tecnico_admin', 'planificador'] },
@@ -196,8 +198,22 @@ export class SidebarComponent {
     },
   ];
 
-  get visibleSections(): NavSection[] {
-    return this.allSections
+  visibleSections: NavSection[] = [];
+
+  constructor(
+    public auth: AuthService,
+    private permissions: PermissionsService,
+    private cdr: ChangeDetectorRef,
+  ) {
+    this.rebuildMenu();
+    this.auth.user$.subscribe(() => {
+      this.rebuildMenu();
+      this.cdr.markForCheck();
+    });
+  }
+
+  private rebuildMenu(): void {
+    this.visibleSections = this.allSections
       .map(section => ({
         ...section,
         items: section.items.filter(item =>
@@ -206,11 +222,6 @@ export class SidebarComponent {
       }))
       .filter(section => section.items.length > 0);
   }
-
-  constructor(
-    public auth: AuthService,
-    private permissions: PermissionsService,
-  ) {}
 
   toggleCollapse(): void {
     this.collapsed = !this.collapsed;

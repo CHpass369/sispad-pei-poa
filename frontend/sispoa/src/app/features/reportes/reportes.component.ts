@@ -115,16 +115,16 @@ interface TipoReporte {
 })
 export class ReportesComponent {
   tipos: TipoReporte[] = [
-    { id: 'poa-unidad', label: 'POA por Unidad', formatos: ['xlsx', 'pdf'], endpoint: '/reportes/poa-unidad/' },
+    { id: 'poa_unidad', label: 'POA por Unidad', formatos: ['xlsx', 'pdf'], endpoint: '/reportes/poa_unidad/' },
     { id: 'consolidado', label: 'Consolidado', formatos: ['xlsx', 'csv', 'pdf'], endpoint: '/reportes/consolidado/' },
     { id: 'proyectos', label: 'Proyectos', formatos: ['xlsx', 'pdf'], endpoint: '/reportes/proyectos/' },
     { id: 'observaciones', label: 'Observaciones', formatos: ['xlsx', 'csv', 'pdf'], endpoint: '/reportes/observaciones/' },
     { id: 'mapa', label: 'Mapa', formatos: ['pdf'], endpoint: '/reportes/mapa/' },
-    { id: 'acta-aprobacion', label: 'Acta de aprobación', formatos: ['pdf'], endpoint: '/reportes/acta-aprobacion/' },
-    { id: 'auxiliar-pluri', label: 'Auxiliar Pluri', formatos: ['xlsx'], endpoint: '/reportes/auxiliar-pluri/' },
-    { id: 'evaluacion-cuadro1', label: 'Evaluación — Cuadro N°1', formatos: ['xlsx'], endpoint: '/reportes/evaluacion-cuadro1/' },
-    { id: 'evaluacion-cuadro2', label: 'Evaluación — Cuadro N°2', formatos: ['xlsx'], endpoint: '/reportes/evaluacion-cuadro2/' },
-    { id: 'evaluacion-cuadro3', label: 'Evaluación — Cuadro N°3', formatos: ['xlsx'], endpoint: '/reportes/evaluacion-cuadro3/' },
+    { id: 'acta_aprobacion', label: 'Acta de aprobación', formatos: ['pdf'], endpoint: '/reportes/acta_aprobacion/' },
+    { id: 'auxiliar_pluri', label: 'Auxiliar Pluri', formatos: ['xlsx'], endpoint: '/reportes/auxiliar_pluri/' },
+    { id: 'evaluacion_cuadro1', label: 'Evaluación — Cuadro N°1', formatos: ['xlsx'], endpoint: '/reportes/evaluacion_cuadro1/' },
+    { id: 'evaluacion_cuadro2', label: 'Evaluación — Cuadro N°2', formatos: ['xlsx'], endpoint: '/reportes/evaluacion_cuadro2/' },
+    { id: 'evaluacion_cuadro3', label: 'Evaluación — Cuadro N°3', formatos: ['xlsx'], endpoint: '/reportes/evaluacion_cuadro3/' },
   ];
 
   tipoSeleccionado = '';

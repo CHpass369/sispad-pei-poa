@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { ApiService } from '../../core/services/api.service';
 
 @Component({
@@ -507,7 +507,7 @@ export class ArticuladorComponent implements OnInit {
     {cod:'16',nombre:'Paz y justicia'},{cod:'17',nombre:'Alianzas globales'},
   ];
 
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void {
     this.cargarSectores(); this.cargarPoliticas(); this.cargarLineamientos();
@@ -584,8 +584,12 @@ export class ArticuladorComponent implements OnInit {
         setTimeout(() => { this.paso = 8; }, 800);
       },
       error: (e: any) => {
-        this.msg = '❌ ' + (e.message || JSON.stringify(e).slice(0,200));
+        console.error('Error guardando resultado:', e);
+        const errBody = e.error || e;
+        const detail = errBody?.error ? (typeof errBody.error === 'object' ? Object.values(errBody.error).flat().join('; ') : String(errBody.error)) : (e.message || 'Error desconocido');
+        this.msg = '❌ ' + detail;
         this.msgClass = 'error';
+        this.cdr.markForCheck();
       }
     });
   }

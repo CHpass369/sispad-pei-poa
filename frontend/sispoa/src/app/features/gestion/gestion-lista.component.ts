@@ -35,7 +35,7 @@ export class GestionListaComponent implements OnInit {
 
   cargarGestiones(): void {
     this.cargando = true;
-    this.api.get<Gestion[]>('/api/v1/gestiones/').subscribe({
+    this.api.get<Gestion[]>('/gestiones/').subscribe({
       next: (data) => {
         this.gestiones = data;
         this.cargando = false;
@@ -67,7 +67,7 @@ export class GestionListaComponent implements OnInit {
     }
 
     if (this.editando && this.gestionIdEditar) {
-      this.api.put<Gestion>(`/api/v1/gestiones/${this.gestionIdEditar}/`, this.form).subscribe({
+      this.api.put<Gestion>(`/gestiones/${this.gestionIdEditar}/`, this.form).subscribe({
         next: () => {
           this.cerrarFormulario();
           this.cargarGestiones();
@@ -75,7 +75,7 @@ export class GestionListaComponent implements OnInit {
         error: () => (this.error = 'Error al actualizar gestión'),
       });
     } else {
-      this.api.post<Gestion>('/api/v1/gestiones/', this.form).subscribe({
+      this.api.post<Gestion>('/gestiones/', this.form).subscribe({
         next: () => {
           this.cerrarFormulario();
           this.cargarGestiones();

@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { FormBuilder, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
@@ -6,6 +6,7 @@ import { AuthService } from '../../core/services/auth.service';
 @Component({
   standalone: false,
   selector: 'app-login',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="login-page">
       <div class="login-card">
@@ -81,17 +82,20 @@ export class LoginComponent {
     private fb: FormBuilder,
     private auth: AuthService,
     private router: Router,
+    private cdr: ChangeDetectorRef,
   ) {}
 
   onSubmit(): void {
     if (this.loginForm.invalid) return;
     this.loading = true;
     this.error = '';
+    this.cdr.markForCheck();
     this.auth.login(this.loginForm.value as any).subscribe({
       next: () => this.router.navigate(['/dashboard']),
       error: (err) => {
         this.error = err.message || 'Credenciales inválidas';
         this.loading = false;
+        this.cdr.markForCheck();
       },
     });
   }

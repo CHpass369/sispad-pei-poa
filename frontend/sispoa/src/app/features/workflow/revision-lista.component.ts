@@ -31,7 +31,7 @@ export class RevisionListaComponent implements OnInit {
 
   cargar(): void {
     this.cargando = true;
-    this.api.get<Revision[]>('/api/v1/revisiones/').subscribe({
+    this.api.get<Revision[]>('/revisiones/').subscribe({
       next: (data) => {
         this.revisiones = data;
         this.aplicarFiltros();

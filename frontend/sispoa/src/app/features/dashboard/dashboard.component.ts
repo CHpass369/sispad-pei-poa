@@ -1,10 +1,11 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { AuthService } from '../../core/services/auth.service';
 import { ApiService } from '../../core/services/api.service';
 
 @Component({
   standalone: false,
   selector: 'app-dashboard',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="dashboard">
       <div class="page-header">
@@ -33,7 +34,7 @@ import { ApiService } from '../../core/services/api.service';
           </div>
           <div class="card stat-card">
             <div class="stat-icon">📊</div>
-            <div class="stat-value">{{ kpis.ejecucion_porcentaje || 0 }}%</div>
+            <div class="stat-value">{{ kpis.avance || 0 }}%</div>
             <div class="stat-label">Ejecución Global</div>
           </div>
           <div class="card stat-card">
@@ -116,6 +117,7 @@ export class DashboardComponent implements OnInit {
   constructor(
     private auth: AuthService,
     private api: ApiService,
+    private cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
@@ -124,35 +126,18 @@ export class DashboardComponent implements OnInit {
         this.userName = `${user.first_name} ${user.last_name}`.trim() || user.email;
         this.userEmail = user.email;
         this.rolLabel = user.roles_detalle?.length ? user.roles_detalle[0].nombre : 'Usuario';
+        this.cdr.markForCheck();
       }
     });
-    // Si el usuario no está cargado aún (login reciente), cargarlo
-    if (!this.auth['userSubject'].value) {
-      this.auth['loadUser']();
-    }
-    this.cargarKpis();
-    this.cargarNotificaciones();
-  }
-
-  cargarKpis(): void {
+    // Cargar KPIs y notificaciones en paralelo
     this.cargando = true;
     this.api.get<any>('/dashboard/kpis/').subscribe({
-      next: (data) => {
-        this.kpis = data;
-        this.cargando = false;
-      },
-      error: () => {
-        this.kpis = {};
-        this.cargando = false;
-      },
+      next: (data) => { this.kpis = data; this.cargando = false; this.cdr.markForCheck(); },
+      error: () => { this.kpis = {}; this.cargando = false; this.cdr.markForCheck(); },
+    });
+    this.api.get<any>('/notificaciones/resumen/').subscribe({
+      next: (data) => { this.notifCount = data.no_leidas || 0; this.cdr.markForCheck(); },
     });
   }
 
-  cargarNotificaciones(): void {
-    this.api.get<any>('/notificaciones/resumen/').subscribe({
-      next: (data) => {
-        this.notifCount = data.no_leidas || 0;
-      },
-    });
-  }
 }

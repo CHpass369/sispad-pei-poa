@@ -160,14 +160,14 @@ export class DistribucionListaComponent implements OnInit {
   }
 
   private load(): void {
-    this.api.get<any[]>('/distribucion-techos/').subscribe({
+    this.api.get<any[]>('/distribuciones-techo/').subscribe({
       next: d => this.items = d,
       error: e => this.error = 'Error al cargar distribuciones: ' + (e.message || e),
     });
   }
 
   private loadUnidades(): void {
-    this.api.get<any[]>('/unidades-organizacionales/').subscribe({
+    this.api.get<any[]>('/unidades/').subscribe({
       next: d => this.unidades = d,
     });
   }
@@ -208,8 +208,8 @@ export class DistribucionListaComponent implements OnInit {
     };
 
     const request = this.editingId
-      ? this.api.put(`/distribucion-techos/${this.editingId}/`, body)
-      : this.api.post('/distribucion-techos/', body);
+      ? this.api.put(`/distribuciones-techo/${this.editingId}/`, body)
+      : this.api.post('/distribuciones-techo/', body);
 
     request.subscribe({
       next: () => {

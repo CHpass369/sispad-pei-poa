@@ -26,7 +26,7 @@ export class ObservacionListaComponent implements OnInit {
 
   cargar(): void {
     this.cargando = true;
-    this.api.get<Observacion[]>('/api/v1/observaciones/').subscribe({
+    this.api.get<Observacion[]>('/observaciones/').subscribe({
       next: (data) => {
         this.observaciones = data;
         this.aplicarFiltros();

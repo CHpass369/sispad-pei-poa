@@ -24,6 +24,7 @@ const routes: Routes = [
       { path: 'territorio', loadChildren: () => import('../features/territorio/territorio.module').then(m => m.TerritorioModule) },
       { path: 'workflow', loadChildren: () => import('../features/workflow/workflow.module').then(m => m.WorkflowModule) },
       { path: 'reportes', loadChildren: () => import('../features/reportes/reportes.module').then(m => m.ReportesModule) },
+      { path: 'articulacion', loadChildren: () => import('../features/articulacion/articulacion.module').then(m => m.ArticulacionModule) },
       { path: 'articulador', loadChildren: () => import('../features/pad/pad.module').then(m => m.PadModule) },
       { path: 'poau', loadChildren: () => import('../features/poau/poau.module').then(m => m.PoauModule) },
       { path: 'auditoria', loadChildren: () => import('../features/auditoria/auditoria.module').then(m => m.AuditoriaModule) },

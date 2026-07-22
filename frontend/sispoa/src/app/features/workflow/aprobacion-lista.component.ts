@@ -31,7 +31,7 @@ export class AprobacionListaComponent implements OnInit {
 
   cargar(): void {
     this.cargando = true;
-    this.api.get<Aprobacion[]>('/api/v1/aprobaciones/').subscribe({
+    this.api.get<Aprobacion[]>('/aprobaciones/').subscribe({
       next: (data) => {
         this.aprobaciones = data;
         this.aplicarFiltros();
