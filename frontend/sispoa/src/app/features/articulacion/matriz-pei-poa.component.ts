@@ -46,6 +46,10 @@ import { environment } from '../../../environments/environment';
           </div>
           <div class="field export-field">
             <label>&nbsp;</label>
+            <a routerLink="./nuevo" class="btn btn-sm btn-primary">+ Nueva</a>
+          </div>
+          <div class="field export-field">
+            <label>&nbsp;</label>
             <button class="btn btn-sm btn-outline-success" (click)="exportarXLSX()">
               ⬇ Exportar XLSX
             </button>
@@ -168,7 +172,7 @@ export class MatrizPEIPOAComponent implements OnInit {
 
   cargarDatos(): void {
     this.cargando = true;
-    this.api.get<any>('/articulacion/acciones-poa/').subscribe({
+    this.api.get<any>('/articulacion/matrices/m2_pei_poa/').subscribe({
       next: (r) => {
         const items = r.results || r || [];
         // Cargar productos PEI para nombres

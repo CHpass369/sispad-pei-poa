@@ -41,6 +41,10 @@ import { environment } from '../../../environments/environment';
           </div>
           <div class="field export-field">
             <label>&nbsp;</label>
+            <a routerLink="./nuevo" class="btn btn-sm btn-primary">+ Nueva</a>
+          </div>
+          <div class="field export-field">
+            <label>&nbsp;</label>
             <button class="btn btn-sm btn-outline-success" (click)="exportarXLSX()">
               ⬇ Exportar XLSX
             </button>
@@ -162,7 +166,7 @@ export class MatrizObjetosGastoComponent implements OnInit {
   private cargarDatos(): void {
     this.cargando = true;
     Promise.all([
-      this.fetchList('/articulacion/asignaciones-gasto/'),
+      this.fetchList('/articulacion/matrices/m5_objetos_gasto/'),
       this.fetchList('/articulacion/actividades/'),
     ]).then(([asigs, acts]) => {
       const actMap = this.buildMap(acts, 'id');

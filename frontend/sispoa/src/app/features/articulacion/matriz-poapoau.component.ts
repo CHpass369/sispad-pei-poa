@@ -49,6 +49,10 @@ interface ActividadExpandida {
           </div>
           <div class="field export-field">
             <label>&nbsp;</label>
+            <a routerLink="./nuevo" class="btn btn-sm btn-primary">+ Nueva</a>
+          </div>
+          <div class="field export-field">
+            <label>&nbsp;</label>
             <button class="btn btn-sm btn-outline-success" (click)="exportarXLSX()">
               ⬇ Exportar XLSX
             </button>
@@ -227,7 +231,7 @@ export class MatrizPOAPOAUComponent implements OnInit {
   cargarDatos(): void {
     this.cargando = true;
     Promise.all([
-      this.fetchList('/articulacion/operaciones/'),
+      this.fetchList('/articulacion/matrices/m3_poa_poau/'),
       this.fetchList('/articulacion/actividades/'),
       this.fetchList('/articulacion/tareas/'),
     ]).then(([ops, acts, tars]) => {

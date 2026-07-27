@@ -8,6 +8,7 @@ from .views import (
     TareaNormativaViewSet, SeguimientoPresupuestoViewSet,
     AsignacionObjetoGastoViewSet,
 )
+from .views_matrices import MatrizViewSet
 
 router = DefaultRouter()
 router.register(r'resultados-pad', ResultadoPADViewSet)
@@ -28,5 +29,6 @@ router.register(r'acuerdos', AcuerdoInternacionalViewSet)
 router.register(r'normativas', NormativaViewSet)
 router.register(r'codigos-nivel', CodigoNivelViewSet)
 router.register(r'lineamientos-pad', LineamientoPADViewSet)
+router.register(r'matrices', MatrizViewSet, basename='matrices')
 
 urlpatterns = router.urls
