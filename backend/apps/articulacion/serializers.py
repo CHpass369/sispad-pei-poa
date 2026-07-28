@@ -43,10 +43,17 @@ class LineamientoPADSerializer(serializers.ModelSerializer):
 
 
 class ResultadoPADSerializer(serializers.ModelSerializer):
+    nodo_pdesa_display = serializers.SerializerMethodField()
+
     class Meta:
         model = ResultadoPAD
         fields = '__all__'
         read_only_fields = ['id', 'created_at', 'updated_at', 'created_by', 'updated_by']
+
+    def get_nodo_pdesa_display(self, obj):
+        if obj.nodo_pdesa:
+            return f'[{obj.nodo_pdesa.codigo}] {obj.nodo_pdesa.nombre[:80]}'
+        return None
 
 
 class ProductoPADSerializer(serializers.ModelSerializer):

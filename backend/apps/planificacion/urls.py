@@ -3,7 +3,7 @@ from .views import (
     PlanViewSet, NodoPlanificacionViewSet,
     AccionMedianoPlazoViewSet, AccionCortoPlazoViewSet,
     ArticulacionPlanificacionViewSet, FormulacionViewSet,
-    PlanVersionViewSet
+    PlanVersionViewSet, MatrizCompletaViewSet,
 )
 from .articulacion_api import ArticulacionViewSet
 
@@ -16,5 +16,6 @@ router.register(r'acciones-corto-plazo', AccionCortoPlazoViewSet)
 router.register(r'articulaciones', ArticulacionPlanificacionViewSet)
 router.register(r'formulacion', FormulacionViewSet, basename='formulacion')
 router.register(r'articular', ArticulacionViewSet, basename='articular')
+router.register(r'matriz-completa', MatrizCompletaViewSet, basename='matriz-completa')
 
 urlpatterns = router.urls
