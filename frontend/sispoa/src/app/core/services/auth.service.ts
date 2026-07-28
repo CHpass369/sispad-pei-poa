@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, tap } from 'rxjs';
+import { BehaviorSubject, Observable, tap, switchMap, of } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { LoginRequest, LoginResponse, Usuario } from '../models/usuario.model';
 
@@ -24,12 +24,10 @@ export class AuthService {
     }
   }
 
-  login(data: LoginRequest): Observable<LoginResponse> {
+  login(data: LoginRequest): Observable<Usuario> {
     return this.http.post<LoginResponse>(`${this.api}/login/`, data).pipe(
-      tap(res => {
-        localStorage.setItem(this.tokenKey, JSON.stringify(res));
-        this.loadUser();
-      })
+      tap(res => localStorage.setItem(this.tokenKey, JSON.stringify(res))),
+      switchMap(() => this.fetchUser()),
     );
   }
 
@@ -59,11 +57,19 @@ export class AuthService {
     }
   }
 
+  /** Obtiene el usuario de la API y lo emite en userSubject */
+  private fetchUser(): Observable<Usuario> {
+    return this.http.get<Usuario>(`${this.api}/usuarios/me/`).pipe(
+      tap({
+        next: user => this.userSubject.next(user),
+        error: () => this.logout(),
+      }),
+    );
+  }
+
+  /** Carga el usuario (usado desde init, sin esperar respuesta) */
   loadUser(): void {
-    this.http.get<Usuario>(`${this.api}/usuarios/me/`).subscribe({
-      next: user => this.userSubject.next(user),
-      error: () => this.logout(),
-    });
+    this.fetchUser().subscribe();
   }
 
   isAuthenticated(): boolean {
