@@ -148,6 +148,12 @@ class ResultadoPAD(TimeStampedModel):
     cod_eje_pgdesa = models.CharField(max_length=10, blank=True, verbose_name='Código eje PGDESA')
     objetivo_impacto = models.TextField(blank=True, verbose_name='Objetivo de impacto')
     cod_componente_pdesa = models.CharField(max_length=10, blank=True, verbose_name='Código componente PDESA')
+    nodo_pdesa = models.ForeignKey(
+        'planificacion.NodoPlanificacion', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='resultados_pad',
+        limit_choices_to={'plan__tipo': 'pdesa', 'nivel': 'accion'},
+        verbose_name='Nodo PDESA'
+    )
     objetivo_efecto = models.TextField(blank=True, verbose_name='Objetivo de efecto')
     cod_sector = models.CharField(max_length=10, blank=True, verbose_name='Código sector')
     sector = models.CharField(max_length=200, blank=True, verbose_name='Sector')

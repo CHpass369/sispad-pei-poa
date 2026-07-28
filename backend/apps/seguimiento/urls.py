@@ -7,7 +7,7 @@ from .views import (
 )
 
 router = DefaultRouter()
-router.register(r'reportes', ReporteSeguimientoViewSet)
+router.register(r'reportes-seguimiento', ReporteSeguimientoViewSet)
 router.register(r'entradas', EntradaSeguimientoViewSet, basename='entrada-seguimiento')
 router.register(r'alertas', AlertaViewSet)
 router.register(r'umbrales', UmbralConfiguracionViewSet)

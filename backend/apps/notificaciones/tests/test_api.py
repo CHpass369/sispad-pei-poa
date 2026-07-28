@@ -222,7 +222,7 @@ class NotificacionViewSetTests(TestCase):
         response = self.client.get('/api/v1/notificaciones/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         for item in response.data['results']:
-            self.assertEqual(item['user'], str(self.user.id))
+            self.assertEqual(str(item['user']), str(self.user.id))
 
     def test_notificar_sin_preferencias(self):
         user_sin_pref = Usuario.objects.create_user(

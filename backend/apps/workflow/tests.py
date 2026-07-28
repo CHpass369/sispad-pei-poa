@@ -2,6 +2,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 from unittest.mock import patch
 
+from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient, APITestCase
@@ -152,6 +153,8 @@ class WorkflowBaseTestCase(TestCase):
             codigo='ACP-001', nombre='Acción Corto Plazo',
             accion_mediano_plazo=self.amp,
             unidad_responsable=self.unidad, gestion=2026,
+            fecha_inicio=date(2026, 1, 1),
+            fecha_fin=date(2026, 12, 31),
         )
         self.poau = POAU.objects.create(
             unidad=self.unidad, gestion=2026,
@@ -676,11 +679,12 @@ class PresupuestoCeilingValidationTest(WorkflowBaseTestCase):
     """Tests de validación de techos presupuestarios."""
 
     def test_techo_no_puede_ser_negativo(self):
-        with self.assertRaises(Exception):
-            TechoPresupuestario.objects.create(
-                gestion=2026, monto_total=Decimal('-100.00'),
-                fuente=self.fuente,
-            )
+        techo = TechoPresupuestario(
+            gestion=2026, monto_total=Decimal('-100.00'),
+            fuente=self.fuente,
+        )
+        with self.assertRaises(ValidationError):
+            techo.full_clean()
 
     def test_distribucion_no_supera_techo(self):
         dist = DistribucionTecho.objects.create(
@@ -773,6 +777,6 @@ class APIClientWorkflowTest(APITestCase):
             'comentario': 'Envío de prueba API',
         }
         response = self.client_obj.post(
-            '/api/workflow/envios-formulacion/', envio_data, format='json'
+            '/api/v1/envios/', envio_data, format='json'
         )
         self.assertIn(response.status_code, [201, 400])

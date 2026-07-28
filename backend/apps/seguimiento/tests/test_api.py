@@ -60,7 +60,7 @@ class ReporteSeguimientoViewSetTests(TestCase):
 
     def test_crear_reporte_seguimiento(self):
         response = self.client.post(
-            '/api/v1/reportes/',
+            '/api/v1/reportes-seguimiento/',
             self.reporte_data,
             format='json',
         )
@@ -358,11 +358,11 @@ class ReporteSeguimientoViewSetTests(TestCase):
 
     def test_listar_sin_autenticacion_401(self):
         self.client.force_authenticate(user=None)
-        response = self.client.get('/api/v1/reportes/')
+        response = self.client.get('/api/v1/reportes-seguimiento/')
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
         response = self.client.post(
-            '/api/v1/reportes/',
+            '/api/v1/reportes-seguimiento/',
             self.reporte_data,
             format='json',
         )

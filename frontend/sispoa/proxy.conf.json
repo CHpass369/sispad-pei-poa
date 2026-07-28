@@ -1,15 +1,15 @@
 {
   "/api": {
-    "target": "http://localhost:9999",
+    "target": "http://localhost:8000",
     "secure": false,
     "changeOrigin": true
   },
   "/media": {
-    "target": "http://localhost:9999",
+    "target": "http://localhost:8000",
     "secure": false
   },
   "/static": {
-    "target": "http://localhost:9999",
+    "target": "http://localhost:8000",
     "secure": false
   }
 }

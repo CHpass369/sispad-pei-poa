@@ -217,8 +217,10 @@ class SolicitudModificacionViewSetTests(TestCase):
             valor_propuesto='20000',
         )
         impacto = calcular_impacto_financiero(self.solicitud)
-        total_esperado = abs(Decimal('80000') - Decimal('50000')) + abs(
-            Decimal('20000') - Decimal('30000')
+        # El impacto se calcula como el valor absoluto de la suma neta de cambios
+        total_esperado = abs(
+            (Decimal('80000') - Decimal('50000'))
+            + (Decimal('20000') - Decimal('30000'))
         )
         self.assertEqual(impacto.impacto_financiero, total_esperado)
 
