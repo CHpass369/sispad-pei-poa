@@ -169,5 +169,12 @@ export class ArticulacionHomeComponent {
       icon: '💰',
       color: '#4CAF50',
     },
+    {
+      route: '/articulacion/matriz-completa',
+      title: 'Matriz Completa PGDESA→POA',
+      description: 'Árbol jerárquico completo de articulación: PGDESA, PDESA, PAD, PEI y POA',
+      icon: '🌳',
+      color: '#1565C0',
+    },
   ];
 }

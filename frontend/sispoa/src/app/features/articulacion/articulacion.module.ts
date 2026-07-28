@@ -13,6 +13,7 @@ import { ArticulacionFormM2Component } from './articulacion-form-m2.component';
 import { ArticulacionFormM3Component } from './articulacion-form-m3.component';
 import { ArticulacionFormM4Component } from './articulacion-form-m4.component';
 import { ArticulacionFormM5Component } from './articulacion-form-m5.component';
+import { MatrizCompletaComponent } from './matriz-completa.component';
 
 const routes: Routes = [
   { path: '', component: ArticulacionHomeComponent },
@@ -26,6 +27,7 @@ const routes: Routes = [
   { path: 'presupuesto-seguimiento/nuevo', component: ArticulacionFormM4Component },
   { path: 'objetos-gasto', component: MatrizObjetosGastoComponent },
   { path: 'objetos-gasto/nuevo', component: ArticulacionFormM5Component },
+  { path: 'matriz-completa', component: MatrizCompletaComponent },
 ];
 
 @NgModule({
@@ -42,6 +44,6 @@ const routes: Routes = [
     ArticulacionFormM4Component,
     ArticulacionFormM5Component,
   ],
-  imports: [CommonModule, FormsModule, RouterModule.forChild(routes)],
+  imports: [CommonModule, FormsModule, RouterModule.forChild(routes), MatrizCompletaComponent],
 })
 export class ArticulacionModule {}
