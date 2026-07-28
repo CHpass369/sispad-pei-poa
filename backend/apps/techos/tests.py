@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from django.test import TestCase
 from django.core.exceptions import ValidationError
+from django.db.models import Sum
 from django.utils import timezone
 
 from apps.accounts.models import Usuario
@@ -278,7 +279,7 @@ class MovimientoTechoModelTest(TechosBaseTestCase):
         )
         total_distribuido = DistribucionTecho.objects.filter(
             techo=self.techo, activo=True
-        ).aggregate(total=Decimal('0'))['total']
+        ).aggregate(total=Sum('monto_asignado'))['total']
         saldo = self.techo.monto_total - total_distribuido
         self.assertGreaterEqual(saldo, Decimal('0'))
 

@@ -1,3 +1,4 @@
+import datetime
 from decimal import Decimal, InvalidOperation
 from django.db.models import Sum, Count, Q, Avg, F
 from django.utils import timezone
@@ -75,7 +76,7 @@ def calcular_proyeccion_cierre(entry):
     Retorna un diccionario con proyeccion_fisica y proyeccion_financiera.
     """
     ahora = timezone.now()
-    inicio_anio = timezone.datetime(ahora.year, 1, 1, tzinfo=timezone.utc)
+    inicio_anio = timezone.datetime(ahora.year, 1, 1, tzinfo=datetime.timezone.utc)
     dias_transcurridos = max((ahora - inicio_anio).days, 1)
     dias_totales = 365
     factor_proyeccion = Decimal(str(dias_totales / dias_transcurridos))

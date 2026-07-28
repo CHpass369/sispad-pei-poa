@@ -1,3 +1,4 @@
+import datetime
 from django.test import TestCase
 from django.db import IntegrityError
 from apps.articulacion.models import (
@@ -6,6 +7,20 @@ from apps.articulacion.models import (
     ArticulacionPADPEI, IndicadorCadena, AccionPOA, OperacionPOAU,
     ActividadPOAU, TareaPOAU, SeguimientoPresupuesto, AsignacionObjetoGasto,
 )
+from apps.planificacion.models import Plan, NodoPlanificacion
+
+
+def _plan_defaults(**kwargs):
+    defaults = dict(
+        codigo='TEST-PLAN',
+        nombre='Test Plan',
+        tipo='pgdesa',
+        gestion_inicio=2026,
+        gestion_fin=2030,
+        fecha_vigencia_desde=datetime.date(2026, 1, 1),
+    )
+    defaults.update(kwargs)
+    return defaults
 
 
 class CodigoNivelModelTest(TestCase):
@@ -74,7 +89,7 @@ class NormativaModelTest(TestCase):
             reemplazada_por=self.norma
         )
         self.assertEqual(nueva.reemplazada_por, self.norma)
-        self.assertIn(self.norma, nueva.reemplazada_por.reemplazos.all())
+        self.assertIn(nueva, self.norma.reemplazos.all())
 
     def test_unique_codigo_norma(self):
         with self.assertRaises(IntegrityError):
@@ -122,6 +137,25 @@ class ResultadoPADModelTest(TestCase):
                 lineamiento_pad='03', vigencia_desde=2027, vigencia_hasta=2030,
                 cod_geografico='00', eta='ETA02'
             )
+
+
+    def test_nodo_pdesa_fk_nullable_by_default(self):
+        """nodo_pdesa debe ser nullable por defecto (backward compat)"""
+        self.assertIsNone(self.resultado.nodo_pdesa)
+
+    def test_nodo_pdesa_fk_accepts_pdesa_nodo(self):
+        """nodo_pdesa debe aceptar un NodoPlanificacion de plan PDESA"""
+        plan = Plan.objects.create(**_plan_defaults(
+            codigo='PDESA-2026-2030', tipo='pdesa',
+        ))
+        nodo = NodoPlanificacion.objects.create(
+            plan=plan, nivel='accion', codigo='01',
+            nombre='Acción PDESA', gestion=2026,
+        )
+        self.resultado.nodo_pdesa = nodo
+        self.resultado.save()
+        self.resultado.refresh_from_db()
+        self.assertEqual(self.resultado.nodo_pdesa, nodo)
 
 
 class ProductoPADModelTest(TestCase):
@@ -406,11 +440,20 @@ class AsignacionObjetoGastoModelTest(TestCase):
             denominacion='Acción POA',
             producto_pei=producto_pei, gestion=2026
         )
+        self.operacion = OperacionPOAU.objects.create(
+            codigo_operacion='OP0001', denominacion='Operación test',
+            tipo_operacion='SUSTANTIVA', accion_poa=self.accion,
+        )
+        self.actividad = ActividadPOAU.objects.create(
+            codigo_actividad='AC0001', denominacion='Actividad test',
+            operacion=self.operacion,
+        )
 
     def test_create_asignacion(self):
         asig = AsignacionObjetoGasto.objects.create(
             codigo_asignacion='00000001', gestion=2026,
             accion_poa=self.accion,
+            operacion=self.operacion, actividad=self.actividad,
             categoria_programatica='CP001', da='DA01',
             ue='UE01', programa='Programa 1',
             cod_objeto_gasto='21000',

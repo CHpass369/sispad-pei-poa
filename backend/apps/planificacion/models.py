@@ -8,6 +8,8 @@ class Plan(TimeStampedModel, ActivableModel, VigenciaModel):
     TIPO_CHOICES = [
         ('pdes', 'PDES'),
         ('ptdi', 'PTDI'),
+        ('pgdesa', 'PGDESA'),
+        ('pdesa', 'PDESA'),
         ('pei', 'PEI'),
         ('sectorial', 'Plan Sectorial'),
         ('municipal', 'Plan Municipal'),
@@ -52,6 +54,8 @@ class NodoPlanificacion(TimeStampedModel, ActivableModel):
         ('eje', 'Eje Estratégico'),
         ('meta', 'Meta'),
         ('resultado', 'Resultado'),
+        ('componente', 'Componente'),
+        ('accion', 'Acción'),
         ('accion_nacional', 'Acción Nacional'),
         ('accion_pdes', 'Acción PDES/PTDI/PEI'),
         ('accion_mediano', 'Acción de Mediano Plazo'),
@@ -78,6 +82,20 @@ class NodoPlanificacion(TimeStampedModel, ActivableModel):
         indexes = [
             models.Index(fields=['nivel', 'gestion']),
         ]
+
+    def save(self, *args, **kwargs):
+        if not self.codigo and self.plan and self.plan.tipo in ('pgdesa', 'pdesa'):
+            if self.padre:
+                siblings = NodoPlanificacion.objects.filter(
+                    padre=self.padre, plan=self.plan
+                ).exclude(id=self.id).count()
+                self.codigo = f"{self.padre.codigo}.{siblings + 1:02d}"
+            else:
+                siblings = NodoPlanificacion.objects.filter(
+                    padre=None, plan=self.plan
+                ).exclude(id=self.id).count()
+                self.codigo = f"{siblings + 1:02d}"
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f'[{self.get_nivel_display()}] {self.codigo} - {self.nombre[:80]}'

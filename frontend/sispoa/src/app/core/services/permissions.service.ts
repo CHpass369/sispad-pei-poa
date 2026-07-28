@@ -5,12 +5,17 @@ import { AuthService } from './auth.service';
 export class PermissionsService {
   constructor(private authService: AuthService) {}
 
+  /** Superuser tiene acceso a todo, sin importar roles asignados */
+  private get isSuperuser(): boolean {
+    return this.authService['userSubject'].value?.is_superuser ?? false;
+  }
+
   hasRole(role: string): boolean {
-    return this.authService.hasRole(role);
+    return this.isSuperuser || this.authService.hasRole(role);
   }
 
   hasAnyRole(roles: string[]): boolean {
-    return roles.some(role => this.hasRole(role));
+    return this.isSuperuser || roles.some(role => this.hasRole(role));
   }
 
   canEdit(): boolean {
