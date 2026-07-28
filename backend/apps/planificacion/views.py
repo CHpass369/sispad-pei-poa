@@ -3,6 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db import transaction
 from django.utils import timezone
+from django.shortcuts import get_object_or_404
 from .models import (
     Plan, NodoPlanificacion, AccionMedianoPlazo, AccionCortoPlazo,
     ArticulacionPlanificacion, PlanVersion
@@ -10,7 +11,8 @@ from .models import (
 from .serializers import (
     PlanSerializer, NodoPlanificacionSerializer,
     AccionMedianoPlazoSerializer, AccionCortoPlazoSerializer,
-    ArticulacionPlanificacionSerializer, PlanVersionSerializer
+    ArticulacionPlanificacionSerializer, PlanVersionSerializer,
+    NodoArbolSerializer,
 )
 from apps.indicadores.models import Indicador, MetaProgramada, Operacion
 
@@ -196,3 +198,38 @@ class FormulacionViewSet(viewsets.ViewSet):
                 {'error': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+class MatrizCompletaViewSet(viewsets.ViewSet):
+    """Árbol jerárquico completo PGDESA→PDESA→PAD→PEI→POA"""
+
+    def list(self, request):
+        gestion = request.query_params.get('gestion')
+        nivel = request.query_params.get('nivel')
+        padre_id = request.query_params.get('padre_id')
+
+        if not gestion:
+            return Response({'error': 'gestión requerida'}, status=400)
+
+        queryset = NodoPlanificacion.objects.select_related('plan', 'padre')
+
+        if padre_id:
+            padre = get_object_or_404(NodoPlanificacion, id=padre_id)
+            queryset = queryset.filter(padre=padre)
+        elif nivel:
+            queryset = queryset.filter(
+                plan__tipo='pgdesa', nivel=nivel, padre=None
+            ) if nivel == 'eje' else queryset.filter(nivel=nivel, padre__isnull=True)
+        else:
+            queryset = queryset.filter(
+                plan__tipo='pgdesa', nivel='eje', padre=None
+            )
+
+        queryset = queryset.order_by('codigo')
+        serializer = NodoArbolSerializer(
+            queryset, many=True, context={'gestion': gestion}
+        )
+        return Response({
+            'data': serializer.data,
+            'stats': {'total': queryset.count()},
+        })
