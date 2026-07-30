@@ -2,6 +2,7 @@ import uuid
 from django.db import models
 from django.conf import settings
 from apps.core.models import TimeStampedModel
+from apps.codificacion.models import CodigoSegmentadoModel
 
 
 class CodigoNivel(models.Model):
@@ -113,7 +114,9 @@ class LineamientoPAD(models.Model):
         return f'[{self.codigo}] {self.denominacion[:80]}'
 
 
-class ResultadoPAD(TimeStampedModel):
+class ResultadoPAD(CodigoSegmentadoModel):
+    ANCHO_SEGMENTO = 2  # segmento RT
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     id_cadena = models.CharField(max_length=20, unique=True, verbose_name='ID cadena')
     codigo_resultado = models.CharField(max_length=50, verbose_name='Código resultado')
@@ -166,6 +169,12 @@ class ResultadoPAD(TimeStampedModel):
         verbose_name_plural = 'Resultados PAD'
         ordering = ['codigo_resultado']
         unique_together = [('codigo_resultado', 'vigencia_desde')]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['vigencia_desde', 'correlativo'],
+                name='uniq_resultado_pad_gestion_correlativo',
+            ),
+        ]
         indexes = [
             models.Index(fields=['vigencia_desde', 'estado']),
         ]
@@ -193,7 +202,9 @@ class ResultadoPAD(TimeStampedModel):
         return f'[{self.codigo_resultado}] {self.denominacion[:80]}'
 
 
-class ProductoPAD(TimeStampedModel):
+class ProductoPAD(CodigoSegmentadoModel):
+    ANCHO_SEGMENTO = 2  # segmento PT
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     codigo_producto = models.CharField(max_length=50, verbose_name='Código producto')
     denominacion = models.TextField(verbose_name='Denominación')
@@ -209,6 +220,12 @@ class ProductoPAD(TimeStampedModel):
         verbose_name_plural = 'Productos PAD'
         ordering = ['codigo_producto']
         unique_together = [('codigo_producto', 'resultado_pad')]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['resultado_pad', 'correlativo'],
+                name='uniq_producto_pad_padre_correlativo',
+            ),
+        ]
         indexes = [
             models.Index(fields=['resultado_pad']),
         ]
@@ -217,7 +234,9 @@ class ProductoPAD(TimeStampedModel):
         return f'[{self.codigo_producto}] {self.denominacion[:80]}'
 
 
-class ResultadoPEI(TimeStampedModel):
+class ResultadoPEI(CodigoSegmentadoModel):
+    ANCHO_SEGMENTO = 2  # segmento RI
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     codigo_resultado = models.CharField(max_length=50, verbose_name='Código resultado')
     denominacion = models.TextField(verbose_name='Denominación')
@@ -232,6 +251,12 @@ class ResultadoPEI(TimeStampedModel):
         verbose_name_plural = 'Resultados PEI'
         ordering = ['codigo_resultado']
         unique_together = [('codigo_resultado', 'vigencia_desde')]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['vigencia_desde', 'correlativo'],
+                name='uniq_resultado_pei_gestion_correlativo',
+            ),
+        ]
         indexes = [
             models.Index(fields=['vigencia_desde']),
         ]
@@ -240,7 +265,9 @@ class ResultadoPEI(TimeStampedModel):
         return f'[{self.codigo_resultado}] {self.denominacion[:80]}'
 
 
-class ProductoPEI(TimeStampedModel):
+class ProductoPEI(CodigoSegmentadoModel):
+    ANCHO_SEGMENTO = 2  # segmento PI
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     codigo_producto = models.CharField(max_length=50, verbose_name='Código producto')
     denominacion = models.TextField(verbose_name='Denominación')
@@ -260,6 +287,12 @@ class ProductoPEI(TimeStampedModel):
         verbose_name_plural = 'Productos PEI'
         ordering = ['codigo_producto']
         unique_together = [('codigo_producto', 'resultado_pei')]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['resultado_pei', 'correlativo'],
+                name='uniq_producto_pei_padre_correlativo',
+            ),
+        ]
         indexes = [
             models.Index(fields=['resultado_pei']),
         ]
@@ -369,7 +402,9 @@ class IndicadorCadena(TimeStampedModel):
         return f'[{self.nivel_indicador}] {self.indicador[:80]}'
 
 
-class AccionPOA(TimeStampedModel):
+class AccionPOA(CodigoSegmentadoModel):
+    ANCHO_SEGMENTO = 3  # segmento ACP
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     codigo_accion = models.CharField(max_length=50, unique=True, verbose_name='Código acción')
     denominacion = models.TextField(verbose_name='Denominación')
@@ -426,6 +461,12 @@ class AccionPOA(TimeStampedModel):
         verbose_name = 'Acción POA'
         verbose_name_plural = 'Acciones POA'
         ordering = ['codigo_accion']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['producto_pei', 'gestion', 'correlativo'],
+                name='uniq_accion_poa_padre_gestion_correlativo',
+            ),
+        ]
         indexes = [
             models.Index(fields=['gestion', 'estado']),
             models.Index(fields=['producto_pei']),
@@ -454,7 +495,9 @@ class AccionPOA(TimeStampedModel):
         return f'[{self.codigo_accion}] {self.denominacion[:80]}'
 
 
-class OperacionPOAU(TimeStampedModel):
+class OperacionPOAU(CodigoSegmentadoModel):
+    ANCHO_SEGMENTO = 3  # segmento OP
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     codigo_operacion = models.CharField(max_length=50, unique=True, verbose_name='Código operación')
     denominacion = models.TextField(verbose_name='Denominación')
@@ -496,6 +539,12 @@ class OperacionPOAU(TimeStampedModel):
         verbose_name = 'Operación POAU'
         verbose_name_plural = 'Operaciones POAU'
         ordering = ['codigo_operacion']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['accion_poa', 'correlativo'],
+                name='uniq_operacion_poau_padre_correlativo',
+            ),
+        ]
         indexes = [
             models.Index(fields=['accion_poa']),
         ]
@@ -523,7 +572,9 @@ class OperacionPOAU(TimeStampedModel):
         return f'[{self.codigo_operacion}] {self.denominacion[:80]}'
 
 
-class ActividadPOAU(TimeStampedModel):
+class ActividadPOAU(CodigoSegmentadoModel):
+    ANCHO_SEGMENTO = 3  # segmento ACT
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     codigo_actividad = models.CharField(max_length=50, unique=True, verbose_name='Código actividad')
     denominacion = models.TextField(verbose_name='Denominación')
@@ -560,6 +611,12 @@ class ActividadPOAU(TimeStampedModel):
         verbose_name = 'Actividad POAU'
         verbose_name_plural = 'Actividades POAU'
         ordering = ['codigo_actividad']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['operacion', 'correlativo'],
+                name='uniq_actividad_poau_padre_correlativo',
+            ),
+        ]
         indexes = [
             models.Index(fields=['operacion']),
         ]
@@ -612,7 +669,9 @@ class ActividadNormativa(models.Model):
         return f'{self.actividad.codigo_actividad} - {self.normativa.codigo_norma}'
 
 
-class TareaPOAU(TimeStampedModel):
+class TareaPOAU(CodigoSegmentadoModel):
+    ANCHO_SEGMENTO = 3  # segmento TAR
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     codigo_tarea = models.CharField(max_length=50, unique=True, verbose_name='Código tarea')
     denominacion = models.TextField(verbose_name='Denominación')
@@ -640,6 +699,12 @@ class TareaPOAU(TimeStampedModel):
         verbose_name = 'Tarea POAU'
         verbose_name_plural = 'Tareas POAU'
         ordering = ['codigo_tarea']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['actividad', 'correlativo'],
+                name='uniq_tarea_poau_padre_correlativo',
+            ),
+        ]
         indexes = [
             models.Index(fields=['actividad']),
         ]
