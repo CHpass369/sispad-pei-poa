@@ -9,13 +9,14 @@ HomologacionCodigo es el registro append-only de cambios de código
 (ej. SIM-2027-OP-01 -> código oficial): ni update ni delete.
 """
 import threading
-import time
 import uuid
+from queue import Empty, Queue
 
 import pytest
+from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError, connection, transaction
+from django.db import DatabaseError, IntegrityError, connection, transaction
 from django.db.models import ProtectedError
 
 from apps.codificacion.models import (
@@ -115,43 +116,81 @@ class TestSecuenciaCodigo:
         )
         assert otra.pk is not None
 
+    def test_admin_es_solo_lectura_y_no_permite_borrado(self):
+        model_admin = admin.site._registry[SecuenciaCodigo]
+
+        assert 'ultimo_valor' in model_admin.get_readonly_fields(request=None)
+        assert model_admin.has_add_permission(request=None) is False
+        assert model_admin.has_change_permission(request=None) is False
+        assert model_admin.has_delete_permission(request=None) is False
+
 
 @pytest.mark.django_db(transaction=True)
 class TestSecuenciaCodigoConcurrencia:
     def test_select_for_update_serializa_incrementos(self, entidad):
-        """Dos transacciones concurrentes nunca leen el mismo ultimo_valor.
-
-        Sin el lock ambas leerían 0 y escribirían 1; con
-        ``select_for_update()`` la segunda espera al commit de la primera
-        y el valor final debe ser 2.
-        """
+        """Dos transacciones solapadas obtienen correlativos consecutivos."""
         secuencia = SecuenciaCodigo.objects.create(
             nivel='operacion_poau', padre_id=uuid.uuid4(),
             gestion=2027, entidad=entidad,
         )
 
-        def incrementar(espera):
+        inicio = threading.Barrier(3)
+        primer_lock = threading.Event()
+        segundo_intento = threading.Event()
+        resultados = Queue()
+        errores = Queue()
+
+        def incrementar(es_primero):
             try:
+                inicio.wait(timeout=5)
                 with transaction.atomic():
+                    if not es_primero:
+                        if not primer_lock.wait(timeout=5):
+                            raise TimeoutError('El primer hilo no obtuvo el lock.')
+                        segundo_intento.set()
+
                     bloqueada = SecuenciaCodigo.objects.select_for_update().get(
                         pk=secuencia.pk,
                     )
-                    time.sleep(espera)
+
+                    if es_primero:
+                        primer_lock.set()
+                        if not segundo_intento.wait(timeout=5):
+                            raise TimeoutError('El segundo hilo no intentó el lock.')
+
                     bloqueada.ultimo_valor += 1
-                    bloqueada.save()
+                    bloqueada.save(update_fields=['ultimo_valor', 'updated_at'])
+                    resultados.put(bloqueada.ultimo_valor)
+            except BaseException as exc:
+                errores.put(exc)
             finally:
                 connection.close()
 
-        hilo_lento = threading.Thread(target=incrementar, args=(0.4,))
-        hilo_rapido = threading.Thread(target=incrementar, args=(0,))
-        hilo_lento.start()
-        time.sleep(0.1)  # el hilo lento toma el lock primero
-        hilo_rapido.start()
-        hilo_lento.join()
-        hilo_rapido.join()
+        primer_hilo = threading.Thread(target=incrementar, args=(True,))
+        segundo_hilo = threading.Thread(target=incrementar, args=(False,))
+        primer_hilo.start()
+        segundo_hilo.start()
+        inicio.wait(timeout=5)
+        primer_hilo.join(timeout=10)
+        segundo_hilo.join(timeout=10)
+
+        assert not primer_hilo.is_alive()
+        assert not segundo_hilo.is_alive()
+        try:
+            error = errores.get_nowait()
+        except Empty:
+            error = None
+        assert error is None
+        assert sorted(resultados.get_nowait() for _ in range(2)) == [1, 2]
 
         secuencia.refresh_from_db()
         assert secuencia.ultimo_valor == 2
+
+    def test_carrera_de_creacion_inicial_queda_para_t3(self):
+        pytest.xfail(
+            'La creación concurrente de SecuenciaCodigo pertenece a '
+            'CodificadorService (T3); T2 solo garantiza filas preexistentes.'
+        )
 
 
 @pytest.mark.django_db
@@ -190,6 +229,35 @@ class TestHomologacionCodigo:
             homologacion.delete()
         assert HomologacionCodigo.objects.filter(pk=homologacion.pk).exists()
 
+    def test_append_only_bloquea_queryset_update(self, usuario):
+        homologacion = self._crear(usuario)
+
+        with pytest.raises(ValidationError):
+            HomologacionCodigo.objects.filter(pk=homologacion.pk).update(
+                motivo='Alterado por QuerySet',
+            )
+
+        homologacion.refresh_from_db()
+        assert homologacion.motivo == 'Homologación inicial SIM-2027'
+
+    def test_append_only_bloquea_queryset_delete(self, usuario):
+        homologacion = self._crear(usuario)
+
+        with pytest.raises(ValidationError):
+            HomologacionCodigo.objects.filter(pk=homologacion.pk).delete()
+
+        assert HomologacionCodigo.objects.filter(pk=homologacion.pk).exists()
+
+    def test_append_only_bloquea_bulk_update(self, usuario):
+        homologacion = self._crear(usuario)
+        homologacion.motivo = 'Alterado por bulk_update'
+
+        with pytest.raises(ValidationError):
+            HomologacionCodigo.objects.bulk_update([homologacion], ['motivo'])
+
+        homologacion.refresh_from_db()
+        assert homologacion.motivo == 'Homologación inicial SIM-2027'
+
     def test_append_only_permite_multiples_insert(self, usuario):
         primera = self._crear(usuario)
         segunda = self._crear(
@@ -209,3 +277,38 @@ class TestHomologacionCodigo:
         compuestos = {tuple(indice.fields) for indice in HomologacionCodigo._meta.indexes}
         assert ('tipo_entidad', 'codigo_anterior') in compuestos
         assert ('entidad_id',) in compuestos
+
+
+@pytest.mark.django_db(transaction=True)
+class TestHomologacionCodigoTriggerPostgreSQL:
+    def test_sql_directo_bloquea_update_y_delete(self, usuario):
+        homologacion = HomologacionCodigo.objects.create(
+            tipo_entidad='operacion_poau',
+            entidad_id=uuid.uuid4(),
+            codigo_anterior='SIM-2027-OP-SQL',
+            codigo_nuevo='04.02.14.01.031001.02.01.01.1312.03.01.01.001',
+            motivo='Homologación protegida por trigger',
+            gestion=2027,
+            usuario=usuario,
+        )
+
+        with pytest.raises(DatabaseError):
+            with transaction.atomic():
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        'UPDATE codificacion_homologacioncodigo '
+                        'SET motivo = %s WHERE id = %s',
+                        ['Alteración SQL', homologacion.pk],
+                    )
+
+        with pytest.raises(DatabaseError):
+            with transaction.atomic():
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        'DELETE FROM codificacion_homologacioncodigo '
+                        'WHERE id = %s',
+                        [homologacion.pk],
+                    )
+
+        homologacion.refresh_from_db()
+        assert homologacion.motivo == 'Homologación protegida por trigger'

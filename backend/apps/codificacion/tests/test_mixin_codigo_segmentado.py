@@ -7,6 +7,7 @@ código completo (16 segmentos) es responsabilidad del CodificadorService
 generación del segmento propio del nivel con zfill.
 """
 import pytest
+from django.core.exceptions import ValidationError
 from django.db import models
 
 from apps.codificacion.models import CodigoSegmentadoModel
@@ -101,3 +102,42 @@ class TestGenerarSegmento:
         """El mixin exige que cada nivel concrete su ANCHO_SEGMENTO."""
         with pytest.raises(NotImplementedError):
             CodigoSegmentadoModel.generar_segmento(1)
+
+    @pytest.mark.parametrize(
+        'nivel,correlativo,esperado',
+        [
+            (NivelDePrueba2Digitos, 1, '01'),
+            (NivelDePrueba2Digitos, 99, '99'),
+            (NivelDePrueba, 1, '001'),
+            (NivelDePrueba, 999, '999'),
+        ],
+    )
+    def test_limites_validos_producen_ancho_exacto(
+        self, nivel, correlativo, esperado,
+    ):
+        segmento = nivel.generar_segmento(correlativo)
+
+        assert segmento == esperado
+        assert len(segmento) == nivel.ANCHO_SEGMENTO
+
+    @pytest.mark.parametrize(
+        'nivel,correlativo',
+        [
+            (NivelDePrueba2Digitos, 0),
+            (NivelDePrueba2Digitos, -1),
+            (NivelDePrueba2Digitos, 100),
+            (NivelDePrueba, 0),
+            (NivelDePrueba, -1),
+            (NivelDePrueba, 1000),
+            (NivelDePrueba, True),
+            (NivelDePrueba, '7'),
+            (NivelDePrueba, 7.0),
+        ],
+    )
+    def test_rechaza_valores_fuera_del_dominio(self, nivel, correlativo):
+        with pytest.raises(ValidationError):
+            nivel.generar_segmento(correlativo)
+
+    @pytest.mark.parametrize('nivel', [NivelDePrueba2Digitos, NivelDePrueba])
+    def test_none_representa_legacy_aun_no_codificado(self, nivel):
+        assert nivel.generar_segmento(None) == ''

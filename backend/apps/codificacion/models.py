@@ -397,11 +397,31 @@ class CodigoSegmentadoModel(TimeStampedModel):
 
     @classmethod
     def generar_segmento(cls, correlativo):
-        """Devuelve el correlativo con zfill según el ancho del nivel."""
+        """Return a positive correlativo padded to the exact level width.
+
+        ``None`` is reserved for legacy rows that have not been coded yet.
+        Every coded value must be a positive integer that fits completely in
+        ``ANCHO_SEGMENTO``; booleans are rejected explicitly because Python
+        otherwise treats them as integers.
+        """
         if cls.ANCHO_SEGMENTO is None:
             raise NotImplementedError(
                 f'{cls.__name__} debe declarar ANCHO_SEGMENTO (2 o 3).'
             )
+
+        if correlativo is None:
+            return ''
+
+        valor_maximo = (10 ** cls.ANCHO_SEGMENTO) - 1
+        if (
+            isinstance(correlativo, bool)
+            or not isinstance(correlativo, int)
+            or not 1 <= correlativo <= valor_maximo
+        ):
+            raise ValidationError(
+                f'El correlativo debe ser un entero entre 1 y {valor_maximo}.'
+            )
+
         return str(correlativo).zfill(cls.ANCHO_SEGMENTO)
 
 
@@ -529,6 +549,30 @@ class SecuenciaCodigo(TimeStampedModel):
         return f'{self.nivel} G{self.gestion} → {self.ultimo_valor}'
 
 
+class HomologacionCodigoQuerySet(models.QuerySet):
+    """Reject every mutating operation against existing audit rows."""
+
+    MENSAJE_APPEND_ONLY = (
+        'Las homologaciones de código son append-only: '
+        'no se pueden modificar ni eliminar.'
+    )
+
+    def update(self, **kwargs):
+        raise ValidationError(self.MENSAJE_APPEND_ONLY)
+
+    def delete(self):
+        raise ValidationError(self.MENSAJE_APPEND_ONLY)
+
+    def bulk_update(self, objs, fields, batch_size=None):
+        raise ValidationError(self.MENSAJE_APPEND_ONLY)
+
+
+class HomologacionCodigoManager(models.Manager.from_queryset(
+    HomologacionCodigoQuerySet,
+)):
+    """Manager that exposes only append-safe mutation semantics."""
+
+
 class HomologacionCodigo(TimeStampedModel):
     """Registro append-only de homologación de códigos.
 
@@ -570,6 +614,8 @@ class HomologacionCodigo(TimeStampedModel):
         blank=True,
         verbose_name='Documento de respaldo',
     )
+
+    objects = HomologacionCodigoManager()
 
     class Meta:
         verbose_name = 'Homologación de código'

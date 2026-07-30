@@ -73,9 +73,23 @@ class EntidadCodificadoraAdmin(admin.ModelAdmin):
 
 @admin.register(SecuenciaCodigo)
 class SecuenciaCodigoAdmin(admin.ModelAdmin):
+    """Sequence values are emitted by CodificadorService, never by admins."""
+
     list_display = ['nivel', 'padre_id', 'gestion', 'entidad', 'ultimo_valor']
     list_filter = ['nivel', 'gestion', 'entidad']
-    readonly_fields = ['created_at', 'updated_at']
+    readonly_fields = [
+        'id', 'nivel', 'padre_id', 'gestion', 'entidad', 'ultimo_valor',
+        'created_at', 'updated_at', 'created_by', 'updated_by',
+    ]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(HomologacionCodigo)
