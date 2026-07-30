@@ -1,5 +1,4 @@
 """Tests de EntidadTerritorialCGEO, EntidadCodificadora y LineamientoPAD (T1.4)."""
-import datetime
 import importlib
 
 import pytest
@@ -17,17 +16,6 @@ from apps.codificacion.models import (
     validador_cgeo_provincia,
     validador_codigo_4_digitos,
 )
-from apps.planificacion.models import Plan
-
-
-@pytest.fixture
-def version_pad(db):
-    plan = Plan.objects.create(
-        codigo='PAD-TEST', nombre='PAD', tipo='municipal',
-        gestion_inicio=2026, gestion_fin=2030,
-        fecha_vigencia_desde=datetime.date(2026, 1, 1),
-    )
-    return VersionCatalogoPlan.objects.create(plan=plan, gestion=2026)
 
 
 @pytest.fixture

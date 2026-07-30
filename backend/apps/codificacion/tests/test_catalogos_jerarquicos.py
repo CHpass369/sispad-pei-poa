@@ -1,7 +1,5 @@
 """Tests de la cadena EjePGDESA -> ComponentePDESA -> SectorEconomico
 -> ResultadoSectorial (T1.3)."""
-import datetime
-
 import pytest
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
@@ -13,17 +11,6 @@ from apps.codificacion.models import (
     SectorEconomico,
     VersionCatalogoPlan,
 )
-from apps.planificacion.models import Plan
-
-
-@pytest.fixture
-def version_catalogo(db):
-    plan = Plan.objects.create(
-        codigo='PGDESA-JER', nombre='PGDESA', tipo='pgdesa',
-        gestion_inicio=2026, gestion_fin=2030,
-        fecha_vigencia_desde=datetime.date(2026, 1, 1),
-    )
-    return VersionCatalogoPlan.objects.create(plan=plan, gestion=2026)
 
 
 @pytest.fixture
