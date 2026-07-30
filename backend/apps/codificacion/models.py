@@ -108,7 +108,8 @@ class CatalogoSegmentoBase(TimeStampedModel):
 
     Cada segmento del código oficial (EE, CC, SS, RS, LL) es una fila de
     catálogo: el código nunca es PK y siempre depende de una versión de
-    catálogo aprobada por norma.
+    catálogo aprobada por norma. Cada modelo concreto declara su FK
+    ``version_catalogo`` con un related_name plural explícito en español.
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -118,12 +119,6 @@ class CatalogoSegmentoBase(TimeStampedModel):
         verbose_name='Código',
     )
     denominacion = models.CharField(max_length=500, verbose_name='Denominación')
-    version_catalogo = models.ForeignKey(
-        VersionCatalogoPlan,
-        on_delete=models.CASCADE,
-        related_name='%(class)ss',
-        verbose_name='Versión de catálogo',
-    )
     activo = models.BooleanField(default=True, verbose_name='Activo')
 
     class Meta:
@@ -136,6 +131,13 @@ class CatalogoSegmentoBase(TimeStampedModel):
 
 class EjePGDESA(CatalogoSegmentoBase):
     """Eje del PGDESA (segmento EE, 2 dígitos). Raíz de la cadena nacional."""
+
+    version_catalogo = models.ForeignKey(
+        VersionCatalogoPlan,
+        on_delete=models.CASCADE,
+        related_name='ejes_pgdesa',
+        verbose_name='Versión de catálogo',
+    )
 
     class Meta(CatalogoSegmentoBase.Meta):
         verbose_name = 'Eje PGDESA'
@@ -151,6 +153,12 @@ class EjePGDESA(CatalogoSegmentoBase):
 class ComponentePDESA(CatalogoSegmentoBase):
     """Componente del PDESA (segmento CC, 2 dígitos), hijo de un eje PGDESA."""
 
+    version_catalogo = models.ForeignKey(
+        VersionCatalogoPlan,
+        on_delete=models.CASCADE,
+        related_name='componentes_pdesa',
+        verbose_name='Versión de catálogo',
+    )
     eje = models.ForeignKey(
         EjePGDESA,
         on_delete=models.CASCADE,
@@ -175,6 +183,12 @@ class ComponentePDESA(CatalogoSegmentoBase):
 class SectorEconomico(CatalogoSegmentoBase):
     """Sector económico (segmento SS, 2 dígitos), hijo de un componente PDESA."""
 
+    version_catalogo = models.ForeignKey(
+        VersionCatalogoPlan,
+        on_delete=models.CASCADE,
+        related_name='sectores_economicos',
+        verbose_name='Versión de catálogo',
+    )
     componente = models.ForeignKey(
         ComponentePDESA,
         on_delete=models.CASCADE,
@@ -199,6 +213,12 @@ class SectorEconomico(CatalogoSegmentoBase):
 class ResultadoSectorial(CatalogoSegmentoBase):
     """Resultado sectorial (segmento RS, 2 dígitos), hijo de un sector económico."""
 
+    version_catalogo = models.ForeignKey(
+        VersionCatalogoPlan,
+        on_delete=models.CASCADE,
+        related_name='resultados_sectoriales',
+        verbose_name='Versión de catálogo',
+    )
     sector = models.ForeignKey(
         SectorEconomico,
         on_delete=models.CASCADE,
@@ -336,6 +356,12 @@ class LineamientoPAD(CatalogoSegmentoBase):
     `articulacion.LineamientoPAD` (ambos quedan deprecados hasta T5).
     """
 
+    version_catalogo = models.ForeignKey(
+        VersionCatalogoPlan,
+        on_delete=models.CASCADE,
+        related_name='lineamientos_pad',
+        verbose_name='Versión de catálogo',
+    )
     entidad_territorial = models.ForeignKey(
         EntidadTerritorialCGEO,
         on_delete=models.PROTECT,

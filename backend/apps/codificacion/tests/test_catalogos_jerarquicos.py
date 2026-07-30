@@ -120,6 +120,18 @@ class TestJerarquia:
 
 
 @pytest.mark.django_db
+class TestRelatedNamesExplicitos:
+    """Cada FK a VersionCatalogoPlan expone un plural español explícito."""
+
+    def test_version_catalogo_expone_plurales_en_espanol(self, cadena, version_catalogo):
+        eje, componente, sector, resultado = cadena
+        assert list(version_catalogo.ejes_pgdesa.all()) == [eje]
+        assert list(version_catalogo.componentes_pdesa.all()) == [componente]
+        assert list(version_catalogo.sectores_economicos.all()) == [sector]
+        assert list(version_catalogo.resultados_sectoriales.all()) == [resultado]
+
+
+@pytest.mark.django_db
 class TestUnicidad:
     def test_eje_unique_codigo_version(self, version_catalogo):
         EjePGDESA.objects.create(

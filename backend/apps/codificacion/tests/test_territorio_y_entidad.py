@@ -255,3 +255,11 @@ class TestLineamientoPAD:
                 codigo='02', denominacion='Huérfano',
                 entidad_territorial=None, version_catalogo=version_pad,
             )
+
+    def test_related_name_lineamientos_pad_en_version(self, version_pad, sacaba):
+        """La versión expone el plural explícito lineamientos_pad (S1)."""
+        lineamiento = LineamientoPAD.objects.create(
+            codigo='02', denominacion='A',
+            entidad_territorial=sacaba, version_catalogo=version_pad,
+        )
+        assert list(version_pad.lineamientos_pad.all()) == [lineamiento]
