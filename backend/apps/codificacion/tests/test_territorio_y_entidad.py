@@ -10,6 +10,10 @@ from apps.codificacion.models import (
     EntidadTerritorialCGEO,
     LineamientoPAD,
     VersionCatalogoPlan,
+    validador_cgeo_departamento,
+    validador_cgeo_municipio,
+    validador_cgeo_provincia,
+    validador_codigo_4_digitos,
 )
 from apps.planificacion.models import Plan
 
@@ -30,21 +34,69 @@ def sacaba(db):
     return EntidadTerritorialCGEO.objects.get(codigo='031001')
 
 
+class TestValidadoresAncho:
+    """Validators de ancho importables: CGEO por nivel y entidad (S3)."""
+
+    @pytest.mark.parametrize('validador,codigo', [
+        (validador_cgeo_departamento, '03'),
+        (validador_cgeo_provincia, '0310'),
+        (validador_cgeo_municipio, '031001'),
+        (validador_codigo_4_digitos, '1312'),
+    ])
+    def test_codigo_valido_no_levanta_error(self, validador, codigo):
+        validador(codigo)
+
+    @pytest.mark.parametrize('validador,codigo', [
+        (validador_cgeo_departamento, '3'),
+        (validador_cgeo_departamento, '0310'),
+        (validador_cgeo_provincia, '03'),
+        (validador_cgeo_provincia, '031001'),
+        (validador_cgeo_municipio, '0310'),
+        (validador_cgeo_municipio, '0310010'),
+        (validador_cgeo_municipio, '03100A'),
+        (validador_codigo_4_digitos, '131'),
+        (validador_codigo_4_digitos, '13121'),
+        (validador_codigo_4_digitos, '13A2'),
+    ])
+    def test_codigo_invalido_rechazado(self, validador, codigo):
+        with pytest.raises(ValidationError):
+            validador(codigo)
+
+
 @pytest.mark.django_db
 class TestEntidadTerritorialCGEO:
-    def test_codigo_seis_digitos_valido(self):
-        cgeo = EntidadTerritorialCGEO(
-            codigo='030101', nombre='Municipio de prueba', nivel='municipio',
-        )
+    @pytest.mark.parametrize('nivel,codigo', [
+        ('departamento', '05'),
+        ('provincia', '0501'),
+        ('municipio', '050101'),
+    ])
+    def test_codigo_acorde_al_nivel_valido(self, nivel, codigo):
+        """El ancho del código INE depende del nivel: 2/4/6 dígitos."""
+        cgeo = EntidadTerritorialCGEO(codigo=codigo, nombre='X', nivel=nivel)
         cgeo.full_clean()
 
     @pytest.mark.parametrize('codigo_invalido', ['', '1', '03100', '0310010', 'ABCDEF', '03100A'])
-    def test_codigo_invalido_rechazado(self, codigo_invalido):
+    def test_codigo_formato_invalido_rechazado(self, codigo_invalido):
         cgeo = EntidadTerritorialCGEO(
             codigo=codigo_invalido, nombre='X', nivel='municipio',
         )
         with pytest.raises(ValidationError):
             cgeo.full_clean()
+
+    @pytest.mark.parametrize('nivel,codigo', [
+        ('departamento', '050101'),
+        ('departamento', '0501'),
+        ('provincia', '05'),
+        ('provincia', '050101'),
+        ('municipio', '05'),
+        ('municipio', '0501'),
+    ])
+    def test_codigo_no_corresponde_al_nivel_rechazado(self, nivel, codigo):
+        """Un código con ancho de otro nivel falla en el campo codigo."""
+        cgeo = EntidadTerritorialCGEO(codigo=codigo, nombre='X', nivel=nivel)
+        with pytest.raises(ValidationError) as excinfo:
+            cgeo.full_clean()
+        assert 'codigo' in excinfo.value.message_dict
 
     def test_codigo_unico(self, sacaba):
         with pytest.raises(IntegrityError):

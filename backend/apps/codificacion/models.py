@@ -6,6 +6,7 @@ escribe el frontend.
 """
 import uuid
 
+from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
 from django.db import models
 from django.db.models import Q
@@ -77,6 +78,26 @@ class VersionCatalogoPlan(TimeStampedModel):
 validador_codigo_2_digitos = RegexValidator(
     regex=r'^\d{2}$',
     message='El código debe tener exactamente 2 dígitos numéricos.',
+)
+
+# Validators de ancho del código CGEO (INE): el ancho depende del nivel
+# territorial — departamento 2 dígitos (03), provincia 4 (0310) y
+# municipio 6 (031001).
+validador_cgeo_departamento = RegexValidator(
+    regex=r'^\d{2}$',
+    message='El código CGEO de departamento debe tener exactamente 2 dígitos numéricos.',
+)
+validador_cgeo_provincia = RegexValidator(
+    regex=r'^\d{4}$',
+    message='El código CGEO de provincia debe tener exactamente 4 dígitos numéricos.',
+)
+validador_cgeo_municipio = RegexValidator(
+    regex=r'^\d{6}$',
+    message='El código CGEO de municipio debe tener exactamente 6 dígitos numéricos.',
+)
+validador_codigo_4_digitos = RegexValidator(
+    regex=r'^\d{4}$',
+    message='El código de entidad debe tener exactamente 4 dígitos numéricos.',
 )
 
 
@@ -198,11 +219,14 @@ class ResultadoSectorial(CatalogoSegmentoBase):
 
 
 class EntidadTerritorialCGEO(TimeStampedModel):
-    """Entidad territorial con código geográfico oficial INE de 6 dígitos.
+    """Entidad territorial con código geográfico oficial INE por nivel.
 
     Reemplaza la segmentación DD.PP.MM: el código oficial usa UN segmento
-    CGEO(6). La jerarquía interna (departamento -> provincia -> municipio,
-    vía FK padre) solo sirve para filtrar, NO segmenta el código.
+    CGEO cuyo ancho depende del nivel — departamento 2 dígitos (03),
+    provincia 4 (0310) y municipio 6 (031001). La jerarquía interna
+    (departamento -> provincia -> municipio, vía FK padre) solo sirve para
+    filtrar, NO segmenta el código. El segmento del código de articulación
+    usa siempre el municipio (6 dígitos).
     """
 
     NIVEL_DEPARTAMENTO = 'departamento'
@@ -221,14 +245,16 @@ class EntidadTerritorialCGEO(TimeStampedModel):
         (ESTADO_OFICIAL, 'Oficial'),
     ]
 
+    VALIDADOR_CGEO_POR_NIVEL = {
+        NIVEL_DEPARTAMENTO: validador_cgeo_departamento,
+        NIVEL_PROVINCIA: validador_cgeo_provincia,
+        NIVEL_MUNICIPIO: validador_cgeo_municipio,
+    }
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     codigo = models.CharField(
         max_length=6,
         unique=True,
-        validators=[RegexValidator(
-            regex=r'^\d{6}$',
-            message='El código CGEO debe tener exactamente 6 dígitos numéricos.',
-        )],
         verbose_name='Código CGEO (INE)',
     )
     nombre = models.CharField(max_length=200, verbose_name='Nombre')
@@ -260,6 +286,17 @@ class EntidadTerritorialCGEO(TimeStampedModel):
             models.Index(fields=['nivel', 'estado']),
         ]
 
+    def clean(self):
+        super().clean()
+        validador = self.VALIDADOR_CGEO_POR_NIVEL.get(self.nivel)
+        if validador is None:
+            # Nivel inválido: lo reporta la validación de choices del campo.
+            return
+        try:
+            validador(self.codigo)
+        except ValidationError as exc:
+            raise ValidationError({'codigo': exc.messages}) from exc
+
     def __str__(self):
         return f'[{self.codigo}] {self.nombre} ({self.get_nivel_display()})'
 
@@ -275,10 +312,7 @@ class EntidadCodificadora(TimeStampedModel):
     codigo = models.CharField(
         max_length=4,
         unique=True,
-        validators=[RegexValidator(
-            regex=r'^\d{4}$',
-            message='El código de entidad debe tener exactamente 4 dígitos numéricos.',
-        )],
+        validators=[validador_codigo_4_digitos],
         verbose_name='Código',
     )
     denominacion = models.CharField(max_length=300, verbose_name='Denominación')
