@@ -8,6 +8,26 @@ from .models import (
 )
 
 
+CODIFICACION_READ_ONLY_FIELDS = [
+    'correlativo',
+    'segmento',
+    'codigo_fuente',
+    'codigo_normalizado',
+    'codigo_completo_articulacion',
+    'estado_codigo',
+]
+
+
+class CodigoSegmentadoAdmin(admin.ModelAdmin):
+    """Keep coding fields read-only until CodificadorService exists in T3."""
+
+    readonly_fields = [
+        'created_at',
+        'updated_at',
+        *CODIFICACION_READ_ONLY_FIELDS,
+    ]
+
+
 @admin.register(CodigoNivel)
 class CodigoNivelAdmin(admin.ModelAdmin):
     list_display = ['codigo_nivel', 'nivel', 'longitud', 'editable', 'vigencia']
@@ -38,35 +58,31 @@ class LineamientoPADAdmin(admin.ModelAdmin):
 
 
 @admin.register(ResultadoPAD)
-class ResultadoPADAdmin(admin.ModelAdmin):
+class ResultadoPADAdmin(CodigoSegmentadoAdmin):
     list_display = ['codigo_resultado', 'denominacion', 'vigencia_desde', 'vigencia_hasta', 'estado']
     list_filter = ['estado', 'vigencia_desde', 'lineamiento_pad']
     search_fields = ['codigo_resultado', 'denominacion']
-    readonly_fields = ['created_at', 'updated_at']
 
 
 @admin.register(ProductoPAD)
-class ProductoPADAdmin(admin.ModelAdmin):
+class ProductoPADAdmin(CodigoSegmentadoAdmin):
     list_display = ['codigo_producto', 'denominacion', 'resultado_pad', 'responsable']
     list_filter = ['resultado_pad']
     search_fields = ['codigo_producto', 'denominacion']
-    readonly_fields = ['created_at', 'updated_at']
 
 
 @admin.register(ResultadoPEI)
-class ResultadoPEIAdmin(admin.ModelAdmin):
+class ResultadoPEIAdmin(CodigoSegmentadoAdmin):
     list_display = ['codigo_resultado', 'denominacion', 'entidad', 'vigencia_desde', 'vigencia_hasta']
     list_filter = ['vigencia_desde', 'cod_entidad']
     search_fields = ['codigo_resultado', 'denominacion']
-    readonly_fields = ['created_at', 'updated_at']
 
 
 @admin.register(ProductoPEI)
-class ProductoPEIAdmin(admin.ModelAdmin):
+class ProductoPEIAdmin(CodigoSegmentadoAdmin):
     list_display = ['codigo_producto', 'denominacion', 'resultado_pei', 'programa_presup']
     list_filter = ['resultado_pei']
     search_fields = ['codigo_producto', 'denominacion']
-    readonly_fields = ['created_at', 'updated_at']
 
 
 @admin.register(ArticulacionPADPEI)
@@ -86,27 +102,24 @@ class IndicadorCadenaAdmin(admin.ModelAdmin):
 
 
 @admin.register(AccionPOA)
-class AccionPOAAdmin(admin.ModelAdmin):
+class AccionPOAAdmin(CodigoSegmentadoAdmin):
     list_display = ['codigo_accion', 'denominacion', 'gestion', 'producto_pei', 'estado']
     list_filter = ['gestion', 'estado', 'tipo_operacion']
     search_fields = ['codigo_accion', 'denominacion', 'programa']
-    readonly_fields = ['created_at', 'updated_at']
 
 
 @admin.register(OperacionPOAU)
-class OperacionPOAUAdmin(admin.ModelAdmin):
+class OperacionPOAUAdmin(CodigoSegmentadoAdmin):
     list_display = ['codigo_operacion', 'denominacion', 'tipo_operacion', 'accion_poa', 'estado']
     list_filter = ['tipo_operacion', 'estado']
     search_fields = ['codigo_operacion', 'denominacion']
-    readonly_fields = ['created_at', 'updated_at']
 
 
 @admin.register(ActividadPOAU)
-class ActividadPOAUAdmin(admin.ModelAdmin):
+class ActividadPOAUAdmin(CodigoSegmentadoAdmin):
     list_display = ['codigo_actividad', 'denominacion', 'operacion', 'estado']
     list_filter = ['estado']
     search_fields = ['codigo_actividad', 'denominacion']
-    readonly_fields = ['created_at', 'updated_at']
 
 
 @admin.register(ActividadNormativa)
@@ -117,11 +130,10 @@ class ActividadNormativaAdmin(admin.ModelAdmin):
 
 
 @admin.register(TareaPOAU)
-class TareaPOAUAdmin(admin.ModelAdmin):
+class TareaPOAUAdmin(CodigoSegmentadoAdmin):
     list_display = ['codigo_tarea', 'denominacion', 'actividad', 'responsable', 'estado']
     list_filter = ['estado']
     search_fields = ['codigo_tarea', 'denominacion', 'responsable']
-    readonly_fields = ['created_at', 'updated_at']
 
 
 @admin.register(TareaNormativa)
