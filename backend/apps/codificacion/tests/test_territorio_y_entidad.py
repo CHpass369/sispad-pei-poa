@@ -1,7 +1,9 @@
 """Tests de EntidadTerritorialCGEO, EntidadCodificadora y LineamientoPAD (T1.4)."""
 import datetime
+import importlib
 
 import pytest
+from django.apps import apps as global_apps
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 
@@ -142,8 +144,34 @@ class TestSeedCGEO:
         assert sacaba.estado == EntidadTerritorialCGEO.ESTADO_PROVISIONAL
 
     def test_seed_es_idempotente(self, db):
-        """Solo existen los 3 registros del seed (no duplicados)."""
+        """Re-ejecutar la lógica real del seed no duplica ni altera registros."""
+        seed_modulo = importlib.import_module(
+            'apps.codificacion.migrations.0004_seed_cgeo_y_entidad',
+        )
         assert EntidadTerritorialCGEO.objects.count() == 3
+        assert EntidadCodificadora.objects.count() == 1
+
+        seed_modulo.seed_catalogos(global_apps, None)
+        seed_modulo.seed_catalogos(global_apps, None)
+
+        assert EntidadTerritorialCGEO.objects.count() == 3
+        assert EntidadCodificadora.objects.count() == 1
+        sacaba = EntidadTerritorialCGEO.objects.get(codigo='031001')
+        assert sacaba.padre.codigo == '0310'
+        assert sacaba.padre.padre.codigo == '03'
+
+    @pytest.mark.parametrize('codigo,nivel', [
+        ('03', 'departamento'),
+        ('0310', 'provincia'),
+        ('031001', 'municipio'),
+    ])
+    def test_registros_seeded_pasan_full_clean(self, db, codigo, nivel):
+        """Los códigos INE reales del seed (2/4/6 dígitos) pasan full_clean."""
+        entidad = EntidadTerritorialCGEO.objects.get(codigo=codigo, nivel=nivel)
+        entidad.full_clean()
+
+    def test_entidad_codificadora_seeded_pasa_full_clean(self, db):
+        EntidadCodificadora.objects.get(codigo='1312').full_clean()
 
 
 @pytest.mark.django_db
