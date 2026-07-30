@@ -15,6 +15,11 @@ from django.db.models import Q
 
 from apps.core.models import TimeStampedModel
 
+# Constante de módulo para el estado vigente: el cuerpo de Meta no puede
+# referenciar atributos de la clase en construcción, así que el partial
+# unique de "una sola versión vigente por plan" usa esta fuente única.
+ESTADO_CATALOGO_VIGENTE = 'vigente'
+
 
 class VersionCatalogoPlan(TimeStampedModel):
     """Versión de los catálogos oficiales de un plan para una gestión.
@@ -25,7 +30,7 @@ class VersionCatalogoPlan(TimeStampedModel):
     """
 
     ESTADO_BORRADOR = 'borrador'
-    ESTADO_VIGENTE = 'vigente'
+    ESTADO_VIGENTE = ESTADO_CATALOGO_VIGENTE
     ESTADO_CERRADO = 'cerrado'
     ESTADO_CHOICES = [
         (ESTADO_BORRADOR, 'Borrador'),
@@ -64,7 +69,7 @@ class VersionCatalogoPlan(TimeStampedModel):
             ),
             models.UniqueConstraint(
                 fields=['plan'],
-                condition=Q(estado='vigente'),
+                condition=Q(estado=ESTADO_CATALOGO_VIGENTE),
                 name='uniq_version_catalogo_vigente_por_plan',
             ),
         ]

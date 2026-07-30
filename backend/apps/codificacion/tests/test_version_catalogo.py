@@ -83,3 +83,17 @@ class TestVersionCatalogoPlan:
         )
         assert '2026' in str(version)
         assert 'vigente' in str(version).lower()
+
+    def test_partial_unique_usa_constante_de_estado_vigente(self):
+        """La condición del partial unique referencia el estado vigente real.
+
+        Guardia anti-desfase: si cambia el valor de ESTADO_VIGENTE, la
+        restricción debe seguirlo (no hay literal duplicado en el modelo).
+        """
+        constraint = next(
+            c for c in VersionCatalogoPlan._meta.constraints
+            if c.name == 'uniq_version_catalogo_vigente_por_plan'
+        )
+        assert dict(constraint.condition.children)['estado'] == (
+            VersionCatalogoPlan.ESTADO_VIGENTE
+        )
