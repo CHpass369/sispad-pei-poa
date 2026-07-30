@@ -24,6 +24,7 @@ from django.db import (
     transaction,
 )
 from django.db.models import ProtectedError
+from django.urls import reverse
 
 from apps.codificacion.models import (
     EntidadCodificadora,
@@ -297,6 +298,75 @@ class TestHomologacionCodigo:
         compuestos = {tuple(indice.fields) for indice in HomologacionCodigo._meta.indexes}
         assert ('tipo_entidad', 'codigo_anterior') in compuestos
         assert ('entidad_id',) in compuestos
+
+
+@pytest.mark.django_db
+def test_admin_rechaza_posts_de_cambio_y_borrado(
+    client,
+    entidad,
+):
+    superusuario = get_user_model().objects.create_superuser(
+        email='admin-codificacion@test.gob.bo',
+        password='test123',
+    )
+    secuencia = SecuenciaCodigo.objects.create(
+        nivel='operacion_poau',
+        padre_id=uuid.uuid4(),
+        gestion=2027,
+        entidad=entidad,
+    )
+    homologacion = HomologacionCodigo.objects.create(
+        tipo_entidad='operacion_poau',
+        entidad_id=uuid.uuid4(),
+        codigo_anterior='SIM-2027-ADMIN',
+        codigo_nuevo='CODIGO-NUEVO-ADMIN',
+        motivo='Motivo original de admin',
+        gestion=2027,
+        usuario=superusuario,
+    )
+    client.force_login(superusuario)
+
+    posts_rechazados = [
+        (
+            reverse(
+                'admin:codificacion_secuenciacodigo_change',
+                args=[secuencia.pk],
+            ),
+            {'ultimo_valor': 99, '_save': 'Guardar'},
+        ),
+        (
+            reverse(
+                'admin:codificacion_secuenciacodigo_delete',
+                args=[secuencia.pk],
+            ),
+            {'post': 'yes'},
+        ),
+        (
+            reverse(
+                'admin:codificacion_homologacioncodigo_change',
+                args=[homologacion.pk],
+            ),
+            {'motivo': 'Alterado desde admin', '_save': 'Guardar'},
+        ),
+        (
+            reverse(
+                'admin:codificacion_homologacioncodigo_delete',
+                args=[homologacion.pk],
+            ),
+            {'post': 'yes'},
+        ),
+    ]
+
+    for url, payload in posts_rechazados:
+        response = client.post(url, payload)
+        assert response.status_code == 403
+
+    secuencia.refresh_from_db()
+    homologacion.refresh_from_db()
+    assert secuencia.ultimo_valor == 0
+    assert homologacion.motivo == 'Motivo original de admin'
+    assert SecuenciaCodigo.objects.filter(pk=secuencia.pk).exists()
+    assert HomologacionCodigo.objects.filter(pk=homologacion.pk).exists()
 
 
 @pytest.mark.django_db(transaction=True)
