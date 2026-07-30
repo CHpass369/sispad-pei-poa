@@ -3,6 +3,9 @@ from django.contrib import admin
 from .models import (
     ComponentePDESA,
     EjePGDESA,
+    EntidadCodificadora,
+    EntidadTerritorialCGEO,
+    LineamientoPAD,
     ResultadoSectorial,
     SectorEconomico,
     VersionCatalogoPlan,
@@ -43,3 +46,24 @@ class SectorEconomicoAdmin(CatalogoSegmentoAdmin):
 @admin.register(ResultadoSectorial)
 class ResultadoSectorialAdmin(CatalogoSegmentoAdmin):
     list_display = CatalogoSegmentoAdmin.list_display + ['sector']
+
+
+@admin.register(LineamientoPAD)
+class LineamientoPADAdmin(CatalogoSegmentoAdmin):
+    list_display = CatalogoSegmentoAdmin.list_display + ['entidad_territorial']
+
+
+@admin.register(EntidadTerritorialCGEO)
+class EntidadTerritorialCGEOAdmin(admin.ModelAdmin):
+    list_display = ['codigo', 'nombre', 'nivel', 'padre', 'estado']
+    list_filter = ['nivel', 'estado']
+    search_fields = ['codigo', 'nombre']
+    readonly_fields = ['created_at', 'updated_at']
+
+
+@admin.register(EntidadCodificadora)
+class EntidadCodificadoraAdmin(admin.ModelAdmin):
+    list_display = ['codigo', 'denominacion', 'activo']
+    list_filter = ['activo']
+    search_fields = ['codigo', 'denominacion']
+    readonly_fields = ['created_at', 'updated_at']
