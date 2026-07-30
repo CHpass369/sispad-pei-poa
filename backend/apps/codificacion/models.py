@@ -8,6 +8,7 @@ plan ni gestión. El código nunca es PK y nunca lo escribe el frontend.
 """
 import uuid
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
 from django.db import models
@@ -404,6 +405,20 @@ class CodigoSegmentadoModel(TimeStampedModel):
         return str(correlativo).zfill(cls.ANCHO_SEGMENTO)
 
 
+# Niveles operativos de articulación que reciben código oficial segmentado.
+# Fuente única para SecuenciaCodigo.nivel y HomologacionCodigo.tipo_entidad.
+NIVEL_ARTICULACION_CHOICES = [
+    ('resultado_pad', 'Resultado PAD'),
+    ('producto_pad', 'Producto PAD'),
+    ('resultado_pei', 'Resultado PEI'),
+    ('producto_pei', 'Producto PEI'),
+    ('accion_poa', 'Acción POA'),
+    ('operacion_poau', 'Operación POAU'),
+    ('actividad_poau', 'Actividad POAU'),
+    ('tarea_poau', 'Tarea POAU'),
+]
+
+
 class EntidadCodificadora(TimeStampedModel):
     """Entidad pública que codifica (segmento ENTI, 4 dígitos).
 
@@ -462,3 +477,122 @@ class LineamientoPAD(CatalogoSegmentoBase):
         indexes = [
             models.Index(fields=['entidad_territorial', 'activo']),
         ]
+
+
+class SecuenciaCodigo(TimeStampedModel):
+    """Último correlativo emitido por clave (nivel, padre, gestión, entidad).
+
+    Pensada para ``select_for_update()``: el CodificadorService (T3) toma
+    el lock de la fila, incrementa ``ultimo_valor`` y confirma, así dos
+    transacciones concurrentes jamás reciben el mismo correlativo. El
+    correlativo reinicia por (padre, gestión, entidad). En niveles raíz
+    ``padre_id`` es NULL y la unicidad se garantiza con
+    ``nulls_distinct=False``.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    nivel = models.CharField(
+        max_length=30,
+        choices=NIVEL_ARTICULACION_CHOICES,
+        verbose_name='Nivel de articulación',
+    )
+    padre_id = models.UUIDField(
+        null=True,
+        blank=True,
+        verbose_name='ID del registro padre',
+    )
+    gestion = models.PositiveIntegerField(verbose_name='Gestión')
+    entidad = models.ForeignKey(
+        EntidadCodificadora,
+        on_delete=models.PROTECT,
+        related_name='secuencias_codigo',
+        verbose_name='Entidad codificadora',
+    )
+    ultimo_valor = models.PositiveIntegerField(
+        default=0,
+        verbose_name='Último correlativo emitido',
+    )
+
+    class Meta:
+        verbose_name = 'Secuencia de código'
+        verbose_name_plural = 'Secuencias de códigos'
+        ordering = ['nivel', 'gestion']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['nivel', 'padre_id', 'gestion', 'entidad'],
+                nulls_distinct=False,
+                name='uniq_secuencia_codigo_clave',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.nivel} G{self.gestion} → {self.ultimo_valor}'
+
+
+class HomologacionCodigo(TimeStampedModel):
+    """Registro append-only de homologación de códigos.
+
+    Cada vez que un código cambia (ej. ``SIM-2027-OP-01`` → código
+    oficial de 16 segmentos) se inserta una fila con el respaldo
+    documentario. Nunca se actualiza ni se borra: es la pista de
+    auditoría del proceso de codificación.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tipo_entidad = models.CharField(
+        max_length=30,
+        choices=NIVEL_ARTICULACION_CHOICES,
+        verbose_name='Tipo de entidad',
+    )
+    entidad_id = models.UUIDField(verbose_name='ID de la entidad homologada')
+    codigo_anterior = models.CharField(
+        max_length=100,
+        verbose_name='Código anterior',
+    )
+    codigo_nuevo = models.CharField(
+        max_length=100,
+        verbose_name='Código nuevo',
+    )
+    motivo = models.TextField(verbose_name='Motivo')
+    gestion = models.PositiveIntegerField(verbose_name='Gestión')
+    fecha = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Fecha de homologación',
+    )
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name='homologaciones_codigo',
+        verbose_name='Usuario',
+    )
+    documento_respaldo = models.CharField(
+        max_length=300,
+        blank=True,
+        verbose_name='Documento de respaldo',
+    )
+
+    class Meta:
+        verbose_name = 'Homologación de código'
+        verbose_name_plural = 'Homologaciones de códigos'
+        ordering = ['-fecha']
+        indexes = [
+            models.Index(fields=['tipo_entidad', 'codigo_anterior']),
+            models.Index(fields=['entidad_id']),
+        ]
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            raise ValidationError(
+                'Las homologaciones de código son append-only: '
+                'no se pueden modificar.'
+            )
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValidationError(
+            'Las homologaciones de código son append-only: '
+            'no se pueden eliminar.'
+        )
+
+    def __str__(self):
+        return f'{self.tipo_entidad}: {self.codigo_anterior} → {self.codigo_nuevo}'

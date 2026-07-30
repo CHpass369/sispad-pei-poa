@@ -5,9 +5,11 @@ from .models import (
     EjePGDESA,
     EntidadCodificadora,
     EntidadTerritorialCGEO,
+    HomologacionCodigo,
     LineamientoPAD,
     ResultadoSectorial,
     SectorEconomico,
+    SecuenciaCodigo,
     VersionCatalogoPlan,
 )
 
@@ -67,3 +69,29 @@ class EntidadCodificadoraAdmin(admin.ModelAdmin):
     list_filter = ['activo']
     search_fields = ['codigo', 'denominacion']
     readonly_fields = ['created_at', 'updated_at']
+
+
+@admin.register(SecuenciaCodigo)
+class SecuenciaCodigoAdmin(admin.ModelAdmin):
+    list_display = ['nivel', 'padre_id', 'gestion', 'entidad', 'ultimo_valor']
+    list_filter = ['nivel', 'gestion', 'entidad']
+    readonly_fields = ['created_at', 'updated_at']
+
+
+@admin.register(HomologacionCodigo)
+class HomologacionCodigoAdmin(admin.ModelAdmin):
+    """Las homologaciones son append-only: el admin solo permite insertar y ver."""
+
+    list_display = [
+        'tipo_entidad', 'codigo_anterior', 'codigo_nuevo',
+        'gestion', 'usuario', 'fecha',
+    ]
+    list_filter = ['tipo_entidad', 'gestion']
+    search_fields = ['codigo_anterior', 'codigo_nuevo', 'documento_respaldo']
+    readonly_fields = ['created_at', 'updated_at', 'fecha']
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
