@@ -328,6 +328,82 @@ class EntidadTerritorialCGEO(TimeStampedModel):
         return f'[{self.codigo}] {self.nombre} ({self.get_nivel_display()})'
 
 
+class CodigoSegmentadoModel(TimeStampedModel):
+    """Mixin abstracto de codificación oficial segmentada.
+
+    Lo aplican los 8 modelos operativos de articulación (ResultadoPAD,
+    ProductoPAD, ResultadoPEI, ProductoPEI, AccionPOA, OperacionPOAU,
+    ActividadPOAU, TareaPOAU). Aporta el correlativo del nivel, el
+    segmento propio (zfill según ``ANCHO_SEGMENTO``) y la trazabilidad
+    del código fuente original (ej. ``SIM-2027-OP-01``).
+
+    El ``codigo_completo_articulacion`` (16 segmentos) lo genera SOLO el
+    backend: el CodificadorService lo implementa en T3. Aquí el campo
+    queda persistido y ``editable=False`` para que ningún formulario lo
+    escriba.
+    """
+
+    ESTADO_CODIGO_PROVISIONAL = 'provisional'
+    ESTADO_CODIGO_OFICIAL = 'oficial'
+    ESTADO_CODIGO_CHOICES = [
+        (ESTADO_CODIGO_PROVISIONAL, 'Provisional'),
+        (ESTADO_CODIGO_OFICIAL, 'Oficial'),
+    ]
+
+    # Cada modelo concreto declara el ancho de su segmento: 2 dígitos
+    # (RT/PT/OE/RI/PI) o 3 dígitos (ACP/OP/ACT/TAR).
+    ANCHO_SEGMENTO = None
+
+    correlativo = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name='Correlativo del nivel',
+    )
+    segmento = models.CharField(
+        max_length=6,
+        blank=True,
+        default='',
+        verbose_name='Segmento del nivel',
+    )
+    codigo_fuente = models.CharField(
+        max_length=100,
+        blank=True,
+        default='',
+        verbose_name='Código fuente original',
+    )
+    codigo_normalizado = models.CharField(
+        max_length=6,
+        blank=True,
+        default='',
+        verbose_name='Código normalizado',
+    )
+    codigo_completo_articulacion = models.CharField(
+        max_length=100,
+        blank=True,
+        default='',
+        editable=False,
+        verbose_name='Código completo de articulación',
+    )
+    estado_codigo = models.CharField(
+        max_length=20,
+        choices=ESTADO_CODIGO_CHOICES,
+        default=ESTADO_CODIGO_PROVISIONAL,
+        verbose_name='Estado del código',
+    )
+
+    class Meta:
+        abstract = True
+
+    @classmethod
+    def generar_segmento(cls, correlativo):
+        """Devuelve el correlativo con zfill según el ancho del nivel."""
+        if cls.ANCHO_SEGMENTO is None:
+            raise NotImplementedError(
+                f'{cls.__name__} debe declarar ANCHO_SEGMENTO (2 o 3).'
+            )
+        return str(correlativo).zfill(cls.ANCHO_SEGMENTO)
+
+
 class EntidadCodificadora(TimeStampedModel):
     """Entidad pública que codifica (segmento ENTI, 4 dígitos).
 
