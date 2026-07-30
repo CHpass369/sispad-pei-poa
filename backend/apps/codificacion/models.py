@@ -1,8 +1,10 @@
 """Catálogos oficiales versionados de codificación PAD-PEI-POA-POAU.
 
 Todos los códigos oficiales (PGDESA, PDESA, sectores, CGEO, PAD) viven en
-esta app, versionados por plan y gestión. El código nunca es PK y nunca lo
-escribe el frontend.
+esta app. La cadena jerárquica PGDESA/PDESA/sector/resultado y los
+lineamientos PAD se versionan por plan y gestión (VersionCatalogoPlan).
+CGEO y EntidadCodificadora son catálogos estables: NO se versionan por
+plan ni gestión. El código nunca es PK y nunca lo escribe el frontend.
 """
 import uuid
 
