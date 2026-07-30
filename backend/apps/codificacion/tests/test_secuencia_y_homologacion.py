@@ -16,7 +16,13 @@ import pytest
 from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from django.db import DatabaseError, IntegrityError, connection, transaction
+from django.db import (
+    DatabaseError,
+    IntegrityError,
+    OperationalError,
+    connection,
+    transaction,
+)
 from django.db.models import ProtectedError
 
 from apps.codificacion.models import (
@@ -127,64 +133,78 @@ class TestSecuenciaCodigo:
 
 @pytest.mark.django_db(transaction=True)
 class TestSecuenciaCodigoConcurrencia:
-    def test_select_for_update_serializa_incrementos(self, entidad):
-        """Dos transacciones solapadas obtienen correlativos consecutivos."""
+    def test_select_for_update_bloquea_la_misma_fila_hasta_commit(self, entidad):
+        """A holds the row lock, B times out, and a later transaction succeeds."""
         secuencia = SecuenciaCodigo.objects.create(
             nivel='operacion_poau', padre_id=uuid.uuid4(),
             gestion=2027, entidad=entidad,
         )
 
-        inicio = threading.Barrier(3)
-        primer_lock = threading.Event()
-        segundo_intento = threading.Event()
-        resultados = Queue()
-        errores = Queue()
+        inicio = threading.Barrier(2)
+        lock_adquirido = threading.Event()
+        liberar_lock = threading.Event()
+        segundo_finalizo = threading.Event()
+        errores_a = Queue()
+        errores_b = Queue()
 
-        def incrementar(es_primero):
+        def mantener_lock():
             try:
                 inicio.wait(timeout=5)
                 with transaction.atomic():
-                    if not es_primero:
-                        if not primer_lock.wait(timeout=5):
-                            raise TimeoutError('El primer hilo no obtuvo el lock.')
-                        segundo_intento.set()
-
-                    bloqueada = SecuenciaCodigo.objects.select_for_update().get(
-                        pk=secuencia.pk,
-                    )
-
-                    if es_primero:
-                        primer_lock.set()
-                        if not segundo_intento.wait(timeout=5):
-                            raise TimeoutError('El segundo hilo no intentó el lock.')
-
-                    bloqueada.ultimo_valor += 1
-                    bloqueada.save(update_fields=['ultimo_valor', 'updated_at'])
-                    resultados.put(bloqueada.ultimo_valor)
+                    SecuenciaCodigo.objects.select_for_update().get(pk=secuencia.pk)
+                    lock_adquirido.set()
+                    if not liberar_lock.wait(timeout=5):
+                        raise TimeoutError('No se liberó la transacción A.')
             except BaseException as exc:
-                errores.put(exc)
+                errores_a.put(exc)
             finally:
                 connection.close()
 
-        primer_hilo = threading.Thread(target=incrementar, args=(True,))
-        segundo_hilo = threading.Thread(target=incrementar, args=(False,))
-        primer_hilo.start()
-        segundo_hilo.start()
-        inicio.wait(timeout=5)
-        primer_hilo.join(timeout=10)
-        segundo_hilo.join(timeout=10)
+        def intentar_mismo_lock():
+            try:
+                if not lock_adquirido.wait(timeout=5):
+                    raise TimeoutError('La transacción A no obtuvo el lock.')
+                with transaction.atomic():
+                    with connection.cursor() as cursor:
+                        cursor.execute("SET LOCAL lock_timeout = '250ms'")
+                    SecuenciaCodigo.objects.select_for_update().get(pk=secuencia.pk)
+            except BaseException as exc:
+                errores_b.put(exc)
+            finally:
+                segundo_finalizo.set()
+                connection.close()
 
-        assert not primer_hilo.is_alive()
-        assert not segundo_hilo.is_alive()
+        hilo_a = threading.Thread(target=mantener_lock)
+        hilo_b = threading.Thread(target=intentar_mismo_lock)
+        hilo_a.start()
+        inicio.wait(timeout=5)
+        assert lock_adquirido.wait(timeout=5)
+        hilo_b.start()
         try:
-            error = errores.get_nowait()
-        except Empty:
-            error = None
-        assert error is None
-        assert sorted(resultados.get_nowait() for _ in range(2)) == [1, 2]
+            hilo_b.join(timeout=5)
+            assert segundo_finalizo.is_set()
+            assert not hilo_b.is_alive()
+            try:
+                error_b = errores_b.get_nowait()
+            except Empty:
+                error_b = None
+            assert isinstance(error_b, OperationalError)
+        finally:
+            liberar_lock.set()
+            hilo_a.join(timeout=5)
+
+        assert not hilo_a.is_alive()
+        assert errores_a.empty()
+
+        with transaction.atomic():
+            desbloqueada = SecuenciaCodigo.objects.select_for_update().get(
+                pk=secuencia.pk,
+            )
+            desbloqueada.ultimo_valor = 1
+            desbloqueada.save(update_fields=['ultimo_valor', 'updated_at'])
 
         secuencia.refresh_from_db()
-        assert secuencia.ultimo_valor == 2
+        assert secuencia.ultimo_valor == 1
 
     def test_carrera_de_creacion_inicial_queda_para_t3(self):
         pytest.xfail(
