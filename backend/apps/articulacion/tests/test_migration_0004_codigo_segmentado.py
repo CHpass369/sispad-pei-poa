@@ -7,6 +7,10 @@ from django.db.migrations.executor import MigrationExecutor
 
 MIGRATE_FROM = ('articulacion', '0003_resultadopad_nodo_pdesa')
 MIGRATE_TO = ('articulacion', '0004_mixin_codigo_segmentado')
+MIGRATE_TO_0005 = (
+    'articulacion',
+    '0005_accionpoa_articulacion_incompleta_and_more',
+)
 MODEL_LEGACY_FIELDS = {
     'ResultadoPAD': ('codigo_resultado', 'LEGACY-RP-01'),
     'ProductoPAD': ('codigo_producto', 'LEGACY-PP-01'),
@@ -139,6 +143,57 @@ def test_migracion_0004_preserva_datos_legacy_y_relaciones():
         link = ArticulacionPADPEI.objects.get(pk=ids['ArticulacionPADPEI'])
         assert link.producto_pad_id == ids['ProductoPAD']
         assert link.producto_pei_id == ids['ProductoPEI']
+        assert AccionPOA.objects.get().producto_pei_id == ids['ProductoPEI']
+        assert OperacionPOAU.objects.get().accion_poa_id == ids['AccionPOA']
+        assert ActividadPOAU.objects.get().operacion_id == ids['OperacionPOAU']
+        assert TareaPOAU.objects.get().actividad_id == ids['ActividadPOAU']
+    finally:
+        executor.loader.build_graph()
+        executor.migrate(executor.loader.graph.leaf_nodes())
+
+
+@pytest.mark.django_db(transaction=True)
+def test_migracion_0005_preserva_filas_sim_y_agrega_relaciones_nullable():
+    executor = MigrationExecutor(connection)
+    executor.migrate([MIGRATE_TO])
+    apps_0004 = executor.loader.project_state([MIGRATE_TO]).apps
+
+    try:
+        ids = _create_legacy_chain(apps_0004)
+        for model_name, (legacy_field, _) in MODEL_LEGACY_FIELDS.items():
+            model = apps_0004.get_model('articulacion', model_name)
+            model.objects.filter(pk=ids[model_name]).update(
+                **{legacy_field: f'SIM-2027-{model_name.upper()}'},
+            )
+
+        executor.loader.build_graph()
+        executor.migrate([MIGRATE_TO_0005])
+        apps_0005 = executor.loader.project_state([MIGRATE_TO_0005]).apps
+
+        for model_name, (legacy_field, _) in MODEL_LEGACY_FIELDS.items():
+            model = apps_0005.get_model('articulacion', model_name)
+            row = model.objects.get(pk=ids[model_name])
+            assert row.pk == ids[model_name]
+            assert getattr(row, legacy_field) == f'SIM-2027-{model_name.upper()}'
+            assert row.articulacion_incompleta is True
+
+        ResultadoPAD = apps_0005.get_model('articulacion', 'ResultadoPAD')
+        ResultadoPEI = apps_0005.get_model('articulacion', 'ResultadoPEI')
+        resultado_pad = ResultadoPAD.objects.get(pk=ids['ResultadoPAD'])
+        resultado_pei = ResultadoPEI.objects.get(pk=ids['ResultadoPEI'])
+        assert resultado_pad.resultado_sectorial_catalogo_id is None
+        assert resultado_pad.entidad_territorial_cgeo_id is None
+        assert resultado_pad.lineamiento_pad_catalogo_id is None
+        assert resultado_pei.entidad_codificadora_id is None
+
+        ProductoPAD = apps_0005.get_model('articulacion', 'ProductoPAD')
+        ProductoPEI = apps_0005.get_model('articulacion', 'ProductoPEI')
+        AccionPOA = apps_0005.get_model('articulacion', 'AccionPOA')
+        OperacionPOAU = apps_0005.get_model('articulacion', 'OperacionPOAU')
+        ActividadPOAU = apps_0005.get_model('articulacion', 'ActividadPOAU')
+        TareaPOAU = apps_0005.get_model('articulacion', 'TareaPOAU')
+        assert ProductoPAD.objects.get().resultado_pad_id == ids['ResultadoPAD']
+        assert ProductoPEI.objects.get().resultado_pei_id == ids['ResultadoPEI']
         assert AccionPOA.objects.get().producto_pei_id == ids['ProductoPEI']
         assert OperacionPOAU.objects.get().accion_poa_id == ids['AccionPOA']
         assert ActividadPOAU.objects.get().operacion_id == ids['OperacionPOAU']
