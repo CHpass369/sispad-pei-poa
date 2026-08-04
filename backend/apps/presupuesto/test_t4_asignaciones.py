@@ -332,6 +332,8 @@ class TestAsignacionPresupuestariaUnidad:
             asignacion.full_clean()
 
         assert {'categoria_programatica', 'unidad', 'operacion'} <= set(error.value.message_dict)
+        with pytest.raises(IntegrityError), transaction.atomic():
+            AsignacionPresupuestariaUnidad.objects.bulk_create([asignacion])
 
     def test_rechaza_catalogo_vinculado_a_version_de_tipo_incorrecto(self, estructura_t4):
         from apps.presupuesto.models import AsignacionPresupuestariaUnidad
@@ -350,3 +352,5 @@ class TestAsignacionPresupuestariaUnidad:
             asignacion.full_clean()
 
         assert 'fuente' in error.value.message_dict
+        with pytest.raises(IntegrityError), transaction.atomic():
+            AsignacionPresupuestariaUnidad.objects.bulk_create([asignacion])
