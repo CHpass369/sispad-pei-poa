@@ -13,6 +13,7 @@ pytestmark = pytest.mark.django_db
 def crear_version(**overrides):
     from apps.catalogos.models import VersionClasificador
 
+    reemplazar_vigente = overrides.pop('_reemplazar_vigente', True)
     data = {
         'tipo': VersionClasificador.TIPO_OBJETO_GASTO,
         'gestion': 2026,
@@ -25,6 +26,10 @@ def crear_version(**overrides):
         'vigente': True,
     }
     data.update(overrides)
+    if data['vigente'] and reemplazar_vigente:
+        VersionClasificador.objects.filter(
+            tipo=data['tipo'], gestion=data['gestion'], vigente=True
+        ).update(vigente=False)
     return VersionClasificador.objects.create(**data)
 
 
@@ -45,7 +50,7 @@ class TestVersionClasificador:
         with pytest.raises(VersionClasificador.DoesNotExist):
             VersionClasificador.objects.vigente_para(
                 VersionClasificador.TIPO_FUENTE_FINANCIAMIENTO,
-                2026,
+                2099,
             )
 
     def test_rechaza_vigente_sin_fuente_oficial_completa(self):
@@ -71,9 +76,17 @@ class TestVersionClasificador:
         crear_version()
 
         with pytest.raises(IntegrityError), transaction.atomic():
-            crear_version(norma='Otra norma', codigo_fuente='OTRA-NORMA')
+            crear_version(
+                norma='Otra norma',
+                codigo_fuente='OTRA-NORMA',
+                _reemplazar_vigente=False,
+            )
 
-        assert VersionClasificador.objects.filter(vigente=True).count() == 1
+        assert VersionClasificador.objects.filter(
+            tipo=VersionClasificador.TIPO_OBJETO_GASTO,
+            gestion=2026,
+            vigente=True,
+        ).count() == 1
 
 
 class TestCatalogosVersionados:

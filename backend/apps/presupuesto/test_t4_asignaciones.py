@@ -37,6 +37,11 @@ pytestmark = pytest.mark.django_db
 
 
 def crear_version(tipo, gestion=2026, codigo_fuente=None):
+    version = VersionClasificador.objects.filter(
+        tipo=tipo, gestion=gestion, vigente=True
+    ).first()
+    if version:
+        return version
     return VersionClasificador.objects.create(
         tipo=tipo,
         gestion=gestion,
@@ -91,12 +96,9 @@ def crear_cadena_operativa(gestion=2026):
 
 @pytest.fixture
 def estructura_t4():
-    categoria_version = VersionClasificador.objects.create(
+    categoria_version = VersionClasificador.objects.get(
         tipo=VersionClasificador.TIPO_CATEGORIA_PROGRAMATICA,
         gestion=2026,
-        codigo_fuente='APERTURA-SIN-MAESTRO-SIGEP',
-        procedencia_normativa='DA/UE/programa/proyecto/actividad no confirmados por el PDF resumen',
-        clasificacion_fuente=VersionClasificador.FUENTE_INCIERTA,
         vigente=False,
     )
     fuente_version = crear_version(VersionClasificador.TIPO_FUENTE_FINANCIAMIENTO)
