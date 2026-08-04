@@ -16,6 +16,7 @@ CODIFICACION_READ_ONLY_FIELDS = [
     'codigo_fuente',
     'codigo_normalizado',
     'codigo_completo_articulacion',
+    'articulacion_incompleta',
     'estado_codigo',
 ]
 AUDIT_READ_ONLY_FIELDS = [

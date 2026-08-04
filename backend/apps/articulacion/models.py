@@ -116,6 +116,10 @@ class LineamientoPAD(models.Model):
 
 class ResultadoPAD(CodigoSegmentadoModel):
     ANCHO_SEGMENTO = 2  # segmento RT
+    CAMPOS_CODIFICACION_ADICIONALES = (
+        'vigencia_desde', 'resultado_sectorial_catalogo',
+        'entidad_territorial_cgeo', 'lineamiento_pad_catalogo',
+    )
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     id_cadena = models.CharField(max_length=20, unique=True, verbose_name='ID cadena')
@@ -128,6 +132,21 @@ class ResultadoPAD(CodigoSegmentadoModel):
     vigencia_hasta = models.IntegerField(verbose_name='Vigencia hasta')
     cod_geografico = models.CharField(max_length=20, verbose_name='Código geográfico')
     eta = models.CharField(max_length=300, verbose_name='ETA')
+    resultado_sectorial_catalogo = models.ForeignKey(
+        'codificacion.ResultadoSectorial', on_delete=models.PROTECT,
+        null=True, blank=True, related_name='resultados_pad',
+        verbose_name='Resultado sectorial de catálogo',
+    )
+    entidad_territorial_cgeo = models.ForeignKey(
+        'codificacion.EntidadTerritorialCGEO', on_delete=models.PROTECT,
+        null=True, blank=True, related_name='resultados_pad',
+        verbose_name='Entidad territorial CGEO',
+    )
+    lineamiento_pad_catalogo = models.ForeignKey(
+        'codificacion.LineamientoPAD', on_delete=models.PROTECT,
+        null=True, blank=True, related_name='resultados_pad',
+        verbose_name='Lineamiento PAD de catálogo',
+    )
     acuerdo_ods = models.ManyToManyField(
         AcuerdoInternacional, blank=True,
         limit_choices_to={'tipo_acuerdo': 'ODS'},
@@ -204,6 +223,7 @@ class ResultadoPAD(CodigoSegmentadoModel):
 
 class ProductoPAD(CodigoSegmentadoModel):
     ANCHO_SEGMENTO = 2  # segmento PT
+    CAMPOS_CODIFICACION_ADICIONALES = ('resultado_pad',)
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     codigo_producto = models.CharField(max_length=50, verbose_name='Código producto')
@@ -236,12 +256,20 @@ class ProductoPAD(CodigoSegmentadoModel):
 
 class ResultadoPEI(CodigoSegmentadoModel):
     ANCHO_SEGMENTO = 2  # segmento RI
+    CAMPOS_CODIFICACION_ADICIONALES = (
+        'cod_entidad', 'cod_oei', 'vigencia_desde', 'entidad_codificadora',
+    )
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     codigo_resultado = models.CharField(max_length=50, verbose_name='Código resultado')
     denominacion = models.TextField(verbose_name='Denominación')
     cod_entidad = models.CharField(max_length=10, verbose_name='Código entidad')
     entidad = models.CharField(max_length=300, verbose_name='Entidad')
+    entidad_codificadora = models.ForeignKey(
+        'codificacion.EntidadCodificadora', on_delete=models.PROTECT,
+        null=True, blank=True, related_name='resultados_pei',
+        verbose_name='Entidad codificadora',
+    )
     cod_oei = models.CharField(max_length=10, blank=True, verbose_name='Código OEI')
     vigencia_desde = models.IntegerField(verbose_name='Vigencia desde')
     vigencia_hasta = models.IntegerField(verbose_name='Vigencia hasta')
@@ -267,6 +295,7 @@ class ResultadoPEI(CodigoSegmentadoModel):
 
 class ProductoPEI(CodigoSegmentadoModel):
     ANCHO_SEGMENTO = 2  # segmento PI
+    CAMPOS_CODIFICACION_ADICIONALES = ('resultado_pei',)
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     codigo_producto = models.CharField(max_length=50, verbose_name='Código producto')
@@ -404,6 +433,7 @@ class IndicadorCadena(TimeStampedModel):
 
 class AccionPOA(CodigoSegmentadoModel):
     ANCHO_SEGMENTO = 3  # segmento ACP
+    CAMPOS_CODIFICACION_ADICIONALES = ('producto_pei', 'gestion')
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     codigo_accion = models.CharField(max_length=50, unique=True, verbose_name='Código acción')
@@ -497,6 +527,7 @@ class AccionPOA(CodigoSegmentadoModel):
 
 class OperacionPOAU(CodigoSegmentadoModel):
     ANCHO_SEGMENTO = 3  # segmento OP
+    CAMPOS_CODIFICACION_ADICIONALES = ('accion_poa',)
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     codigo_operacion = models.CharField(max_length=50, unique=True, verbose_name='Código operación')
@@ -574,6 +605,7 @@ class OperacionPOAU(CodigoSegmentadoModel):
 
 class ActividadPOAU(CodigoSegmentadoModel):
     ANCHO_SEGMENTO = 3  # segmento ACT
+    CAMPOS_CODIFICACION_ADICIONALES = ('operacion',)
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     codigo_actividad = models.CharField(max_length=50, unique=True, verbose_name='Código actividad')
@@ -671,6 +703,7 @@ class ActividadNormativa(models.Model):
 
 class TareaPOAU(CodigoSegmentadoModel):
     ANCHO_SEGMENTO = 3  # segmento TAR
+    CAMPOS_CODIFICACION_ADICIONALES = ('actividad',)
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     codigo_tarea = models.CharField(max_length=50, unique=True, verbose_name='Código tarea')

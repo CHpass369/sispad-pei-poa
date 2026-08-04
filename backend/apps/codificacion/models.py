@@ -354,6 +354,16 @@ class CodigoSegmentadoModel(TimeStampedModel):
     # Cada modelo concreto declara el ancho de su segmento: 2 dígitos
     # (RT/PT/OE/RI/PI) o 3 dígitos (ACP/OP/ACT/TAR).
     ANCHO_SEGMENTO = None
+    CAMPOS_CODIFICACION_ADICIONALES = ()
+    CAMPOS_CODIFICACION = (
+        'correlativo',
+        'segmento',
+        'codigo_fuente',
+        'codigo_normalizado',
+        'codigo_completo_articulacion',
+        'articulacion_incompleta',
+        'estado_codigo',
+    )
 
     correlativo = models.PositiveIntegerField(
         null=True,
@@ -384,6 +394,11 @@ class CodigoSegmentadoModel(TimeStampedModel):
         default='',
         editable=False,
         verbose_name='Código completo de articulación',
+    )
+    articulacion_incompleta = models.BooleanField(
+        default=True,
+        editable=False,
+        verbose_name='Articulación incompleta',
     )
     estado_codigo = models.CharField(
         max_length=20,
@@ -423,6 +438,45 @@ class CodigoSegmentadoModel(TimeStampedModel):
             )
 
         return str(correlativo).zfill(cls.ANCHO_SEGMENTO)
+
+    def save(self, *args, **kwargs):
+        """Allow coding changes only before an authorized official promotion."""
+        permitir_promocion = getattr(self, '_permitir_promocion_oficial', False)
+        if self.estado_codigo == self.ESTADO_CODIGO_OFICIAL and not self.pk:
+            if not permitir_promocion:
+                raise ValidationError(
+                    'Solo CodificadorService puede promover un código a OFICIAL.'
+                )
+
+        if self.pk:
+            anterior = type(self).objects.filter(pk=self.pk).first()
+            if anterior is not None:
+                if (
+                    anterior.estado_codigo != self.ESTADO_CODIGO_OFICIAL
+                    and self.estado_codigo == self.ESTADO_CODIGO_OFICIAL
+                    and not permitir_promocion
+                ):
+                    raise ValidationError(
+                        'Solo CodificadorService puede promover un código a OFICIAL.'
+                    )
+                if anterior.estado_codigo == self.ESTADO_CODIGO_OFICIAL:
+                    campos = (
+                        self.CAMPOS_CODIFICACION
+                        + self.CAMPOS_CODIFICACION_ADICIONALES
+                    )
+                    modificados = []
+                    for nombre in campos:
+                        campo = self._meta.get_field(nombre)
+                        atributo = campo.attname
+                        if getattr(anterior, atributo) != getattr(self, atributo):
+                            modificados.append(nombre)
+                    if modificados:
+                        raise ValidationError({
+                            nombre: 'Un código OFICIAL es inmutable.'
+                            for nombre in modificados
+                        })
+
+        super().save(*args, **kwargs)
 
 
 # Niveles operativos de articulación que reciben código oficial segmentado.

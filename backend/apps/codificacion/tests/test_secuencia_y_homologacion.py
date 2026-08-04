@@ -207,13 +207,6 @@ class TestSecuenciaCodigoConcurrencia:
         secuencia.refresh_from_db()
         assert secuencia.ultimo_valor == 1
 
-    def test_carrera_de_creacion_inicial_queda_para_t3(self):
-        pytest.xfail(
-            'La creación concurrente de SecuenciaCodigo pertenece a '
-            'CodificadorService (T3); T2 solo garantiza filas preexistentes.'
-        )
-
-
 @pytest.mark.django_db
 class TestHomologacionCodigo:
     def _crear(self, usuario, **kwargs):

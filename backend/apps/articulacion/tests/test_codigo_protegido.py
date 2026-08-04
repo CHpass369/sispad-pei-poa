@@ -39,6 +39,7 @@ CODING_FIELDS = {
     'codigo_fuente',
     'codigo_normalizado',
     'codigo_completo_articulacion',
+    'articulacion_incompleta',
     'estado_codigo',
 }
 
@@ -59,6 +60,7 @@ INJECTED_CODING = {
     'codigo_fuente': 'UNTRUSTED-SOURCE',
     'codigo_normalizado': 'BAD',
     'codigo_completo_articulacion': 'UNTRUSTED.COMPLETE.CODE',
+    'articulacion_incompleta': False,
     'estado_codigo': 'oficial',
 }
 
