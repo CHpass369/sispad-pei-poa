@@ -27,6 +27,16 @@ class CodificadorService:
         'LL': 2, 'RT': 2, 'PT': 2, 'ENTI': 4, 'OE': 2,
         'RI': 2, 'PI': 2, 'ACP': 3, 'OP': 3, 'ACT': 3, 'TAR': 3,
     }
+    ANCHO_POR_NIVEL = {
+        'resultado_pad': 2,
+        'producto_pad': 2,
+        'resultado_pei': 2,
+        'producto_pei': 2,
+        'accion_poa': 3,
+        'operacion_poau': 3,
+        'actividad_poau': 3,
+        'tarea_poau': 3,
+    }
     NIVEL_POR_MODELO = {
         'ResultadoPAD': 'resultado_pad',
         'ProductoPAD': 'producto_pad',
@@ -78,6 +88,13 @@ class CodificadorService:
                 pass
             secuencia = SecuenciaCodigo.objects.select_for_update().get(**clave)
 
+        maximo = (10 ** cls.ANCHO_POR_NIVEL[nivel]) - 1
+        if secuencia.ultimo_valor >= maximo:
+            raise ValidationError({
+                'secuencia': (
+                    f'El nivel {nivel} agotó su máximo correlativo {maximo}.'
+                ),
+            })
         secuencia.ultimo_valor += 1
         secuencia.save(update_fields=['ultimo_valor', 'updated_at'])
         return secuencia.ultimo_valor
@@ -193,10 +210,18 @@ class CodificadorService:
     def _segmento_instancia(instancia):
         if instancia is None:
             return None
-        return instancia.segmento or (
-            instancia.generar_segmento(instancia.correlativo)
-            if instancia.correlativo is not None else None
-        )
+        if instancia.correlativo is None:
+            if instancia.segmento:
+                raise ValidationError({
+                    'segmento': 'No puede existir sin correlativo.',
+                })
+            return None
+        derivado = instancia.generar_segmento(instancia.correlativo)
+        if instancia.segmento and instancia.segmento != derivado:
+            raise ValidationError({
+                'segmento': 'Debe coincidir con el correlativo normalizado.',
+            })
+        return derivado
 
     @classmethod
     def _segmentos(cls, instancia):
@@ -316,6 +341,10 @@ class CodificadorService:
                 raise ValidationError({
                     'catalogo_nacional': 'El catálogo nacional debe estar activo y vigente para la gestión.',
                 })
+            if para_oficial:
+                cls._validar_respaldo_oficial(
+                    version_nacional, 'catalogo_nacional',
+                )
 
         if resultado_pad is not None and resultado_pad.lineamiento_pad_catalogo:
             lineamiento = resultado_pad.lineamiento_pad_catalogo
@@ -329,6 +358,10 @@ class CodificadorService:
                 raise ValidationError({
                     'lineamiento_pad': 'El lineamiento debe estar activo y vigente para la gestión.',
                 })
+            if para_oficial:
+                cls._validar_respaldo_oficial(
+                    lineamiento.version_catalogo, 'lineamiento_pad',
+                )
             if cgeo and lineamiento.entidad_territorial_id != cgeo.pk:
                 raise ValidationError({
                     'lineamiento_pad': 'El lineamiento no corresponde al CGEO seleccionado.',
@@ -353,6 +386,17 @@ class CodificadorService:
         ).exists():
             raise ValidationError({'codigo': 'El código completo ya está asignado.'})
         return True
+
+    @staticmethod
+    def _validar_respaldo_oficial(version, campo):
+        if version.clasificacion_fuente != VersionCatalogoPlan.FUENTE_OFICIAL:
+            raise ValidationError({
+                campo: 'La versión debe provenir de una fuente OFICIAL.',
+            })
+        if not version.norma_aprobacion.strip():
+            raise ValidationError({
+                campo: 'La versión OFICIAL requiere norma de aprobación.',
+            })
 
     @classmethod
     def _ruta_operativa(cls, instancia):
@@ -393,17 +437,20 @@ class CodificadorService:
         if not str(motivo).strip():
             raise ValidationError({'motivo': 'El motivo de homologación es obligatorio.'})
 
-        type(instancia).objects.select_for_update().get(pk=instancia.pk)
-        if instancia.estado_codigo == instancia.ESTADO_CODIGO_OFICIAL:
+        bloqueada = type(instancia).objects.select_for_update().get(pk=instancia.pk)
+        if bloqueada.estado_codigo == bloqueada.ESTADO_CODIGO_OFICIAL:
             raise ValidationError({'estado_codigo': 'El código ya es OFICIAL.'})
 
-        cls.generar_codigo_completo(instancia)
-        cls.validar(instancia, para_oficial=True)
-        instancia.codigo_normalizado = instancia.segmento
-        instancia.estado_codigo = instancia.ESTADO_CODIGO_OFICIAL
-        instancia._permitir_promocion_oficial = True
+        cls.generar_codigo_completo(bloqueada)
+        cls.validar(bloqueada, para_oficial=True)
+        segmento = bloqueada.generar_segmento(bloqueada.correlativo)
+        bloqueada.segmento = segmento
+        bloqueada.codigo_normalizado = segmento
+        bloqueada.estado_codigo = bloqueada.ESTADO_CODIGO_OFICIAL
+        bloqueada._permitir_promocion_oficial = True
         try:
-            instancia.save(update_fields=[
+            bloqueada.save(update_fields=[
+                'segmento',
                 'codigo_normalizado',
                 'codigo_completo_articulacion',
                 'articulacion_incompleta',
@@ -411,21 +458,21 @@ class CodificadorService:
                 'updated_at',
             ])
         finally:
-            delattr(instancia, '_permitir_promocion_oficial')
+            delattr(bloqueada, '_permitir_promocion_oficial')
 
-        nombre_modelo = type(instancia).__name__
-        codigo_anterior = instancia.codigo_fuente or getattr(
-            instancia, cls.CAMPO_LEGACY_POR_MODELO[nombre_modelo],
+        nombre_modelo = type(bloqueada).__name__
+        codigo_anterior = bloqueada.codigo_fuente or getattr(
+            bloqueada, cls.CAMPO_LEGACY_POR_MODELO[nombre_modelo],
         )
-        contexto = cls._contexto(instancia)
+        contexto = cls._contexto(bloqueada)
         HomologacionCodigo.objects.create(
             tipo_entidad=cls.NIVEL_POR_MODELO[nombre_modelo],
-            entidad_id=instancia.pk,
+            entidad_id=bloqueada.pk,
             codigo_anterior=codigo_anterior,
-            codigo_nuevo=instancia.codigo_completo_articulacion,
+            codigo_nuevo=bloqueada.codigo_completo_articulacion,
             motivo=str(motivo).strip(),
             gestion=cls._gestion(contexto),
             usuario=usuario,
             documento_respaldo=str(documento_respaldo).strip(),
         )
-        return instancia
+        return bloqueada

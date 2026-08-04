@@ -39,6 +39,17 @@ class VersionCatalogoPlan(TimeStampedModel):
         (ESTADO_CERRADO, 'Cerrado'),
     ]
 
+    FUENTE_OFICIAL = 'oficial'
+    FUENTE_REFERENCIAL = 'referencial'
+    FUENTE_TECNICA = 'tecnica'
+    FUENTE_INCIERTA = 'incierta'
+    FUENTE_CHOICES = [
+        (FUENTE_OFICIAL, 'Oficial'),
+        (FUENTE_REFERENCIAL, 'Referencial'),
+        (FUENTE_TECNICA, 'Técnica'),
+        (FUENTE_INCIERTA, 'Incierta'),
+    ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     plan = models.ForeignKey(
         'planificacion.Plan',
@@ -57,6 +68,18 @@ class VersionCatalogoPlan(TimeStampedModel):
         max_length=300,
         blank=True,
         verbose_name='Norma de aprobación',
+    )
+    clasificacion_fuente = models.CharField(
+        max_length=20,
+        choices=FUENTE_CHOICES,
+        default=FUENTE_INCIERTA,
+        verbose_name='Clasificación de la fuente',
+    )
+    procedencia_fuente = models.CharField(
+        max_length=500,
+        blank=True,
+        default='',
+        verbose_name='Procedencia de la fuente',
     )
 
     class Meta:
@@ -329,6 +352,59 @@ class EntidadTerritorialCGEO(TimeStampedModel):
         return f'[{self.codigo}] {self.nombre} ({self.get_nivel_display()})'
 
 
+class CodigoSegmentadoQuerySet(models.QuerySet):
+    """Protect official codes from mutation through mass ORM operations."""
+
+    MENSAJE_INMUTABLE = 'Los registros con código OFICIAL son inmutables.'
+    MENSAJE_PROMOCION = 'Solo CodificadorService puede crear códigos OFICIALES.'
+
+    def _contiene_oficial(self):
+        return self.filter(estado_codigo='oficial').exists()
+
+    def update(self, **kwargs):
+        if self._contiene_oficial():
+            raise ValidationError(self.MENSAJE_INMUTABLE)
+        if (
+            kwargs.get('estado_codigo') == 'oficial'
+            or kwargs.get('codigo_completo_articulacion')
+        ):
+            raise ValidationError(self.MENSAJE_PROMOCION)
+        return super().update(**kwargs)
+
+    def delete(self):
+        if self._contiene_oficial():
+            raise ValidationError(self.MENSAJE_INMUTABLE)
+        return super().delete()
+
+    def bulk_update(self, objs, fields, batch_size=None):
+        objetos = list(objs)
+        ids = [obj.pk for obj in objetos if obj.pk]
+        if (
+            any(obj.estado_codigo == 'oficial' for obj in objetos)
+            or self.model._base_manager.filter(
+                pk__in=ids, estado_codigo='oficial',
+            ).exists()
+        ):
+            raise ValidationError(self.MENSAJE_INMUTABLE)
+        return super().bulk_update(objetos, fields, batch_size=batch_size)
+
+    def bulk_create(self, objs, *args, **kwargs):
+        objetos = list(objs)
+        if any(
+            obj.estado_codigo == 'oficial'
+            or bool(obj.codigo_completo_articulacion)
+            for obj in objetos
+        ):
+            raise ValidationError(self.MENSAJE_PROMOCION)
+        return super().bulk_create(objetos, *args, **kwargs)
+
+
+class CodigoSegmentadoManager(models.Manager.from_queryset(
+    CodigoSegmentadoQuerySet,
+)):
+    """Inherited manager for every concrete segmented-code model."""
+
+
 class CodigoSegmentadoModel(TimeStampedModel):
     """Mixin abstracto de codificación oficial segmentada.
 
@@ -407,6 +483,8 @@ class CodigoSegmentadoModel(TimeStampedModel):
         verbose_name='Estado del código',
     )
 
+    objects = CodigoSegmentadoManager()
+
     class Meta:
         abstract = True
 
@@ -477,6 +555,13 @@ class CodigoSegmentadoModel(TimeStampedModel):
                         })
 
         super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        if self.estado_codigo == self.ESTADO_CODIGO_OFICIAL:
+            raise ValidationError(
+                CodigoSegmentadoQuerySet.MENSAJE_INMUTABLE
+            )
+        return super().delete(*args, **kwargs)
 
 
 # Niveles operativos de articulación que reciben código oficial segmentado.
@@ -678,6 +763,12 @@ class HomologacionCodigo(TimeStampedModel):
         indexes = [
             models.Index(fields=['tipo_entidad', 'codigo_anterior']),
             models.Index(fields=['entidad_id']),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tipo_entidad', 'entidad_id', 'codigo_nuevo'],
+                name='uniq_homologacion_entidad_codigo_nuevo',
+            ),
         ]
 
     def save(self, *args, **kwargs):

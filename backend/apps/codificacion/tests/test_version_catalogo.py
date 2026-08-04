@@ -13,6 +13,10 @@ class TestVersionCatalogoPlan:
         version = VersionCatalogoPlan.objects.create(plan=plan, gestion=2026)
         assert version.estado == VersionCatalogoPlan.ESTADO_BORRADOR
         assert version.norma_aprobacion == ''
+        assert version.clasificacion_fuente == (
+            VersionCatalogoPlan.FUENTE_INCIERTA
+        )
+        assert version.procedencia_fuente == ''
         assert version.plan == plan
         assert version.gestion == 2026
 

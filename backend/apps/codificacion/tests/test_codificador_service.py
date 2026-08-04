@@ -2,12 +2,12 @@
 import datetime
 import threading
 import uuid
-from queue import Queue
+from queue import Empty, Queue
 
 import pytest
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from django.db import connection
+from django.db import IntegrityError, connection, transaction
 
 from apps.articulacion.models import (
     AccionPOA,
@@ -38,7 +38,10 @@ from apps.planificacion.models import Plan
 
 @pytest.fixture
 def entidad_1312(db):
-    return EntidadCodificadora.objects.get(codigo='1312')
+    entidad, _ = EntidadCodificadora.objects.get_or_create(
+        codigo='1312', defaults={'denominacion': 'GAM Sacaba'},
+    )
+    return entidad
 
 
 @pytest.fixture
@@ -65,12 +68,16 @@ def cadena_codificable(db, entidad_1312):
         gestion=2027,
         estado=VersionCatalogoPlan.ESTADO_VIGENTE,
         norma_aprobacion='Norma institucional de prueba',
+        clasificacion_fuente=VersionCatalogoPlan.FUENTE_OFICIAL,
+        procedencia_fuente='Gaceta oficial de prueba',
     )
     pad = VersionCatalogoPlan.objects.create(
         plan=plan('PAD-COD', 'municipal'),
         gestion=2027,
         estado=VersionCatalogoPlan.ESTADO_VIGENTE,
         norma_aprobacion='Norma municipal de prueba',
+        clasificacion_fuente=VersionCatalogoPlan.FUENTE_OFICIAL,
+        procedencia_fuente='Archivo municipal de prueba',
     )
     eje = EjePGDESA.objects.create(
         codigo='04', denominacion='Eje', version_catalogo=nacional,
@@ -87,7 +94,13 @@ def cadena_codificable(db, entidad_1312):
         codigo='01', denominacion='Resultado sectorial', sector=sector,
         version_catalogo=nacional,
     )
-    cgeo = EntidadTerritorialCGEO.objects.get(codigo='031001')
+    cgeo, _ = EntidadTerritorialCGEO.objects.get_or_create(
+        codigo='031001',
+        defaults={
+            'nombre': 'Sacaba',
+            'nivel': EntidadTerritorialCGEO.NIVEL_MUNICIPIO,
+        },
+    )
     cgeo.estado = EntidadTerritorialCGEO.ESTADO_OFICIAL
     cgeo.save(update_fields=['estado', 'updated_at'])
     lineamiento = LineamientoPAD.objects.create(
@@ -196,6 +209,44 @@ class TestSiguienteCorrelativo:
             CodificadorService.siguiente_correlativo(
                 'resultado_pad', None, 2027, otra_entidad,
             )
+
+    @pytest.mark.parametrize('nivel,maximo', [
+        ('resultado_pad', 99),
+        ('tarea_poau', 999),
+    ])
+    def test_rechaza_secuencia_agotada_sin_avanzar(
+        self, entidad_1312, nivel, maximo,
+    ):
+        secuencia = SecuenciaCodigo.objects.create(
+            nivel=nivel, padre_id=uuid.uuid4(), gestion=2027,
+            entidad=entidad_1312, ultimo_valor=maximo,
+        )
+
+        with pytest.raises(ValidationError):
+            CodificadorService.siguiente_correlativo(
+                nivel, secuencia.padre_id, 2027, entidad_1312,
+            )
+
+        secuencia.refresh_from_db()
+        assert secuencia.ultimo_valor == maximo
+
+    @pytest.mark.parametrize('nivel,penultimo,maximo', [
+        ('producto_pad', 98, 99),
+        ('actividad_poau', 998, 999),
+    ])
+    def test_emite_ultimo_correlativo_valido(
+        self, entidad_1312, nivel, penultimo, maximo,
+    ):
+        secuencia = SecuenciaCodigo.objects.create(
+            nivel=nivel, padre_id=uuid.uuid4(), gestion=2027,
+            entidad=entidad_1312, ultimo_valor=penultimo,
+        )
+
+        emitido = CodificadorService.siguiente_correlativo(
+            nivel, secuencia.padre_id, 2027, entidad_1312,
+        )
+
+        assert emitido == maximo
 
 
 @pytest.mark.django_db(transaction=True)
@@ -317,14 +368,21 @@ class TestGeneracionCodigos:
     def test_normaliza_todos_los_segmentos_al_generar(self, cadena_codificable):
         resultado_pei = cadena_codificable['accion'].producto_pei.resultado_pei
         resultado_pei.cod_oei = '3'
-        resultado_pei.segmento = '1'
-        cadena_codificable['accion'].segmento = '1'
 
         codigo = CodificadorService.generar_codigo_completo(
             cadena_codificable['tarea'],
         )
 
         assert codigo.split('.')[9:13] == ['03', '01', '01', '001']
+
+    def test_rechaza_segmento_que_no_deriva_del_correlativo(
+        self, cadena_codificable,
+    ):
+        tarea = cadena_codificable['tarea']
+        tarea.segmento = '002'
+
+        with pytest.raises(ValidationError):
+            CodificadorService.generar_codigo_completo(tarea)
 
     @pytest.mark.parametrize('nivel,esperado', [
         ('accion', '2027.1312.001'),
@@ -415,9 +473,12 @@ class TestValidacionesDeDominio:
             actividad=cadena_codificable['actividad'], correlativo=2,
             segmento='002',
         )
-        TareaPOAU.objects.filter(pk=otra_tarea.pk).update(
-            codigo_completo_articulacion=codigo,
-        )
+        with connection.cursor() as cursor:
+            cursor.execute(
+                'UPDATE articulacion_tareapoau '
+                'SET codigo_completo_articulacion = %s WHERE id = %s',
+                [codigo, otra_tarea.pk],
+            )
 
         with pytest.raises(ValidationError):
             CodificadorService.validar(tarea)
@@ -442,6 +503,8 @@ class TestPromocionOficial:
         promovida.refresh_from_db()
         assert promovida.estado_codigo == promovida.ESTADO_CODIGO_OFICIAL
         assert promovida.articulacion_incompleta is False
+        assert promovida.segmento == '001'
+        assert promovida.codigo_normalizado == '001'
         assert promovida.codigo_completo_articulacion.endswith('.001.001.001.001')
         homologacion = HomologacionCodigo.objects.get(entidad_id=tarea.pk)
         assert homologacion.tipo_entidad == 'tarea_poau'
@@ -466,13 +529,52 @@ class TestPromocionOficial:
     def test_rechaza_promocion_con_segmento_cero(
         self, cadena_codificable, usuario_codificador,
     ):
-        cadena_codificable['actividad'].segmento = '000'
+        actividad = cadena_codificable['actividad']
+        actividad.correlativo = 0
+        ActividadPOAU._base_manager.filter(pk=actividad.pk).update(
+            correlativo=0, segmento='000',
+        )
 
         with pytest.raises(ValidationError):
             CodificadorService.promover_a_oficial(
                 cadena_codificable['tarea'],
                 usuario=usuario_codificador,
                 motivo='No debe promoverse',
+            )
+
+    @pytest.mark.parametrize('clasificacion', [
+        'referencial', 'tecnica', 'incierta',
+    ])
+    def test_rechaza_fuentes_no_oficiales(
+        self, cadena_codificable, usuario_codificador, clasificacion,
+    ):
+        version = (
+            cadena_codificable['resultado_pad']
+            .resultado_sectorial_catalogo.version_catalogo
+        )
+        version.clasificacion_fuente = clasificacion
+        version.save(update_fields=['clasificacion_fuente', 'updated_at'])
+
+        with pytest.raises(ValidationError):
+            CodificadorService.promover_a_oficial(
+                cadena_codificable['tarea'], usuario=usuario_codificador,
+                motivo='Fuente no promocionable',
+            )
+
+    def test_rechaza_version_oficial_sin_norma_aprobacion(
+        self, cadena_codificable, usuario_codificador,
+    ):
+        version = (
+            cadena_codificable['resultado_pad']
+            .lineamiento_pad_catalogo.version_catalogo
+        )
+        version.norma_aprobacion = '   '
+        version.save(update_fields=['norma_aprobacion', 'updated_at'])
+
+        with pytest.raises(ValidationError):
+            CodificadorService.promover_a_oficial(
+                cadena_codificable['tarea'], usuario=usuario_codificador,
+                motivo='Falta norma',
             )
 
     def test_modelo_bloquea_promocion_directa(self, cadena_codificable):
@@ -517,3 +619,67 @@ class TestPromocionOficial:
 
         with pytest.raises(ValidationError):
             tarea.save(update_fields=['actividad', 'updated_at'])
+
+
+@pytest.mark.django_db(transaction=True)
+def test_promocion_concurrente_crea_una_sola_homologacion(
+    cadena_codificable, usuario_codificador,
+):
+    tarea_id = cadena_codificable['tarea'].pk
+    usuario_id = usuario_codificador.pk
+    inicio = threading.Barrier(3)
+    resultados = Queue()
+    errores = Queue()
+
+    def promover():
+        try:
+            tarea = TareaPOAU.objects.get(pk=tarea_id)
+            usuario = get_user_model().objects.get(pk=usuario_id)
+            inicio.wait(timeout=5)
+            resultados.put(CodificadorService.promover_a_oficial(
+                tarea, usuario=usuario, motivo='Promoción concurrente',
+            ).pk)
+        except BaseException as exc:
+            errores.put(exc)
+        finally:
+            connection.close()
+
+    hilos = [threading.Thread(target=promover) for _ in range(2)]
+    for hilo in hilos:
+        hilo.start()
+    inicio.wait(timeout=5)
+    for hilo in hilos:
+        hilo.join(timeout=10)
+
+    assert all(not hilo.is_alive() for hilo in hilos)
+    assert resultados.qsize() == 1
+    assert errores.qsize() == 1
+    try:
+        error = errores.get_nowait()
+    except Empty:
+        error = None
+    assert isinstance(error, ValidationError)
+    assert HomologacionCodigo.objects.filter(entidad_id=tarea_id).count() == 1
+
+
+@pytest.mark.django_db
+def test_constraint_impide_homologacion_duplicada(
+    cadena_codificable, usuario_codificador,
+):
+    tarea = CodificadorService.promover_a_oficial(
+        cadena_codificable['tarea'], usuario=usuario_codificador,
+        motivo='Primera homologación',
+    )
+    original = HomologacionCodigo.objects.get(entidad_id=tarea.pk)
+
+    with pytest.raises(IntegrityError):
+        with transaction.atomic():
+            HomologacionCodigo.objects.create(
+                tipo_entidad=original.tipo_entidad,
+                entidad_id=original.entidad_id,
+                codigo_anterior='OTRO-CODIGO',
+                codigo_nuevo=original.codigo_nuevo,
+                motivo='Duplicada',
+                gestion=original.gestion,
+                usuario=usuario_codificador,
+            )

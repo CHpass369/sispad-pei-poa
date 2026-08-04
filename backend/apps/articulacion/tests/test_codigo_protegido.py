@@ -8,6 +8,8 @@ record to OFICIAL.
 import pytest
 from django.contrib import admin
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
+from django.db import connection
 from rest_framework import status
 from rest_framework.test import APIClient
 
@@ -302,3 +304,71 @@ def test_admin_no_permite_editar_campos_de_codificacion(model, serializer_class)
     model_admin = admin.site._registry[model]
 
     assert CODING_FIELDS <= set(model_admin.get_readonly_fields(request=None))
+
+
+def _marcar_oficial_directo(instancia):
+    tabla = instancia._meta.db_table
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f'UPDATE {tabla} SET estado_codigo = %s WHERE id = %s',
+            ['oficial', instancia.pk],
+        )
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize('case_name', list([
+    'resultado_pad', 'producto_pad', 'resultado_pei', 'producto_pei',
+    'accion_poa', 'operacion_poau', 'actividad_poau', 'tarea_poau',
+]))
+def test_queryset_bloquea_update_y_delete_de_oficial(
+    coding_cases, case_name,
+):
+    case = coding_cases[case_name]
+    instancia = case['instance']
+    _marcar_oficial_directo(instancia)
+
+    with pytest.raises(ValidationError):
+        case['model'].objects.filter(pk=instancia.pk).update(
+            denominacion='No debe cambiar',
+        )
+    with pytest.raises(ValidationError):
+        case['model'].objects.filter(pk=instancia.pk).delete()
+
+    instancia.refresh_from_db()
+    assert instancia.denominacion != 'No debe cambiar'
+    assert case['model'].objects.filter(pk=instancia.pk).exists()
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize('case_name', list([
+    'resultado_pad', 'producto_pad', 'resultado_pei', 'producto_pei',
+    'accion_poa', 'operacion_poau', 'actividad_poau', 'tarea_poau',
+]))
+def test_manager_bloquea_bulk_update_de_oficial(coding_cases, case_name):
+    case = coding_cases[case_name]
+    instancia = case['instance']
+    _marcar_oficial_directo(instancia)
+    instancia.estado_codigo = 'oficial'
+    instancia.denominacion = 'No debe cambiar por bulk'
+
+    with pytest.raises(ValidationError):
+        case['model'].objects.bulk_update([instancia], ['denominacion'])
+
+    instancia.refresh_from_db()
+    assert instancia.denominacion != 'No debe cambiar por bulk'
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize('model', [model for model, _ in MODEL_SERIALIZERS])
+@pytest.mark.parametrize('estado,codigo', [
+    ('oficial', ''),
+    ('provisional', '04.02.14.01.031001.02.01.01.1312.03.01.01.001.001.001.001'),
+])
+def test_bulk_create_no_puede_saltar_promocion(model, estado, codigo):
+    objeto = model(
+        estado_codigo=estado,
+        codigo_completo_articulacion=codigo,
+    )
+
+    with pytest.raises(ValidationError):
+        model.objects.bulk_create([objeto])
