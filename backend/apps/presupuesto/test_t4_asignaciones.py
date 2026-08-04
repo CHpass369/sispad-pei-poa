@@ -3,7 +3,7 @@ from decimal import Decimal
 
 import pytest
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, connection, transaction
 
 from apps.articulacion.models import (
     AccionPOA,
@@ -249,6 +249,111 @@ class TestCategoriaProgramatica:
         assert 'entidad' in entidad_error.value.message_dict
         assert 'da' in gestion_error.value.message_dict
 
+    def test_bulk_create_calcula_codigo_backend_y_rechaza_codigo_suministrado(self, estructura_t4):
+        from apps.presupuesto.models import CategoriaProgramatica
+
+        valores = {
+            'version_clasificador': estructura_t4['categoria_version'],
+            'entidad': estructura_t4['entidad'],
+            'da': estructura_t4['da'],
+            'ue': estructura_t4['ue'],
+            'programa': estructura_t4['programa'],
+            'proyecto': estructura_t4['proyecto'],
+            'actividad': estructura_t4['actividad_presupuestaria'],
+            'codigo_fuente': 'FUENTE-BULK',
+            'procedencia_normativa': 'Prueba bulk',
+        }
+        categoria = CategoriaProgramatica(**valores)
+        CategoriaProgramatica.objects.bulk_create([categoria])
+        categoria.refresh_from_db()
+        assert categoria.codigo_compuesto == '1312.DA-FUENTE.UE-FUENTE.400.10.01'
+
+        suministrada = CategoriaProgramatica(
+            **valores,
+            codigo_compuesto='CODIGO-DEL-CLIENTE',
+        )
+        with pytest.raises(ValidationError):
+            CategoriaProgramatica.objects.bulk_create([suministrada])
+
+    def test_bulk_create_rechaza_todas_las_incoherencias_de_apertura(self, estructura_t4):
+        from apps.presupuesto.models import CategoriaProgramatica
+
+        inicio = date(2026, 1, 1)
+        otra_entidad = ClasificadorInstitucional.objects.create(
+            codigo='9999', denominacion='Otra entidad', gestion=2026,
+            fecha_vigencia_desde=inicio,
+        )
+        otra_da = DireccionAdministrativa.objects.create(
+            codigo='DA-OTRA', nombre='Otra DA', gestion=2026,
+            fecha_vigencia_desde=inicio,
+        )
+        otra_ue = UnidadEjecutora.objects.create(
+            codigo='UE-OTRA', nombre='Otra UE', da=otra_da, gestion=2026,
+            fecha_vigencia_desde=inicio,
+        )
+        otro_programa = ProgramaPresupuestario.objects.create(
+            codigo='500', nombre='Otro programa', gestion=2026,
+        )
+        otro_proyecto = ProyectoPresupuestario.objects.create(
+            codigo='20', nombre='Otro proyecto', programa=otro_programa, gestion=2026,
+        )
+        otra_actividad = ActividadPresupuestaria.objects.create(
+            codigo='02', nombre='Otra actividad', proyecto=otro_proyecto, gestion=2026,
+        )
+        da_2025 = DireccionAdministrativa.objects.create(
+            codigo='DA25BULK', nombre='DA 2025', gestion=2025,
+            fecha_vigencia_desde=date(2025, 1, 1),
+        )
+        version_incorrecta = crear_version(
+            VersionClasificador.TIPO_FUENTE_FINANCIAMIENTO,
+        )
+        base = {
+            'version_clasificador': estructura_t4['categoria_version'],
+            'entidad': estructura_t4['entidad'],
+            'da': estructura_t4['da'],
+            'ue': estructura_t4['ue'],
+            'programa': estructura_t4['programa'],
+            'proyecto': estructura_t4['proyecto'],
+            'actividad': estructura_t4['actividad_presupuestaria'],
+            'codigo_fuente': 'FUENTE-INVALIDA',
+            'procedencia_normativa': 'Prueba de constraints masivos',
+        }
+        casos = [
+            {'entidad': otra_entidad},
+            {'version_clasificador': version_incorrecta},
+            {'da': da_2025},
+            {'ue': otra_ue},
+            {'proyecto': otro_proyecto},
+            {'actividad': otra_actividad},
+        ]
+
+        for override in casos:
+            valores = {**base, **override}
+            with pytest.raises(IntegrityError), transaction.atomic():
+                CategoriaProgramatica.objects.bulk_create(
+                    [CategoriaProgramatica(**valores)]
+                )
+
+    def test_queryset_update_no_acepta_codigo_cliente_ni_entidad_invalida(self, estructura_t4):
+        from apps.presupuesto.models import CategoriaProgramatica
+
+        categoria = crear_categoria(estructura_t4)
+        otra_entidad = ClasificadorInstitucional.objects.create(
+            codigo='9999',
+            denominacion='Otra entidad',
+            gestion=2026,
+            fecha_vigencia_desde=date(2026, 1, 1),
+        )
+
+        with pytest.raises(ValidationError):
+            CategoriaProgramatica.objects.filter(pk=categoria.pk).update(
+                codigo_compuesto='CODIGO-DEL-CLIENTE'
+            )
+        with pytest.raises(IntegrityError), transaction.atomic():
+            CategoriaProgramatica.objects.filter(pk=categoria.pk).update(
+                entidad=otra_entidad
+            )
+
 
 class TestAsignacionPresupuestariaUnidad:
     @pytest.mark.parametrize('nivel', ['operacion', 'actividad', 'tarea'])
@@ -340,9 +445,12 @@ class TestAsignacionPresupuestariaUnidad:
 
         categoria = crear_categoria(estructura_t4)
         version_objeto = estructura_t4['objeto'].version_clasificador
-        FuenteFinanciamiento.objects.filter(pk=estructura_t4['fuente'].pk).update(
-            version_clasificador=version_objeto
-        )
+        with connection.cursor() as cursor:
+            cursor.execute(
+                'UPDATE catalogos_fuentefinanciamiento '
+                'SET version_clasificador_id = %s WHERE id = %s',
+                [str(version_objeto.pk), str(estructura_t4['fuente'].pk)],
+            )
         estructura_t4['fuente'].refresh_from_db()
         asignacion = AsignacionPresupuestariaUnidad(
             **datos_asignacion(estructura_t4, categoria)

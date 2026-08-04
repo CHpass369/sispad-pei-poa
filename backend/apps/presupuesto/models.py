@@ -76,6 +76,30 @@ class ActividadPresupuestaria(TimeStampedModel):
         return f'{self.codigo} - {self.nombre}'
 
 
+class CategoriaProgramaticaQuerySet(models.QuerySet):
+    def update(self, **kwargs):
+        if 'codigo_compuesto' in kwargs:
+            raise ValidationError('El código compuesto solo puede generarlo el backend.')
+        return super().update(**kwargs)
+
+    def bulk_update(self, objs, fields, batch_size=None):
+        if 'codigo_compuesto' in fields:
+            raise ValidationError('El código compuesto no admite bulk_update.')
+        return super().bulk_update(objs, fields, batch_size=batch_size)
+
+    def bulk_create(self, objs, *args, **kwargs):
+        objetos = list(objs)
+        if any(objeto.codigo_compuesto for objeto in objetos):
+            raise ValidationError('El código compuesto solo puede generarlo el backend.')
+        return super().bulk_create(objetos, *args, **kwargs)
+
+
+class CategoriaProgramaticaManager(models.Manager.from_queryset(
+    CategoriaProgramaticaQuerySet,
+)):
+    pass
+
+
 class CategoriaProgramatica(TimeStampedModel):
     """Apertura programática literal, sin asumir anchos no documentados."""
 
@@ -118,6 +142,8 @@ class CategoriaProgramatica(TimeStampedModel):
     codigo_compuesto = models.CharField(max_length=200, editable=False)
     codigo_fuente = models.CharField(max_length=200)
     procedencia_normativa = models.CharField(max_length=500)
+
+    objects = CategoriaProgramaticaManager()
 
     class Meta:
         verbose_name = 'Categoría programática'
