@@ -2,7 +2,7 @@ from datetime import date
 
 import pytest
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, connection, transaction
 
 from apps.codificacion.models import EntidadTerritorialCGEO
 
@@ -27,9 +27,11 @@ def crear_version(**overrides):
     }
     data.update(overrides)
     if data['vigente'] and reemplazar_vigente:
-        VersionClasificador.objects.filter(
+        for version in VersionClasificador.objects.filter(
             tipo=data['tipo'], gestion=data['gestion'], vigente=True
-        ).update(vigente=False)
+        ):
+            version.vigente = False
+            version.save(update_fields=['vigente'])
     return VersionClasificador.objects.create(**data)
 
 
@@ -87,6 +89,84 @@ class TestVersionClasificador:
             gestion=2026,
             vigente=True,
         ).count() == 1
+
+    def test_create_rechaza_fuente_oficial_no_vigente_con_hash_invalido(self):
+        from apps.catalogos.models import VersionClasificador
+
+        with pytest.raises(ValidationError) as error:
+            VersionClasificador.objects.create(
+                tipo=VersionClasificador.TIPO_OBJETO_GASTO,
+                gestion=2030,
+                norma='RM válida',
+                fecha_norma=date(2029, 1, 1),
+                codigo_fuente='RM-VALIDA',
+                procedencia_normativa='Documento oficial',
+                hash_fuente='A' * 64,
+                clasificacion_fuente=VersionClasificador.FUENTE_OFICIAL,
+                vigente=False,
+            )
+
+        assert 'hash_fuente' in error.value.message_dict
+
+    @pytest.mark.parametrize('campo', ['norma', 'codigo_fuente', 'procedencia_normativa'])
+    def test_create_rechaza_trazabilidad_oficial_vacia_o_en_blanco(self, campo):
+        from apps.catalogos.models import VersionClasificador
+
+        data = {
+            'tipo': VersionClasificador.TIPO_OBJETO_GASTO,
+            'gestion': 2030,
+            'norma': 'RM válida',
+            'fecha_norma': date(2029, 1, 1),
+            'codigo_fuente': 'RM-VALIDA',
+            'procedencia_normativa': 'Documento oficial',
+            'hash_fuente': 'a' * 64,
+            'clasificacion_fuente': VersionClasificador.FUENTE_OFICIAL,
+            'vigente': False,
+        }
+        data[campo] = '   '
+
+        with pytest.raises(ValidationError) as error:
+            VersionClasificador.objects.create(**data)
+
+        assert campo in error.value.message_dict
+
+    def test_bulk_create_rechaza_version_oficial_semanticamente_invalida(self):
+        from apps.catalogos.models import VersionClasificador
+
+        invalida = VersionClasificador(
+            tipo=VersionClasificador.TIPO_FUENTE_FINANCIAMIENTO,
+            gestion=2030,
+            norma='RM válida',
+            fecha_norma=date(2029, 1, 1),
+            codigo_fuente='RM-VALIDA',
+            procedencia_normativa='Documento oficial',
+            hash_fuente='A' * 64,
+            clasificacion_fuente=VersionClasificador.FUENTE_OFICIAL,
+            vigente=False,
+        )
+
+        with pytest.raises(ValidationError):
+            VersionClasificador.objects.bulk_create([invalida])
+
+    def test_queryset_update_bloquea_campos_semanticos(self):
+        from apps.catalogos.models import VersionClasificador
+
+        version = crear_version(gestion=2030, _reemplazar_vigente=False)
+
+        with pytest.raises(ValidationError):
+            VersionClasificador.objects.filter(pk=version.pk).update(hash_fuente='A' * 64)
+
+        version.refresh_from_db()
+        assert version.hash_fuente.startswith('9719')
+
+    def test_constraint_sql_rechaza_hash_que_no_es_sha256_minusculo_exacto(self):
+        version = crear_version(gestion=2030, _reemplazar_vigente=False)
+
+        with pytest.raises(IntegrityError), transaction.atomic(), connection.cursor() as cursor:
+            cursor.execute(
+                'UPDATE catalogos_versionclasificador SET hash_fuente = %s WHERE id = %s',
+                ['A' * 64, str(version.pk)],
+            )
 
 
 class TestCatalogosVersionados:
@@ -188,6 +268,95 @@ class TestCatalogosVersionados:
 
         assert 'version_clasificador' in tipo_error.value.message_dict
         assert 'codigo' in codigo_error.value.message_dict
+
+    @pytest.mark.parametrize(
+        'modelo,codigo',
+        [
+            ('ObjetoGasto', '11210'),
+            ('FuenteFinanciamiento', '20'),
+            ('OrganismoFinanciador', '210'),
+        ],
+    )
+    def test_bulk_create_rechaza_version_de_tipo_incorrecto(self, modelo, codigo):
+        from apps import catalogos
+        from apps.catalogos.models import VersionClasificador
+
+        model = getattr(catalogos.models, modelo)
+        version_incorrecta = VersionClasificador.objects.get(
+            tipo=VersionClasificador.TIPO_CATEGORIA_PROGRAMATICA,
+            gestion=2026,
+        )
+        invalido = model(
+            codigo=codigo,
+            denominacion='Clasificador inválido',
+            gestion=2026,
+            fecha_vigencia_desde=date(2026, 1, 1),
+            version_clasificador=version_incorrecta,
+        )
+
+        with pytest.raises(ValidationError):
+            model.objects.bulk_create([invalido])
+
+    @pytest.mark.parametrize(
+        'modelo,codigo,tipo',
+        [
+            ('ObjetoGasto', '11210', 'objeto_gasto'),
+            ('FuenteFinanciamiento', '20', 'fuente_financiamiento'),
+            ('OrganismoFinanciador', '210', 'organismo_financiador'),
+        ],
+    )
+    def test_queryset_update_rechaza_cambiar_asociacion_versionada(self, modelo, codigo, tipo):
+        from apps import catalogos
+        from apps.catalogos.models import VersionClasificador
+
+        model = getattr(catalogos.models, modelo)
+        version = crear_version(tipo=tipo, gestion=2030, _reemplazar_vigente=False)
+        row = model.objects.create(
+            codigo=codigo,
+            denominacion='Clasificador válido',
+            gestion=2030,
+            fecha_vigencia_desde=date(2030, 1, 1),
+            version_clasificador=version,
+        )
+        version_incorrecta = VersionClasificador.objects.get(
+            tipo=VersionClasificador.TIPO_CATEGORIA_PROGRAMATICA,
+            gestion=2026,
+        )
+
+        with pytest.raises(ValidationError):
+            model.objects.filter(pk=row.pk).update(
+                version_clasificador=version_incorrecta,
+            )
+
+    def test_objeto_padre_debe_compartir_version_y_gestion_en_save_y_bulk(self):
+        from apps.catalogos.models import ObjetoGasto
+
+        version_2026 = crear_version(gestion=2030, _reemplazar_vigente=False)
+        version_2027 = crear_version(gestion=2031, _reemplazar_vigente=False)
+        padre = ObjetoGasto.objects.create(
+            codigo='10000',
+            denominacion='Grupo 2030',
+            gestion=2030,
+            fecha_vigencia_desde=date(2030, 1, 1),
+            version_clasificador=version_2026,
+            nivel=ObjetoGasto.NIVEL_GRUPO,
+        )
+        hijo = ObjetoGasto(
+            codigo='11210',
+            denominacion='Detalle 2031',
+            gestion=2031,
+            fecha_vigencia_desde=date(2031, 1, 1),
+            version_clasificador=version_2027,
+            nivel=ObjetoGasto.NIVEL_DETALLE,
+            padre=padre,
+        )
+
+        with pytest.raises(ValidationError) as save_error:
+            hijo.save()
+        with pytest.raises(ValidationError):
+            ObjetoGasto.objects.bulk_create([hijo])
+
+        assert 'padre' in save_error.value.message_dict
 
 
 class TestGeografiaPresupuestaria:

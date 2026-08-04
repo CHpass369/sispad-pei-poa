@@ -6,7 +6,37 @@ from django.db.models import Q
 from apps.core.models import TimeStampedModel, ActivableModel, VigenciaModel
 
 
-class VersionClasificadorManager(models.Manager):
+class VersionClasificadorQuerySet(models.QuerySet):
+    CAMPOS_SEMANTICOS = frozenset({
+        'tipo', 'gestion', 'norma', 'fecha_norma', 'codigo_fuente',
+        'procedencia_normativa', 'hash_fuente', 'clasificacion_fuente',
+        'vigente',
+    })
+
+    def update(self, **kwargs):
+        if self.CAMPOS_SEMANTICOS.intersection(kwargs):
+            raise ValidationError(
+                'Los campos semánticos de una versión requieren validación por instancia.'
+            )
+        return super().update(**kwargs)
+
+    def bulk_update(self, objs, fields, batch_size=None):
+        if self.CAMPOS_SEMANTICOS.intersection(fields):
+            raise ValidationError(
+                'Los campos semánticos de una versión no admiten bulk_update.'
+            )
+        return super().bulk_update(objs, fields, batch_size=batch_size)
+
+    def bulk_create(self, objs, *args, **kwargs):
+        objetos = list(objs)
+        for objeto in objetos:
+            objeto.full_clean()
+        return super().bulk_create(objetos, *args, **kwargs)
+
+
+class VersionClasificadorManager(models.Manager.from_queryset(
+    VersionClasificadorQuerySet,
+)):
     def vigente_para(self, tipo, gestion):
         """Fail closed: an absent explicit current version is an error."""
         return self.get(tipo=tipo, gestion=gestion, vigente=True)
@@ -70,14 +100,14 @@ class VersionClasificador(TimeStampedModel):
             ),
             models.CheckConstraint(
                 condition=(
-                    Q(vigente=False)
+                    (Q(vigente=False) & ~Q(clasificacion_fuente='oficial'))
                     | (
                         Q(clasificacion_fuente='oficial')
-                        & ~Q(norma='')
+                        & Q(norma__regex=r'.*\S.*')
                         & Q(fecha_norma__isnull=False)
-                        & ~Q(codigo_fuente='')
-                        & ~Q(procedencia_normativa='')
-                        & ~Q(hash_fuente='')
+                        & Q(codigo_fuente__regex=r'.*\S.*')
+                        & Q(procedencia_normativa__regex=r'.*\S.*')
+                        & Q(hash_fuente__regex=r'^[0-9a-f]{64}$')
                     )
                 ),
                 name='clasificador_vigente_fuente_oficial',
@@ -87,12 +117,16 @@ class VersionClasificador(TimeStampedModel):
 
     def clean(self):
         super().clean()
-        if not self.vigente:
+        requiere_fuente_oficial = (
+            self.vigente or self.clasificacion_fuente == self.FUENTE_OFICIAL
+        )
+        if not requiere_fuente_oficial:
             return
         errors = {}
         required = ('norma', 'codigo_fuente', 'procedencia_normativa', 'hash_fuente')
         for field in required:
-            if not getattr(self, field):
+            value = getattr(self, field)
+            if not value or (isinstance(value, str) and not value.strip()):
                 errors[field] = 'Una versión vigente requiere procedencia normativa completa.'
         if self.fecha_norma is None:
             errors['fecha_norma'] = 'Una versión vigente requiere fecha de la norma.'
@@ -153,9 +187,50 @@ class ClasificadorVersionadoMixin(models.Model):
         if errors:
             raise ValidationError(errors)
 
+    def _campos_semanticos_masivos(self):
+        return {'codigo', 'gestion', 'version_clasificador', 'version_clasificador_id'}
+
     def save(self, *args, **kwargs):
         self.full_clean(validate_constraints=False)
         return super().save(*args, **kwargs)
+
+
+class ClasificadorVersionadoQuerySet(models.QuerySet):
+    CAMPOS_SEMANTICOS = frozenset({
+        'codigo', 'gestion', 'version_clasificador', 'version_clasificador_id',
+        'padre', 'padre_id',
+    })
+
+    def update(self, **kwargs):
+        if self.CAMPOS_SEMANTICOS.intersection(kwargs):
+            raise ValidationError(
+                'Las asociaciones versionadas no admiten actualización masiva.'
+            )
+        return super().update(**kwargs)
+
+    def bulk_update(self, objs, fields, batch_size=None):
+        if self.CAMPOS_SEMANTICOS.intersection(fields):
+            raise ValidationError(
+                'Las asociaciones versionadas no admiten bulk_update.'
+            )
+        return super().bulk_update(objs, fields, batch_size=batch_size)
+
+    def bulk_create(self, objs, *args, **kwargs):
+        objetos = list(objs)
+        for objeto in objetos:
+            objeto.full_clean()
+        return super().bulk_create(objetos, *args, **kwargs)
+
+
+class ClasificadorVersionadoManager(models.Manager.from_queryset(
+    ClasificadorVersionadoQuerySet,
+)):
+    pass
+
+
+ClasificadorVersionadoMixin.add_to_class(
+    'objects', ClasificadorVersionadoManager(),
+)
 
 
 class ClasificadorInstitucional(CatalogoBase):
@@ -209,6 +284,18 @@ class ObjetoGasto(ClasificadorVersionadoMixin, CatalogoBase):
                 name='uniq_objeto_codigo_version',
             ),
         ]
+
+    def clean(self):
+        super().clean()
+        if not self.padre_id:
+            return
+        errors = {}
+        if self.padre.gestion != self.gestion:
+            errors['padre'] = 'El objeto padre debe pertenecer a la misma gestión.'
+        if self.padre.version_clasificador_id != self.version_clasificador_id:
+            errors['padre'] = 'El objeto padre debe compartir la versión del clasificador.'
+        if errors:
+            raise ValidationError(errors)
 
 
 class FuenteFinanciamiento(ClasificadorVersionadoMixin, CatalogoBase):
