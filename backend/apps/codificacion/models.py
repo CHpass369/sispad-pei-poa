@@ -390,7 +390,7 @@ class CodigoSegmentadoQuerySet(models.QuerySet):
 
     def bulk_create(self, objs, *args, **kwargs):
         objetos = list(objs)
-        if any(
+        if kwargs.get('update_conflicts') or any(
             obj.estado_codigo == 'oficial'
             or bool(obj.codigo_completo_articulacion)
             for obj in objetos
@@ -518,7 +518,7 @@ class CodigoSegmentadoModel(TimeStampedModel):
         return str(correlativo).zfill(cls.ANCHO_SEGMENTO)
 
     def save(self, *args, **kwargs):
-        """Allow coding changes only before an authorized official promotion."""
+        """Reject every save after the persisted row becomes official."""
         permitir_promocion = getattr(self, '_permitir_promocion_oficial', False)
         if self.estado_codigo == self.ESTADO_CODIGO_OFICIAL and not self.pk:
             if not permitir_promocion:
@@ -538,26 +538,20 @@ class CodigoSegmentadoModel(TimeStampedModel):
                         'Solo CodificadorService puede promover un código a OFICIAL.'
                     )
                 if anterior.estado_codigo == self.ESTADO_CODIGO_OFICIAL:
-                    campos = (
-                        self.CAMPOS_CODIFICACION
-                        + self.CAMPOS_CODIFICACION_ADICIONALES
+                    raise ValidationError(
+                        CodigoSegmentadoQuerySet.MENSAJE_INMUTABLE
                     )
-                    modificados = []
-                    for nombre in campos:
-                        campo = self._meta.get_field(nombre)
-                        atributo = campo.attname
-                        if getattr(anterior, atributo) != getattr(self, atributo):
-                            modificados.append(nombre)
-                    if modificados:
-                        raise ValidationError({
-                            nombre: 'Un código OFICIAL es inmutable.'
-                            for nombre in modificados
-                        })
 
         super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
-        if self.estado_codigo == self.ESTADO_CODIGO_OFICIAL:
+        es_oficial = self.estado_codigo == self.ESTADO_CODIGO_OFICIAL
+        if self.pk and not es_oficial:
+            es_oficial = type(self).objects.filter(
+                pk=self.pk,
+                estado_codigo=self.ESTADO_CODIGO_OFICIAL,
+            ).exists()
+        if es_oficial:
             raise ValidationError(
                 CodigoSegmentadoQuerySet.MENSAJE_INMUTABLE
             )

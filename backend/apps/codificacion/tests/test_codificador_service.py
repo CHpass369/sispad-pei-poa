@@ -584,7 +584,7 @@ class TestPromocionOficial:
         with pytest.raises(ValidationError):
             tarea.save(update_fields=['estado_codigo', 'updated_at'])
 
-    def test_oficial_es_inmutable_pero_admite_cambiar_denominacion(
+    def test_oficial_bloquea_save_de_campo_descriptivo(
         self, cadena_codificable, usuario_codificador,
     ):
         tarea = CodificadorService.promover_a_oficial(
@@ -597,10 +597,14 @@ class TestPromocionOficial:
             tarea.save(update_fields=['segmento', 'updated_at'])
 
         tarea.refresh_from_db()
+        denominacion_original = tarea.denominacion
         tarea.denominacion = 'Denominación corregida sin alterar código'
-        tarea.save(update_fields=['denominacion', 'updated_at'])
+
+        with pytest.raises(ValidationError):
+            tarea.save(update_fields=['denominacion', 'updated_at'])
+
         tarea.refresh_from_db()
-        assert tarea.denominacion == 'Denominación corregida sin alterar código'
+        assert tarea.denominacion == denominacion_original
 
     def test_oficial_bloquea_cambio_de_relacion_codificante(
         self, cadena_codificable, usuario_codificador,

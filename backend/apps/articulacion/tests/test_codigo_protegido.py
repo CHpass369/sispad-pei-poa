@@ -9,7 +9,7 @@ import pytest
 from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from django.db import connection
+from django.db import DatabaseError, connection, transaction
 from rest_framework import status
 from rest_framework.test import APIClient
 
@@ -372,3 +372,86 @@ def test_bulk_create_no_puede_saltar_promocion(model, estado, codigo):
 
     with pytest.raises(ValidationError):
         model.objects.bulk_create([objeto])
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize('case_name', [
+    'resultado_pad', 'producto_pad', 'resultado_pei', 'producto_pei',
+    'accion_poa', 'operacion_poau', 'actividad_poau', 'tarea_poau',
+])
+def test_bulk_upsert_sobre_pk_oficial_es_bloqueado(coding_cases, case_name):
+    case = coding_cases[case_name]
+    instancia_stale = case['model'].objects.get(pk=case['instance'].pk)
+    denominacion_original = instancia_stale.denominacion
+    _marcar_oficial_directo(instancia_stale)
+    instancia_stale.denominacion = 'Alterada por bulk upsert'
+
+    with pytest.raises(ValidationError):
+        case['model'].objects.bulk_create(
+            [instancia_stale],
+            update_conflicts=True,
+            update_fields=['denominacion'],
+            unique_fields=['pk'],
+        )
+
+    instancia_stale.refresh_from_db()
+    assert instancia_stale.estado_codigo == 'oficial'
+    assert instancia_stale.denominacion == denominacion_original
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize('case_name', [
+    'resultado_pad', 'producto_pad', 'resultado_pei', 'producto_pei',
+    'accion_poa', 'operacion_poau', 'actividad_poau', 'tarea_poau',
+])
+def test_instancia_stale_bloquea_save_y_delete_si_bd_es_oficial(
+    coding_cases, case_name,
+):
+    case = coding_cases[case_name]
+    instancia_stale = case['model'].objects.get(pk=case['instance'].pk)
+    denominacion_original = instancia_stale.denominacion
+    _marcar_oficial_directo(instancia_stale)
+    instancia_stale.denominacion = 'No debe persistirse'
+
+    with pytest.raises(ValidationError):
+        instancia_stale.save(update_fields=['denominacion'])
+    with pytest.raises(ValidationError):
+        instancia_stale.delete()
+
+    instancia_stale.refresh_from_db()
+    assert instancia_stale.denominacion == denominacion_original
+    assert instancia_stale.estado_codigo == 'oficial'
+
+
+@pytest.mark.django_db
+def test_bulk_create_update_conflicts_se_rechaza_incluso_provisional(
+    coding_cases,
+):
+    tarea = coding_cases['tarea_poau']['instance']
+    tarea.denominacion = 'Upsert provisional no permitido'
+
+    with pytest.raises(ValidationError):
+        TareaPOAU.objects.bulk_create(
+            [tarea],
+            update_conflicts=True,
+            update_fields=['denominacion'],
+            unique_fields=['pk'],
+        )
+
+
+@pytest.mark.django_db
+def test_borrar_ancestro_provisional_con_tarea_oficial_preserva_cadena(
+    coding_cases,
+):
+    accion = coding_cases['accion_poa']['instance']
+    operacion = coding_cases['operacion_poau']['instance']
+    actividad = coding_cases['actividad_poau']['instance']
+    tarea = coding_cases['tarea_poau']['instance']
+    _marcar_oficial_directo(tarea)
+
+    with pytest.raises(DatabaseError):
+        with transaction.atomic():
+            accion.delete()
+
+    for instancia in (accion, operacion, actividad, tarea):
+        assert type(instancia).objects.filter(pk=instancia.pk).exists()
