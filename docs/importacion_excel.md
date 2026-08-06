@@ -2,6 +2,23 @@
 
 Guia completa de la funcionalidad de importacion de archivos Excel (.xlsx / .xls) al sistema.
 
+## Limpieza y carga de la formulación POAU 2027
+
+Antes de cargar la fuente real, revisar y ejecutar la limpieza allowlisted:
+
+```bash
+python manage.py limpiar_datos_simulados --dry-run
+python manage.py limpiar_datos_simulados --commit --include-ambiguous-test-data
+python manage.py importar_formulacion_poau_2027 \
+  --file "/path/to/source.xlsx" \
+  --sheet Base --max-row 166 --commit
+```
+
+El importador conserva códigos técnicos `SIM-2027` solo donde la hoja no
+contiene un código oficial. No crea montos, ignora valores `#REF!` y su segunda
+ejecución es idempotente (`0` registros nuevos). El Excel original no debe
+modificarse.
+
 ---
 
 ## 1. Formatos Soportados
