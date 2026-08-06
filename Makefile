@@ -11,10 +11,10 @@ ifneq (,$(wildcard .env))
     export
 endif
 
-.PHONY: setup build up down restart logs migrate makemigrations createsuperuser seed test test-backend test-frontend lint format shell dbshell backup backup-db backup-minio backup-geoserver restore-db restore-minio restore-geoserver openapi clean full-reset env
+.PHONY: setup build up down restart logs migrate makemigrations createsuperuser seed cleanup cleanup-commit import-poau-2027 test test-backend test-frontend lint format shell dbshell backup backup-db backup-minio backup-geoserver restore-db restore-minio restore-geoserver openapi clean full-reset env
 
 # --- Infraestructura ---
-setup: build up migrate seed
+setup: build up migrate
 
 build:
 	docker compose --profile dev build
@@ -42,6 +42,15 @@ createsuperuser:
 
 seed:
 	docker compose exec backend python manage.py shell -c "exec(open('scripts/seed.py').read())" || echo "Seed ya ejecutado o script no encontrado"
+
+cleanup:
+	docker compose exec backend python manage.py limpiar_datos_simulados --dry-run
+
+cleanup-commit:
+	docker compose exec backend python manage.py limpiar_datos_simulados --commit --include-ambiguous-test-data
+
+import-poau-2027:
+	docker compose exec backend python manage.py importar_formulacion_poau_2027 --file "$(FILE)" --sheet Base --max-row 166 --commit
 
 shell:
 	docker compose exec backend python manage.py shell
