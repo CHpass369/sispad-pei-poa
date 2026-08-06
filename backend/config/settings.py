@@ -12,12 +12,9 @@ dotenv_path = BASE_DIR.parent / '.env'
 if dotenv_path.exists():
     load_dotenv(dotenv_path)
 
-SECRET_KEY = os.environ.get(
-    'DJANGO_SECRET_KEY',
-    'django-insecure-dev-only-change-in-production'
-)
+SECRET_KEY = os.environ['DJANGO_SECRET_KEY']
 
-DEBUG = os.environ.get('DJANGO_DEBUG', 'True').lower() in ('true', '1', 'yes')
+DEBUG = os.environ.get('DJANGO_DEBUG', 'False').lower() in ('true', '1', 'yes')
 
 ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
@@ -107,10 +104,10 @@ DATABASES = {
             'DB_ENGINE', 'django.contrib.gis.db.backends.postgis'
         ),
         'NAME': os.environ.get('DB_NAME', 'gams_sis_poa'),
-        'USER': os.environ.get('DB_USER', 'chpass369'),
-        'PASSWORD': os.environ.get('DB_PASSWORD', ''),
-        'HOST': os.environ.get('DB_HOST', '/tmp/opencode'),
-        'PORT': os.environ.get('DB_PORT', '5433'),
+        'USER': os.environ.get('DB_USER', 'sispoa_user'),
+        'PASSWORD': os.environ['DB_PASSWORD'],
+        'HOST': os.environ.get('DB_HOST', 'localhost'),
+        'PORT': os.environ.get('DB_PORT', '5432'),
         'TEST': {
             # Template con PostGIS preinstalado: evita requerir superusuario
             # para crear extensiones en la base de test.

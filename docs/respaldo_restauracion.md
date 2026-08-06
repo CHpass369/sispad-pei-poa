@@ -120,6 +120,15 @@ docker compose exec -T postgres-postgis pg_dump \
 | `MINIO_ALIAS` | `sispoa` | Alias de mc |
 | `MINIO_BUCKET_NAME` | `sispoa-docs` | Nombre del bucket |
 
+**Variables requeridas (fail-closed, sin valores por defecto):**
+
+| Variable | Descripcion |
+|----------|-------------|
+| `MINIO_ROOT_USER` | Usuario root de MinIO |
+| `MINIO_ROOT_PASSWORD` | Password root de MinIO |
+
+Si no estan definidas, el script aborta antes de autenticarse.
+
 ### 3.2 Respaldo Manual
 
 ```bash
@@ -158,6 +167,15 @@ docker compose exec minio rm -rf /tmp/minio_backup
 2. Exporta layers via REST API
 3. Exporta estilos via REST API
 4. Copia el data directory completo del contenedor
+
+**Variables requeridas (fail-closed, sin valores por defecto):**
+
+| Variable | Descripcion |
+|----------|-------------|
+| `GEOSERVER_ADMIN_USER` | Usuario administrador de GeoServer |
+| `GEOSERVER_ADMIN_PASSWORD` | Password del administrador de GeoServer |
+
+Si no estan definidas, el script aborta antes de autenticarse.
 
 ### 4.2 Respaldo Manual
 
@@ -313,6 +331,15 @@ docker compose exec postgres-postgis \
 # [date] Restaurando MinIO bucket 'sispoa-docs' desde backups/minio/20260717_020000...
 # Restauracion MinIO completada
 ```
+
+**Variables requeridas (fail-closed, sin valores por defecto):**
+
+| Variable | Descripcion |
+|----------|-------------|
+| `MINIO_ROOT_USER` | Usuario root de MinIO |
+| `MINIO_ROOT_PASSWORD` | Password root de MinIO |
+
+Si no estan definidas, el script aborta antes de autenticarse.
 
 ### 7.2 Restauracion Manual
 

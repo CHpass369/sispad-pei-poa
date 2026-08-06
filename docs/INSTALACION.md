@@ -40,7 +40,9 @@ make setup
 docker compose --profile dev build
 docker compose --profile dev up -d
 docker compose exec backend python manage.py migrate
-docker compose exec backend python manage.py shell -c "exec(open('scripts/seed.py').read())"
+# Opcional, únicamente en una base descartable:
+# Definir primero todas las variables SISPOA_DEMO_*_PASSWORD de .env.example.
+SEED_DEMO_DATA=true docker compose exec backend python manage.py shell -c "exec(open('scripts/seed.py').read())"
 ```
 
 ### 4. Crear superusuario
@@ -95,8 +97,9 @@ cp ../.env.example ../.env
 # Ejecutar migraciones
 python manage.py migrate
 
-# Semilla de datos
-python manage.py shell -c "exec(open('scripts/seed.py').read())"
+# Seed demo opcional (no se ejecuta en cada reinicio)
+# Definir primero todas las variables SISPOA_DEMO_*_PASSWORD de .env.example.
+SEED_DEMO_DATA=true python manage.py shell -c "exec(open('scripts/seed.py').read())"
 
 # Crear superusuario
 python manage.py createsuperuser
@@ -156,19 +159,19 @@ Actualizar `angular.json` para usar el proxy:
 
 | Variable                          | Descripcion                                        | Valor por defecto                                  |
 | --------------------------------- | -------------------------------------------------- | -------------------------------------------------- |
-| `DJANGO_SECRET_KEY`               | Clave secreta de Django                            | `changeme-generar-clave-segura`                    |
+| `DJANGO_SECRET_KEY`               | Clave secreta de Django                            | Requerida (sin default)                            |
 | `DJANGO_DEBUG`                    | Modo debug                                         | `False`                                            |
 | `DJANGO_ALLOWED_HOSTS`            | Hosts permitidos                                   | `localhost,127.0.0.1`                              |
-| `DJANGO_SETTINGS_MODULE`          | Modulo de settings                                 | `config.settings`                                  |
+| `DJANGO_SETTINGS_MODULE`          | Modulo de settings                                 | `config.settings` (dev) / `config.settings_production` (prod) |
 | `DB_ENGINE`                       | Backend de base de datos                           | `django.contrib.gis.db.backends.postgis`           |
 | `DB_NAME`                         | Nombre de la base de datos                         | `gams_sis_poa`                                     |
 | `DB_USER`                         | Usuario de la base de datos                        | `sispoa_user`                                      |
-| `DB_PASSWORD`                     | Contrasena de la base de datos                     | `changeme-segura`                                  |
+| `DB_PASSWORD`                     | Contrasena de la base de datos                     | Requerida (sin default)                            |
 | `DB_HOST`                         | Host de la base de datos                           | `sispoa-postgres`                                  |
 | `DB_PORT`                         | Puerto de la base de datos                         | `5432`                                             |
 | `POSTGRES_DB`                     | DB para el contenedor postgres                     | `gams_sis_poa`                                     |
 | `POSTGRES_USER`                   | User para el contenedor postgres                   | `sispoa_user`                                      |
-| `POSTGRES_PASSWORD`               | Password para el contenedor postgres               | `changeme-segura`                                  |
+| `POSTGRES_PASSWORD`               | Password para el contenedor postgres               | Requerida (sin default)                            |
 | `REDIS_HOST`                      | Host de Redis                                      | `sispoa-redis`                                     |
 | `REDIS_PORT`                      | Puerto de Redis                                    | `6379`                                             |
 | `REDIS_URL`                       | URL de Redis (cache)                               | `redis://sispoa-redis:6379/1`                      |
@@ -178,22 +181,22 @@ Actualizar `angular.json` para usar el proxy:
 | `USE_S3`                          | Habilitar MinIO S3                                 | `False`                                            |
 | `MINIO_ENDPOINT`                  | Endpoint de MinIO                                  | `http://sispoa-minio:9000`                         |
 | `MINIO_ROOT_USER`                 | Usuario MinIO                                      | `sispoa_admin`                                     |
-| `MINIO_ROOT_PASSWORD`             | Contrasena MinIO                                   | `changeme-minio-segura`                            |
+| `MINIO_ROOT_PASSWORD`             | Contrasena MinIO                                   | Requerida (sin default)                            |
 | `MINIO_BUCKET_NAME`               | Bucket de MinIO                                    | `sispoa-docs`                                      |
 | `AWS_ACCESS_KEY_ID`               | Access Key (MinIO)                                 | `sispoa_admin`                                     |
-| `AWS_SECRET_ACCESS_KEY`           | Secret Key (MinIO)                                 | `changeme-minio-segura`                            |
+| `AWS_SECRET_ACCESS_KEY`           | Secret Key (MinIO)                                 | Requerida (sin default)                            |
 | `AWS_STORAGE_BUCKET_NAME`         | Bucket name (MinIO)                                | `sispoa-docs`                                      |
 | `AWS_S3_REGION_NAME`              | Region S3                                          | `us-east-1`                                        |
 | `GEOSERVER_ADMIN_USER`            | Usuario GeoServer                                  | `admin`                                            |
-| `GEOSERVER_ADMIN_PASSWORD`        | Contrasena GeoServer                               | `changeme-geoserver`                               |
+| `GEOSERVER_ADMIN_PASSWORD`        | Contrasena GeoServer                               | Requerida (sin default)                            |
 | `GEOSERVER_URL`                   | URL de GeoServer                                   | `http://sispoa-geoserver:8080/geoserver`           |
 | `OIDC_RP_CLIENT_ID`               | Client ID OIDC                                     | `sispoa-frontend`                                  |
-| `OIDC_RP_CLIENT_SECRET`           | Client Secret OIDC                                 | `changeme-oidc-secret`                             |
+| `OIDC_RP_CLIENT_SECRET`           | Client Secret OIDC                                 | Requerida (sin default)                            |
 | `OIDC_OP_AUTHORITY`               | Authority OIDC                                     | `http://sispoa-keycloak:8080/realms/sispoa`        |
 | `KEYCLOAK_ADMIN`                  | Admin Keycloak                                     | `admin`                                            |
-| `KEYCLOAK_ADMIN_PASSWORD`         | Password Keycloak                                  | `changeme-keycloak`                                |
+| `KEYCLOAK_ADMIN_PASSWORD`         | Password Keycloak                                  | Requerida (sin default)                            |
 | `KC_BOOTSTRAP_ADMIN_USERNAME`     | Bootstrap admin username                           | `admin`                                            |
-| `KC_BOOTSTRAP_ADMIN_PASSWORD`     | Bootstrap admin password                           | `changeme-keycloak`                                |
+| `KC_BOOTSTRAP_ADMIN_PASSWORD`     | Bootstrap admin password                           | Requerida (sin default)                            |
 
 ## PostGIS Setup
 

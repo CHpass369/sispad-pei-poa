@@ -11,15 +11,15 @@
 
 | Archivo | Ruta esperada | Estado |
 |---------|--------------|--------|
-| GUIA PAD.pdf | `/mnt/data/GUIA PAD.pdf` | ❌ No disponible |
-| Directrices de formulación presupuestaria 2026 | `/mnt/data/Directrices_de_formulación_presupuestaria_2026_0 (1).pdf` | ❌ No disponible |
-| 1_Guía_metodológica_ETAs.pdf | `/mnt/data/1_Guía_metodológica_ETAs.pdf` | ❌ No disponible |
-| MATRICES A Y B(2).xlsx | `/mnt/data/MATRICES A Y B(2).xlsx` | ❌ No disponible |
-| GASTOS 2026.xlsx | `/mnt/data/GASTOS 2026.xlsx` | ❌ No disponible |
-| POAU 2026 CATASTRO.xlsx | `/mnt/data/POAU 2026 CATASTRO.xlsx` | ❌ No disponible |
-| SEGUIMIENTO Y EVALUACION PTDI_PEI AJUSTADA.xlsx | `/mnt/data/SEGUIMIENTO Y EVALUACION PTDI_PEI AJUSTADA.xlsx` | ❌ No disponible |
+| Guía metodológica de planificación | `/path/to/references/planning-guide.pdf` | ❌ No disponible |
+| Directrices de formulación presupuestaria | `/path/to/references/budget-guidelines.pdf` | ❌ No disponible |
+| Guía metodológica para entidades territoriales | `/path/to/references/territorial-guide.pdf` | ❌ No disponible |
+| Matrices de planificación | `/path/to/references/planning-matrices.xlsx` | ❌ No disponible |
+| Ejecución presupuestaria | `/path/to/references/budget-execution.xlsx` | ❌ No disponible |
+| Formulación operativa por unidad | `/path/to/references/unit-planning.xlsx` | ❌ No disponible |
+| Seguimiento y evaluación | `/path/to/references/monitoring-evaluation.xlsx` | ❌ No disponible |
 
-**Conclusión**: Los archivos de referencia no están presentes en el entorno actual (`/mnt/data/` no existe). El análisis se realiza sobre la base del código existente en el repositorio y el contenido del `PROMPT_SISPAD_POA.md`.
+**Conclusión**: Los archivos de referencia no están presentes en el entorno actual. El análisis se realiza sobre la base del código existente en el repositorio y la especificación funcional disponible.
 
 ### 1.2 Archivos existentes en el repositorio
 

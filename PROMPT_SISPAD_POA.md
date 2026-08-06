@@ -64,13 +64,13 @@ Desarrollar una plataforma web que permita:
 
 Antes de diseñar la base de datos y escribir código, analiza los siguientes archivos existentes:
 
-- /mnt/data/GUIA PAD.pdf
-- /mnt/data/Directrices_de_formulación_presupuestaria_2026_0 (1).pdf
-- /mnt/data/1_Guía_metodológica_ETAs.pdf
-- /mnt/data/MATRICES A Y B(2).xlsx
-- /mnt/data/GASTOS 2026.xlsx
-- /mnt/data/POAU 2026 CATASTRO.xlsx
-- /mnt/data/SEGUIMIENTO Y EVALUACION PTDI_PEI AJUSTADA.xlsx
+- /mnt/data/GUIA_PAD.pdf
+- /mnt/data/DIRECTRICES_FORMULACION_PRESUPUESTARIA.pdf
+- /mnt/data/GUIA_METODOLOGICA_ETAS.pdf
+- /mnt/data/MATRICES_A_Y_B.xlsx
+- /mnt/data/GASTOS.xlsx
+- /mnt/data/POAU.xlsx
+- /mnt/data/SEGUIMIENTO_EVALUACION_PTDI_PEI.xlsx
 
 Para analizar los archivos:
 

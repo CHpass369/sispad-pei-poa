@@ -1,14 +1,17 @@
 #!/bin/bash
 # Backup de GeoServer (data dir + REST export)
 # Uso: ./backup_geoserver.sh [output_dir]
+# Requiere: GEOSERVER_ADMIN_USER y GEOSERVER_ADMIN_PASSWORD en el entorno.
 
 set -e
 
 BACKUP_DIR="${1:-./backups/geoserver}"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 GS_CONTAINER="${GS_CONTAINER:-geoserver}"
-GS_USER="${GEOSERVER_ADMIN_USER:-admin}"
-GS_PASS="${GEOSERVER_ADMIN_PASSWORD:-geoserver_secret}"
+# Fail-closed: no hay credenciales por defecto. Sin GEOSERVER_ADMIN_PASSWORD
+# el script aborta antes de intentar autenticarse.
+GS_USER="${GEOSERVER_ADMIN_USER:?GEOSERVER_ADMIN_USER debe estar definido en el entorno}"
+GS_PASS="${GEOSERVER_ADMIN_PASSWORD:?GEOSERVER_ADMIN_PASSWORD debe estar definido en el entorno}"
 GS_URL="http://${GS_CONTAINER}:8080/geoserver"
 BACKUP_PATH="${BACKUP_DIR}/${TIMESTAMP}"
 
