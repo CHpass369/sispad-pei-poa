@@ -40,7 +40,7 @@ COPY backend/ /app/
 COPY infra/docker/backend/entrypoint.sh /entrypoint.sh
 COPY infra/docker/backend/gunicorn.conf.py /gunicorn.conf.py
 
-RUN chmod +x /entrypoint.sh && mkdir -p /app/staticfiles /app/media
+RUN chmod +x /entrypoint.sh && mkdir -p /app/staticfiles /app/media /var/log/sispoa
 
 EXPOSE 8000
 

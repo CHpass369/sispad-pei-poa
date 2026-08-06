@@ -17,6 +17,32 @@ from decimal import Decimal
 from datetime import date, datetime
 from django.db import transaction
 
+DEMO_PASSWORD_ENV = {
+    'admin': 'SISPOA_DEMO_ADMIN_PASSWORD',
+    'mae': 'SISPOA_DEMO_MAE_PASSWORD',
+    'planificador': 'SISPOA_DEMO_PLANNING_PASSWORD',
+    'presupuesto': 'SISPOA_DEMO_BUDGET_PASSWORD',
+    'jefe_plan': 'SISPOA_DEMO_PLAN_MANAGER_PASSWORD',
+    'jefe_obras': 'SISPOA_DEMO_WORKS_MANAGER_PASSWORD',
+    'tecnico': 'SISPOA_DEMO_TECHNICAL_PASSWORD',
+    'auditor': 'SISPOA_DEMO_AUDITOR_PASSWORD',
+}
+
+
+def load_demo_passwords():
+    missing = [name for name in DEMO_PASSWORD_ENV.values() if not os.environ.get(name)]
+    if missing:
+        raise RuntimeError(
+            'Missing required demo seed environment variables: ' + ', '.join(missing)
+        )
+    return {
+        account: os.environ[env_name]
+        for account, env_name in DEMO_PASSWORD_ENV.items()
+    }
+
+
+DEMO_PASSWORDS = load_demo_passwords()
+
 print("=" * 70)
 print("SISPAD-PEI-POA — DATOS DEMO COMPLETOS")
 print("Gobierno Autonomo Municipal de Sacaba")
@@ -172,37 +198,37 @@ with transaction.atomic():
         defaults={
             'first_name': 'Admin', 'last_name': 'SISPOA',
             'is_staff': True, 'is_superuser': True,
-            'password': make_password('admin2026'),
+            'password': make_password(DEMO_PASSWORDS['admin']),
         }
     )
     if _:
-        admin.set_password('admin2026')
+        admin.set_password(DEMO_PASSWORDS['admin'])
         admin.save()
     admin.roles.add(roles['superadmin'])
-    print(f"  + Usuario: admin@gamsacaba.gob.bo / admin2026")
+    print("  + Usuario demo administrativo creado")
 
-    def crear_usuario(email, nombre, apellido, password, rol_cod):
+    def crear_usuario(email, nombre, apellido, password_key, rol_cod):
         u, created = Usuario.objects.get_or_create(
             email=email,
             defaults={
                 'first_name': nombre, 'last_name': apellido,
-                'password': make_password(password),
+                'password': make_password(DEMO_PASSWORDS[password_key]),
             }
         )
         if created:
-            u.set_password(password)
+            u.set_password(DEMO_PASSWORDS[password_key])
             u.save()
-            print(f"  + Usuario: {email} / {password}")
+            print(f"  + Usuario demo: {email}")
         u.roles.add(roles.get(rol_cod, roles['consulta']))
         return u
 
-    u_mae = crear_usuario('mae@gamsacaba.gob.bo', 'Maria', 'Condori', 'mae2026', 'mae')
-    u_plan = crear_usuario('planificador@gamsacaba.gob.bo', 'Carlos', 'Mamani', 'plan2026', 'revisor_planificacion')
-    u_pres = crear_usuario('presupuesto@gamsacaba.gob.bo', 'Ana', 'Quispe', 'pres2026', 'revisor_presupuesto')
-    u_jefe_plan = crear_usuario('jefe_plan@gamsacaba.gob.bo', 'Luis', 'Huanca', 'jefe2026', 'responsable_unidad')
-    u_jefe_obras = crear_usuario('jefe_obras@gamsacaba.gob.bo', 'Pedro', 'Flores', 'jefe2026', 'responsable_unidad')
-    u_tecnico = crear_usuario('tecnico@gamsacaba.gob.bo', 'Rosa', 'Vargas', 'tec2026', 'poau_responsable')
-    u_auditor = crear_usuario('auditor@gamsacaba.gob.bo', 'Jorge', 'Ramos', 'aud2026', 'auditor')
+    u_mae = crear_usuario('mae@gamsacaba.gob.bo', 'Maria', 'Condori', 'mae', 'mae')
+    u_plan = crear_usuario('planificador@gamsacaba.gob.bo', 'Carlos', 'Mamani', 'planificador', 'revisor_planificacion')
+    u_pres = crear_usuario('presupuesto@gamsacaba.gob.bo', 'Ana', 'Quispe', 'presupuesto', 'revisor_presupuesto')
+    u_jefe_plan = crear_usuario('jefe_plan@gamsacaba.gob.bo', 'Luis', 'Huanca', 'jefe_plan', 'responsable_unidad')
+    u_jefe_obras = crear_usuario('jefe_obras@gamsacaba.gob.bo', 'Pedro', 'Flores', 'jefe_obras', 'responsable_unidad')
+    u_tecnico = crear_usuario('tecnico@gamsacaba.gob.bo', 'Rosa', 'Vargas', 'tecnico', 'poau_responsable')
+    u_auditor = crear_usuario('auditor@gamsacaba.gob.bo', 'Jorge', 'Ramos', 'auditor', 'auditor')
 
     # -----------------------------------------------------------------
     # 3. ESTRUCTURA ORGANIZACIONAL
@@ -754,15 +780,19 @@ with transaction.atomic():
     print(f"  Ejecuciones fin.:   {EjecucionFinanciera.objects.count()}")
     techo_total = sum(t.monto_total for t in TechoPresupuestario.objects.filter(gestion=2026))
     print(f"  Techo total:        Bs {techo_total:,.2f}")
-    print("\n  USUARIOS:")
-    print("    admin@gamsacaba.gob.bo / admin2026")
-    print("    mae@gamsacaba.gob.bo / mae2026")
-    print("    planificador@gamsacaba.gob.bo / plan2026")
-    print("    presupuesto@gamsacaba.gob.bo / pres2026")
-    print("    jefe_plan@gamsacaba.gob.bo / jefe2026")
-    print("    jefe_obras@gamsacaba.gob.bo / jefe2026")
-    print("    tecnico@gamsacaba.gob.bo / tec2026")
-    print("    auditor@gamsacaba.gob.bo / aud2026")
+    print("\n  USUARIOS (credenciales configuradas mediante variables de entorno):")
+    demo_accounts = (
+        ('admin@gamsacaba.gob.bo', 'admin'),
+        ('mae@gamsacaba.gob.bo', 'mae'),
+        ('planificador@gamsacaba.gob.bo', 'planificador'),
+        ('presupuesto@gamsacaba.gob.bo', 'presupuesto'),
+        ('jefe_plan@gamsacaba.gob.bo', 'jefe_plan'),
+        ('jefe_obras@gamsacaba.gob.bo', 'jefe_obras'),
+        ('tecnico@gamsacaba.gob.bo', 'tecnico'),
+        ('auditor@gamsacaba.gob.bo', 'auditor'),
+    )
+    for email, account in demo_accounts:
+        print(f"    {email} / {DEMO_PASSWORD_ENV[account]}")
     print("=" * 70)
     print("Cadena PGDESA -> PDESA -> PTDI -> PEI -> POA -> POAU completa.")
     print("GAM Sacaba — Sistema Integrado de Planificacion.")

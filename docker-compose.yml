@@ -7,13 +7,13 @@
 # Anclas YAML para reutilización de variables de entorno Django
 # ------------------------------------------------------------------
 x-django-env: &django-env
-  DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-changeme-generar-clave-segura}
+  DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?Set DJANGO_SECRET_KEY in .env}
   DJANGO_DEBUG: ${DJANGO_DEBUG:-False}
   DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}
   DB_ENGINE: ${DB_ENGINE:-django.contrib.gis.db.backends.postgis}
   DB_NAME: ${DB_NAME:-gams_sis_poa}
   DB_USER: ${DB_USER:-sispoa_user}
-  DB_PASSWORD: ${DB_PASSWORD:-changeme-segura}
+  DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
   DB_HOST: ${DB_HOST:-sispoa-postgres}
   DB_PORT: ${DB_PORT:-5432}
   CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:4200,http://127.0.0.1:4200}
@@ -36,7 +36,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-gams_sis_poa}
       POSTGRES_USER: ${POSTGRES_USER:-sispoa_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme-segura}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
     volumes:
       - pgdata:/var/lib/postgresql/data
     networks:
@@ -196,8 +196,8 @@ services:
     volumes:
       - minio_data:/data
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Set MINIO_ROOT_USER in .env}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}
     ports:
       - "9000:9000"
       - "9001:9001"
@@ -218,8 +218,8 @@ services:
     volumes:
       - geoserver_data:/var/geoserver/data
     environment:
-      GEOSERVER_ADMIN_USER: ${GEOSERVER_ADMIN_USER:-admin}
-      GEOSERVER_ADMIN_PASSWORD: ${GEOSERVER_ADMIN_PASSWORD:-changeme-geoserver}
+      GEOSERVER_ADMIN_USER: ${GEOSERVER_ADMIN_USER:?Set GEOSERVER_ADMIN_USER in .env}
+      GEOSERVER_ADMIN_PASSWORD: ${GEOSERVER_ADMIN_PASSWORD:?Set GEOSERVER_ADMIN_PASSWORD in .env}
       INITIAL_MEMORY: 512M
       MAXIMUM_MEMORY: 1024M
     ports:
@@ -248,12 +248,12 @@ services:
     volumes:
       - ./infra/keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
     environment:
-      KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_BOOTSTRAP_ADMIN_USERNAME:-admin}
-      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_BOOTSTRAP_ADMIN_PASSWORD:-keycloak_secret}
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_BOOTSTRAP_ADMIN_USERNAME:?Set KC_BOOTSTRAP_ADMIN_USERNAME in .env}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_BOOTSTRAP_ADMIN_PASSWORD:?Set KC_BOOTSTRAP_ADMIN_PASSWORD in .env}
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://sispoa-postgres:5432/${POSTGRES_DB:-gams_sis_poa}
       KC_DB_USERNAME: ${POSTGRES_USER:-sispoa_user}
-      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:-changeme-segura}
+      KC_DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
       KC_HOSTNAME: localhost
       KC_HTTP_PORT: 8080
       KC_HEALTH_ENABLED: "true"

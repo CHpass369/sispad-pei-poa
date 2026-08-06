@@ -1,5 +1,7 @@
 # Entorno
 .env
+.env.*
+!.env.example
 .venv/
 venv/
 
@@ -9,7 +11,9 @@ __pycache__/
 *.pyo
 *.egg-info/
 dist/
+build/
 *.egg
+.pytest_cache/
 
 # Node / Angular
 node_modules/
@@ -19,7 +23,24 @@ frontend/sispoa/dist/
 
 # Docker
 backups/
+dumps/
 *.dump
+*.sql
+*.sqlite
+*.sqlite3
+*.db
+*.bak
+
+# Fuentes locales, documentos y credenciales privadas
+*.xlsx
+*.xls
+*.csv
+*.ods
+*.pdf
+*.pem
+*.key
+*.p12
+*.pfx
 
 # Media / archivos subidos
 media/
@@ -40,5 +61,5 @@ Thumbs.db
 
 # Logs
 *.log
-auxiliar_pluri.xlsx
+logs/
 .atl/

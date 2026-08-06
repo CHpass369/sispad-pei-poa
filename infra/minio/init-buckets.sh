@@ -13,8 +13,10 @@ set -e
 
 MC_HOST="${MC_HOST:-sispoa-minio:9000}"
 MC_ALIAS="${MC_ALIAS:-sispoa}"
-MC_ROOT_USER="${MINIO_ROOT_USER:-sispoa_admin}"
-MC_ROOT_PASSWORD="${MINIO_ROOT_PASSWORD:-sispoa_minio_secret}"
+# Fail-closed: no hay credenciales por defecto. Sin MINIO_ROOT_PASSWORD el
+# script aborta antes de intentar autenticarse.
+MC_ROOT_USER="${MINIO_ROOT_USER:?MINIO_ROOT_USER debe estar definido en el entorno}"
+MC_ROOT_PASSWORD="${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD debe estar definido en el entorno}"
 BUCKET="${MINIO_BUCKET_NAME:-sispoa-docs}"
 
 echo "Esperando a que MinIO esté listo..."

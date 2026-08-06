@@ -10,7 +10,7 @@ COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY backend/ ./
-RUN mkdir -p /app/media /app/staticfiles
+RUN mkdir -p /app/media /app/staticfiles /var/log/sispoa
 
 # Argumento para elegir worker o beat
 ARG CELERY_COMMAND=worker

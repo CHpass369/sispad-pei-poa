@@ -48,34 +48,9 @@
       "name": "SISPAD Backend",
       "enabled": true,
       "publicClient": false,
-      "secret": "sispoa_oidc_secret",
       "redirectUris": ["http://localhost/*"],
       "serviceAccountsEnabled": true,
       "protocol": "openid-connect"
-    }
-  ],
-  "users": [
-    {
-      "username": "admin",
-      "email": "admin@sacaba.gob.bo",
-      "firstName": "Administrador",
-      "lastName": "Sistema",
-      "enabled": true,
-      "emailVerified": true,
-      "credentials": [{"type": "password", "value": "admin123", "temporary": false}],
-      "realmRoles": ["default-roles-sispoa"],
-      "clientRoles": {"sispoa-frontend": ["admin_poa"]}
-    },
-    {
-      "username": "tecnico",
-      "email": "tecnico@sacaba.gob.bo",
-      "firstName": "Técnico",
-      "lastName": "Demo",
-      "enabled": true,
-      "emailVerified": true,
-      "credentials": [{"type": "password", "value": "tecnico123", "temporary": false}],
-      "realmRoles": ["default-roles-sispoa"],
-      "clientRoles": {"sispoa-frontend": ["tecnico"]}
     }
   ]
 }

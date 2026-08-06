@@ -1,6 +1,7 @@
 #!/bin/bash
 # Backup de MinIO (S3) usando mc mirror
 # Uso: ./backup_minio.sh [output_dir]
+# Requiere: MINIO_ROOT_USER y MINIO_ROOT_PASSWORD en el entorno.
 
 set -e
 
@@ -8,8 +9,10 @@ BACKUP_DIR="${1:-./backups/minio}"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 MINIO_CONTAINER="${MINIO_CONTAINER:-minio}"
 MINIO_ALIAS="${MINIO_ALIAS:-sispoa}"
-MINIO_USER="${MINIO_ROOT_USER:-sispoa_admin}"
-MINIO_PASS="${MINIO_ROOT_PASSWORD:-sispoa_minio_secret}"
+# Fail-closed: no hay credenciales por defecto. Sin MINIO_ROOT_PASSWORD el
+# script aborta antes de intentar autenticarse.
+MINIO_USER="${MINIO_ROOT_USER:?MINIO_ROOT_USER debe estar definido en el entorno}"
+MINIO_PASS="${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD debe estar definido en el entorno}"
 BUCKET="${MINIO_BUCKET_NAME:-sispoa-docs}"
 BACKUP_PATH="${BACKUP_DIR}/${TIMESTAMP}"
 

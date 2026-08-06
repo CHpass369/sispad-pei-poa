@@ -22,14 +22,17 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 GS_URL="${GS_URL:-http://sispoa-geoserver:8080/geoserver}"
 GS_USER="${GEOSERVER_ADMIN_USER:-admin}"
-GS_PASS="${GEOSERVER_ADMIN_PASSWORD:-changeme-geoserver}"
+# Fail-closed: no hay credenciales por defecto. Sin GEOSERVER_ADMIN_PASSWORD
+# el script aborta antes de intentar autenticarse.
+GS_PASS="${GEOSERVER_ADMIN_PASSWORD:?GEOSERVER_ADMIN_PASSWORD debe estar definido en el entorno}"
 WS_NAME="${GEOSERVER_WORKSPACE:-sispoa}"
 
 DB_HOST="${DB_HOST:-sispoa-postgres}"
 DB_PORT="${DB_PORT:-5432}"
 DB_NAME="${DB_NAME:-gams_sis_poa}"
 DB_USER="${DB_USER:-sispoa_user}"
-DB_PASS="${DB_PASSWORD:-changeme-segura}"
+# Fail-closed: sin DB_PASSWORD el script aborta antes de configurar el store.
+DB_PASS="${DB_PASSWORD:?DB_PASSWORD debe estar definido en el entorno}"
 
 STORE_NAME="sispoa_postgis"
 

@@ -14,6 +14,7 @@ x-django-env: &django-env
   DB_HOST: ${DB_HOST:-sispoa-postgres}
   DB_PORT: ${DB_PORT:-5432}
   CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?Configure CORS_ALLOWED_ORIGINS en .env}
+  SEED_DEMO_DATA: ${SEED_DEMO_DATA:-false}
   CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://sispoa-redis:6379/0}
   CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://sispoa-redis:6379/0}
   REDIS_URL: ${REDIS_URL:-redis://sispoa-redis:6379/1}
@@ -81,7 +82,7 @@ services:
     env_file: .env
     environment:
       <<: *django-env
-      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.settings}
+      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.settings_production}
     volumes:
       - static_volume:/app/staticfiles
       - media_volume:/app/media
@@ -145,7 +146,7 @@ services:
       - static_volume:/app/staticfiles
     environment:
       <<: *django-env
-      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.settings}
+      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.settings_production}
     env_file: .env
     depends_on:
       redis:
@@ -175,7 +176,7 @@ services:
       - static_volume:/app/staticfiles
     environment:
       <<: *django-env
-      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.settings}
+      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.settings_production}
     env_file: .env
     depends_on:
       redis:
