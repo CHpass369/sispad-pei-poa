@@ -781,3 +781,137 @@ class HomologacionCodigo(TimeStampedModel):
 
     def __str__(self):
         return f'{self.tipo_entidad}: {self.codigo_anterior} → {self.codigo_nuevo}'
+
+
+class AuditoriaMigracionQuerySet(models.QuerySet):
+    """Keep migration evidence immutable after insertion."""
+
+    MENSAJE_APPEND_ONLY = (
+        'La auditoría de migración es append-only y no puede alterarse.'
+    )
+
+    def update(self, **kwargs):
+        raise ValidationError(self.MENSAJE_APPEND_ONLY)
+
+    def delete(self):
+        raise ValidationError(self.MENSAJE_APPEND_ONLY)
+
+    def bulk_update(self, objs, fields, batch_size=None):
+        raise ValidationError(self.MENSAJE_APPEND_ONLY)
+
+
+class AuditoriaMigracionManager(models.Manager.from_queryset(
+    AuditoriaMigracionQuerySet,
+)):
+    """Manager for append-only SIM migration evidence."""
+
+
+class EjecucionMigracionSIM(TimeStampedModel):
+    """Persistent manifest and outcome of one SIM migration invocation."""
+
+    MODO_DRY_RUN = 'dry_run'
+    MODO_COMMIT = 'commit'
+    MODO_CHOICES = [
+        (MODO_DRY_RUN, 'Dry run'),
+        (MODO_COMMIT, 'Commit'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    gestion = models.PositiveIntegerField(verbose_name='Gestión')
+    modo = models.CharField(max_length=20, choices=MODO_CHOICES)
+    manifest_hash = models.CharField(max_length=64, db_index=True)
+    manifest = models.JSONField()
+    cambios_planificados = models.PositiveIntegerField(default=0)
+    cambios_aplicados = models.PositiveIntegerField(default=0)
+    homologaciones_creadas = models.PositiveIntegerField(default=0)
+    mapeos_lineamiento_creados = models.PositiveIntegerField(default=0)
+    warnings = models.PositiveIntegerField(default=0)
+    backup_path = models.CharField(max_length=500, blank=True, default='')
+    backup_sha256 = models.CharField(max_length=64, blank=True, default='')
+    backup_restore_validated = models.BooleanField(default=False)
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='ejecuciones_migracion_sim',
+    )
+
+    objects = AuditoriaMigracionManager()
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['gestion', 'modo']),
+        ]
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            raise ValidationError(
+                AuditoriaMigracionQuerySet.MENSAJE_APPEND_ONLY,
+            )
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValidationError(AuditoriaMigracionQuerySet.MENSAJE_APPEND_ONLY)
+
+
+class MapeoLineamientoPADLegacy(TimeStampedModel):
+    """Explicit non-destructive bridge from a legacy PAD row to the catalog."""
+
+    ORIGEN_PAD = 'pad.LineamientoEstrategico'
+    ORIGEN_ARTICULACION = 'articulacion.LineamientoPAD'
+    ORIGEN_CHOICES = [
+        (ORIGEN_PAD, 'PAD legacy'),
+        (ORIGEN_ARTICULACION, 'Articulación legacy'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    origen = models.CharField(max_length=50, choices=ORIGEN_CHOICES)
+    legacy_id = models.CharField(
+        max_length=64,
+        help_text=(
+            'PK de la fila legacy en forma de string: UUID para '
+            'articulacion.LineamientoPAD, string de entero para '
+            'pad.LineamientoEstrategico.'
+        ),
+    )
+    codigo_legacy = models.CharField(max_length=100)
+    denominacion_legacy = models.TextField()
+    lineamiento_pad = models.ForeignKey(
+        LineamientoPAD,
+        on_delete=models.PROTECT,
+        related_name='mapeos_legacy',
+    )
+    manifest_hash = models.CharField(max_length=64, blank=True, default='')
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='mapeos_lineamiento_pad_legacy',
+    )
+
+    objects = AuditoriaMigracionManager()
+
+    class Meta:
+        ordering = ['origen', 'codigo_legacy']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['origen', 'legacy_id'],
+                name='uniq_mapeo_lineamiento_pad_legacy',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['lineamiento_pad']),
+        ]
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            raise ValidationError(
+                AuditoriaMigracionQuerySet.MENSAJE_APPEND_ONLY,
+            )
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValidationError(AuditoriaMigracionQuerySet.MENSAJE_APPEND_ONLY)
