@@ -257,7 +257,7 @@ class CodificadorService:
                 resultado_pei.entidad_codificadora.codigo
                 if resultado_pei and resultado_pei.entidad_codificadora else None
             ),
-            'OE': resultado_pei.cod_oei if resultado_pei else None,
+            'OE': (resultado_pei.cod_oei or None) if resultado_pei else None,
             'RI': cls._segmento_instancia(resultado_pei),
             'PI': cls._segmento_instancia(producto_pei),
             'ACP': cls._segmento_instancia(contexto['accion']),
