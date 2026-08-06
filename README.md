@@ -27,9 +27,14 @@ pg_ctl -D /tmp/pg_data -o "-p 5433" start
 createdb -p 5433 gams_sis_poa
 psql -p 5433 -d gams_sis_poa -c "CREATE EXTENSION postgis;"
 
-# Migraciones y semilla
+# Migraciones y seed demo (opt-in; no se ejecuta al reiniciar el backend)
 python manage.py migrate
-python manage.py shell -c "exec(open('scripts/seed.py').read())"
+# Definir primero todas las variables SISPOA_DEMO_*_PASSWORD de .env.example.
+SEED_DEMO_DATA=true python manage.py shell -c "exec(open('scripts/seed.py').read())"
+
+# Limpieza segura: primero manifiesto, luego commit explícito
+python manage.py limpiar_datos_simulados --dry-run
+python manage.py limpiar_datos_simulados --commit --include-ambiguous-test-data
 
 # Servidor
 python manage.py runserver

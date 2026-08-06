@@ -230,8 +230,18 @@ docker compose -f docker-compose.prod.yml up -d backend
 El entrypoint ejecutara automaticamente:
 1. Migraciones de base de datos
 2. Recoleccion de archivos estaticos
-3. Carga de datos iniciales (seed)
+3. Omitira el seed demo salvo que `SEED_DEMO_DATA=true` este habilitado explicitamente
 4. Inicio de Gunicorn (puerto 8000)
+
+El seed demo es opt-in y debe reservarse para bases descartables. Para depurar
+una base existente, generar primero el manifiesto y luego confirmar la limpieza:
+
+```bash
+docker compose -f docker-compose.prod.yml exec backend \
+  python manage.py limpiar_datos_simulados --dry-run
+docker compose -f docker-compose.prod.yml exec backend \
+  python manage.py limpiar_datos_simulados --commit --include-ambiguous-test-data
+```
 
 ### 7.4 Iniciar servicios auxiliares
 
@@ -498,7 +508,9 @@ docker container prune -f
 
 ### 12.1 Datos semilla (seed)
 
-El seed se ejecuta automaticamente al iniciar el backend. Para ejecutarlo manualmente:
+El seed solo se ejecuta con `SEED_DEMO_DATA=true` y exige valores explícitos
+para todas las variables `SISPOA_DEMO_*_PASSWORD` documentadas en
+`.env.example`. Para ejecutarlo manualmente:
 
 ```bash
 docker compose -f docker-compose.prod.yml exec backend \
