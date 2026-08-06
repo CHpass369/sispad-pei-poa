@@ -6,6 +6,7 @@ from pathlib import Path
 from django.http import FileResponse, Http404
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from apps.core.views_root import root_redirect, health_check
+from apps.planificacion.views import MatrizCompletaViewSet
 
 api_prefix = 'api/v1/'
 
@@ -20,7 +21,11 @@ urlpatterns = [
     path(f'{api_prefix}', include('apps.catalogos.urls')),
     path(f'{api_prefix}', include('apps.normativa.urls')),
     path(f'{api_prefix}', include('apps.planificacion.urls')),
-    path(f'{api_prefix}planificacion/', include('apps.planificacion.urls')),
+    path(
+        f'{api_prefix}planificacion/matriz-completa/',
+        MatrizCompletaViewSet.as_view({'get': 'list'}),
+        name='matriz-completa-frontend',
+    ),
     path(f'{api_prefix}', include('apps.indicadores.urls')),
     path(f'{api_prefix}', include('apps.recursos.urls')),
     path(f'{api_prefix}', include('apps.techos.urls')),

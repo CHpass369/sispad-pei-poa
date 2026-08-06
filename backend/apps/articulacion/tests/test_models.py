@@ -1,13 +1,18 @@
 import datetime
 from django.test import TestCase
 from django.db import IntegrityError
+from django.core.exceptions import ValidationError
 from apps.articulacion.models import (
     CodigoNivel, AcuerdoInternacional, Normativa, LineamientoPAD,
     ResultadoPAD, ProductoPAD, ResultadoPEI, ProductoPEI,
     ArticulacionPADPEI, IndicadorCadena, AccionPOA, OperacionPOAU,
     ActividadPOAU, TareaPOAU, SeguimientoPresupuesto, AsignacionObjetoGasto,
 )
-from apps.planificacion.models import Plan, NodoPlanificacion
+from apps.planificacion.models import (
+    ArticulacionPlanificacion,
+    NodoPlanificacion,
+    Plan,
+)
 
 
 def _plan_defaults(**kwargs):
@@ -156,6 +161,55 @@ class ResultadoPADModelTest(TestCase):
         self.resultado.save()
         self.resultado.refresh_from_db()
         self.assertEqual(self.resultado.nodo_pdesa, nodo)
+
+    def test_nodo_pdesa_fk_rejects_pgdesa_nodo_during_validation(self):
+        """El bridge solo admite nodos de acción del plan PDESA."""
+        plan = Plan.objects.create(**_plan_defaults(
+            codigo='PGDESA-2026-2050', tipo='pgdesa',
+        ))
+        nodo = NodoPlanificacion.objects.create(
+            plan=plan, nivel='resultado', codigo='01.01.01',
+            nombre='Resultado PGDESA', gestion=2026,
+        )
+        self.resultado.nodo_pdesa = nodo
+
+        with self.assertRaises(ValidationError):
+            self.resultado.full_clean()
+
+
+class ArticulacionPlanificacionModelTest(TestCase):
+    def test_one_pgdesa_result_can_target_multiple_pdesa_components(self):
+        pgdesa = Plan.objects.create(**_plan_defaults(
+            codigo='PGDESA-MULTI', tipo='pgdesa',
+        ))
+        pdesa = Plan.objects.create(**_plan_defaults(
+            codigo='PDESA-MULTI', tipo='pdesa',
+        ))
+        origin = NodoPlanificacion.objects.create(
+            plan=pgdesa, nivel='resultado', codigo='01.01.01',
+            nombre='Resultado PGDESA', gestion=2026,
+        )
+        destinations = [
+            NodoPlanificacion.objects.create(
+                plan=pdesa, nivel='componente', codigo=f'01.0{index}',
+                nombre=f'Componente PDESA {index}', gestion=2026,
+            )
+            for index in (1, 2)
+        ]
+
+        for destination in destinations:
+            ArticulacionPlanificacion.objects.create(
+                nodo_origen=origin,
+                nodo_destino=destination,
+                gestion=2026,
+            )
+
+        links = ArticulacionPlanificacion.objects.filter(nodo_origen=origin)
+        self.assertEqual(links.count(), 2)
+        self.assertEqual(
+            set(links.values_list('nodo_destino_id', flat=True)),
+            {destination.id for destination in destinations},
+        )
 
 
 class ProductoPADModelTest(TestCase):
