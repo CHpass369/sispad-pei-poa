@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./out-tsc/spec",
+    "types": []
+  },
+  "include": [
+    "src/app/features/articulacion/matriz-completa*.spec.ts",
+    "src/**/*.d.ts"
+  ]
+}

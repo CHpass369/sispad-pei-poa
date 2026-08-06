@@ -45,7 +45,7 @@ export class MatrizCompletaService {
   }
 
   exportXLSX(gestion: number): void {
-    const url = `${environment.apiUrl}/api/v1/reportes/matriz_completa_xlsx/?gestion=${gestion}`;
+    const url = `${environment.apiUrl}/reportes/matriz_completa_xlsx/?gestion=${gestion}`;
     window.open(url, '_blank');
   }
 

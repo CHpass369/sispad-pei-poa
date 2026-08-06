@@ -12,9 +12,10 @@ from .serializers import (
     PlanSerializer, NodoPlanificacionSerializer,
     AccionMedianoPlazoSerializer, AccionCortoPlazoSerializer,
     ArticulacionPlanificacionSerializer, PlanVersionSerializer,
-    NodoArbolSerializer,
+    MatrizArbolBuilder, NodoArbolSerializer,
 )
 from apps.indicadores.models import Indicador, MetaProgramada, Operacion
+from apps.core.permissions import IsPlanificador
 
 
 class PlanViewSet(viewsets.ModelViewSet):
@@ -201,35 +202,77 @@ class FormulacionViewSet(viewsets.ViewSet):
 
 
 class MatrizCompletaViewSet(viewsets.ViewSet):
-    """Árbol jerárquico completo PGDESA→PDESA→PAD→PEI→POA"""
+    """Complete PGDESA→PDESA→PAD→PEI→POA hierarchy.
+
+    A plan is active for a requested management when the year is inside its
+    inclusive ``gestion_inicio``/``gestion_fin`` range.  Versioned nodes and
+    planning articulations use an exact ``gestion`` match; PAD and PEI records
+    use their inclusive ``vigencia_desde``/``vigencia_hasta`` ranges; POA
+    actions use an exact ``gestion`` match.
+    """
+
+    permission_classes = [IsPlanificador]
 
     def list(self, request):
-        gestion = request.query_params.get('gestion')
+        gestion_value = request.query_params.get('gestion')
         nivel = request.query_params.get('nivel')
         padre_id = request.query_params.get('padre_id')
 
-        if not gestion:
+        if not gestion_value:
             return Response({'error': 'gestión requerida'}, status=400)
+        try:
+            gestion = int(gestion_value)
+        except (TypeError, ValueError):
+            return Response({'error': 'gestión inválida'}, status=400)
 
-        queryset = NodoPlanificacion.objects.select_related('plan', 'padre')
+        queryset = NodoPlanificacion.objects.filter(
+            gestion=gestion,
+            activo=True,
+            plan__activo=True,
+            plan__gestion_inicio__lte=gestion,
+            plan__gestion_fin__gte=gestion,
+            plan__tipo__in=('pgdesa', 'pdesa'),
+        ).select_related('plan', 'padre')
+        all_nodes = list(queryset.order_by('plan__tipo', 'nivel', 'codigo'))
 
         if padre_id:
-            padre = get_object_or_404(NodoPlanificacion, id=padre_id)
-            queryset = queryset.filter(padre=padre)
+            try:
+                padre = next(
+                    node.id for node in all_nodes if str(node.id) == str(padre_id)
+                )
+            except StopIteration:
+                padre = None
+            if padre is None:
+                return Response({'data': [], 'stats': {'total': 0}})
+            queryset_nodes = [node for node in all_nodes if node.padre_id == padre]
         elif nivel:
-            queryset = queryset.filter(
-                plan__tipo='pgdesa', nivel=nivel, padre=None
-            ) if nivel == 'eje' else queryset.filter(nivel=nivel, padre__isnull=True)
+            queryset_nodes = [
+                node for node in all_nodes
+                if node.nivel == nivel and node.padre_id is None
+            ]
         else:
-            queryset = queryset.filter(
-                plan__tipo='pgdesa', nivel='eje', padre=None
-            )
+            queryset_nodes = [
+                node for node in all_nodes
+                if node.plan.tipo == 'pgdesa'
+                and node.nivel == 'eje'
+                and node.padre_id is None
+            ]
 
-        queryset = queryset.order_by('codigo')
+        queryset_nodes.sort(key=lambda node: (node.codigo, str(node.id)))
+        lazy = nivel == 'eje' and not padre_id
+        builder = MatrizArbolBuilder(all_nodes, gestion, request=request)
         serializer = NodoArbolSerializer(
-            queryset, many=True, context={'gestion': gestion}
+            queryset_nodes,
+            many=True,
+            context={'gestion': gestion, 'matriz_builder': builder, 'matriz_lazy': lazy},
         )
+        por_nivel = {}
+        for node in all_nodes:
+            por_nivel[node.nivel] = por_nivel.get(node.nivel, 0) + 1
+        stats = {'total': len(queryset_nodes)}
+        if queryset_nodes:
+            stats['por_nivel'] = por_nivel
         return Response({
             'data': serializer.data,
-            'stats': {'total': queryset.count()},
+            'stats': stats,
         })

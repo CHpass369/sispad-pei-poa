@@ -2,6 +2,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.http import HttpResponse
+from apps.core.permissions import IsPlanificador
 from .models import ReporteGenerado
 from .serializers import ReporteGeneradoSerializer
 from .services import (
@@ -238,7 +239,7 @@ class ReporteGeneradoViewSet(viewsets.ModelViewSet):
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], permission_classes=[IsPlanificador])
     def matriz_completa_xlsx(self, request):
         """GET /api/v1/reportes/matriz_completa_xlsx/?gestion=2026
         Descarga XLSX de la Matriz de Articulación Completa (PGDESA→PDESA→PAD→PEI→POA).
