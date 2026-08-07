@@ -1454,6 +1454,85 @@ def generar_matriz_pei_poa_xlsx(gestion=None) -> tuple:
     return output, filename
 
 
+# ===== MATRIZ 4 — PRESUPUESTO Y SEGUIMIENTO =====
+def generar_matriz_presupuesto_seguimiento_xlsx(gestion=None) -> tuple:
+    """Genera XLSX de la Matriz 4 (Presupuesto y Seguimiento)."""
+    if not HAS_OPENPYXL:
+        raise RuntimeError('openpyxl no está instalado')
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Presupuesto y Seguimiento'
+
+    headers = [
+        'ID Cadena', 'Acción POA', 'Operación', 'Actividad',
+        'Categoría Programática', 'DA', 'UE', 'Programa',
+        'Presupuesto Inicial', 'Modificaciones', 'Presupuesto Vigente',
+        'Ejecución Financiera', '% Ejecución Financiera', 'Meta Física',
+        'Ejecución Física', '% Ejecución Física', 'Eficacia',
+    ]
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(headers))
+    ws['A1'] = 'GOBIERNO AUTÓNOMO MUNICIPAL DE SACABA'
+    ws['A1'].font = Font(bold=True, size=14, color='1B5E3B')
+    ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=len(headers))
+    ws['A2'] = (
+        f'MATRIZ 4 — Presupuesto y Seguimiento (Gestión {gestion})'
+        if gestion else 'MATRIZ 4 — Presupuesto y Seguimiento'
+    )
+    ws['A2'].font = Font(bold=True, size=11, color='1B5E3B')
+
+    for column, header in enumerate(headers, 1):
+        cell = ws.cell(row=4, column=column, value=header)
+        cell.fill = HEADER_FILL
+        cell.font = HEADER_FONT
+        cell.alignment = Alignment(horizontal='center', wrap_text=True)
+
+    rows = SeguimientoPresupuesto.objects.select_related(
+        'accion_poa', 'operacion', 'actividad',
+    )
+    if gestion:
+        rows = rows.filter(gestion=gestion)
+
+    for row_number, item in enumerate(rows.order_by('id_cadena'), start=5):
+        values = [
+            item.id_cadena,
+            item.accion_poa.denominacion,
+            item.operacion.denominacion,
+            item.actividad.denominacion,
+            item.categoria_programatica,
+            item.da,
+            item.ue,
+            item.programa,
+            item.presupuesto_inicial,
+            item.modificaciones,
+            item.presupuesto_vigente,
+            item.ejecutado_total,
+            item.porcentaje_ejecucion_financiera,
+            item.meta_fisica,
+            item.ejecucion_fisica,
+            item.porcentaje_ejecucion_fisica,
+            item.eficacia,
+        ]
+        for column, value in enumerate(values, 1):
+            cell = ws.cell(row=row_number, column=column, value=value)
+            cell.border = BORDER_THIN
+            cell.font = Font(size=9)
+            if column >= 9:
+                cell.number_format = '#,##0.00'
+
+    for column in range(1, len(headers) + 1):
+        letter = openpyxl.utils.get_column_letter(column)
+        ws.column_dimensions[letter].width = 24 if column in (2, 3, 4, 8) else 18
+
+    filename = _build_response_filename(
+        'matriz_presupuesto_seguimiento', 'xlsx', gestion or 0,
+    )
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return output, filename
+
+
 # ===== MATRIZ 5 — OBJETOS DE GASTO =====
 def generar_matriz_objetos_gasto_xlsx(gestion=None) -> tuple:
     """Genera XLSX de la Matriz 5 (Objetos de Gasto) con estilo institucional."""
@@ -1530,6 +1609,87 @@ def generar_matriz_objetos_gasto_xlsx(gestion=None) -> tuple:
         ws.column_dimensions[col_letter].width = width
 
     filename = _build_response_filename('matriz_objetos_gasto', 'xlsx', gestion or 0)
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return output, filename
+
+
+# ===== MATRIZ ARTICULACIÓN COMPLETA =====
+def generar_matriz_completa_xlsx(gestion=None) -> tuple:
+    """Genera XLSX de la Matriz de Articulación Completa (PGDESA→PDESA→PAD→PEI→POA).
+
+    Columnas: Código Completo, Nivel, Nombre, Plan, Código Padre, Nodos Vinculados
+    """
+    if not HAS_OPENPYXL:
+        raise RuntimeError('openpyxl no está instalado')
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Matriz Articulación Completa'
+
+    ws.merge_cells('A1:F1')
+    ws['A1'] = 'GOBIERNO AUTÓNOMO MUNICIPAL DE SACABA'
+    ws['A1'].font = Font(bold=True, size=14, color='1B5E3B')
+
+    ws.merge_cells('A2:F2')
+    titulo_gestion = f'MATRIZ ARTICULACIÓN COMPLETA (Gestión {gestion})' if gestion else 'MATRIZ ARTICULACIÓN COMPLETA'
+    ws['A2'] = titulo_gestion
+    ws['A2'].font = Font(bold=True, size=11, color='1B5E3B')
+
+    headers = ['Código Completo', 'Nivel', 'Nombre', 'Plan', 'Código Padre', 'Nodos Vinculados']
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=4, column=col, value=h)
+        cell.fill = HEADER_FILL
+        cell.font = HEADER_FONT
+        cell.alignment = Alignment(horizontal='center', wrap_text=True)
+
+    from apps.planificacion.models import NodoPlanificacion, ArticulacionPlanificacion
+    from apps.articulacion.models import ResultadoPAD
+
+    nodos = NodoPlanificacion.objects.select_related('plan', 'padre').all()
+    if gestion:
+        nodos = nodos.filter(gestion=gestion)
+
+    row = 5
+    for nodo in nodos.order_by('plan__tipo', 'nivel', 'codigo'):
+        # Reconstruir código completo
+        codes = []
+        n = nodo
+        while n:
+            codes.append(n.codigo)
+            n = n.padre
+        codigo_completo = '.'.join(reversed(codes))
+
+        # Nodos vinculados (ArticulacionPlanificacion + ResultadoPAD bridge)
+        vinculados = []
+        arts = ArticulacionPlanificacion.objects.filter(nodo_origen=nodo).select_related('nodo_destino')
+        for a in arts:
+            vinculados.append(f'[{a.nodo_destino.codigo}] {a.nodo_destino.nombre[:60]}')
+        if nodo.plan and nodo.plan.tipo == 'pdesa' and nodo.nivel == 'accion':
+            for rp in ResultadoPAD.objects.filter(nodo_pdesa=nodo):
+                vinculados.append(f'[RP:{rp.codigo_resultado}] {rp.denominacion[:60]}')
+
+        datos = [
+            codigo_completo,
+            nodo.get_nivel_display(),
+            nodo.nombre[:200],
+            nodo.plan.get_tipo_display() if nodo.plan else '—',
+            nodo.padre.codigo if nodo.padre else '—',
+            '; '.join(vinculados) if vinculados else '—',
+        ]
+        for col, val in enumerate(datos, 1):
+            cell = ws.cell(row=row, column=col, value=val)
+            cell.border = BORDER_THIN
+            cell.font = Font(size=9)
+            if col == 1:
+                cell.font = Font(size=9, bold=True)
+        row += 1
+
+    for col_letter, width in [('A', 25), ('B', 18), ('C', 45), ('D', 15), ('E', 15), ('F', 55)]:
+        ws.column_dimensions[col_letter].width = width
+
+    filename = _build_response_filename('matriz_completa', 'xlsx', gestion or 0)
     output = io.BytesIO()
     wb.save(output)
     output.seek(0)

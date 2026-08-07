@@ -45,6 +45,7 @@ LOCAL_APPS = [
     'apps.seguimiento',
     'apps.acciones_correctivas',
     'apps.articulacion',
+    'apps.codificacion',
 ]
 
 THIRD_PARTY_APPS = [

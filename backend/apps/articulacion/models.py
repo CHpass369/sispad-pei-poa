@@ -2,6 +2,7 @@ import uuid
 from django.db import models
 from django.conf import settings
 from apps.core.models import TimeStampedModel
+from apps.codificacion.models import CodigoSegmentadoModel
 
 
 class CodigoNivel(models.Model):
@@ -113,7 +114,13 @@ class LineamientoPAD(models.Model):
         return f'[{self.codigo}] {self.denominacion[:80]}'
 
 
-class ResultadoPAD(TimeStampedModel):
+class ResultadoPAD(CodigoSegmentadoModel):
+    ANCHO_SEGMENTO = 2  # segmento RT
+    CAMPOS_CODIFICACION_ADICIONALES = (
+        'vigencia_desde', 'resultado_sectorial_catalogo',
+        'entidad_territorial_cgeo', 'lineamiento_pad_catalogo',
+    )
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     id_cadena = models.CharField(max_length=20, unique=True, verbose_name='ID cadena')
     codigo_resultado = models.CharField(max_length=50, verbose_name='Código resultado')
@@ -125,6 +132,21 @@ class ResultadoPAD(TimeStampedModel):
     vigencia_hasta = models.IntegerField(verbose_name='Vigencia hasta')
     cod_geografico = models.CharField(max_length=20, verbose_name='Código geográfico')
     eta = models.CharField(max_length=300, verbose_name='ETA')
+    resultado_sectorial_catalogo = models.ForeignKey(
+        'codificacion.ResultadoSectorial', on_delete=models.PROTECT,
+        null=True, blank=True, related_name='resultados_pad',
+        verbose_name='Resultado sectorial de catálogo',
+    )
+    entidad_territorial_cgeo = models.ForeignKey(
+        'codificacion.EntidadTerritorialCGEO', on_delete=models.PROTECT,
+        null=True, blank=True, related_name='resultados_pad',
+        verbose_name='Entidad territorial CGEO',
+    )
+    lineamiento_pad_catalogo = models.ForeignKey(
+        'codificacion.LineamientoPAD', on_delete=models.PROTECT,
+        null=True, blank=True, related_name='resultados_pad',
+        verbose_name='Lineamiento PAD de catálogo',
+    )
     acuerdo_ods = models.ManyToManyField(
         AcuerdoInternacional, blank=True,
         limit_choices_to={'tipo_acuerdo': 'ODS'},
@@ -148,6 +170,12 @@ class ResultadoPAD(TimeStampedModel):
     cod_eje_pgdesa = models.CharField(max_length=10, blank=True, verbose_name='Código eje PGDESA')
     objetivo_impacto = models.TextField(blank=True, verbose_name='Objetivo de impacto')
     cod_componente_pdesa = models.CharField(max_length=10, blank=True, verbose_name='Código componente PDESA')
+    nodo_pdesa = models.ForeignKey(
+        'planificacion.NodoPlanificacion', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='resultados_pad',
+        limit_choices_to={'plan__tipo': 'pdesa', 'nivel': 'accion'},
+        verbose_name='Nodo PDESA'
+    )
     objetivo_efecto = models.TextField(blank=True, verbose_name='Objetivo de efecto')
     cod_sector = models.CharField(max_length=10, blank=True, verbose_name='Código sector')
     sector = models.CharField(max_length=200, blank=True, verbose_name='Sector')
@@ -160,6 +188,12 @@ class ResultadoPAD(TimeStampedModel):
         verbose_name_plural = 'Resultados PAD'
         ordering = ['codigo_resultado']
         unique_together = [('codigo_resultado', 'vigencia_desde')]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['vigencia_desde', 'correlativo'],
+                name='uniq_resultado_pad_gestion_correlativo',
+            ),
+        ]
         indexes = [
             models.Index(fields=['vigencia_desde', 'estado']),
         ]
@@ -187,7 +221,10 @@ class ResultadoPAD(TimeStampedModel):
         return f'[{self.codigo_resultado}] {self.denominacion[:80]}'
 
 
-class ProductoPAD(TimeStampedModel):
+class ProductoPAD(CodigoSegmentadoModel):
+    ANCHO_SEGMENTO = 2  # segmento PT
+    CAMPOS_CODIFICACION_ADICIONALES = ('resultado_pad',)
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     codigo_producto = models.CharField(max_length=50, verbose_name='Código producto')
     denominacion = models.TextField(verbose_name='Denominación')
@@ -203,6 +240,12 @@ class ProductoPAD(TimeStampedModel):
         verbose_name_plural = 'Productos PAD'
         ordering = ['codigo_producto']
         unique_together = [('codigo_producto', 'resultado_pad')]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['resultado_pad', 'correlativo'],
+                name='uniq_producto_pad_padre_correlativo',
+            ),
+        ]
         indexes = [
             models.Index(fields=['resultado_pad']),
         ]
@@ -211,12 +254,22 @@ class ProductoPAD(TimeStampedModel):
         return f'[{self.codigo_producto}] {self.denominacion[:80]}'
 
 
-class ResultadoPEI(TimeStampedModel):
+class ResultadoPEI(CodigoSegmentadoModel):
+    ANCHO_SEGMENTO = 2  # segmento RI
+    CAMPOS_CODIFICACION_ADICIONALES = (
+        'cod_entidad', 'cod_oei', 'vigencia_desde', 'entidad_codificadora',
+    )
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     codigo_resultado = models.CharField(max_length=50, verbose_name='Código resultado')
     denominacion = models.TextField(verbose_name='Denominación')
     cod_entidad = models.CharField(max_length=10, verbose_name='Código entidad')
     entidad = models.CharField(max_length=300, verbose_name='Entidad')
+    entidad_codificadora = models.ForeignKey(
+        'codificacion.EntidadCodificadora', on_delete=models.PROTECT,
+        null=True, blank=True, related_name='resultados_pei',
+        verbose_name='Entidad codificadora',
+    )
     cod_oei = models.CharField(max_length=10, blank=True, verbose_name='Código OEI')
     vigencia_desde = models.IntegerField(verbose_name='Vigencia desde')
     vigencia_hasta = models.IntegerField(verbose_name='Vigencia hasta')
@@ -226,6 +279,12 @@ class ResultadoPEI(TimeStampedModel):
         verbose_name_plural = 'Resultados PEI'
         ordering = ['codigo_resultado']
         unique_together = [('codigo_resultado', 'vigencia_desde')]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['vigencia_desde', 'correlativo'],
+                name='uniq_resultado_pei_gestion_correlativo',
+            ),
+        ]
         indexes = [
             models.Index(fields=['vigencia_desde']),
         ]
@@ -234,7 +293,10 @@ class ResultadoPEI(TimeStampedModel):
         return f'[{self.codigo_resultado}] {self.denominacion[:80]}'
 
 
-class ProductoPEI(TimeStampedModel):
+class ProductoPEI(CodigoSegmentadoModel):
+    ANCHO_SEGMENTO = 2  # segmento PI
+    CAMPOS_CODIFICACION_ADICIONALES = ('resultado_pei',)
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     codigo_producto = models.CharField(max_length=50, verbose_name='Código producto')
     denominacion = models.TextField(verbose_name='Denominación')
@@ -254,6 +316,12 @@ class ProductoPEI(TimeStampedModel):
         verbose_name_plural = 'Productos PEI'
         ordering = ['codigo_producto']
         unique_together = [('codigo_producto', 'resultado_pei')]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['resultado_pei', 'correlativo'],
+                name='uniq_producto_pei_padre_correlativo',
+            ),
+        ]
         indexes = [
             models.Index(fields=['resultado_pei']),
         ]
@@ -363,7 +431,10 @@ class IndicadorCadena(TimeStampedModel):
         return f'[{self.nivel_indicador}] {self.indicador[:80]}'
 
 
-class AccionPOA(TimeStampedModel):
+class AccionPOA(CodigoSegmentadoModel):
+    ANCHO_SEGMENTO = 3  # segmento ACP
+    CAMPOS_CODIFICACION_ADICIONALES = ('producto_pei', 'gestion')
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     codigo_accion = models.CharField(max_length=50, unique=True, verbose_name='Código acción')
     denominacion = models.TextField(verbose_name='Denominación')
@@ -420,6 +491,12 @@ class AccionPOA(TimeStampedModel):
         verbose_name = 'Acción POA'
         verbose_name_plural = 'Acciones POA'
         ordering = ['codigo_accion']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['producto_pei', 'gestion', 'correlativo'],
+                name='uniq_accion_poa_padre_gestion_correlativo',
+            ),
+        ]
         indexes = [
             models.Index(fields=['gestion', 'estado']),
             models.Index(fields=['producto_pei']),
@@ -448,7 +525,10 @@ class AccionPOA(TimeStampedModel):
         return f'[{self.codigo_accion}] {self.denominacion[:80]}'
 
 
-class OperacionPOAU(TimeStampedModel):
+class OperacionPOAU(CodigoSegmentadoModel):
+    ANCHO_SEGMENTO = 3  # segmento OP
+    CAMPOS_CODIFICACION_ADICIONALES = ('accion_poa',)
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     codigo_operacion = models.CharField(max_length=50, unique=True, verbose_name='Código operación')
     denominacion = models.TextField(verbose_name='Denominación')
@@ -490,6 +570,12 @@ class OperacionPOAU(TimeStampedModel):
         verbose_name = 'Operación POAU'
         verbose_name_plural = 'Operaciones POAU'
         ordering = ['codigo_operacion']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['accion_poa', 'correlativo'],
+                name='uniq_operacion_poau_padre_correlativo',
+            ),
+        ]
         indexes = [
             models.Index(fields=['accion_poa']),
         ]
@@ -517,7 +603,10 @@ class OperacionPOAU(TimeStampedModel):
         return f'[{self.codigo_operacion}] {self.denominacion[:80]}'
 
 
-class ActividadPOAU(TimeStampedModel):
+class ActividadPOAU(CodigoSegmentadoModel):
+    ANCHO_SEGMENTO = 3  # segmento ACT
+    CAMPOS_CODIFICACION_ADICIONALES = ('operacion',)
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     codigo_actividad = models.CharField(max_length=50, unique=True, verbose_name='Código actividad')
     denominacion = models.TextField(verbose_name='Denominación')
@@ -554,6 +643,12 @@ class ActividadPOAU(TimeStampedModel):
         verbose_name = 'Actividad POAU'
         verbose_name_plural = 'Actividades POAU'
         ordering = ['codigo_actividad']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['operacion', 'correlativo'],
+                name='uniq_actividad_poau_padre_correlativo',
+            ),
+        ]
         indexes = [
             models.Index(fields=['operacion']),
         ]
@@ -606,7 +701,10 @@ class ActividadNormativa(models.Model):
         return f'{self.actividad.codigo_actividad} - {self.normativa.codigo_norma}'
 
 
-class TareaPOAU(TimeStampedModel):
+class TareaPOAU(CodigoSegmentadoModel):
+    ANCHO_SEGMENTO = 3  # segmento TAR
+    CAMPOS_CODIFICACION_ADICIONALES = ('actividad',)
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     codigo_tarea = models.CharField(max_length=50, unique=True, verbose_name='Código tarea')
     denominacion = models.TextField(verbose_name='Denominación')
@@ -634,6 +732,12 @@ class TareaPOAU(TimeStampedModel):
         verbose_name = 'Tarea POAU'
         verbose_name_plural = 'Tareas POAU'
         ordering = ['codigo_tarea']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['actividad', 'correlativo'],
+                name='uniq_tarea_poau_padre_correlativo',
+            ),
+        ]
         indexes = [
             models.Index(fields=['actividad']),
         ]

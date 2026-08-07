@@ -47,3 +47,19 @@ class VersionableModel(models.Model):
 
     class Meta:
         abstract = True
+
+
+class DemoDatasetManifest(models.Model):
+    """Ownership manifest for an explicitly loaded demonstration dataset."""
+
+    namespace = models.CharField(max_length=100, unique=True)
+    gestion = models.PositiveIntegerField()
+    payload = models.JSONField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['namespace']
+
+    def __str__(self):
+        return self.namespace

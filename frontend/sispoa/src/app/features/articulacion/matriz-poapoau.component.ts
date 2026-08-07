@@ -14,6 +14,35 @@ interface ActividadExpandida {
   tareas: any[];
 }
 
+export function buildOperacionTree(rows: any[]): {
+  operaciones: OperacionExpandida[];
+  stats: { ops: number; acts: number; tars: number };
+} {
+  const operaciones = rows.map((operation: any) => ({
+    data: operation,
+    expandida: false,
+    actividades: (operation.actividades || []).map((activity: any) => ({
+      data: activity,
+      expandida: false,
+      tareas: activity.tareas || [],
+    })),
+  }));
+  return {
+    operaciones,
+    stats: {
+      ops: operaciones.length,
+      acts: operaciones.reduce((total, operation) => total + operation.actividades.length, 0),
+      tars: operaciones.reduce(
+        (total, operation) => total + operation.actividades.reduce(
+          (activityTotal, activity) => activityTotal + activity.tareas.length,
+          0,
+        ),
+        0,
+      ),
+    },
+  };
+}
+
 @Component({
   selector: 'app-matriz-poapoau',
   standalone: false,
@@ -230,54 +259,15 @@ export class MatrizPOAPOAUComponent implements OnInit {
 
   cargarDatos(): void {
     this.cargando = true;
-    Promise.all([
-      this.fetchList('/articulacion/matrices/m3_poa_poau/'),
-      this.fetchList('/articulacion/actividades/'),
-      this.fetchList('/articulacion/tareas/'),
-    ]).then(([ops, acts, tars]) => {
-      const actMap = new Map<string, any[]>();
-      acts.forEach((a: any) => {
-        const key = a.operacion;
-        if (!actMap.has(key)) actMap.set(key, []);
-        actMap.get(key)!.push(a);
-      });
-
-      const tarMap = new Map<string, any[]>();
-      tars.forEach((t: any) => {
-        const key = t.actividad;
-        if (!tarMap.has(key)) tarMap.set(key, []);
-        tarMap.get(key)!.push(t);
-      });
-
-      this.operaciones = ops.map((op: any) => {
-        const actsOfOp = actMap.get(op.id) || [];
-        return {
-          data: op,
-          expandida: false,
-          actividades: actsOfOp.map((act: any) => ({
-            data: act,
-            expandida: false,
-            tareas: tarMap.get(act.id) || [],
-          })),
-        };
-      });
-
-      this.stats = {
-        ops: this.operaciones.length,
-        acts: acts.length,
-        tars: tars.length,
-      };
-      this.aplicarFiltro();
-      this.cargando = false;
-    }).catch(() => { this.cargando = false; });
-  }
-
-  private fetchList(path: string): Promise<any[]> {
-    return new Promise((resolve) => {
-      this.api.get<any>(path).subscribe({
-        next: (r) => resolve(r.results || r || []),
-        error: () => resolve([]),
-      });
+    this.api.get<any>('/articulacion/matrices/m3_poa_poau/', { gestion: 2027 }).subscribe({
+      next: response => {
+        const tree = buildOperacionTree(response.results || response || []);
+        this.operaciones = tree.operaciones;
+        this.stats = tree.stats;
+        this.aplicarFiltro();
+        this.cargando = false;
+      },
+      error: () => { this.cargando = false; },
     });
   }
 
@@ -297,7 +287,7 @@ export class MatrizPOAPOAUComponent implements OnInit {
   }
 
   exportarXLSX(): void {
-    const url = `${environment.apiUrl}/api/v1/reportes/articulacion_matriz_pei_poa/?gestion=2026`;
+    const url = `${environment.apiUrl}/reportes/articulacion_matriz_pei_poa/?gestion=2027`;
     window.open(url, '_blank');
   }
 }

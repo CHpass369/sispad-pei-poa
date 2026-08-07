@@ -1,6 +1,148 @@
 import uuid
+from django.core.exceptions import ValidationError
+from django.core.validators import RegexValidator
 from django.db import models
+from django.db.models import Q
 from apps.core.models import TimeStampedModel, ActivableModel, VigenciaModel
+
+
+class VersionClasificadorQuerySet(models.QuerySet):
+    CAMPOS_SEMANTICOS = frozenset({
+        'tipo', 'gestion', 'norma', 'fecha_norma', 'codigo_fuente',
+        'procedencia_normativa', 'hash_fuente', 'clasificacion_fuente',
+        'vigente',
+    })
+
+    def update(self, **kwargs):
+        if self.CAMPOS_SEMANTICOS.intersection(kwargs):
+            raise ValidationError(
+                'Los campos semánticos de una versión requieren validación por instancia.'
+            )
+        return super().update(**kwargs)
+
+    def bulk_update(self, objs, fields, batch_size=None):
+        if self.CAMPOS_SEMANTICOS.intersection(fields):
+            raise ValidationError(
+                'Los campos semánticos de una versión no admiten bulk_update.'
+            )
+        return super().bulk_update(objs, fields, batch_size=batch_size)
+
+    def bulk_create(self, objs, *args, **kwargs):
+        objetos = list(objs)
+        for objeto in objetos:
+            objeto.full_clean()
+        return super().bulk_create(objetos, *args, **kwargs)
+
+
+class VersionClasificadorManager(models.Manager.from_queryset(
+    VersionClasificadorQuerySet,
+)):
+    def vigente_para(self, tipo, gestion):
+        """Fail closed: an absent explicit current version is an error."""
+        return self.get(tipo=tipo, gestion=gestion, vigente=True)
+
+
+class VersionClasificador(TimeStampedModel):
+    TIPO_INSTITUCIONAL = 'institucional'
+    TIPO_OBJETO_GASTO = 'objeto_gasto'
+    TIPO_FUENTE_FINANCIAMIENTO = 'fuente_financiamiento'
+    TIPO_ORGANISMO_FINANCIADOR = 'organismo_financiador'
+    TIPO_CATEGORIA_PROGRAMATICA = 'categoria_programatica'
+    TIPO_GEOGRAFICO_PRESUPUESTARIO = 'geografico_presupuestario'
+    TIPO_CHOICES = [
+        (TIPO_INSTITUCIONAL, 'Institucional'),
+        (TIPO_OBJETO_GASTO, 'Objeto del gasto'),
+        (TIPO_FUENTE_FINANCIAMIENTO, 'Fuente de financiamiento'),
+        (TIPO_ORGANISMO_FINANCIADOR, 'Organismo financiador'),
+        (TIPO_CATEGORIA_PROGRAMATICA, 'Categoría programática'),
+        (TIPO_GEOGRAFICO_PRESUPUESTARIO, 'Geográfico presupuestario'),
+    ]
+
+    FUENTE_OFICIAL = 'oficial'
+    FUENTE_REFERENCIAL = 'referencial'
+    FUENTE_TECNICA = 'tecnica'
+    FUENTE_INCIERTA = 'incierta'
+    FUENTE_CHOICES = [
+        (FUENTE_OFICIAL, 'Oficial'),
+        (FUENTE_REFERENCIAL, 'Referencial'),
+        (FUENTE_TECNICA, 'Técnica'),
+        (FUENTE_INCIERTA, 'Incierta'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tipo = models.CharField(max_length=40, choices=TIPO_CHOICES)
+    gestion = models.PositiveIntegerField()
+    norma = models.CharField(max_length=300, blank=True)
+    fecha_norma = models.DateField(null=True, blank=True)
+    codigo_fuente = models.CharField(max_length=100, blank=True)
+    procedencia_normativa = models.CharField(max_length=500, blank=True)
+    hash_fuente = models.CharField(
+        max_length=64,
+        blank=True,
+        validators=[RegexValidator(r'^[0-9a-f]{64}$', 'El hash debe ser un SHA-256 hexadecimal.')],
+    )
+    clasificacion_fuente = models.CharField(
+        max_length=20,
+        choices=FUENTE_CHOICES,
+        default=FUENTE_INCIERTA,
+    )
+    vigente = models.BooleanField(default=False)
+
+    objects = VersionClasificadorManager()
+
+    class Meta:
+        ordering = ['tipo', '-gestion', '-fecha_norma']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tipo', 'gestion'],
+                condition=Q(vigente=True),
+                name='uniq_clasificador_vigente_tipo_gestion',
+            ),
+            models.CheckConstraint(
+                condition=(
+                    (Q(vigente=False) & ~Q(clasificacion_fuente='oficial'))
+                    | (
+                        Q(clasificacion_fuente='oficial')
+                        & Q(norma__regex=r'.*\S.*')
+                        & Q(fecha_norma__isnull=False)
+                        & Q(codigo_fuente__regex=r'.*\S.*')
+                        & Q(procedencia_normativa__regex=r'.*\S.*')
+                        & Q(hash_fuente__regex=r'^[0-9a-f]{64}$')
+                    )
+                ),
+                name='clasificador_vigente_fuente_oficial',
+            ),
+        ]
+        indexes = [models.Index(fields=['tipo', 'gestion', 'vigente'])]
+
+    def clean(self):
+        super().clean()
+        requiere_fuente_oficial = (
+            self.vigente or self.clasificacion_fuente == self.FUENTE_OFICIAL
+        )
+        if not requiere_fuente_oficial:
+            return
+        errors = {}
+        required = ('norma', 'codigo_fuente', 'procedencia_normativa', 'hash_fuente')
+        for field in required:
+            value = getattr(self, field)
+            if not value or (isinstance(value, str) and not value.strip()):
+                errors[field] = 'Una versión vigente requiere procedencia normativa completa.'
+        if self.fecha_norma is None:
+            errors['fecha_norma'] = 'Una versión vigente requiere fecha de la norma.'
+        if self.clasificacion_fuente != self.FUENTE_OFICIAL:
+            errors['clasificacion_fuente'] = 'Solo una fuente oficial puede declararse vigente.'
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        # Field/source validation runs here; race-safe uniqueness and the
+        # official-source invariant remain enforced by PostgreSQL constraints.
+        self.full_clean(validate_constraints=False)
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f'{self.get_tipo_display()} {self.gestion} — {self.norma or "sin norma"}'
 
 
 class CatalogoBase(TimeStampedModel, ActivableModel, VigenciaModel):
@@ -20,6 +162,77 @@ class CatalogoBase(TimeStampedModel, ActivableModel, VigenciaModel):
         return f'[{self.codigo}] {self.denominacion}'
 
 
+class ClasificadorVersionadoMixin(models.Model):
+    TIPO_VERSION_CLASIFICADOR = None
+    ANCHO_CODIGO_OFICIAL = None
+
+    class Meta:
+        abstract = True
+
+    def clean(self):
+        super().clean()
+        if not self.version_clasificador_id:
+            return
+        errors = {}
+        if self.version_clasificador.tipo != self.TIPO_VERSION_CLASIFICADOR:
+            errors['version_clasificador'] = 'La versión no corresponde al tipo de clasificador.'
+        if self.gestion != self.version_clasificador.gestion:
+            errors['gestion'] = 'La gestión no coincide con la versión del clasificador.'
+        if self.ANCHO_CODIGO_OFICIAL and (
+            len(self.codigo) != self.ANCHO_CODIGO_OFICIAL or not self.codigo.isdigit()
+        ):
+            errors['codigo'] = (
+                f'El código versionado debe tener {self.ANCHO_CODIGO_OFICIAL} dígitos.'
+            )
+        if errors:
+            raise ValidationError(errors)
+
+    def _campos_semanticos_masivos(self):
+        return {'codigo', 'gestion', 'version_clasificador', 'version_clasificador_id'}
+
+    def save(self, *args, **kwargs):
+        self.full_clean(validate_constraints=False)
+        return super().save(*args, **kwargs)
+
+
+class ClasificadorVersionadoQuerySet(models.QuerySet):
+    CAMPOS_SEMANTICOS = frozenset({
+        'codigo', 'gestion', 'version_clasificador', 'version_clasificador_id',
+        'padre', 'padre_id',
+    })
+
+    def update(self, **kwargs):
+        if self.CAMPOS_SEMANTICOS.intersection(kwargs):
+            raise ValidationError(
+                'Las asociaciones versionadas no admiten actualización masiva.'
+            )
+        return super().update(**kwargs)
+
+    def bulk_update(self, objs, fields, batch_size=None):
+        if self.CAMPOS_SEMANTICOS.intersection(fields):
+            raise ValidationError(
+                'Las asociaciones versionadas no admiten bulk_update.'
+            )
+        return super().bulk_update(objs, fields, batch_size=batch_size)
+
+    def bulk_create(self, objs, *args, **kwargs):
+        objetos = list(objs)
+        for objeto in objetos:
+            objeto.full_clean()
+        return super().bulk_create(objetos, *args, **kwargs)
+
+
+class ClasificadorVersionadoManager(models.Manager.from_queryset(
+    ClasificadorVersionadoQuerySet,
+)):
+    pass
+
+
+ClasificadorVersionadoMixin.add_to_class(
+    'objects', ClasificadorVersionadoManager(),
+)
+
+
 class ClasificadorInstitucional(CatalogoBase):
     class Meta:
         verbose_name = 'Clasificador institucional'
@@ -32,22 +245,135 @@ class RubroRecurso(CatalogoBase):
         verbose_name_plural = 'Rubros de recursos'
 
 
-class ObjetoGasto(CatalogoBase):
+class ObjetoGasto(ClasificadorVersionadoMixin, CatalogoBase):
+    TIPO_VERSION_CLASIFICADOR = VersionClasificador.TIPO_OBJETO_GASTO
+    ANCHO_CODIGO_OFICIAL = 5
+    NIVEL_GRUPO = 'grupo'
+    NIVEL_SUBGRUPO = 'subgrupo'
+    NIVEL_PARTIDA = 'partida'
+    NIVEL_DETALLE = 'detalle'
+    NIVEL_CHOICES = [
+        (NIVEL_GRUPO, 'Grupo'),
+        (NIVEL_SUBGRUPO, 'Subgrupo'),
+        (NIVEL_PARTIDA, 'Partida'),
+        (NIVEL_DETALLE, 'Detalle'),
+    ]
+    version_clasificador = models.ForeignKey(
+        VersionClasificador,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='objetos_gasto',
+    )
+    padre = models.ForeignKey(
+        'self',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='hijos',
+    )
+    nivel = models.CharField(max_length=20, choices=NIVEL_CHOICES, blank=True)
+
     class Meta:
         verbose_name = 'Objeto del gasto'
         verbose_name_plural = 'Objetos del gasto'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['codigo', 'version_clasificador'],
+                condition=Q(version_clasificador__isnull=False),
+                name='uniq_objeto_codigo_version',
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+        if not self.padre_id:
+            return
+        errors = {}
+        if self.padre.gestion != self.gestion:
+            errors['padre'] = 'El objeto padre debe pertenecer a la misma gestión.'
+        if self.padre.version_clasificador_id != self.version_clasificador_id:
+            errors['padre'] = 'El objeto padre debe compartir la versión del clasificador.'
+        if errors:
+            raise ValidationError(errors)
 
 
-class FuenteFinanciamiento(CatalogoBase):
+class FuenteFinanciamiento(ClasificadorVersionadoMixin, CatalogoBase):
+    TIPO_VERSION_CLASIFICADOR = VersionClasificador.TIPO_FUENTE_FINANCIAMIENTO
+    ANCHO_CODIGO_OFICIAL = 2
+    version_clasificador = models.ForeignKey(
+        VersionClasificador,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='fuentes_financiamiento',
+    )
+
     class Meta:
         verbose_name = 'Fuente de financiamiento'
         verbose_name_plural = 'Fuentes de financiamiento'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['codigo', 'version_clasificador'],
+                condition=Q(version_clasificador__isnull=False),
+                name='uniq_fuente_codigo_version',
+            ),
+        ]
 
 
-class OrganismoFinanciador(CatalogoBase):
+class OrganismoFinanciador(ClasificadorVersionadoMixin, CatalogoBase):
+    TIPO_VERSION_CLASIFICADOR = VersionClasificador.TIPO_ORGANISMO_FINANCIADOR
+    ANCHO_CODIGO_OFICIAL = 3
+    version_clasificador = models.ForeignKey(
+        VersionClasificador,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='organismos_financiadores',
+    )
+
     class Meta:
         verbose_name = 'Organismo financiador'
         verbose_name_plural = 'Organismos financiadores'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['codigo', 'version_clasificador'],
+                condition=Q(version_clasificador__isnull=False),
+                name='uniq_organismo_codigo_version',
+            ),
+        ]
+
+
+class ClasificadorGeograficoPresupuestario(TimeStampedModel):
+    """Geografía MEFP; intentionally independent from CGEO INE."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    version_clasificador = models.ForeignKey(
+        VersionClasificador,
+        on_delete=models.PROTECT,
+        related_name='ubicaciones_geograficas_presupuestarias',
+    )
+    departamento = models.CharField(max_length=10)
+    provincia = models.CharField(max_length=10)
+    municipio = models.CharField(max_length=10)
+    codigo_fuente = models.CharField(max_length=50)
+    denominacion = models.CharField(max_length=300)
+    procedencia_normativa = models.CharField(max_length=500)
+
+    class Meta:
+        verbose_name = 'Clasificador geográfico presupuestario'
+        verbose_name_plural = 'Clasificadores geográficos presupuestarios'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['version_clasificador', 'departamento', 'provincia', 'municipio'],
+                name='uniq_geo_presupuestario_version_codigo',
+            ),
+        ]
+        indexes = [models.Index(fields=['version_clasificador', 'codigo_fuente'])]
+
+    @property
+    def codigo_compuesto(self):
+        return '.'.join((self.departamento, self.provincia, self.municipio))
 
 
 class EntidadTransferencia(CatalogoBase):

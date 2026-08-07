@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./out-tsc/demo-contracts-spec",
+    "types": ["jasmine"]
+  },
+  "files": [
+    "src/app/features/articulacion/matrices-contracts.spec.ts",
+    "src/app/features/articulacion/matriz-poapoau.component.spec.ts",
+    "src/app/features/seguimiento/seguimiento.service.spec.ts",
+    "src/app/features/seguimiento/seguimiento-dashboard.component.spec.ts"
+  ],
+  "include": ["src/**/*.d.ts"]
+}

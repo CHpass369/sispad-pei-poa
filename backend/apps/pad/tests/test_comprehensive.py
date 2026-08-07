@@ -231,7 +231,8 @@ class ProgramacionAnualPADBudgetSumsTest(PADHierarchyBaseTestCase):
         total = ProgramacionAnualPAD.objects.filter(
             resultado=self.resultado, tipo='fisica'
         ).aggregate(total_valor=Sum('valor'))
-        self.assertEqual(total['total_valor'], Decimal('810000.0000'))
+        # 100*2026 + 100*2027 + 100*2028 = 202600 + 202700 + 202800 = 608100
+        self.assertEqual(total['total_valor'], Decimal('608100.0000'))
 
     def test_programacion_financiera_por_producto(self):
         for anio in [2026, 2027]:

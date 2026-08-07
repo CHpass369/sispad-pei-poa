@@ -17,7 +17,9 @@ from .services import (
     generar_evaluacion_cuadro3_xlsx,
     generar_matriz_pad_pei_xlsx,
     generar_matriz_pei_poa_xlsx,
+    generar_matriz_presupuesto_seguimiento_xlsx,
     generar_matriz_objetos_gasto_xlsx,
+    generar_matriz_completa_xlsx,
 )
 
 
@@ -221,6 +223,21 @@ class ReporteGeneradoViewSet(viewsets.ModelViewSet):
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=['get'])
+    def articulacion_presupuesto_seguimiento(self, request):
+        """Descarga XLSX de la Matriz 4 — Presupuesto y Seguimiento."""
+        gestion = request.query_params.get('gestion')
+        try:
+            gest = int(gestion) if gestion else None
+            output, filename = generar_matriz_presupuesto_seguimiento_xlsx(gest)
+            return HttpResponse(
+                output.read(),
+                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                headers={'Content-Disposition': f'attachment; filename="{filename}"'},
+            )
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['get'])
     def articulacion_objetos_gasto(self, request):
         """GET /api/v1/reportes/articulacion_objetos_gasto/?gestion=2026
         Descarga XLSX de la Matriz 5 — Objetos de Gasto.
@@ -229,6 +246,23 @@ class ReporteGeneradoViewSet(viewsets.ModelViewSet):
         try:
             gest = int(gestion) if gestion else None
             output, filename = generar_matriz_objetos_gasto_xlsx(gest)
+            return HttpResponse(
+                output.read(),
+                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                headers={'Content-Disposition': f'attachment; filename="{filename}"'}
+            )
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['get'])
+    def matriz_completa_xlsx(self, request):
+        """GET /api/v1/reportes/matriz_completa_xlsx/?gestion=2026
+        Descarga XLSX de la Matriz de Articulación Completa (PGDESA→PDESA→PAD→PEI→POA).
+        """
+        gestion = request.query_params.get('gestion')
+        try:
+            gest = int(gestion) if gestion else None
+            output, filename = generar_matriz_completa_xlsx(gest)
             return HttpResponse(
                 output.read(),
                 content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

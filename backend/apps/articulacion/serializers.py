@@ -8,6 +8,22 @@ from .models import (
 )
 
 
+# T2/T3 boundary: these values are observable through CRUD responses, but only
+# the future CodificadorService may assign, normalize, or promote them.
+CODIFICACION_READ_ONLY_FIELDS = [
+    'correlativo',
+    'segmento',
+    'codigo_fuente',
+    'codigo_normalizado',
+    'codigo_completo_articulacion',
+    'articulacion_incompleta',
+    'estado_codigo',
+]
+AUDIT_READ_ONLY_FIELDS = [
+    'id', 'created_at', 'updated_at', 'created_by', 'updated_by',
+]
+
+
 class CodigoNivelSerializer(serializers.ModelSerializer):
     class Meta:
         model = CodigoNivel
@@ -43,31 +59,38 @@ class LineamientoPADSerializer(serializers.ModelSerializer):
 
 
 class ResultadoPADSerializer(serializers.ModelSerializer):
+    nodo_pdesa_display = serializers.SerializerMethodField()
+
     class Meta:
         model = ResultadoPAD
         fields = '__all__'
-        read_only_fields = ['id', 'created_at', 'updated_at', 'created_by', 'updated_by']
+        read_only_fields = AUDIT_READ_ONLY_FIELDS + CODIFICACION_READ_ONLY_FIELDS
+
+    def get_nodo_pdesa_display(self, obj):
+        if obj.nodo_pdesa:
+            return f'[{obj.nodo_pdesa.codigo}] {obj.nodo_pdesa.nombre[:80]}'
+        return None
 
 
 class ProductoPADSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductoPAD
         fields = '__all__'
-        read_only_fields = ['id', 'created_at', 'updated_at', 'created_by', 'updated_by']
+        read_only_fields = AUDIT_READ_ONLY_FIELDS + CODIFICACION_READ_ONLY_FIELDS
 
 
 class ResultadoPEISerializer(serializers.ModelSerializer):
     class Meta:
         model = ResultadoPEI
         fields = '__all__'
-        read_only_fields = ['id', 'created_at', 'updated_at', 'created_by', 'updated_by']
+        read_only_fields = AUDIT_READ_ONLY_FIELDS + CODIFICACION_READ_ONLY_FIELDS
 
 
 class ProductoPEISerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductoPEI
         fields = '__all__'
-        read_only_fields = ['id', 'created_at', 'updated_at', 'created_by', 'updated_by']
+        read_only_fields = AUDIT_READ_ONLY_FIELDS + CODIFICACION_READ_ONLY_FIELDS
 
 
 class ArticulacionPADPEISerializer(serializers.ModelSerializer):
@@ -97,21 +120,21 @@ class AccionPOASerializer(serializers.ModelSerializer):
     class Meta:
         model = AccionPOA
         fields = '__all__'
-        read_only_fields = ['id', 'created_at', 'updated_at', 'created_by', 'updated_by']
+        read_only_fields = AUDIT_READ_ONLY_FIELDS + CODIFICACION_READ_ONLY_FIELDS
 
 
 class OperacionPOAUSerializer(serializers.ModelSerializer):
     class Meta:
         model = OperacionPOAU
         fields = '__all__'
-        read_only_fields = ['id', 'created_at', 'updated_at', 'created_by', 'updated_by']
+        read_only_fields = AUDIT_READ_ONLY_FIELDS + CODIFICACION_READ_ONLY_FIELDS
 
 
 class ActividadPOAUSerializer(serializers.ModelSerializer):
     class Meta:
         model = ActividadPOAU
         fields = '__all__'
-        read_only_fields = ['id', 'created_at', 'updated_at', 'created_by', 'updated_by']
+        read_only_fields = AUDIT_READ_ONLY_FIELDS + CODIFICACION_READ_ONLY_FIELDS
 
 
 class ActividadNormativaSerializer(serializers.ModelSerializer):
@@ -125,7 +148,7 @@ class TareaPOAUSerializer(serializers.ModelSerializer):
     class Meta:
         model = TareaPOAU
         fields = '__all__'
-        read_only_fields = ['id', 'created_at', 'updated_at', 'created_by', 'updated_by']
+        read_only_fields = AUDIT_READ_ONLY_FIELDS + CODIFICACION_READ_ONLY_FIELDS
 
 
 class TareaNormativaSerializer(serializers.ModelSerializer):

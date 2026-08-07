@@ -104,7 +104,7 @@ import { ApiService } from '../../core/services/api.service';
   `]
 })
 export class PresupuestoDashboardComponent implements OnInit {
-  gestion = 2026;
+  gestion = 2027;
   data: any = null;
   error = '';
 

@@ -57,8 +57,8 @@ class EvaluacionViewSetTests(TestCase):
         self.evaluacion_data = {
             'plan': str(self.plan.id),
             'fiscal_year': 2026,
-            'evaluation_type': 'anual',
-            'period': 'AN',
+            'evaluation_type': 'especifica',
+            'period': 'S1',
             'responsible_team': 'Equipo de Evaluación',
             'conclusions': 'Resultados satisfactorios',
             'recommendations': 'Fortalecer seguimiento',
@@ -83,7 +83,7 @@ class EvaluacionViewSetTests(TestCase):
         self.assertEqual(Evaluacion.objects.count(), 2)
         self.assertEqual(
             Evaluacion.objects.get(id=response.data['id']).evaluation_type,
-            'anual',
+            'especifica',
         )
 
     def test_listar_evaluaciones(self):
@@ -327,14 +327,14 @@ class EvaluacionViewSetTests(TestCase):
         self.assertEqual(score, Decimal('0.00'))
 
     def test_score_rango_valido(self):
-        for score_val, weight_val in [
+        for i, (score_val, weight_val) in enumerate([
             ('0.00', '1.00'),
             ('50.00', '0.50'),
             ('100.00', '0.30'),
-        ]:
+        ]):
             CriterioEvaluacion.objects.create(
                 evaluacion=self.evaluacion,
-                criterion='eficacia',
+                criterion=f'eficacia_{i}',
                 score=Decimal(score_val),
                 weight=Decimal(weight_val),
             )

@@ -14,11 +14,11 @@ class ArticulacionAPITest(TestCase):
         self.client = APIClient()
         # Usuario sin roles
         self.user_normal = User.objects.create_user(
-            username='normal', password='test123'
+            email='normal@test.com', password='test123'
         )
         # Superuser
         self.user_admin = User.objects.create_superuser(
-            username='admin', password='admin123'
+            email='admin@test.com', password='admin123'
         )
         # ResultadoPAD base
         self.resultado = ResultadoPAD.objects.create(
