@@ -1,27 +1,10 @@
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from '../../core/services/api.service';
-import { environment } from '../../../environments/environment';
-
-export interface NodoArbol {
-  id: string;
-  codigo_completo: string;
-  codigo: string;
-  nombre: string;
-  nivel: string;
-  tipo_plan: string;
-  plan_nombre: string;
-  hijos?: NodoArbol[];
-  articulaciones?: any[];
-}
-
-export interface MatrizResponse {
-  data: NodoArbol[];
-  stats: {
-    total: number;
-    por_nivel: Record<string, number>;
-  };
-}
+import {
+  buildReportUrl,
+  MatrizResponse,
+} from './matrices-contracts';
 
 @Injectable({ providedIn: 'root' })
 export class MatrizCompletaService {
@@ -45,8 +28,7 @@ export class MatrizCompletaService {
   }
 
   exportXLSX(gestion: number): void {
-    const url = `${environment.apiUrl}/api/v1/reportes/matriz_completa_xlsx/?gestion=${gestion}`;
-    window.open(url, '_blank');
+    window.open(buildReportUrl('/reportes/matriz_completa_xlsx/', gestion), '_blank');
   }
 
   getResultadosPAD(gestion: number): Observable<any> {

@@ -17,23 +17,23 @@ import { SeguimientoService, Semaforo, DashboardData, Alerta } from './seguimien
       </div>
       <div class="card indicador verde">
         <div class="indicador-label">En Tiempo</div>
-        <div class="indicador-valor">{{ dashboard.en_tiempo || 0 }}</div>
+        <div class="indicador-valor">{{ dashboard.semaforo?.verde || 0 }}</div>
       </div>
       <div class="card indicador amarillo">
         <div class="indicador-label">Con Riesgo</div>
-        <div class="indicador-valor">{{ dashboard.con_riesgo || 0 }}</div>
+        <div class="indicador-valor">{{ dashboard.semaforo?.amarillo || 0 }}</div>
       </div>
       <div class="card indicador rojo">
         <div class="indicador-label">Retrasadas</div>
-        <div class="indicador-valor">{{ dashboard.retrasadas || 0 }}</div>
+        <div class="indicador-valor">{{ dashboard.semaforo?.rojo || 0 }}</div>
       </div>
       <div class="card indicador">
         <div class="indicador-label">Avance Físico Prom.</div>
-        <div class="indicador-valor">{{ dashboard.avance_fisico_promedio || 0 }}%</div>
+        <div class="indicador-valor">{{ dashboard.promedio_avance_fisico || 0 }}%</div>
       </div>
       <div class="card indicador">
         <div class="indicador-label">Avance Financiero Prom.</div>
-        <div class="indicador-valor">{{ dashboard.avance_financiero_promedio || 0 }}%</div>
+        <div class="indicador-valor">{{ dashboard.promedio_avance_financiero || 0 }}%</div>
       </div>
     </div>
 
@@ -106,6 +106,7 @@ import { SeguimientoService, Semaforo, DashboardData, Alerta } from './seguimien
   `]
 })
 export class SeguimientoDashboardComponent implements OnInit {
+  readonly gestion = 2027;
   dashboard: DashboardData | null = null;
   semaforos: Semaforo[] = [];
   alertas: Alerta[] = [];
@@ -120,7 +121,7 @@ export class SeguimientoDashboardComponent implements OnInit {
   }
 
   cargarDashboard(): void {
-    this.seguimientoService.obtenerDashboard().subscribe({
+    this.seguimientoService.obtenerDashboard(this.gestion).subscribe({
       next: (data) => {
         this.dashboard = data;
         this.cargando = false;
@@ -130,9 +131,17 @@ export class SeguimientoDashboardComponent implements OnInit {
   }
 
   cargarSemaforo(): void {
-    this.seguimientoService.obtenerSemaforo().subscribe({
-      next: (data: any) => {
-        this.semaforos = data.results || data;
+    this.seguimientoService.obtenerSemaforo(this.gestion).subscribe({
+      next: (data) => {
+        this.semaforos = (['verde', 'amarillo', 'rojo'] as const).flatMap(
+          estado => data.detalle[estado].map(item => ({
+            actividad_id: item.id,
+            actividad_descripcion: item.actividad_nombre,
+            estado_semaforo: estado,
+            avance_fisico: item.avance_fisico,
+            avance_financiero: item.avance_financiero,
+          })),
+        );
       },
     });
   }

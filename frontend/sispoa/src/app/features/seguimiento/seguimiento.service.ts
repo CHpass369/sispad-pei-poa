@@ -16,7 +16,7 @@ export interface ReporteSeguimiento {
 }
 
 export interface Semaforo {
-  actividad_id: number;
+  actividad_id: string;
   actividad_descripcion?: string;
   estado_semaforo: 'verde' | 'amarillo' | 'rojo';
   avance_fisico?: number;
@@ -24,12 +24,23 @@ export interface Semaforo {
 }
 
 export interface DashboardData {
+  gestion: number;
   total_actividades?: number;
-  en_tiempo?: number;
-  con_riesgo?: number;
-  retrasadas?: number;
-  avance_fisico_promedio?: number;
-  avance_financiero_promedio?: number;
+  semaforo?: { verde: number; amarillo: number; rojo: number };
+  promedio_avance_fisico?: number;
+  promedio_avance_financiero?: number;
+}
+
+export interface SemaforoResponse {
+  gestion: number;
+  resumen: { verde: number; amarillo: number; rojo: number; total: number };
+  detalle: Record<'verde' | 'amarillo' | 'rojo', Array<{
+    id: string;
+    actividad_codigo: string;
+    actividad_nombre: string;
+    avance_fisico: number;
+    avance_financiero: number;
+  }>>;
 }
 
 export interface Alerta {
@@ -48,26 +59,26 @@ export class SeguimientoService {
   constructor(private api: ApiService) {}
 
   listarReportes(params?: Record<string, string | number | boolean>): Observable<ReporteSeguimiento[]> {
-    return this.api.get<ReporteSeguimiento[]>('/seguimiento/reportes/', params);
+    return this.api.get<ReporteSeguimiento[]>('/reportes-seguimiento/', params);
   }
 
   crearReporte(data: Partial<ReporteSeguimiento>): Observable<ReporteSeguimiento> {
-    return this.api.post<ReporteSeguimiento>('/seguimiento/reportes/', data);
+    return this.api.post<ReporteSeguimiento>('/reportes-seguimiento/', data);
   }
 
-  obtenerSemaforo(): Observable<Semaforo[]> {
-    return this.api.get<Semaforo[]>('/seguimiento/entradas/semforo/');
+  obtenerSemaforo(gestion: number): Observable<SemaforoResponse> {
+    return this.api.get<SemaforoResponse>('/entradas/semaforo/', { gestion });
   }
 
-  obtenerDashboard(): Observable<DashboardData> {
-    return this.api.get<DashboardData>('/seguimiento/entradas/dashboard/');
+  obtenerDashboard(gestion: number): Observable<DashboardData> {
+    return this.api.get<DashboardData>('/entradas/dashboard/', { gestion });
   }
 
   listarAlertasActivas(): Observable<Alerta[]> {
-    return this.api.get<Alerta[]>('/seguimiento/alertas/activas/');
+    return this.api.get<Alerta[]>('/alertas/activas/');
   }
 
   resolverAlerta(alertaId: number, data?: { resolucion?: string }): Observable<void> {
-    return this.api.post<void>(`/seguimiento/alertas/${alertaId}/resolver/`, data);
+    return this.api.post<void>(`/alertas/${alertaId}/resolver/`, data);
   }
 }

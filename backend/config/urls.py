@@ -20,6 +20,7 @@ urlpatterns = [
     path(f'{api_prefix}', include('apps.catalogos.urls')),
     path(f'{api_prefix}', include('apps.normativa.urls')),
     path(f'{api_prefix}', include('apps.planificacion.urls')),
+    path(f'{api_prefix}planificacion/', include('apps.planificacion.urls')),
     path(f'{api_prefix}', include('apps.indicadores.urls')),
     path(f'{api_prefix}', include('apps.recursos.urls')),
     path(f'{api_prefix}', include('apps.techos.urls')),

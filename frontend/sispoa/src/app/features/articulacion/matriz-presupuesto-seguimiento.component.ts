@@ -1,6 +1,10 @@
 import { Component, OnInit } from '@angular/core';
 import { ApiService } from '../../core/services/api.service';
-import { environment } from '../../../environments/environment';
+import {
+  ARTICULATION_MANAGEMENT,
+  buildReportUrl,
+  mapM4Rows,
+} from './matrices-contracts';
 
 @Component({
   selector: 'app-matriz-presupuesto-seguimiento',
@@ -186,42 +190,21 @@ export class MatrizPresupuestoSeguimientoComponent implements OnInit {
 
   private cargarDatos(): void {
     this.cargando = true;
-    Promise.all([
-      this.fetchList('/articulacion/matrices/m4_presupuesto/'),
-      this.fetchList('/articulacion/acciones-poa/'),
-      this.fetchList('/articulacion/operaciones/'),
-      this.fetchList('/articulacion/actividades/'),
-    ]).then(([segs, accs, ops, acts]) => {
-      const accMap = this.buildMap(accs, 'id');
-      const opMap = this.buildMap(ops, 'id');
-      const actMap = this.buildMap(acts, 'id');
-
-      this.seguimientos = segs.map((s: any) => ({
-        ...s,
-        accion_poa_nombre: accMap.get(s.accion_poa)?.denominacion || '—',
-        operacion_nombre: opMap.get(s.operacion)?.denominacion || '—',
-        actividad_nombre: actMap.get(s.actividad)?.denominacion || '—',
-      }));
-
-      this.gestiones = [...new Set(segs.map((s: any) => s.gestion).filter(Boolean))].sort();
-      this.aplicarFiltros();
-      this.cargando = false;
-    }).catch(() => { this.cargando = false; });
-  }
-
-  private fetchList(path: string): Promise<any[]> {
-    return new Promise((resolve) => {
-      this.api.get<any>(path).subscribe({
-        next: (r) => resolve(r.results || r || []),
-        error: () => resolve([]),
-      });
+    this.api.get<any>(
+      '/articulacion/matrices/m4_presupuesto/',
+      { gestion: ARTICULATION_MANAGEMENT },
+    ).subscribe({
+      next: (response) => {
+        const rows = mapM4Rows(response);
+        this.seguimientos = rows;
+        this.gestiones = [...new Set<number>(
+          rows.map((row: any) => row.gestion).filter(Boolean),
+        )].sort();
+        this.aplicarFiltros();
+        this.cargando = false;
+      },
+      error: () => { this.cargando = false; },
     });
-  }
-
-  private buildMap(list: any[], key: string): Map<string, any> {
-    const m = new Map<string, any>();
-    (list || []).forEach((item: any) => m.set(item[key], item));
-    return m;
   }
 
   aplicarFiltros(): void {
@@ -240,7 +223,12 @@ export class MatrizPresupuestoSeguimientoComponent implements OnInit {
   }
 
   exportarXLSX(): void {
-    const url = `${environment.apiUrl}/api/v1/reportes/articulacion_matriz_pei_poa/?gestion=${this.filtroGestion || new Date().getFullYear()}`;
-    window.open(url, '_blank');
+    window.open(
+      buildReportUrl(
+        '/reportes/articulacion_presupuesto_seguimiento/',
+        this.filtroGestion || ARTICULATION_MANAGEMENT,
+      ),
+      '_blank',
+    );
   }
 }

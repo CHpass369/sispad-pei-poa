@@ -1,6 +1,10 @@
 import { Component, OnInit } from '@angular/core';
 import { ApiService } from '../../core/services/api.service';
-import { environment } from '../../../environments/environment';
+import {
+  ARTICULATION_MANAGEMENT,
+  buildReportUrl,
+  mapM1Rows,
+} from './matrices-contracts';
 
 @Component({
   selector: 'app-matriz-pad-pei',
@@ -147,11 +151,6 @@ export class MatrizPADPEIComponent implements OnInit {
   articulaciones: any[] = [];
   filtrados: any[] = [];
 
-  resultadosPad: Map<string, any> = new Map();
-  productosPad: Map<string, any> = new Map();
-  resultadosPei: Map<string, any> = new Map();
-  productosPei: Map<string, any> = new Map();
-
   filtroCodigo = '';
   filtroEstado = '';
 
@@ -163,60 +162,17 @@ export class MatrizPADPEIComponent implements OnInit {
 
   private cargarDatos(): void {
     this.cargando = true;
-    Promise.all([
-      this.fetchList('/articulacion/matrices/m1_pad_pei/'),
-      this.fetchList('/articulacion/productos-pad/'),
-      this.fetchList('/articulacion/resultados-pei/'),
-      this.fetchList('/articulacion/productos-pei/'),
-      this.fetchList('/articulacion/articulaciones-pad-pei/'),
-    ]).then(([resPad, prodPad, resPei, prodPei, arts]) => {
-      this.resultadosPad = this.buildMap(resPad, 'id');
-      this.productosPad = this.buildMap(prodPad, 'id');
-      this.resultadosPei = this.buildMap(resPei, 'id');
-      this.productosPei = this.buildMap(prodPei, 'id');
-
-      this.articulaciones = arts.map((a: any) => this.ensamblarFila(a));
-      this.aplicarFiltros();
-      this.cargando = false;
-    }).catch(() => {
-      this.cargando = false;
+    this.api.get<any>(
+      '/articulacion/matrices/m1_pad_pei/',
+      { gestion: ARTICULATION_MANAGEMENT },
+    ).subscribe({
+      next: (response) => {
+        this.articulaciones = mapM1Rows(response);
+        this.aplicarFiltros();
+        this.cargando = false;
+      },
+      error: () => { this.cargando = false; },
     });
-  }
-
-  private fetchList(path: string): Promise<any[]> {
-    return new Promise((resolve) => {
-      this.api.get<any>(path).subscribe({
-        next: (r) => resolve(r.results || r || []),
-        error: () => resolve([]),
-      });
-    });
-  }
-
-  private buildMap(list: any[], key: string): Map<string, any> {
-    const m = new Map<string, any>();
-    list.forEach((item: any) => m.set(item[key], item));
-    return m;
-  }
-
-  private ensamblarFila(a: any): any {
-    const prodPad = this.productosPad.get(a.producto_pad);
-    const prodPei = this.productosPei.get(a.producto_pei);
-    const resPad = prodPad ? this.resultadosPad.get(prodPad.resultado_pad) : null;
-    const resPei = prodPei ? this.resultadosPei.get(prodPei.resultado_pei) : null;
-
-    return {
-      codigo_resultado_pad: resPad?.codigo_resultado || '—',
-      resultado_pad: resPad?.denominacion || '—',
-      codigo_producto_pad: prodPad?.codigo_producto || '—',
-      producto_pad: prodPad?.denominacion || '—',
-      codigo_resultado_pei: resPei?.codigo_resultado || '—',
-      resultado_pei: resPei?.denominacion || '—',
-      codigo_producto_pei: prodPei?.codigo_producto || '—',
-      producto_pei: prodPei?.denominacion || '—',
-      estado: a.estado || 'REFERENCIAL',
-      tipo_contribucion: a.tipo_contribucion,
-      ponderacion: a.ponderacion,
-    };
   }
 
   aplicarFiltros(): void {
@@ -237,7 +193,6 @@ export class MatrizPADPEIComponent implements OnInit {
   }
 
   exportarXLSX(): void {
-    const url = `${environment.apiUrl}/api/v1/reportes/articulacion_matriz_pad_pei/?gestion=2026`;
-    window.open(url, '_blank');
+    window.open(buildReportUrl('/reportes/articulacion_matriz_pad_pei/'), '_blank');
   }
 }

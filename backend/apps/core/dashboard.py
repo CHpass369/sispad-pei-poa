@@ -13,6 +13,11 @@ from apps.techos.models import TechoPresupuestario, DistribucionTecho
 from apps.workflow.models import Observacion, EnvioFormulacion
 
 
+def _sumar(queryset, field_name):
+    result = queryset.aggregate(total=Sum(field_name))['total']
+    return result or Decimal('0')
+
+
 def dashboard_poa(gestion: int) -> dict:
     """Datos completos del dashboard del Administrador POA — optimizado sin N+1."""
     D = DecimalField()
@@ -113,8 +118,42 @@ def dashboard_presupuesto(gestion: int) -> dict:
         key = linea.fuente.codigo if linea.fuente else 'S/F'
         fuentes[key] = fuentes.get(key, 0) + float(linea.importe)
 
+    programas = []
+    for programa in ProgramaPresupuestario.objects.filter(
+        gestion=gestion, activo=True,
+    ).order_by('codigo'):
+        presupuesto = _sumar(
+            LineaPresupuestaria.objects.filter(
+                gestion=gestion, programa=programa, activo=True,
+            ),
+            'importe',
+        )
+        techo_programa = _sumar(
+            DistribucionTecho.objects.filter(
+                techo__gestion=gestion, programa=programa, activo=True,
+            ),
+            'monto_asignado',
+        )
+        porcentaje = (
+            presupuesto / techo_programa * 100 if techo_programa else Decimal('0')
+        )
+        programas.append({
+            'codigo': programa.codigo,
+            'nombre': programa.nombre,
+            'presupuesto': float(presupuesto),
+            'techo': float(techo_programa),
+            'porcentaje': round(float(porcentaje), 2),
+        })
+
     return {
         'gestion': gestion,
+        'techo': float(techo_total),
+        'formulado': float(formulado_total),
+        'saldo': float(techo_total - formulado_total),
+        'porcentaje_avance': round(
+            float(formulado_total / techo_total * 100), 2,
+        ) if techo_total else 0,
+        'programas': programas,
         'totales': {
             'techo': float(techo_total),
             'formulado': float(formulado_total),

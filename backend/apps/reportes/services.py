@@ -1454,6 +1454,85 @@ def generar_matriz_pei_poa_xlsx(gestion=None) -> tuple:
     return output, filename
 
 
+# ===== MATRIZ 4 — PRESUPUESTO Y SEGUIMIENTO =====
+def generar_matriz_presupuesto_seguimiento_xlsx(gestion=None) -> tuple:
+    """Genera XLSX de la Matriz 4 (Presupuesto y Seguimiento)."""
+    if not HAS_OPENPYXL:
+        raise RuntimeError('openpyxl no está instalado')
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Presupuesto y Seguimiento'
+
+    headers = [
+        'ID Cadena', 'Acción POA', 'Operación', 'Actividad',
+        'Categoría Programática', 'DA', 'UE', 'Programa',
+        'Presupuesto Inicial', 'Modificaciones', 'Presupuesto Vigente',
+        'Ejecución Financiera', '% Ejecución Financiera', 'Meta Física',
+        'Ejecución Física', '% Ejecución Física', 'Eficacia',
+    ]
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(headers))
+    ws['A1'] = 'GOBIERNO AUTÓNOMO MUNICIPAL DE SACABA'
+    ws['A1'].font = Font(bold=True, size=14, color='1B5E3B')
+    ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=len(headers))
+    ws['A2'] = (
+        f'MATRIZ 4 — Presupuesto y Seguimiento (Gestión {gestion})'
+        if gestion else 'MATRIZ 4 — Presupuesto y Seguimiento'
+    )
+    ws['A2'].font = Font(bold=True, size=11, color='1B5E3B')
+
+    for column, header in enumerate(headers, 1):
+        cell = ws.cell(row=4, column=column, value=header)
+        cell.fill = HEADER_FILL
+        cell.font = HEADER_FONT
+        cell.alignment = Alignment(horizontal='center', wrap_text=True)
+
+    rows = SeguimientoPresupuesto.objects.select_related(
+        'accion_poa', 'operacion', 'actividad',
+    )
+    if gestion:
+        rows = rows.filter(gestion=gestion)
+
+    for row_number, item in enumerate(rows.order_by('id_cadena'), start=5):
+        values = [
+            item.id_cadena,
+            item.accion_poa.denominacion,
+            item.operacion.denominacion,
+            item.actividad.denominacion,
+            item.categoria_programatica,
+            item.da,
+            item.ue,
+            item.programa,
+            item.presupuesto_inicial,
+            item.modificaciones,
+            item.presupuesto_vigente,
+            item.ejecutado_total,
+            item.porcentaje_ejecucion_financiera,
+            item.meta_fisica,
+            item.ejecucion_fisica,
+            item.porcentaje_ejecucion_fisica,
+            item.eficacia,
+        ]
+        for column, value in enumerate(values, 1):
+            cell = ws.cell(row=row_number, column=column, value=value)
+            cell.border = BORDER_THIN
+            cell.font = Font(size=9)
+            if column >= 9:
+                cell.number_format = '#,##0.00'
+
+    for column in range(1, len(headers) + 1):
+        letter = openpyxl.utils.get_column_letter(column)
+        ws.column_dimensions[letter].width = 24 if column in (2, 3, 4, 8) else 18
+
+    filename = _build_response_filename(
+        'matriz_presupuesto_seguimiento', 'xlsx', gestion or 0,
+    )
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return output, filename
+
+
 # ===== MATRIZ 5 — OBJETOS DE GASTO =====
 def generar_matriz_objetos_gasto_xlsx(gestion=None) -> tuple:
     """Genera XLSX de la Matriz 5 (Objetos de Gasto) con estilo institucional."""

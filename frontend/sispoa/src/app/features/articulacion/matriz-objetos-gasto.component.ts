@@ -1,6 +1,10 @@
 import { Component, OnInit } from '@angular/core';
 import { ApiService } from '../../core/services/api.service';
-import { environment } from '../../../environments/environment';
+import {
+  ARTICULATION_MANAGEMENT,
+  buildReportUrl,
+  mapM5Rows,
+} from './matrices-contracts';
 
 @Component({
   selector: 'app-matriz-objetos-gasto',
@@ -165,37 +169,24 @@ export class MatrizObjetosGastoComponent implements OnInit {
 
   private cargarDatos(): void {
     this.cargando = true;
-    Promise.all([
-      this.fetchList('/articulacion/matrices/m5_objetos_gasto/'),
-      this.fetchList('/articulacion/actividades/'),
-    ]).then(([asigs, acts]) => {
-      const actMap = this.buildMap(acts, 'id');
-
-      this.asignaciones = asigs.map((a: any) => ({
-        ...a,
-        actividad_nombre: actMap.get(a.actividad)?.denominacion || '—',
-      }));
-
-      this.gestiones = [...new Set(asigs.map((a: any) => a.gestion).filter(Boolean))].sort();
-      this.grupos = [...new Set(asigs.map((a: any) => a.grupo_gasto).filter(Boolean))].sort();
-      this.aplicarFiltros();
-      this.cargando = false;
-    }).catch(() => { this.cargando = false; });
-  }
-
-  private fetchList(path: string): Promise<any[]> {
-    return new Promise((resolve) => {
-      this.api.get<any>(path).subscribe({
-        next: (r) => resolve(r.results || r || []),
-        error: () => resolve([]),
-      });
+    this.api.get<any>(
+      '/articulacion/matrices/m5_objetos_gasto/',
+      { gestion: ARTICULATION_MANAGEMENT },
+    ).subscribe({
+      next: (response) => {
+        const rows = mapM5Rows(response);
+        this.asignaciones = rows;
+        this.gestiones = [...new Set<number>(
+          rows.map((row: any) => row.gestion).filter(Boolean),
+        )].sort();
+        this.grupos = [...new Set<string>(
+          rows.map((row: any) => row.grupo_gasto).filter(Boolean),
+        )].sort();
+        this.aplicarFiltros();
+        this.cargando = false;
+      },
+      error: () => { this.cargando = false; },
     });
-  }
-
-  private buildMap(list: any[], key: string): Map<string, any> {
-    const m = new Map<string, any>();
-    (list || []).forEach((item: any) => m.set(item[key], item));
-    return m;
   }
 
   aplicarFiltros(): void {
@@ -218,8 +209,12 @@ export class MatrizObjetosGastoComponent implements OnInit {
   }
 
   exportarXLSX(): void {
-    const gestion = this.filtroGestion || new Date().getFullYear();
-    const url = `${environment.apiUrl}/api/v1/reportes/articulacion_objetos_gasto/?gestion=${gestion}`;
-    window.open(url, '_blank');
+    window.open(
+      buildReportUrl(
+        '/reportes/articulacion_objetos_gasto/',
+        this.filtroGestion || ARTICULATION_MANAGEMENT,
+      ),
+      '_blank',
+    );
   }
 }

@@ -2,10 +2,11 @@ import { Component, OnInit, ViewChild, ChangeDetectionStrategy } from '@angular/
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
-  MatrizCompletaService,
   NodoArbol,
   MatrizResponse,
-} from './matriz-completa.service';
+  ARTICULATION_MANAGEMENT,
+} from './matrices-contracts';
+import { MatrizCompletaService } from './matriz-completa.service';
 import { MatrizCompletaTreeComponent } from './matriz-completa-tree.component';
 
 @Component({
@@ -178,7 +179,7 @@ export class MatrizCompletaComponent implements OnInit {
   @ViewChild('treeComponent')
   treeComponent?: MatrizCompletaTreeComponent;
 
-  gestion = 2026;
+  gestion = ARTICULATION_MANAGEMENT;
   gestionesDisponibles: number[] = [2026, 2027];
   cargando = true;
   error = false;

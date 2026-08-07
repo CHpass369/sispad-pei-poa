@@ -8,7 +8,8 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { NodoArbol, MatrizCompletaService } from './matriz-completa.service';
+import { NodoArbol } from './matrices-contracts';
+import { MatrizCompletaService } from './matriz-completa.service';
 
 const NIVEL_COLORS: Record<string, string> = {
   eje: '#1565C0',

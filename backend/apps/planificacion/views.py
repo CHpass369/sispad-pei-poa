@@ -210,8 +210,14 @@ class MatrizCompletaViewSet(viewsets.ViewSet):
 
         if not gestion:
             return Response({'error': 'gestión requerida'}, status=400)
+        try:
+            gestion = int(gestion)
+        except (TypeError, ValueError):
+            return Response({'error': 'gestión inválida'}, status=400)
 
-        queryset = NodoPlanificacion.objects.select_related('plan', 'padre')
+        queryset = NodoPlanificacion.objects.select_related(
+            'plan', 'padre',
+        ).filter(gestion=gestion)
 
         if padre_id:
             padre = get_object_or_404(NodoPlanificacion, id=padre_id)

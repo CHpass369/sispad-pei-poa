@@ -1,6 +1,10 @@
 import { Component, OnInit } from '@angular/core';
 import { ApiService } from '../../core/services/api.service';
-import { environment } from '../../../environments/environment';
+import {
+  ARTICULATION_MANAGEMENT,
+  buildReportUrl,
+  mapM2Rows,
+} from './matrices-contracts';
 
 @Component({
   selector: 'app-matriz-pei-poa',
@@ -172,37 +176,19 @@ export class MatrizPEIPOAComponent implements OnInit {
 
   cargarDatos(): void {
     this.cargando = true;
-    this.api.get<any>('/articulacion/matrices/m2_pei_poa/').subscribe({
+    this.api.get<any>(
+      '/articulacion/matrices/m2_pei_poa/',
+      { gestion: ARTICULATION_MANAGEMENT },
+    ).subscribe({
       next: (r) => {
-        const items = r.results || r || [];
-        // Cargar productos PEI para nombres
-        this.api.get<any>('/articulacion/productos-pei/').subscribe({
-          next: (rProd) => {
-            const prods = this.buildMap(rProd.results || rProd || [], 'id');
-            this.acciones = items.map((a: any) => ({
-              ...a,
-              producto_pei_nombre: prods.get(a.producto_pei)?.denominacion || '—',
-            }));
-            this.gestiones = [...new Set(items.map((a: any) => a.gestion).filter(Boolean))] as number[];
-            this.aplicarFiltros();
-            this.cargando = false;
-          },
-          error: () => {
-            this.acciones = items;
-            this.gestiones = [...new Set(items.map((a: any) => a.gestion).filter(Boolean))] as number[];
-            this.aplicarFiltros();
-            this.cargando = false;
-          },
-        });
+        const items = mapM2Rows(r);
+        this.acciones = items;
+        this.gestiones = [...new Set(items.map((a: any) => a.gestion).filter(Boolean))] as number[];
+        this.aplicarFiltros();
+        this.cargando = false;
       },
       error: () => { this.cargando = false; },
     });
-  }
-
-  private buildMap(list: any[], key: string): Map<string, any> {
-    const m = new Map<string, any>();
-    list.forEach((item: any) => m.set(item[key], item));
-    return m;
   }
 
   aplicarFiltros(): void {
@@ -224,7 +210,12 @@ export class MatrizPEIPOAComponent implements OnInit {
   }
 
   exportarXLSX(): void {
-    const url = `${environment.apiUrl}/api/v1/reportes/articulacion_matriz_pei_poa/?gestion=${this.filtroGestion || new Date().getFullYear()}`;
-    window.open(url, '_blank');
+    window.open(
+      buildReportUrl(
+        '/reportes/articulacion_matriz_pei_poa/',
+        this.filtroGestion || ARTICULATION_MANAGEMENT,
+      ),
+      '_blank',
+    );
   }
 }
