@@ -43,6 +43,35 @@ urlpatterns = [
     path(f'{api_prefix}docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='docs'),
 ]
 
+# =============================================================================
+# API V2 (PIP-GAMS) — ADR-002: namespaces por sistema, sin retirar V1
+# =============================================================================
+from config.urls_v2 import urlpatterns as v2_urlpatterns  # noqa: E402
+
+urlpatterns += [
+    path('api/v2/', include('config.urls_v2')),
+    path(
+        'api/v2/schema/',
+        SpectacularAPIView.as_view(
+            custom_settings={
+                'TITLE': 'PIP-GAMS API V2',
+                'DESCRIPTION': (
+                    'Plataforma Integral de Planificación del GAM Sacaba — '
+                    'API V2 (ADR-002).'
+                ),
+                'VERSION': '2.0.0',
+            },
+            patterns=[path('api/v2/', include(v2_urlpatterns))],
+        ),
+        name='schema-v2',
+    ),
+    path(
+        'api/v2/docs/',
+        SpectacularSwaggerView.as_view(url_name='schema-v2'),
+        name='docs-v2',
+    ),
+]
+
 # Servir frontend Angular compilado (SPA)
 import mimetypes
 

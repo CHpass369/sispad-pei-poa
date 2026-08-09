@@ -22,7 +22,7 @@ Documentación de la Plataforma Integral de Planificación del GAM Sacaba
 |---|---|---|
 | WP-00 | Baseline reproducible | ✅ Completado |
 | WP-01 | Glosario, domain map y ADRs | ✅ Completado |
-| WP-02 | API namespaces `/api/v2/` | Pendiente |
+| WP-02 | API namespaces `/api/v2/` | ✅ Completado |
 | WP-03 | IAM capabilities + menú dinámico | Pendiente |
 | WP-04 | Kernel estratégico V2 (modelos) | Pendiente |
 | WP-05 | LegacyMigrationMap + dry-run | Pendiente |
