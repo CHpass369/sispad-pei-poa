@@ -23,9 +23,10 @@ Documentación de la Plataforma Integral de Planificación del GAM Sacaba
 | WP-00 | Baseline reproducible | ✅ Completado |
 | WP-01 | Glosario, domain map y ADRs | ✅ Completado |
 | WP-02 | API namespaces `/api/v2/` | ✅ Completado |
-| WP-03 | IAM capabilities + menú dinámico | ✅ Completado (backend; menú V2 en fase frontend) |
+| WP-03 | IAM capabilities + menú dinámico | ✅ Completado |
 | WP-04 | Kernel estratégico V2 (modelos) | ✅ Completado |
 | WP-05 | LegacyMigrationMap + dry-run | ✅ Completado |
 | WP-06 | Importación PGDESA/PDESA | ✅ Completado |
 | WP-07 | Migración PAD | ✅ Completado |
 | WP-08 | Workflow, evaluación y ajustes SIS-PE | ✅ Completado |
+| WP-09 | Frontend SIS-PE V2 y corte | ✅ Completado (módulo SIS-PE + menú por capacidades) |

@@ -225,9 +225,10 @@ def test_listar_instrumentos_como_lector(usuario_lector, instrumento):
     response = _client(usuario_lector).get('/api/v2/sis-pe/instrumentos/')
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 1
-    assert data[0]['codigo'] == 'PAD-2027'
-    assert data[0]['tipo_nombre'] == 'Plan Anual de Desarrollo'
+    assert data['count'] == 1
+    items = data['results']
+    assert items[0]['codigo'] == 'PAD-2027'
+    assert items[0]['tipo_nombre'] == 'Plan Anual de Desarrollo'
 
 
 def test_lector_no_puede_crear_instrumento(usuario_lector, tipo_pad):

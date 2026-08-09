@@ -1,12 +1,15 @@
-import { Component, EventEmitter, Output, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
+import { Component, EventEmitter, Output, ChangeDetectionStrategy, ChangeDetectorRef, OnInit, OnDestroy } from '@angular/core';
+import { Subject, takeUntil } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
 import { PermissionsService } from '../../core/services/permissions.service';
+import { CapabilitiesService } from '../../core/services/capabilities.service';
 
 interface NavItem {
   route: string;
   label: string;
   icon: string;
   roles?: string[];
+  capacidades?: string[];
 }
 
 interface NavSection {
@@ -122,18 +125,67 @@ interface NavSection {
     }
   `]
 })
-export class SidebarComponent {
+export class SidebarComponent implements OnInit, OnDestroy {
   @Output() sidebarToggle = new EventEmitter<boolean>();
 
   collapsed = false;
   mobileOpen = false;
+
+  visibleSections: NavSection[] = [];
+  private destroy$ = new Subject<void>();
+
+  constructor(
+    public auth: AuthService,
+    private permissions: PermissionsService,
+    private capabilities: CapabilitiesService,
+    private cdr: ChangeDetectorRef,
+  ) {}
+
+  ngOnInit(): void {
+    this.rebuildMenu();
+    this.auth.user$.pipe(takeUntil(this.destroy$)).subscribe(() => {
+      this.rebuildMenu();
+      this.cdr.markForCheck();
+    });
+    // Menú dinámico: se reconstruye cuando llegan las capacidades (ADR-003)
+    this.capabilities.cargadas$.pipe(takeUntil(this.destroy$)).subscribe(() => {
+      this.rebuildMenu();
+      this.cdr.markForCheck();
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  private rebuildMenu(): void {
+    this.visibleSections = this.allSections
+      .map(section => ({
+        ...section,
+        items: section.items.filter(item => {
+          if (item.capacidades?.length) {
+            return this.permissions.hasAnyCapability(item.capacidades);
+          }
+          return !item.roles || this.permissions.hasAnyRole(item.roles);
+        }),
+      }))
+      .filter(section => section.items.length > 0);
+  }
 
   private allSections: NavSection[] = [
     {
       title: 'PRINCIPAL',
       items: [
         { route: '/dashboard', label: 'Dashboard', icon: '◉' },
-        { route: '/notificaciones', label: 'Notificaciones', icon: '⊕' },
+        { route: '/notificaciones', label: 'Notificaciones', icon: '🔔' },
+      ],
+    },
+    {
+      title: 'SIS-PE (V2)',
+      items: [
+        { route: '/sis-pe/dashboard', label: 'Dashboard Estratégico', icon: '◉', capacidades: ['sis_pe.instrumento.read'] },
+        { route: '/sis-pe/instrumentos', label: 'Instrumentos', icon: '▤', capacidades: ['sis_pe.instrumento.read'] },
       ],
     },
     {
@@ -197,31 +249,6 @@ export class SidebarComponent {
       ],
     },
   ];
-
-  visibleSections: NavSection[] = [];
-
-  constructor(
-    public auth: AuthService,
-    private permissions: PermissionsService,
-    private cdr: ChangeDetectorRef,
-  ) {
-    this.rebuildMenu();
-    this.auth.user$.subscribe(() => {
-      this.rebuildMenu();
-      this.cdr.markForCheck();
-    });
-  }
-
-  private rebuildMenu(): void {
-    this.visibleSections = this.allSections
-      .map(section => ({
-        ...section,
-        items: section.items.filter(item =>
-          !item.roles || this.permissions.hasAnyRole(item.roles),
-        ),
-      }))
-      .filter(section => section.items.length > 0);
-  }
 
   toggleCollapse(): void {
     this.collapsed = !this.collapsed;

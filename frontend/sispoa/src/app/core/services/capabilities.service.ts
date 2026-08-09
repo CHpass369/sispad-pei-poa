@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, tap } from 'rxjs';
+import { BehaviorSubject, Observable, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
 export interface AlcanceOrganizacional {
@@ -29,6 +29,8 @@ export class CapabilitiesService {
   private base = environment.apiUrlV2;
   private capabilities: string[] = [];
   private alcances: AlcanceOrganizacional[] = [];
+  /** Señal de que las capacidades ya fueron cargadas (menú dinámico). */
+  cargadas$ = new BehaviorSubject<boolean>(false);
 
   constructor(private http: HttpClient) {}
 
@@ -37,6 +39,7 @@ export class CapabilitiesService {
       tap(data => {
         this.capabilities = data.capabilities ?? [];
         this.alcances = data.alcances ?? [];
+        this.cargadas$.next(true);
       }),
     );
   }

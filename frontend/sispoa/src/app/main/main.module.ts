@@ -13,6 +13,7 @@ const routes: Routes = [
     children: [
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
       { path: 'dashboard', loadChildren: () => import('../features/dashboard/dashboard.module').then(m => m.DashboardModule) },
+      { path: 'sis-pe', loadChildren: () => import('../features/sis-pe/sis-pe.module').then(m => m.SisPeModule) },
       { path: 'gestion', loadChildren: () => import('../features/gestion/gestion.module').then(m => m.GestionModule) },
       { path: 'organizacion', loadChildren: () => import('../features/organizacion/organizacion.module').then(m => m.OrganizacionModule) },
       { path: 'catalogos', loadChildren: () => import('../features/catalogos/catalogos.module').then(m => m.CatalogosModule) },
