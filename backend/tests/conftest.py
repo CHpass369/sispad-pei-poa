@@ -4,7 +4,6 @@ Fixtures compartidas para todos los tests de SISPOA.
 import pytest
 from datetime import date
 from decimal import Decimal
-from django.test import override_settings
 from rest_framework.test import APIClient
 from apps.accounts.models import Usuario, Rol
 from apps.gestion.models import GestionFiscal
@@ -19,12 +18,6 @@ from apps.organizacion.models import (
 from apps.presupuesto.models import ProgramaPresupuestario
 from apps.normativa.models import ReglaPresupuestariaLegal
 from apps.planificacion.models import Plan, NodoPlanificacion, AccionMedianoPlazo
-
-
-@pytest.fixture(autouse=True)
-def override_db_settings(settings):
-    """Usa la misma base de datos PostGIS para tests (no sqlite)."""
-    pass
 
 
 @pytest.fixture

@@ -22,6 +22,25 @@ from .services import (
     generar_matriz_completa_xlsx,
 )
 
+XLSX_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+
+
+def _responder_descarga(request, generar, content_type, gestion_requerida=True):
+    """Ejecuta un generador de reporte y responde la descarga del archivo."""
+    gestion = request.query_params.get('gestion')
+    if gestion_requerida and not gestion:
+        return Response({'error': 'gestión requerida'}, status=status.HTTP_400_BAD_REQUEST)
+    try:
+        gest = int(gestion) if gestion else None
+        output, filename = generar(gest)
+        return HttpResponse(
+            output.read(),
+            content_type=content_type,
+            headers={'Content-Disposition': f'attachment; filename="{filename}"'},
+        )
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 class ReporteGeneradoViewSet(viewsets.ModelViewSet):
     queryset = ReporteGenerado.objects.all()
@@ -31,68 +50,30 @@ class ReporteGeneradoViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def poa_unidad(self, request):
         """GET /api/v1/reportes/poa_unidad/?gestion=2026&unidad_id=xxx"""
-        gestion = request.query_params.get('gestion')
-        if not gestion:
-            return Response({'error': 'gestión requerida'}, status=status.HTTP_400_BAD_REQUEST)
-        try:
-            output, filename = generar_poa_unidad_xlsx(
-                int(gestion), request.query_params.get('unidad_id')
+        def _generar(gest):
+            return generar_poa_unidad_xlsx(
+                gest, request.query_params.get('unidad_id')
             )
-            return HttpResponse(
-                output.read(),
-                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                headers={'Content-Disposition': f'attachment; filename="{filename}"'}
-            )
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return _responder_descarga(request, _generar, XLSX_CONTENT_TYPE)
 
     @action(detail=False, methods=['get'])
     def consolidado(self, request):
         """GET /api/v1/reportes/consolidado/?gestion=2026"""
-        gestion = request.query_params.get('gestion')
-        if not gestion:
-            return Response({'error': 'gestión requerida'}, status=status.HTTP_400_BAD_REQUEST)
-        try:
-            output, filename = generar_poa_consolidado_xlsx(int(gestion))
-            return HttpResponse(
-                output.read(),
-                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                headers={'Content-Disposition': f'attachment; filename="{filename}"'}
-            )
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return _responder_descarga(
+            request, generar_poa_consolidado_xlsx, XLSX_CONTENT_TYPE,
+        )
 
     @action(detail=False, methods=['get'])
     def proyectos(self, request):
         """GET /api/v1/reportes/proyectos/?gestion=2026"""
-        gestion = request.query_params.get('gestion')
-        if not gestion:
-            return Response({'error': 'gestión requerida'}, status=status.HTTP_400_BAD_REQUEST)
-        try:
-            output, filename = generar_proyectos_xlsx(int(gestion))
-            return HttpResponse(
-                output.read(),
-                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                headers={'Content-Disposition': f'attachment; filename="{filename}"'}
-            )
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return _responder_descarga(request, generar_proyectos_xlsx, XLSX_CONTENT_TYPE)
 
     @action(detail=False, methods=['get'])
     def observaciones(self, request):
         """GET /api/v1/reportes/observaciones/?gestion=2026"""
-        gestion = request.query_params.get('gestion')
-        if not gestion:
-            return Response({'error': 'gestión requerida'}, status=status.HTTP_400_BAD_REQUEST)
-        try:
-            output, filename = generar_observaciones_csv(int(gestion))
-            return HttpResponse(
-                output.read(),
-                content_type='text/csv; charset=utf-8-sig',
-                headers={'Content-Disposition': f'attachment; filename="{filename}"'}
-            )
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return _responder_descarga(
+            request, generar_observaciones_csv, 'text/csv; charset=utf-8-sig',
+        )
 
     @action(detail=False, methods=['get'])
     def mapa(self, request):
@@ -109,164 +90,74 @@ class ReporteGeneradoViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def acta_aprobacion(self, request):
         """GET /api/v1/reportes/acta_aprobacion/?gestion=2026"""
-        gestion = request.query_params.get('gestion')
-        if not gestion:
-            return Response({'error': 'gestión requerida'}, status=status.HTTP_400_BAD_REQUEST)
-        try:
-            output, filename = generar_acta_aprobacion_pdf(int(gestion))
-            return HttpResponse(
-                output.read(),
-                content_type='application/pdf',
-                headers={'Content-Disposition': f'attachment; filename="{filename}"'}
-            )
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return _responder_descarga(request, generar_acta_aprobacion_pdf, 'application/pdf')
 
     @action(detail=False, methods=['get'])
     def auxiliar_pluri(self, request):
         """GET /api/v1/reportes/auxiliar_pluri/?gestion=2026
         Descarga XLSX del Auxiliar Pluri (presupuesto plurianual por objeto de gasto y FF/OF).
         """
-        gestion = request.query_params.get('gestion')
-        if not gestion:
-            return Response({'error': 'gestión requerida'}, status=status.HTTP_400_BAD_REQUEST)
-        try:
-            output, filename = generar_auxiliar_pluri_xlsx(int(gestion))
-            return HttpResponse(
-                output.read(),
-                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                headers={'Content-Disposition': f'attachment; filename="{filename}"'}
-            )
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return _responder_descarga(request, generar_auxiliar_pluri_xlsx, XLSX_CONTENT_TYPE)
 
     @action(detail=False, methods=['get'])
     def evaluacion_cuadro1(self, request):
         """GET /api/v1/reportes/evaluacion_cuadro1/?gestion=2026"""
-        gestion = request.query_params.get('gestion')
-        if not gestion:
-            return Response({'error': 'gestión requerida'}, status=status.HTTP_400_BAD_REQUEST)
-        try:
-            output, filename = generar_evaluacion_cuadro1_xlsx(int(gestion))
-            return HttpResponse(
-                output.read(),
-                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                headers={'Content-Disposition': f'attachment; filename="{filename}"'}
-            )
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return _responder_descarga(request, generar_evaluacion_cuadro1_xlsx, XLSX_CONTENT_TYPE)
 
     @action(detail=False, methods=['get'])
     def evaluacion_cuadro2(self, request):
         """GET /api/v1/reportes/evaluacion_cuadro2/?gestion=2026"""
-        gestion = request.query_params.get('gestion')
-        if not gestion:
-            return Response({'error': 'gestión requerida'}, status=status.HTTP_400_BAD_REQUEST)
-        try:
-            output, filename = generar_evaluacion_cuadro2_xlsx(int(gestion))
-            return HttpResponse(
-                output.read(),
-                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                headers={'Content-Disposition': f'attachment; filename="{filename}"'}
-            )
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return _responder_descarga(request, generar_evaluacion_cuadro2_xlsx, XLSX_CONTENT_TYPE)
 
     @action(detail=False, methods=['get'])
     def evaluacion_cuadro3(self, request):
         """GET /api/v1/reportes/evaluacion_cuadro3/?gestion=2026"""
-        gestion = request.query_params.get('gestion')
-        if not gestion:
-            return Response({'error': 'gestión requerida'}, status=status.HTTP_400_BAD_REQUEST)
-        try:
-            output, filename = generar_evaluacion_cuadro3_xlsx(int(gestion))
-            return HttpResponse(
-                output.read(),
-                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                headers={'Content-Disposition': f'attachment; filename="{filename}"'}
-            )
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return _responder_descarga(request, generar_evaluacion_cuadro3_xlsx, XLSX_CONTENT_TYPE)
 
     @action(detail=False, methods=['get'])
     def articulacion_matriz_pad_pei(self, request):
         """GET /api/v1/reportes/articulacion_matriz_pad_pei/?gestion=2026
         Descarga XLSX de la Matriz 1 — Articulación PAD → PEI.
         """
-        gestion = request.query_params.get('gestion')
-        try:
-            gest = int(gestion) if gestion else None
-            output, filename = generar_matriz_pad_pei_xlsx(gest)
-            return HttpResponse(
-                output.read(),
-                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                headers={'Content-Disposition': f'attachment; filename="{filename}"'}
-            )
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return _responder_descarga(
+            request, generar_matriz_pad_pei_xlsx, XLSX_CONTENT_TYPE,
+            gestion_requerida=False,
+        )
 
     @action(detail=False, methods=['get'])
     def articulacion_matriz_pei_poa(self, request):
         """GET /api/v1/reportes/articulacion_matriz_pei_poa/?gestion=2026
         Descarga XLSX de la Matriz 2 — Articulación PEI → POA.
         """
-        gestion = request.query_params.get('gestion')
-        try:
-            gest = int(gestion) if gestion else None
-            output, filename = generar_matriz_pei_poa_xlsx(gest)
-            return HttpResponse(
-                output.read(),
-                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                headers={'Content-Disposition': f'attachment; filename="{filename}"'}
-            )
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return _responder_descarga(
+            request, generar_matriz_pei_poa_xlsx, XLSX_CONTENT_TYPE,
+            gestion_requerida=False,
+        )
 
     @action(detail=False, methods=['get'])
     def articulacion_presupuesto_seguimiento(self, request):
         """Descarga XLSX de la Matriz 4 — Presupuesto y Seguimiento."""
-        gestion = request.query_params.get('gestion')
-        try:
-            gest = int(gestion) if gestion else None
-            output, filename = generar_matriz_presupuesto_seguimiento_xlsx(gest)
-            return HttpResponse(
-                output.read(),
-                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                headers={'Content-Disposition': f'attachment; filename="{filename}"'},
-            )
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return _responder_descarga(
+            request, generar_matriz_presupuesto_seguimiento_xlsx, XLSX_CONTENT_TYPE,
+            gestion_requerida=False,
+        )
 
     @action(detail=False, methods=['get'])
     def articulacion_objetos_gasto(self, request):
         """GET /api/v1/reportes/articulacion_objetos_gasto/?gestion=2026
         Descarga XLSX de la Matriz 5 — Objetos de Gasto.
         """
-        gestion = request.query_params.get('gestion')
-        try:
-            gest = int(gestion) if gestion else None
-            output, filename = generar_matriz_objetos_gasto_xlsx(gest)
-            return HttpResponse(
-                output.read(),
-                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                headers={'Content-Disposition': f'attachment; filename="{filename}"'}
-            )
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return _responder_descarga(
+            request, generar_matriz_objetos_gasto_xlsx, XLSX_CONTENT_TYPE,
+            gestion_requerida=False,
+        )
 
     @action(detail=False, methods=['get'])
     def matriz_completa_xlsx(self, request):
         """GET /api/v1/reportes/matriz_completa_xlsx/?gestion=2026
         Descarga XLSX de la Matriz de Articulación Completa (PGDESA→PDESA→PAD→PEI→POA).
         """
-        gestion = request.query_params.get('gestion')
-        try:
-            gest = int(gestion) if gestion else None
-            output, filename = generar_matriz_completa_xlsx(gest)
-            return HttpResponse(
-                output.read(),
-                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                headers={'Content-Disposition': f'attachment; filename="{filename}"'}
-            )
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return _responder_descarga(
+            request, generar_matriz_completa_xlsx, XLSX_CONTENT_TYPE,
+            gestion_requerida=False,
+        )

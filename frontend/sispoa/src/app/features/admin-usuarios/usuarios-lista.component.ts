@@ -1,14 +1,14 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
-import { AdminUsuariosService, Usuario } from './admin-usuarios.service';
+import { AdminUsuariosService, AdminUsuario } from './admin-usuarios.service';
 
 @Component({
   standalone: false,
   selector: 'app-usuarios-lista',
   template: `
     <div class="page-header">
-      <h2>Gestión de Usuarios</h2>
-      <p class="text-secondary">Administración de usuarios y roles del sistema</p>
+      <h2>GestiÃ³n de Usuarios</h2>
+      <p class="text-secondary">AdministraciÃ³n de usuarios y roles del sistema</p>
     </div>
 
     <div class="acciones-superior">
@@ -88,7 +88,7 @@ import { AdminUsuariosService, Usuario } from './admin-usuarios.service';
   `]
 })
 export class UsuariosListaComponent implements OnInit {
-  usuarios: Usuario[] = [];
+  usuarios: AdminUsuario[] = [];
   busqueda = '';
   cargando = true;
   error = '';
@@ -123,12 +123,12 @@ export class UsuariosListaComponent implements OnInit {
     this.router.navigate(['admin-usuarios/nuevo']);
   }
 
-  editar(u: Usuario): void {
+  editar(u: AdminUsuario): void {
     this.router.navigate(['admin-usuarios', u.id]);
   }
 
-  eliminar(u: Usuario): void {
-    if (!confirm(`¿Eliminar usuario ${u.email}?`)) return;
+  eliminar(u: AdminUsuario): void {
+    if (!confirm(`Â¿Eliminar usuario ${u.email}?`)) return;
     this.adminService.eliminarUsuario(u.id!).subscribe({
       next: () => this.cargar(),
       error: () => { this.error = 'Error al eliminar usuario'; },

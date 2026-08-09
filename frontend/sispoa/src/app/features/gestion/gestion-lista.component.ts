@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -72,7 +72,7 @@ export class GestionListaComponent implements OnInit {
           this.cerrarFormulario();
           this.cargarGestiones();
         },
-        error: () => (this.error = 'Error al actualizar gestión'),
+        error: () => (this.error = 'Error al actualizar gestiÃ³n'),
       });
     } else {
       this.api.post<Gestion>('/gestiones/', this.form).subscribe({
@@ -80,7 +80,7 @@ export class GestionListaComponent implements OnInit {
           this.cerrarFormulario();
           this.cargarGestiones();
         },
-        error: () => (this.error = 'Error al crear gestión'),
+        error: () => (this.error = 'Error al crear gestiÃ³n'),
       });
     }
   }

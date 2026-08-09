@@ -215,7 +215,7 @@ class PasswordResetConfirmView(APIView):
         return Response({'detail': 'Contraseña restablecida correctamente'})
 
 
-class LoginAttemptViewSet(APIView):
+class LoginAttemptView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def get(self, request):

@@ -21,68 +21,6 @@ from .permissions import ArticulacionPermisos
 from .services import registrar_auditoria
 
 
-ESTADO_ACTIONS_MIXIN = '__estado_actions__'
-
-
-def _add_estado_actions(cls):
-    """Decorator-like helper to add enviar/aprobar/observar actions to a ViewSet."""
-    if not hasattr(cls, 'estado_actions_added'):
-        cls.estado_actions_added = True
-
-        @action(detail=True, methods=['post'])
-        def enviar(self, request, pk=None):
-            obj = self.get_object()
-            obj.estado = 'ENVIADO'
-            obj.save(update_fields=['estado'])
-            registrar_auditoria(
-                usuario=request.user, accion='enviar',
-                entidad=obj.__class__.__name__, entidad_id=obj.id,
-                detalle=f'Registro enviado a revisión'
-            )
-            return Response({'status': 'enviado', 'estado': 'ENVIADO'})
-
-        @action(detail=True, methods=['post'])
-        def aprobar(self, request, pk=None):
-            obj = self.get_object()
-            if obj.estado != 'ENVIADO':
-                return Response(
-                    {'error': 'Solo se puede aprobar registros en estado ENVIADO'},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            obj.estado = 'APROBADO'
-            obj.save(update_fields=['estado'])
-            registrar_auditoria(
-                usuario=request.user, accion='aprobar',
-                entidad=obj.__class__.__name__, entidad_id=obj.id,
-                detalle=f'Registro aprobado'
-            )
-            return Response({'status': 'aprobado', 'estado': 'APROBADO'})
-
-        @action(detail=True, methods=['post'])
-        def observar(self, request, pk=None):
-            comentario = request.data.get('comentario', '').strip()
-            if not comentario:
-                return Response(
-                    {'error': 'Se requiere un comentario para observar'},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            obj = self.get_object()
-            obj.estado = 'OBSERVADO'
-            obj.save(update_fields=['estado'])
-            registrar_auditoria(
-                usuario=request.user, accion='devolver',
-                entidad=obj.__class__.__name__, entidad_id=obj.id,
-                detalle=f'Registro observado: {comentario[:200]}'
-            )
-            return Response({'status': 'observado', 'estado': 'OBSERVADO', 'comentario': comentario})
-
-        cls.enviar = enviar
-        cls.aprobar = aprobar
-        cls.observar = observar
-
-    return cls
-
-
 # Mixin concreto para heredar las actions
 class EstadoActionsMixin:
     """Mixin que agrega actions enviar/aprobar/observar a ViewSets con estado."""

@@ -1,6 +1,20 @@
 from decimal import Decimal
 
 
+def validar_nombre_corto(nombre, etiqueta):
+    """Retorna el mensaje de error si el nombre es demasiado corto, o None."""
+    if nombre and len(str(nombre).strip()) < 3:
+        return f'El nombre {etiqueta} es demasiado corto.'
+    return None
+
+
+def validar_valor_no_negativo(value, etiqueta):
+    """Retorna el mensaje de error si el valor es negativo, o None."""
+    if value is not None and value < 0:
+        return f'{etiqueta} no puede ser negativa'
+    return None
+
+
 def validar_ponderaciones_suma_100(items):
     total = sum(Decimal(str(item.get('ponderacion', 0))) for item in items)
     if total != Decimal('100'):

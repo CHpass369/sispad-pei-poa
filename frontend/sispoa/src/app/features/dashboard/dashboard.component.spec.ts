@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpClientTestingModule } from '@angular/common/http/testing';
 import { RouterTestingModule } from '@angular/router/testing';
-import { of, BehaviorSubject, throwError } from 'rxjs';
+import { of, BehaviorSubject, throwError, Observable } from 'rxjs';
 import { DashboardComponent } from './dashboard.component';
 import { AuthService } from '../../core/services/auth.service';
 import { ApiService } from '../../core/services/api.service';
@@ -12,6 +12,7 @@ describe('DashboardComponent', () => {
   let fixture: ComponentFixture<DashboardComponent>;
   let authServiceSpy: jasmine.SpyObj<AuthService>;
   let apiServiceSpy: jasmine.SpyObj<ApiService>;
+  let userSubject: BehaviorSubject<Usuario | null>;
 
   const mockUser: Usuario = {
     id: '1',
@@ -43,16 +44,17 @@ describe('DashboardComponent', () => {
   const mockNotif = { no_leidas: 5 };
 
   beforeEach(async () => {
+    userSubject = new BehaviorSubject<Usuario | null>(mockUser);
     authServiceSpy = jasmine.createSpyObj('AuthService', ['hasRole', 'init'], {
-      user$: new BehaviorSubject<Usuario | null>(mockUser),
+      user$: userSubject,
     });
     apiServiceSpy = jasmine.createSpyObj('ApiService', ['get']);
 
     authServiceSpy.hasRole.and.callFake((role: string) => role === 'superadmin');
-    apiServiceSpy.get.and.callFake((path: string) => {
-      if (path === '/dashboard/kpis/') return of(mockKpis);
-      if (path === '/notificaciones/resumen/') return of(mockNotif);
-      return of({});
+    apiServiceSpy.get.and.callFake(<T>(path: string) => {
+      if (path === '/dashboard/kpis/') return of(mockKpis) as Observable<T>;
+      if (path === '/notificaciones/resumen/') return of(mockNotif) as Observable<T>;
+      return of({}) as Observable<T>;
     });
 
     await TestBed.configureTestingModule({
@@ -96,15 +98,14 @@ describe('DashboardComponent', () => {
   it('should display superadmin role correctly', () => {
     fixture.detectChanges();
 
-    expect(component.isSuperAdmin).toBeTrue();
-    expect(component.rolDisplay).toBe('Super Administrador');
+    expect(component.rolLabel).toBe('Super Admin');
   });
 
   it('should handle API error gracefully for KPIs', () => {
-    apiServiceSpy.get.and.callFake((path: string) => {
-      if (path === '/dashboard/kpis/') return throwError(() => new Error());
-      if (path === '/notificaciones/resumen/') return of(mockNotif);
-      return of({});
+    apiServiceSpy.get.and.callFake(<T>(path: string) => {
+      if (path === '/dashboard/kpis/') return throwError(() => new Error()) as Observable<T>;
+      if (path === '/notificaciones/resumen/') return of(mockNotif) as Observable<T>;
+      return of({}) as Observable<T>;
     });
 
     fixture.detectChanges();
@@ -114,33 +115,42 @@ describe('DashboardComponent', () => {
   });
 
   it('should handle planificador role', () => {
-    authServiceSpy.hasRole.and.callFake((role: string) => role === 'planificador');
+    userSubject.next({
+      ...mockUser,
+      roles: ['planificador'],
+      roles_detalle: [{ id: '2', codigo: 'planificador', nombre: 'Planificador', descripcion: '', activo: true }],
+    });
 
-    component.ngOnInit();
+    fixture.detectChanges();
 
-    expect(component.isPlanificador).toBeTrue();
+    expect(component.rolLabel).toBe('Planificador');
   });
 
   it('should handle jefe_ue role', () => {
-    authServiceSpy.hasRole.and.callFake((role: string) => role === 'jefe_ue');
+    userSubject.next({
+      ...mockUser,
+      roles: ['jefe_ue'],
+      roles_detalle: [{ id: '3', codigo: 'jefe_ue', nombre: 'Jefe de UE', descripcion: '', activo: true }],
+    });
 
-    component.ngOnInit();
+    fixture.detectChanges();
 
-    expect(component.isJefeUe).toBeTrue();
-    expect(component.rolDisplay).toBe('Jefe de UE');
+    expect(component.rolLabel).toBe('Jefe de UE');
   });
 
   it('should show default role for unknown roles', () => {
-    authServiceSpy.hasRole.and.returnValue(false);
+    userSubject.next({ ...mockUser, roles: ['desconocido'], roles_detalle: [] });
 
-    expect(component.rolDisplay).toBe('Usuario');
+    fixture.detectChanges();
+
+    expect(component.rolLabel).toBe('Usuario');
   });
 
   it('should fallback notification count to 0', () => {
-    apiServiceSpy.get.and.callFake((path: string) => {
-      if (path === '/dashboard/kpis/') return of(mockKpis);
-      if (path === '/notificaciones/resumen/') return of({});
-      return of({});
+    apiServiceSpy.get.and.callFake(<T>(path: string) => {
+      if (path === '/dashboard/kpis/') return of(mockKpis) as Observable<T>;
+      if (path === '/notificaciones/resumen/') return of({}) as Observable<T>;
+      return of({}) as Observable<T>;
     });
 
     fixture.detectChanges();

@@ -25,11 +25,6 @@ if USE_S3:
         'CacheControl': 'max-age=86400',
     }
 
-    # FileField → S3 automático
-    DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
-
     # Media URL apunta a S3
     MEDIA_URL = f'{AWS_S3_ENDPOINT_URL}/{AWS_STORAGE_BUCKET_NAME}/'
-else:
-    # Almacenamiento local (default)
-    DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
+# Almacenamiento local (default): settings.py define STORAGES con FileSystemStorage

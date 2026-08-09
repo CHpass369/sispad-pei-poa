@@ -1,7 +1,15 @@
 from decimal import Decimal
 from rest_framework import serializers
 from .models import ProgramaPresupuestario, ProyectoPresupuestario, ActividadPresupuestaria, LineaPresupuestaria
-from apps.core.validators import validar_meta_no_negativa
+from apps.core.validators import validar_meta_no_negativa, validar_nombre_corto
+
+
+def _validar_nombre(self, data, etiqueta):
+    nombre = data.get('nombre') or getattr(self.instance, 'nombre', None)
+    mensaje = validar_nombre_corto(nombre, etiqueta)
+    if mensaje:
+        raise serializers.ValidationError({'nombre': mensaje})
+    return data
 
 
 class ProgramaPresupuestarioSerializer(serializers.ModelSerializer):
@@ -10,10 +18,7 @@ class ProgramaPresupuestarioSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def validate(self, data):
-        nombre = data.get('nombre') or getattr(self.instance, 'nombre', None)
-        if nombre and len(nombre.strip()) < 3:
-            raise serializers.ValidationError({'nombre': 'El nombre del programa es demasiado corto.'})
-        return data
+        return _validar_nombre(self, data, 'del programa')
 
 
 class ProyectoPresupuestarioSerializer(serializers.ModelSerializer):
@@ -22,10 +27,7 @@ class ProyectoPresupuestarioSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def validate(self, data):
-        nombre = data.get('nombre') or getattr(self.instance, 'nombre', None)
-        if nombre and len(nombre.strip()) < 3:
-            raise serializers.ValidationError({'nombre': 'El nombre del proyecto es demasiado corto.'})
-        return data
+        return _validar_nombre(self, data, 'del proyecto')
 
 
 class ActividadPresupuestariaSerializer(serializers.ModelSerializer):
@@ -34,10 +36,7 @@ class ActividadPresupuestariaSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def validate(self, data):
-        nombre = data.get('nombre') or getattr(self.instance, 'nombre', None)
-        if nombre and len(nombre.strip()) < 3:
-            raise serializers.ValidationError({'nombre': 'El nombre de la actividad es demasiado corto.'})
-        return data
+        return _validar_nombre(self, data, 'de la actividad')
 
 
 class LineaPresupuestariaSerializer(serializers.ModelSerializer):

@@ -16,6 +16,20 @@ def _verificar_transicion(usuario, envio, accion):
     return None
 
 
+def _importar_consolidacion():
+    """Importa el módulo de consolidación (levanta ImportError si no está)."""
+    from .consolidacion import (
+        consolidar_poa_institucional,
+        verificar_consistencia_presupuestaria,
+        generar_acta_consolidacion,
+    )
+    return (
+        consolidar_poa_institucional,
+        verificar_consistencia_presupuestaria,
+        generar_acta_consolidacion,
+    )
+
+
 class EnvioFormulacionViewSet(viewsets.ModelViewSet):
     queryset = EnvioFormulacion.objects.all()
     serializer_class = EnvioFormulacionSerializer
@@ -105,16 +119,16 @@ class ConsolidacionViewSet(viewsets.ViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        error = _verificar_transicion(request.user, type('Envio', (), {'estado_anterior': 'enviado'})(), 'aprobar')
-        if error:
+        error = verificar_permisos_estado(request.user, 'enviado', 'aprobar')
+        if not error['permitido']:
             return Response(
                 {'error': error['mensaje']},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
         try:
-            from .consolidacion import consolidar_poa_institucional
-            resultado = consolidar_poa_institucional(gestion)
+            consolidar, _verificar, _acta = _importar_consolidacion()
+            resultado = consolidar(gestion)
             return Response(resultado, status=status.HTTP_200_OK)
         except ImportError:
             return Response(
@@ -131,8 +145,8 @@ class ConsolidacionViewSet(viewsets.ViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         try:
-            from .consolidacion import consolidar_poa_institucional
-            resultado = consolidar_poa_institucional(gestion)
+            consolidar, _verificar, _acta = _importar_consolidacion()
+            resultado = consolidar(gestion)
             return Response(resultado)
         except ImportError:
             return Response(
@@ -149,8 +163,8 @@ class ConsolidacionViewSet(viewsets.ViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         try:
-            from .consolidacion import verificar_consistencia_presupuestaria
-            resultado = verificar_consistencia_presupuestaria(gestion)
+            _consolidar, verificar, _acta = _importar_consolidacion()
+            resultado = verificar(gestion)
             return Response(resultado)
         except ImportError:
             return Response(
@@ -167,8 +181,8 @@ class ConsolidacionViewSet(viewsets.ViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         try:
-            from .consolidacion import generar_acta_consolidacion
-            resultado = generar_acta_consolidacion(gestion)
+            _consolidar, _verificar, acta = _importar_consolidacion()
+            resultado = acta(gestion)
             return Response(resultado)
         except ImportError:
             return Response(

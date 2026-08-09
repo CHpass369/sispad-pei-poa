@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
@@ -70,7 +70,7 @@ export class OrganizacionDaComponent implements OnInit {
 
   guardar(): void {
     if (!this.form.codigo || !this.form.nombre) {
-      this.error = 'Código y nombre son obligatorios';
+      this.error = 'CÃ³digo y nombre son obligatorios';
       return;
     }
 
@@ -83,12 +83,12 @@ export class OrganizacionDaComponent implements OnInit {
         this.cerrarFormulario();
         this.cargar();
       },
-      error: () => (this.error = 'Error al guardar dirección administrativa'),
+      error: () => (this.error = 'Error al guardar direcciÃ³n administrativa'),
     });
   }
 
   eliminar(id: number): void {
-    if (!confirm('¿Eliminar esta dirección administrativa?')) return;
+    if (!confirm('Â¿Eliminar esta direcciÃ³n administrativa?')) return;
     this.api.delete(`/api/v1/direcciones-administrativas/${id}/`).subscribe({
       next: () => this.cargar(),
       error: () => (this.error = 'Error al eliminar'),

@@ -1,6 +1,7 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+﻿import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpClientTestingModule } from '@angular/common/http/testing';
 import { RouterTestingModule } from '@angular/router/testing';
+import { FormsModule } from '@angular/forms';
 import { of, throwError } from 'rxjs';
 import { UsuariosListaComponent } from './usuarios-lista.component';
 import { AdminUsuariosService } from './admin-usuarios.service';
@@ -14,7 +15,7 @@ describe('UsuariosListaComponent', () => {
 
   const mockUsuarios = [
     { id: 1, email: 'user1@test.com', first_name: 'User', last_name: 'One', is_active: true, rol_nombre: ['Admin'], date_joined: '2024-01-01' },
-    { id: 2, email: 'user2@test.com', first_name: 'User', last_name: 'Two', is_active: false, rol_nombre: ['Técnico'], date_joined: '2024-02-01' },
+    { id: 2, email: 'user2@test.com', first_name: 'User', last_name: 'Two', is_active: false, rol_nombre: ['TÃ©cnico'], date_joined: '2024-02-01' },
   ];
 
   beforeEach(async () => {
@@ -26,7 +27,7 @@ describe('UsuariosListaComponent', () => {
 
     await TestBed.configureTestingModule({
       declarations: [UsuariosListaComponent],
-      imports: [HttpClientTestingModule, RouterTestingModule],
+      imports: [HttpClientTestingModule, RouterTestingModule, FormsModule],
       providers: [
         { provide: AdminUsuariosService, useValue: adminServiceSpy },
         { provide: Router, useValue: routerSpy },

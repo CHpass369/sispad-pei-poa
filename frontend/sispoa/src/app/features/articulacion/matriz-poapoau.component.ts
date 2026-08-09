@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { ApiService } from '../../core/services/api.service';
-import { environment } from '../../../environments/environment';
+import { buildReportUrl } from './matrices-contracts';
 
 interface OperacionExpandida {
   data: any;
@@ -287,7 +287,6 @@ export class MatrizPOAPOAUComponent implements OnInit {
   }
 
   exportarXLSX(): void {
-    const url = `${environment.apiUrl}/reportes/articulacion_matriz_pei_poa/?gestion=2027`;
-    window.open(url, '_blank');
+    window.open(buildReportUrl('/reportes/articulacion_matriz_pei_poa/'), '_blank');
   }
 }

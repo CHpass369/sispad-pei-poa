@@ -109,6 +109,11 @@ DATABASES = {
         'PASSWORD': os.environ.get('DB_PASSWORD', ''),
         'HOST': os.environ.get('DB_HOST', '/tmp/opencode'),
         'PORT': os.environ.get('DB_PORT', '5433'),
+        'TEST': {
+            # Template con PostGIS preinstalado: evita requerir superusuario
+            # para crear extensiones en la base de test.
+            'TEMPLATE': os.environ.get('DB_TEST_TEMPLATE', 'template_postgis'),
+        },
     }
 }
 
@@ -126,7 +131,15 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+STORAGES = {
+    'default': {
+        'BACKEND': 'django.core.files.storage.FileSystemStorage',
+    },
+    'staticfiles': {
+        'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+    },
+}
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
@@ -134,6 +147,10 @@ MEDIA_ROOT = BASE_DIR / 'media'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL = 'accounts.Usuario'
+
+# Librerías GeoDjango (Windows local)
+GDAL_LIBRARY_PATH = os.environ.get('GDAL_LIBRARY_PATH', '')
+GEOS_LIBRARY_PATH = os.environ.get('GEOS_LIBRARY_PATH', '')
 
 # REST Framework
 REST_FRAMEWORK = {
@@ -199,6 +216,9 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
 # Almacenamiento S3 (MinIO) — activar con USE_S3=True
 # =============================================================================
 from .settings_storage import *  # noqa
+
+if USE_S3:  # noqa
+    STORAGES['default'] = {'BACKEND': 'storages.backends.s3boto3.S3Boto3Storage'}
 
 # =============================================================================
 # OIDC (Keycloak) — se activa cuando OIDC_RP_CLIENT_ID está presente

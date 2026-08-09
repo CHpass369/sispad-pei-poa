@@ -1,6 +1,7 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+﻿import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpClientTestingModule } from '@angular/common/http/testing';
 import { RouterTestingModule } from '@angular/router/testing';
+import { FormsModule } from '@angular/forms';
 import { of, throwError } from 'rxjs';
 import { EvaluacionListaComponent } from './evaluacion-lista.component';
 import { EvaluacionService } from './evaluacion.service';
@@ -26,7 +27,7 @@ describe('EvaluacionListaComponent', () => {
 
     await TestBed.configureTestingModule({
       declarations: [EvaluacionListaComponent],
-      imports: [HttpClientTestingModule, RouterTestingModule],
+      imports: [HttpClientTestingModule, RouterTestingModule, FormsModule],
       providers: [
         { provide: EvaluacionService, useValue: evaluacionServiceSpy },
         { provide: Router, useValue: routerSpy },

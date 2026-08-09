@@ -251,7 +251,10 @@ class TestSiguienteCorrelativo:
 
 @pytest.mark.django_db(transaction=True)
 def test_carrera_inicial_crea_una_secuencia_sin_duplicar():
-    entidad_id = EntidadCodificadora.objects.get(codigo='1312').pk
+    entidad, _ = EntidadCodificadora.objects.get_or_create(
+        codigo='1312', defaults={'denominacion': 'GAM Sacaba'},
+    )
+    entidad_id = entidad.pk
     padre_id = uuid.uuid4()
     inicio = threading.Barrier(3)
     resultados = Queue()

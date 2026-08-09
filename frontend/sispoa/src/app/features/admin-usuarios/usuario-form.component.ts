@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { AdminUsuariosService, Usuario, Rol } from './admin-usuarios.service';
+import { AdminUsuariosService, AdminUsuario, AdminRol } from './admin-usuarios.service';
 
 @Component({
   standalone: false,
@@ -87,8 +87,8 @@ import { AdminUsuariosService, Usuario, Rol } from './admin-usuarios.service';
   `]
 })
 export class UsuarioFormComponent implements OnInit {
-  usuario: Partial<Usuario> = { email: '', first_name: '', last_name: '', is_active: true, roles: [] };
-  rolesDisponibles: Rol[] = [];
+  usuario: Partial<AdminUsuario> = { email: '', first_name: '', last_name: '', is_active: true, roles: [] };
+  rolesDisponibles: AdminRol[] = [];
   esEdicion = false;
   cargando = true;
   guardando = false;

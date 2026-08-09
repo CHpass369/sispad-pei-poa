@@ -1,3 +1,4 @@
+from decimal import Decimal
 from rest_framework import serializers
 from .models import (
     Indicador, MetaProgramada, Operacion, Tarea,
@@ -48,7 +49,6 @@ class MetaProgramadaSerializer(serializers.ModelSerializer):
 
         trimestres = [t for t in [t1, t2, t3, t4] if t is not None]
         if trimestres and meta_anual is not None:
-            from decimal import Decimal
             suma = sum(Decimal(str(t)) for t in trimestres)
             if suma != Decimal(str(meta_anual)):
                 raise serializers.ValidationError(

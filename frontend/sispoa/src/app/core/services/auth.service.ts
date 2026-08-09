@@ -69,7 +69,7 @@ export class AuthService {
 
   /** Carga el usuario (usado desde init, sin esperar respuesta) */
   loadUser(): void {
-    this.fetchUser().subscribe();
+    this.fetchUser().subscribe({ error: () => undefined });
   }
 
   isAuthenticated(): boolean {

@@ -32,6 +32,7 @@ from apps.organizacion.models import UnidadOrganizacional
 from apps.techos.models import TechoPresupuestario, DistribucionTecho
 from apps.inversion.models import ProyectoInversion
 from apps.workflow.models import Observacion, Aprobacion
+from apps.core.semaforo import determinar_semaforo
 from apps.articulacion.models import (
     ArticulacionPADPEI, ProductoPAD, ProductoPEI, ResultadoPAD, ResultadoPEI,
     AccionPOA, OperacionPOAU, ActividadPOAU, TareaPOAU,
@@ -740,12 +741,7 @@ def reporte_avance_programacion(gestion):
         pct_fisico = float(total_ejec_fis / total_prog_fis * 100) if total_prog_fis > 0 else 0
         pct_financiero = float(total_ejec_fin / total_prog_fin * 100) if total_prog_fin > 0 else 0
 
-        if pct_fisico >= 80:
-            semaforo = 'verde'
-        elif pct_fisico >= 50:
-            semaforo = 'amarillo'
-        else:
-            semaforo = 'rojo'
+        semaforo = determinar_semaforo(pct_fisico)
 
         resultados.append({
             'poau_id': str(poau.id),

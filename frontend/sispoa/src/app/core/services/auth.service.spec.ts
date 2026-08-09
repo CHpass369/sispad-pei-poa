@@ -55,13 +55,16 @@ describe('AuthService', () => {
       const credentials: LoginRequest = { email: 'test@example.com', password: '123456' };
 
       service.login(credentials).subscribe(res => {
-        expect(res).toEqual(mockLoginResponse);
+        expect(res).toEqual(mockUser);
       });
 
       const req = httpMock.expectOne(`${environment.apiUrl}/auth/login/`);
       expect(req.request.method).toBe('POST');
       expect(req.request.body).toEqual(credentials);
       req.flush(mockLoginResponse);
+
+      const userReq = httpMock.expectOne(`${environment.apiUrl}/auth/usuarios/me/`);
+      userReq.flush(mockUser);
     });
 
     it('should store token in localStorage after login', () => {
@@ -210,7 +213,7 @@ describe('AuthService', () => {
 
     it('should not make HTTP request when no token', () => {
       service.init();
-      httpMock.expectNoneUnknown();
+      httpMock.verify();
     });
   });
 });

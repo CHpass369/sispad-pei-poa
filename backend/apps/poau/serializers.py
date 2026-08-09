@@ -1,7 +1,15 @@
 from rest_framework import serializers
 from .models import POAU, POAUActividad, EjecucionFisica, EjecucionFinanciera
 from apps.planificacion.models import AccionCortoPlazo
-from apps.core.validators import validar_ejecucion_no_negativa
+from apps.core.validators import validar_valor_no_negativo
+from apps.core.serializer_mixins import EjecucionNoNegativaMixin
+
+
+def _validar_meta_trimestral(value, trimestre):
+    mensaje = validar_valor_no_negativo(value, f'Meta {trimestre}')
+    if mensaje:
+        raise serializers.ValidationError(mensaje)
+    return value
 
 
 class POAUActividadSerializer(serializers.ModelSerializer):
@@ -29,24 +37,16 @@ class POAUActividadSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'avance']
 
     def validate_meta_q1(self, value):
-        if value is not None and value < 0:
-            raise serializers.ValidationError('Meta Q1 no puede ser negativa')
-        return value
+        return _validar_meta_trimestral(value, 'Q1')
 
     def validate_meta_q2(self, value):
-        if value is not None and value < 0:
-            raise serializers.ValidationError('Meta Q2 no puede ser negativa')
-        return value
+        return _validar_meta_trimestral(value, 'Q2')
 
     def validate_meta_q3(self, value):
-        if value is not None and value < 0:
-            raise serializers.ValidationError('Meta Q3 no puede ser negativa')
-        return value
+        return _validar_meta_trimestral(value, 'Q3')
 
     def validate_meta_q4(self, value):
-        if value is not None and value < 0:
-            raise serializers.ValidationError('Meta Q4 no puede ser negativa')
-        return value
+        return _validar_meta_trimestral(value, 'Q4')
 
     def validate(self, attrs):
         trimestres = [
@@ -152,29 +152,15 @@ class POAUSerializer(serializers.ModelSerializer):
         return data
 
 
-class EjecucionFisicaSerializer(serializers.ModelSerializer):
+class EjecucionFisicaSerializer(EjecucionNoNegativaMixin, serializers.ModelSerializer):
     class Meta:
         model = EjecucionFisica
         fields = '__all__'
         read_only_fields = ['id']
 
-    def validate(self, data):
-        ejecutado = data.get('ejecutado', getattr(self.instance, 'ejecutado', None))
-        resultado = validar_ejecucion_no_negativa(ejecutado)
-        if not resultado['valido']:
-            raise serializers.ValidationError({'ejecutado': resultado['mensaje']})
-        return data
 
-
-class EjecucionFinancieraSerializer(serializers.ModelSerializer):
+class EjecucionFinancieraSerializer(EjecucionNoNegativaMixin, serializers.ModelSerializer):
     class Meta:
         model = EjecucionFinanciera
         fields = '__all__'
         read_only_fields = ['id']
-
-    def validate(self, data):
-        ejecutado = data.get('ejecutado', getattr(self.instance, 'ejecutado', None))
-        resultado = validar_ejecucion_no_negativa(ejecutado)
-        if not resultado['valido']:
-            raise serializers.ValidationError({'ejecutado': resultado['mensaje']})
-        return data

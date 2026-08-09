@@ -79,6 +79,6 @@ describe('PortalInicioComponent', () => {
   it('should pass params to service call', () => {
     fixture.detectChanges();
 
-    expect(portalServiceSpy.obtenerResumenEjecucion).toHaveBeenCalledWith(undefined);
+    expect(portalServiceSpy.obtenerResumenEjecucion).toHaveBeenCalledWith();
   });
 });

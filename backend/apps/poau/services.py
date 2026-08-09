@@ -4,6 +4,7 @@ from django.db import transaction
 from .models import (
     POAU, POAUActividad, EjecucionFisica, EjecucionFinanciera,
 )
+from apps.core.semaforo import determinar_semaforo
 
 
 @transaction.atomic
@@ -130,14 +131,8 @@ def calcular_semaforo(poau_id):
         avance = (total_ejecutado / total_programado * 100).quantize(Decimal('0.01'))
     else:
         avance = Decimal('0')
-    if avance >= Decimal('80'):
-        semaforo = 'verde'
-    elif avance >= Decimal('50'):
-        semaforo = 'amarillo'
-    else:
-        semaforo = 'rojo'
     return {
-        'semaforo': semaforo,
+        'semaforo': determinar_semaforo(avance),
         'avance_porcentaje': avance,
         'total_programado': total_programado,
         'total_ejecutado': total_ejecutado,

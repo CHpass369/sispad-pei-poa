@@ -6,6 +6,7 @@ from django.utils import timezone
 from .models import (
     EntradaSeguimiento, Alerta, UmbralConfiguracion, ReporteSeguimiento,
 )
+from apps.core.semaforo import determinar_semaforo
 
 
 def _safe_divide(numerator, denominator):
@@ -95,21 +96,6 @@ def calcular_proyeccion_cierre(entry):
         'dias_transcurridos': dias_transcurridos,
         'dias_totales': dias_totales,
     }
-
-
-def determinar_semaforo(percentage):
-    """Retorna el color del semaforo basado en el porcentaje.
-
-    Verde: >= 80%
-    Amarillo: 50% - 79%
-    Rojo: < 50%
-    """
-    p = _safe_decimal(percentage)
-    if p >= Decimal('80'):
-        return 'verde'
-    elif p >= Decimal('50'):
-        return 'amarillo'
-    return 'rojo'
 
 
 def obtener_umbrales():

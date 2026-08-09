@@ -1,6 +1,7 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+﻿import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpClientTestingModule } from '@angular/common/http/testing';
 import { RouterTestingModule } from '@angular/router/testing';
+import { FormsModule } from '@angular/forms';
 import { of, throwError } from 'rxjs';
 import { ModificacionesListaComponent } from './modificaciones-lista.component';
 import { ModificacionesService } from './modificaciones.service';
@@ -13,8 +14,8 @@ describe('ModificacionesListaComponent', () => {
   let routerSpy: jasmine.SpyObj<Router>;
 
   const mockSolicitudes = [
-    { id: 1, tipo: 'Prórroga', entidad: 'UE 1', solicitado_por: 'User 1', estado: 'pendiente', fecha_solicitud: '2024-01-15' },
-    { id: 2, tipo: 'Reasignación', entidad: 'UE 2', solicitado_por: 'User 2', estado: 'aprobada', fecha_solicitud: '2024-02-20' },
+    { id: 1, tipo: 'PrÃ³rroga', entidad: 'UE 1', solicitado_por: 'User 1', estado: 'pendiente', fecha_solicitud: '2024-01-15' },
+    { id: 2, tipo: 'ReasignaciÃ³n', entidad: 'UE 2', solicitado_por: 'User 2', estado: 'aprobada', fecha_solicitud: '2024-02-20' },
   ];
 
   beforeEach(async () => {
@@ -25,7 +26,7 @@ describe('ModificacionesListaComponent', () => {
 
     await TestBed.configureTestingModule({
       declarations: [ModificacionesListaComponent],
-      imports: [HttpClientTestingModule, RouterTestingModule],
+      imports: [HttpClientTestingModule, RouterTestingModule, FormsModule],
       providers: [
         { provide: ModificacionesService, useValue: modificacionesServiceSpy },
         { provide: Router, useValue: routerSpy },
@@ -81,12 +82,12 @@ describe('ModificacionesListaComponent', () => {
   it('should filter modifications when searching', () => {
     fixture.detectChanges();
 
-    component.busqueda = 'Prórroga';
+    component.busqueda = 'PrÃ³rroga';
     modificacionesServiceSpy.listar.and.returnValue(of([mockSolicitudes[0]] as any));
 
     component.cargar();
 
-    expect(modificacionesServiceSpy.listar).toHaveBeenCalledWith({ search: 'Prórroga' });
+    expect(modificacionesServiceSpy.listar).toHaveBeenCalledWith({ search: 'PrÃ³rroga' });
   });
 
   it('should handle results wrapper in response', () => {

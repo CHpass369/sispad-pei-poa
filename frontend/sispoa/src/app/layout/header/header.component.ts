@@ -51,7 +51,6 @@ import { AuthService } from '../../core/services/auth.service';
   `]
 })
 export class HeaderComponent {
-  @Input() sidebarCollapsed = false;
   @Output() toggleSidebar = new EventEmitter<void>();
 
   pageTitle = 'SISPOA Sacaba';
