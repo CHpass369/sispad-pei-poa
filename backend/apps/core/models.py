@@ -63,3 +63,57 @@ class DemoDatasetManifest(models.Model):
 
     def __str__(self):
         return self.namespace
+
+
+class LegacyMigrationMap(models.Model):
+    """Traza técnica legacy→V2 (ADR-004, WP-05).
+
+    Registra cada registro legacy y su destino V2 durante la migración
+    expand→backfill→reconciliar→cortar→retirar. Los checksums permiten
+    reconciliación automática.
+    """
+
+    class Estados:
+        PENDIENTE = 'pendiente'
+        MIGRADO = 'migrado'
+        RECONCILIADO = 'reconciliado'
+        DISCREPANCIA = 'discrepancia'
+        RETIRADO = 'retirado'
+
+        CHOICES = [
+            (PENDIENTE, 'Pendiente'),
+            (MIGRADO, 'Migrado'),
+            (RECONCILIADO, 'Reconciliado'),
+            (DISCREPANCIA, 'Discrepancia'),
+            (RETIRADO, 'Retirado'),
+        ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    app_legacy = models.CharField(max_length=100)
+    modelo_legacy = models.CharField(max_length=100)
+    uuid_legacy = models.UUIDField()
+    tipo_destino = models.CharField(max_length=100, blank=True, default='')
+    uuid_destino = models.UUIDField(null=True, blank=True)
+    lote = models.CharField(max_length=100, default='inicial')
+    checksum = models.CharField(max_length=64, blank=True, default='')
+    estado = models.CharField(
+        max_length=20, choices=Estados.CHOICES, default=Estados.PENDIENTE,
+    )
+    observaciones = models.TextField(blank=True, default='')
+    fecha = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Mapa de migración legacy'
+        verbose_name_plural = 'Mapas de migración legacy'
+        ordering = ['app_legacy', 'modelo_legacy', 'uuid_legacy']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['app_legacy', 'modelo_legacy', 'uuid_legacy'],
+                name='uniq_legacy_registro',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.app_legacy}.{self.modelo_legacy}:{self.uuid_legacy}'
