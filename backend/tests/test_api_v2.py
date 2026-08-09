@@ -52,10 +52,16 @@ def test_me_retrieve_es_equivalente_al_list(auth_client_v2):
 
 @pytest.mark.parametrize('namespace', ['platform', 'sis-pe', 'sis-poa', 'sis-pro'])
 def test_namespaces_v2_responden(auth_client_v2, namespace):
-    """Los namespaces existen y responden (vacíos mientras no haya rutas)."""
+    """Los namespaces existen y responden su API root."""
     response = auth_client_v2.get(f'/api/v2/{namespace}/')
     assert response.status_code == 200
-    assert response.json() == {}
+    if namespace == 'sis-pe':
+        # WP-04: el kernel estratégico ya registra rutas
+        payload = response.json()
+        assert payload
+        assert 'instrumentos' in str(payload)
+    else:
+        assert response.json() == {}
 
 
 def test_schema_v2_exporta_openapi(auth_client_v2):

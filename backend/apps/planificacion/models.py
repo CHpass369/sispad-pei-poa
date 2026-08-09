@@ -209,3 +209,22 @@ class PlanVersion(TimeStampedModel):
 
     def __str__(self):
         return f'{self.plan} v{self.version_number} - {self.version_name}'
+
+
+# =============================================================================
+# Kernel estratégico V2 (WP-04 / SIS-PE) — modelos genéricos parametrizables
+# =============================================================================
+from apps.planificacion.models_v2 import (  # noqa: F401,E402
+    TipoInstrumento,
+    VersionMetodologia,
+    InstrumentoPlanificacion,
+    VersionInstrumento,
+    TipoNodoEstrategico,
+    NodoEstrategico,
+    TipoVinculoEstrategico,
+    VinculoEstrategico,
+    EstadosInstrumento,
+    EstadosMetodologia,
+    NivelesInstrumento,
+)
+

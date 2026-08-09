@@ -13,11 +13,26 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from apps.accounts.views_v2 import MeViewSet
+from apps.planificacion.views_v2 import (
+    InstrumentoViewSet,
+    MetodologiaViewSet,
+    NodoViewSet,
+    TipoInstrumentoViewSet,
+    VersionViewSet,
+    VinculoViewSet,
+)
 
 platform_router = DefaultRouter()
 sis_pe_router = DefaultRouter()
 sis_poa_router = DefaultRouter()
 sis_pro_router = DefaultRouter()
+
+sis_pe_router.register('instrumentos', InstrumentoViewSet, basename='v2-instrumentos')
+sis_pe_router.register('versiones', VersionViewSet, basename='v2-versiones')
+sis_pe_router.register('nodos', NodoViewSet, basename='v2-nodos')
+sis_pe_router.register('vinculos', VinculoViewSet, basename='v2-vinculos')
+sis_pe_router.register('tipos-instrumento', TipoInstrumentoViewSet, basename='v2-tipos-instrumento')
+sis_pe_router.register('metodologias', MetodologiaViewSet, basename='v2-metodologias')
 
 me_router = DefaultRouter()
 me_router.register('me', MeViewSet, basename='v2-me')

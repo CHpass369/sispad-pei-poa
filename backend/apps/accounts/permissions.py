@@ -48,3 +48,19 @@ class TieneCapacidad(permissions.BasePermission):
 
     def has_object_permission(self, request, view, obj):
         return self.has_permission(request, view)
+
+
+class TieneAlgunaCapacidad(permissions.BasePermission):
+    """Permiso DRF: el usuario debe tener al menos una de las capacidades."""
+
+    def __init__(self, *codigos_capacidad):
+        self.codigos_capacidad = codigos_capacidad
+
+    def has_permission(self, request, view):
+        return any(
+            tiene_capacidad(request.user, codigo)
+            for codigo in self.codigos_capacidad
+        )
+
+    def has_object_permission(self, request, view, obj):
+        return self.has_permission(request, view)
