@@ -159,3 +159,20 @@ class Aprobacion(TimeStampedModel):
 
     def __str__(self):
         return f'{self.get_tipo_display()} - {self.estado} ({self.gestion} v{self.version})'
+
+
+# =============================================================================
+# Workflow configurable V2 (WP-08) - modelos genericos por entidad
+# =============================================================================
+from apps.workflow.models_v2 import (  # noqa: F401,E402
+    WorkflowDefinition,
+    WorkflowStepDefinition,
+    WorkflowTransition,
+    WorkflowInstance,
+    WorkflowTask,
+    WorkflowObservacion,
+    WorkflowAprobacion,
+    Delegacion,
+    EstadosTarea,
+)
+

@@ -34,6 +34,13 @@ class Evaluacion(TimeStampedModel):
         'planificacion.Plan', on_delete=models.PROTECT,
         related_name='evaluaciones',
         verbose_name='Plan',
+        null=True, blank=True,
+    )
+    # V2 (WP-08): evaluación ligada a una versión específica del kernel
+    version_instrumento = models.ForeignKey(
+        'planificacion.VersionInstrumento', null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='evaluaciones',
+        verbose_name='Versión de instrumento (V2)',
     )
     fiscal_year = models.PositiveIntegerField(verbose_name='Gestión')
     evaluation_type = models.CharField(

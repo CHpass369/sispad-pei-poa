@@ -13,6 +13,11 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from apps.accounts.views_v2 import MeViewSet
+from apps.evaluacion.views_v2 import (
+    EvaluacionV2ViewSet,
+    LeccionV2ViewSet,
+    RecomendacionV2ViewSet,
+)
 from apps.planificacion.views_v2 import (
     InstrumentoViewSet,
     MetodologiaViewSet,
@@ -20,6 +25,11 @@ from apps.planificacion.views_v2 import (
     TipoInstrumentoViewSet,
     VersionViewSet,
     VinculoViewSet,
+)
+from apps.workflow.views_v2 import (
+    DefinicionViewSet,
+    InstanciaViewSet,
+    TareaViewSet,
 )
 
 platform_router = DefaultRouter()
@@ -33,6 +43,13 @@ sis_pe_router.register('nodos', NodoViewSet, basename='v2-nodos')
 sis_pe_router.register('vinculos', VinculoViewSet, basename='v2-vinculos')
 sis_pe_router.register('tipos-instrumento', TipoInstrumentoViewSet, basename='v2-tipos-instrumento')
 sis_pe_router.register('metodologias', MetodologiaViewSet, basename='v2-metodologias')
+sis_pe_router.register('evaluaciones', EvaluacionV2ViewSet, basename='v2-evaluaciones')
+sis_pe_router.register('lecciones', LeccionV2ViewSet, basename='v2-lecciones')
+sis_pe_router.register('recomendaciones', RecomendacionV2ViewSet, basename='v2-recomendaciones')
+
+platform_router.register('workflow-definiciones', DefinicionViewSet, basename='v2-workflow-definiciones')
+platform_router.register('workflow-instancias', InstanciaViewSet, basename='v2-workflow-instancias')
+platform_router.register('workflow-tareas', TareaViewSet, basename='v2-workflow-tareas')
 
 me_router = DefaultRouter()
 me_router.register('me', MeViewSet, basename='v2-me')

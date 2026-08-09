@@ -28,3 +28,4 @@ Documentación de la Plataforma Integral de Planificación del GAM Sacaba
 | WP-05 | LegacyMigrationMap + dry-run | ✅ Completado |
 | WP-06 | Importación PGDESA/PDESA | ✅ Completado |
 | WP-07 | Migración PAD | ✅ Completado |
+| WP-08 | Workflow, evaluación y ajustes SIS-PE | ✅ Completado |
