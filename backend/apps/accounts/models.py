@@ -33,6 +33,9 @@ class Rol(models.Model):
     es_sistema = models.BooleanField(default=False)
     activo = models.BooleanField(default=True)
     orden = models.PositiveIntegerField(default=0)
+    capacidades = models.ManyToManyField(
+        'Capacidad', related_name='roles', blank=True,
+    )
 
     class Meta:
         verbose_name = 'Rol'
@@ -41,6 +44,59 @@ class Rol(models.Model):
 
     def __str__(self):
         return self.nombre
+
+
+class Capacidad(models.Model):
+    """Permiso atómico `<sistema>.<dominio>.<accion>` (ADR-003).
+
+    El frontend construye menú y acciones a partir de las capacidades del
+    usuario (`/api/v2/me/capabilities`); los roles no se codifican en
+    componentes.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    codigo = models.CharField(max_length=100, unique=True)
+    nombre = models.CharField(max_length=200)
+    descripcion = models.TextField(blank=True)
+    sistema = models.CharField(max_length=20, blank=True, default='')
+    activo = models.BooleanField(default=True)
+    orden = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Capacidad'
+        verbose_name_plural = 'Capacidades'
+        ordering = ['sistema', 'orden', 'codigo']
+
+    def __str__(self):
+        return f'[{self.sistema}] {self.codigo}'
+
+
+class AlcanceOrganizacional(models.Model):
+    """Restringe la actuación de un usuario a unidades organizacionales."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    usuario = models.ForeignKey(
+        'Usuario', related_name='alcances_organizacionales',
+        on_delete=models.CASCADE,
+    )
+    unidad = models.ForeignKey(
+        'organizacion.UnidadOrganizacional',
+        related_name='alcances_usuarios',
+        on_delete=models.CASCADE,
+    )
+    vigente_desde = models.DateField(null=True, blank=True)
+    vigente_hasta = models.DateField(null=True, blank=True)
+    activo = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Alcance organizacional'
+        verbose_name_plural = 'Alcances organizacionales'
+        ordering = ['usuario', 'unidad']
+
+    def __str__(self):
+        return f'{self.usuario} → {self.unidad}'
 
 
 class Usuario(AbstractUser):

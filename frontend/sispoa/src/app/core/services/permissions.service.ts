@@ -1,9 +1,13 @@
 import { Injectable } from '@angular/core';
 import { AuthService } from './auth.service';
+import { CapabilitiesService } from './capabilities.service';
 
 @Injectable({ providedIn: 'root' })
 export class PermissionsService {
-  constructor(private authService: AuthService) {}
+  constructor(
+    private authService: AuthService,
+    private capabilitiesService: CapabilitiesService,
+  ) {}
 
   /** Superuser tiene acceso a todo, sin importar roles asignados */
   private get isSuperuser(): boolean {
@@ -16,6 +20,15 @@ export class PermissionsService {
 
   hasAnyRole(roles: string[]): boolean {
     return this.isSuperuser || roles.some(role => this.hasRole(role));
+  }
+
+  /** Autorización V2 por capacidad (ADR-003): el backend es la autoridad. */
+  hasCapability(codigo: string): boolean {
+    return this.isSuperuser || this.capabilitiesService.tiene(codigo);
+  }
+
+  hasAnyCapability(codigos: string[]): boolean {
+    return this.isSuperuser || this.capabilitiesService.tieneAlguna(codigos);
   }
 
   canEdit(): boolean {

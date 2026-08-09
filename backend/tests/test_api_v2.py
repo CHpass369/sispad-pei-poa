@@ -7,9 +7,7 @@ from apps.accounts.models import Rol, Usuario
 
 @pytest.fixture
 def usuario_v2(db):
-    rol = Rol.objects.create(
-        codigo='superadmin', nombre='Superadministrador', es_sistema=True,
-    )
+    rol = Rol.objects.get(codigo='superadmin')
     user = Usuario.objects.create_user(
         email='v2@test.gob.bo', password='test123',
         first_name='V2', last_name='Test',
@@ -39,10 +37,10 @@ def test_me_devuelve_identidad_del_usuario(auth_client_v2, usuario_v2):
     assert data['email'] == 'v2@test.gob.bo'
     assert data['first_name'] == 'V2'
     assert data['roles'] == [
-        {'codigo': 'superadmin', 'nombre': 'Superadministrador'}
+        {'codigo': 'superadmin', 'nombre': 'Superadministrador Tecnico'}
     ]
-    # Capacidades y alcances se completan en WP-03 (IAM)
-    assert data['capabilities'] == []
+    # superadmin tiene todas las capacidades (WP-03 / ADR-003)
+    assert 'platform.users.manage' in data['capabilities']
     assert data['alcances'] == []
 
 
