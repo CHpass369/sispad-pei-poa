@@ -38,7 +38,7 @@ class Command(BaseCommand):
         parser.add_argument('--destino-tipo', dest='destino_tipo', default='')
         parser.add_argument('--destino-uuid', dest='destino_uuid', default='')
         parser.add_argument('--apps', nargs='*', default=None)
-        parser.add_argument('--lote', default='inicial')
+        parser.add_argument('--lote', default=None)
         parser.add_argument('--dry-run', action='store_true')
 
     def handle(self, *args, **options):
@@ -88,7 +88,7 @@ class Command(BaseCommand):
                     uuid_legacy=obj.pk,
                     defaults={
                         'checksum': checksum_registro(obj),
-                        'lote': options['lote'],
+                        'lote': options['lote'] or 'inicial',
                     },
                 )
                 creados += int(was_created)
@@ -129,14 +129,14 @@ class Command(BaseCommand):
                 modelo_legacy=model._meta.model_name,
                 uuid_legacy=obj.pk,
                 defaults={
-                    'lote': options['lote'],
+                    'lote': options['lote'] or 'inicial',
                     'checksum': checksum_registro(obj),
                 },
             )
             entry.tipo_destino = options['destino_tipo']
             entry.uuid_destino = destino_uuid
             entry.estado = LegacyMigrationMap.Estados.MIGRADO
-            entry.lote = options['lote']
+            entry.lote = options['lote'] or 'inicial'
             entry.checksum = checksum_registro(obj)
             entry.observaciones = ''
             entry.save()
@@ -157,6 +157,8 @@ class Command(BaseCommand):
         qs = LegacyMigrationMap.objects.filter(
             estado=LegacyMigrationMap.Estados.MIGRADO,
         )
+        if options['lote']:
+            qs = qs.filter(lote=options['lote'])
         total = 0
         ok = 0
         discrep = 0
