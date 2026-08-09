@@ -55,13 +55,13 @@ def test_namespaces_v2_responden(auth_client_v2, namespace):
     """Los namespaces existen y responden su API root."""
     response = auth_client_v2.get(f'/api/v2/{namespace}/')
     assert response.status_code == 200
-    if namespace == 'sis-pe':
-        # WP-04: el kernel estratégico ya registra rutas
-        payload = response.json()
+    payload = response.json()
+    if namespace in ('sis-pe', 'platform'):
+        # WP-04/WP-08: kernel estratégico y workflow ya registran rutas
         assert payload
-        assert 'instrumentos' in str(payload)
+        assert 'instrumentos' in str(payload) or 'workflow' in str(payload)
     else:
-        assert response.json() == {}
+        assert payload == {}
 
 
 def test_schema_v2_exporta_openapi(auth_client_v2):
