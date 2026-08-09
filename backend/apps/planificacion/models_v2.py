@@ -446,8 +446,9 @@ class VinculoEstrategico(models.Model):
             errors['version'] = 'No se puede modificar una versión aprobada (inmutable).'
         if self.origen_id == self.destino_id:
             errors['destino'] = 'No se permite la auto-articulación.'
-        if self.origen.version_id != self.version_id or self.destino.version_id != self.version_id:
-            errors['version'] = 'Origen y destino deben pertenecer a esta versión.'
+        # El vínculo pertenece a la versión propietaria (origen); el destino
+        # puede pertenecer a otra versión (articulación entre instrumentos,
+        # p.ej. PAD → marco superior nacional).
         tipo = self.tipo
         if self.origen.tipo_nodo_id != tipo.origen_permitido_id:
             errors['origen'] = (
