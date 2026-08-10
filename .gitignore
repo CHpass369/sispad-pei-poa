@@ -47,3 +47,6 @@ auxiliar_pluri.xlsx
 .coverage
 htmlcov/
 
+
+# Artefactos externos
+*.zip
