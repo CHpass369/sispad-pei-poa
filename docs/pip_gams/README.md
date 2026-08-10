@@ -32,3 +32,4 @@ Documentación de la Plataforma Integral de Planificación del GAM Sacaba
 | WP-09 | Frontend SIS-PE V2 y corte | ✅ Completado (módulo SIS-PE + menú por capacidades) |
 | WP-10 | SIS-POA V2 | ✅ Completado (jerarquía canónica + importación) |
 | WP-11 | SIS-PRO V2 | ✅ Completado (ciclo del proyecto + trazabilidad) |
+| WP-12 | Infraestructura y servicios | ✅ Completado (health, beat, logging, pinning, Keycloak separado) |

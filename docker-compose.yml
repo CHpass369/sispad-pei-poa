@@ -39,6 +39,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme-segura}
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
     networks:
       - backend-net
     healthcheck:
@@ -95,6 +96,18 @@ services:
       - async-net
     expose:
       - "8000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/')",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
 
   # --- Frontend Angular ---
   frontend:
@@ -119,7 +132,7 @@ services:
   # o usa solo un perfil a la vez.
   nginx-proxy:
     container_name: sispoa-nginx
-    image: nginx:alpine
+    image: nginx:1.27-alpine
     profiles: [full]
     restart: unless-stopped
     volumes:
@@ -160,6 +173,18 @@ services:
     networks:
       - backend-net
       - async-net
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/')",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
 
   # --- Celery Beat (tareas programadas) ---
   celery-beat:
@@ -189,15 +214,15 @@ services:
   # --- MinIO S3 — almacenamiento de objetos (Fase 4) ---
   minio:
     container_name: sispoa-minio
-    image: minio/minio:latest
+    image: minio/minio:RELEASE.2024-01-16T16-07-38Z
     command: server /data --console-address ":9001"
     profiles: [full]
     restart: unless-stopped
     volumes:
       - minio_data:/data
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-sispoa_admin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-changeme-minio-segura}
     ports:
       - "9000:9000"
       - "9001:9001"
@@ -239,6 +264,8 @@ services:
 
   # --- Keycloak — OIDC Provider (Fase 5) ---
   # Solo se levanta con --profile full
+  # ADR-001 §16.3: Keycloak usa base de datos y credenciales SEPARADAS de los
+  # datos de negocio (creada por infra/postgres/init/01-keycloak-db.sql).
   keycloak:
     container_name: sispoa-keycloak
     image: quay.io/keycloak/keycloak:25.0.1
@@ -251,9 +278,9 @@ services:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_BOOTSTRAP_ADMIN_USERNAME:-admin}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_BOOTSTRAP_ADMIN_PASSWORD:-keycloak_secret}
       KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://sispoa-postgres:5432/${POSTGRES_DB:-gams_sis_poa}
-      KC_DB_USERNAME: ${POSTGRES_USER:-sispoa_user}
-      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:-changeme-segura}
+      KC_DB_URL: jdbc:postgresql://sispoa-postgres:5432/${KEYCLOAK_DB_NAME:-keycloak}
+      KC_DB_USERNAME: ${KEYCLOAK_DB_USER:-keycloak_user}
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-changeme-keycloak-db}
       KC_HOSTNAME: localhost
       KC_HTTP_PORT: 8080
       KC_HEALTH_ENABLED: "true"
