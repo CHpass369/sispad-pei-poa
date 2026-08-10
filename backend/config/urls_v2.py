@@ -18,6 +18,13 @@ from apps.evaluacion.views_v2 import (
     LeccionV2ViewSet,
     RecomendacionV2ViewSet,
 )
+from apps.inversion.views_v2 import (
+    CondicionViewSet,
+    CostoViewSet,
+    DocumentoViewSet,
+    ProyectoViewSet,
+    VinculoViewSet,
+)
 from apps.planificacion.views_v2 import (
     InstrumentoViewSet,
     MetodologiaViewSet,
@@ -61,6 +68,12 @@ sis_poa_router.register('operaciones', OperacionViewSet, basename='v2-operacione
 sis_poa_router.register('actividades', ActividadViewSet, basename='v2-actividades')
 sis_poa_router.register('tareas', TareaViewSet, basename='v2-tareas')
 sis_poa_router.register('programaciones', ProgramacionViewSet, basename='v2-programaciones')
+
+sis_pro_router.register('proyectos', ProyectoViewSet, basename='v2-proyectos')
+sis_pro_router.register('condiciones', CondicionViewSet, basename='v2-condiciones')
+sis_pro_router.register('documentos', DocumentoViewSet, basename='v2-documentos-proyecto')
+sis_pro_router.register('costos', CostoViewSet, basename='v2-costos-proyecto')
+sis_pro_router.register('vinculos', VinculoViewSet, basename='v2-vinculos-proyecto')
 
 platform_router.register('workflow-definiciones', DefinicionViewSet, basename='v2-workflow-definiciones')
 platform_router.register('workflow-instancias', InstanciaViewSet, basename='v2-workflow-instancias')

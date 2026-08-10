@@ -78,3 +78,19 @@ class ProgramacionFisicaFinanciera(TimeStampedModel):
         verbose_name = 'Programación física y financiera'
         verbose_name_plural = 'Programaciones físicas y financieras'
         unique_together = [('proyecto', 'gestion')]
+
+
+# =============================================================================
+# SIS-PRO V2 (WP-11): ciclo del proyecto
+# =============================================================================
+from apps.inversion.models_v2 import (  # noqa: F401,E402
+    Proyecto,
+    CondicionPrevia,
+    DocumentoTecnico,
+    CostoProyecto,
+    VinculoProyectoActividad,
+    ProyectoTerritorio,
+    FasesProyecto,
+    EstadosProyecto,
+)
+
