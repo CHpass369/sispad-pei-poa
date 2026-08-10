@@ -26,10 +26,18 @@ from apps.planificacion.views_v2 import (
     VersionViewSet,
     VinculoViewSet,
 )
+from apps.poau.views_v2 import (
+    AccionViewSet,
+    ActividadViewSet,
+    OperacionViewSet,
+    PoAViewSet,
+    ProgramacionViewSet,
+    TareaViewSet,
+)
 from apps.workflow.views_v2 import (
     DefinicionViewSet,
     InstanciaViewSet,
-    TareaViewSet,
+    TareaViewSet as WorkflowTareaViewSet,
 )
 
 platform_router = DefaultRouter()
@@ -47,9 +55,16 @@ sis_pe_router.register('evaluaciones', EvaluacionV2ViewSet, basename='v2-evaluac
 sis_pe_router.register('lecciones', LeccionV2ViewSet, basename='v2-lecciones')
 sis_pe_router.register('recomendaciones', RecomendacionV2ViewSet, basename='v2-recomendaciones')
 
+sis_poa_router.register('poas', PoAViewSet, basename='v2-poas')
+sis_poa_router.register('acciones', AccionViewSet, basename='v2-acciones-poa')
+sis_poa_router.register('operaciones', OperacionViewSet, basename='v2-operaciones')
+sis_poa_router.register('actividades', ActividadViewSet, basename='v2-actividades')
+sis_poa_router.register('tareas', TareaViewSet, basename='v2-tareas')
+sis_poa_router.register('programaciones', ProgramacionViewSet, basename='v2-programaciones')
+
 platform_router.register('workflow-definiciones', DefinicionViewSet, basename='v2-workflow-definiciones')
 platform_router.register('workflow-instancias', InstanciaViewSet, basename='v2-workflow-instancias')
-platform_router.register('workflow-tareas', TareaViewSet, basename='v2-workflow-tareas')
+platform_router.register('workflow-tareas', WorkflowTareaViewSet, basename='v2-workflow-tareas')
 
 me_router = DefaultRouter()
 me_router.register('me', MeViewSet, basename='v2-me')

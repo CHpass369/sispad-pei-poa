@@ -56,10 +56,14 @@ def test_namespaces_v2_responden(auth_client_v2, namespace):
     response = auth_client_v2.get(f'/api/v2/{namespace}/')
     assert response.status_code == 200
     payload = response.json()
-    if namespace in ('sis-pe', 'platform'):
-        # WP-04/WP-08: kernel estratégico y workflow ya registran rutas
+    if namespace in ('sis-pe', 'platform', 'sis-poa'):
+        # WP-04/WP-08/WP-10: kernel, workflow y SIS-POA ya registran rutas
         assert payload
-        assert 'instrumentos' in str(payload) or 'workflow' in str(payload)
+        assert (
+            'instrumentos' in str(payload)
+            or 'workflow' in str(payload)
+            or 'poas' in str(payload)
+        )
     else:
         assert payload == {}
 

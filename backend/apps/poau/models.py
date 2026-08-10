@@ -185,3 +185,18 @@ class EjecucionFinanciera(models.Model):
 
     def __str__(self):
         return f'{self.actividad.codigo} — {self.periodo}'
+
+
+# =============================================================================
+# SIS-POA V2 (WP-10): jerarquia operativa canonica
+# =============================================================================
+from apps.poau.models_v2 import (  # noqa: F401,E402
+    PoAInstitucional,
+    AccionCortoPlazo,
+    Operacion,
+    Actividad,
+    Tarea,
+    ProgramacionActividad,
+    EstadosPoA,
+)
+
