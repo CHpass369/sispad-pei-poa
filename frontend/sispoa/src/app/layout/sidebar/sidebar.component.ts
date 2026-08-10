@@ -161,15 +161,23 @@ export class SidebarComponent implements OnInit, OnDestroy {
 
   private rebuildMenu(): void {
     this.visibleSections = this.allSections
-      .map(section => ({
-        ...section,
-        items: section.items.filter(item => {
+      .map(section => {
+        const items = section.items.filter(item => {
           if (item.capacidades?.length) {
             return this.permissions.hasAnyCapability(item.capacidades);
           }
           return !item.roles || this.permissions.hasAnyRole(item.roles);
-        }),
-      }))
+        });
+        // Cutover V2: las secciones sin ítems por capacidad son legacy (V1)
+        const esLegacy = items.some(i => i.capacidades?.length) === false;
+        return {
+          ...section,
+          title: esLegacy && section.title !== 'PRINCIPAL'
+            ? `${section.title} (V1)`
+            : section.title,
+          items,
+        };
+      })
       .filter(section => section.items.length > 0);
   }
 
