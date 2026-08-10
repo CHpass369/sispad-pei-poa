@@ -34,3 +34,8 @@ Documentación de la Plataforma Integral de Planificación del GAM Sacaba
 | WP-11 | SIS-PRO V2 | ✅ Completado (ciclo del proyecto + trazabilidad) |
 | WP-12 | Infraestructura y servicios | ✅ Completado (health, beat, logging, pinning, Keycloak separado) |
 | WP-13 | Calidad, rendimiento y seguridad | ✅ Completado (N+1, E2E, cobertura, restauración ensayada) |
+| WP-14 | Retiro de legacy | ✅ Plan preparado (auditoría + roadmap; ejecución sujeta a gates) |
+
+**Bloque completo del plan maestro ejecutado (WP-00 → WP-14).** La ejecución
+del retiro de V1 (WP-14) queda pendiente de los gates del plan: cutover del
+frontend V2, reconciliación 100% y periodo de observación.

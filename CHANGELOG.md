@@ -2,6 +2,51 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.0] — PIP-GAMS (refactor/pip-gams)
+
+Plataforma Integral de Planificación del GAM Sacaba (SIS-PE + SIS-POA +
+SIS-PRO sobre núcleo transversal). Ver `docs/pip_gams/` para arquitectura.
+
+### Added
+- WP-00 Baseline: tag `baseline-pre-pip-gams`, respaldos, OpenAPI V1 (339
+  endpoints), inventario de 139 tablas.
+- WP-01: glosario, domain map (68 modelos), política de metodologías, ADRs
+  001-004 (base única, API V2, IAM, migración).
+- WP-02: API V2 `/api/v2/` con namespaces platform/sis-pe/sis-poa/sis-pro/me
+  + OpenAPI V2 dedicado.
+- WP-03: IAM por capacidades (26 capacidades, alcances organizacionales,
+  `me/capabilities`, permisos DRF `TieneCapacidad`/`TieneAlgunaCapacidad`).
+- WP-04: kernel estratégico V2 (8 modelos: instrumentos, metodologías,
+  nodos, vínculos; versiones inmutables con checksum SHA-256).
+- WP-05: `LegacyMigrationMap` + comando `legacy_audit` (inventario,
+  dry-run, marcar migrado, reconciliación por checksum).
+- WP-06: importación del marco superior PGDESA/PDESA al kernel.
+- WP-07: migración del PAD (jerarquía + articulación SIPEB como vínculos).
+- WP-08: workflow configurable V2 (definiciones, instancias, tareas,
+  observaciones, aprobaciones, delegaciones) + evaluación SIS-PE V2.
+- WP-09: frontend SIS-PE V2 (módulo lazy, menú por capacidades,
+  CapabilityGuard).
+- WP-10: SIS-POA V2 (jerarquía canónica, programación físico-financiera,
+  validación de techos, conexión PEI obligatoria).
+- WP-11: SIS-PRO V2 (ciclo del proyecto de 11 fases, trazabilidad
+  ascendente, documentos/condiciones/costos).
+- WP-12: infraestructura (health checks con DB, celery beat, logging
+  rotativo, pinning de imágenes, Keycloak con base separada).
+- WP-13: calidad (cobertura de servicios 70-95%, tests de N+1, E2E del
+  camino crítico, índices compuestos, restauración de respaldo ensayada).
+- WP-14: plan de retiro de legacy (auditoría y roadmap, sin borrados).
+
+### Changed
+- `settings.py`: LOGGING, CELERY_BEAT_SCHEDULE, STORAGES (Django 6).
+- `accounts`: modelos Capacidad y AlcanceOrganizacional (migraciones 0002-0003).
+- Frontend: sidebar dinámico por capacidades; `environment.apiUrlV2`.
+
+### Fixed
+- Suite backend: de 678 errores de colección a 926 tests verdes.
+- Infra de tests frontend: karma.conf.js, @types/jasmine, specs con drift
+  (96 → 112 tests).
+- Contratos API V2 paginados y consistentes.
+
 ## [Unreleased]
 
 ### Added

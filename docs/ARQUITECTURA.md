@@ -1,3 +1,11 @@
+# Arquitectura del Sistema - PIP-GAMS
+
+> Documento historico del sistema SISPAD-PEI-POA. La arquitectura actual de la
+> Plataforma Integral de Planificacion del GAM Sacaba (SIS-PE + SIS-POA +
+> SIS-PRO) vive en [docs/pip_gams/](pip_gams/README.md) con sus ADRs.
+
+---
+
 # Arquitectura del Sistema — SISPAD-PEI-POA
 
 ## Diagrama del Sistema
