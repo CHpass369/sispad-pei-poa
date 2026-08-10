@@ -18,10 +18,22 @@ CAPACIDADES_VALIDACION = ['sis_pro.preinvestment.validate']
 
 
 class ProyectoSerializer(serializers.ModelSerializer):
+    geometry_geojson = serializers.SerializerMethodField()
+
     class Meta:
         model = Proyecto
         fields = '__all__'
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = [
+            'id', 'puntaje_madurez', 'habilitado_poa',
+            'created_at', 'updated_at',
+        ]
+
+    def get_geometry_geojson(self, obj):
+        if not obj.geom:
+            return None
+        import json
+
+        return json.loads(obj.geom.transform(4326, clone=True).geojson)
 
 
 class CondicionSerializer(serializers.ModelSerializer):

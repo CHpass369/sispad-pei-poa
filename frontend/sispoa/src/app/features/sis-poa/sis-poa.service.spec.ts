@@ -62,4 +62,33 @@ describe('SisPoaService', () => {
     expect(req.request.body).toEqual({ poa: 'p1', codigo: 'A1', nombre: 'Acción 1' });
     req.flush({});
   });
+
+  it('gets programaciones by POA', () => {
+    service.programacionesDePoa('p1').subscribe();
+    const req = httpMock.expectOne(`${environment.apiUrlV2}/sis-poa/poas/p1/programaciones/`);
+    expect(req.request.method).toBe('GET');
+    req.flush({ poa: 'p1', codigo: 'P-2027', filas: [] });
+  });
+
+  it('lists techos', () => {
+    service.listarTechos({ gestion: 2027 }).subscribe();
+    const req = httpMock.expectOne(`${environment.apiUrlV2}/sis-poa/techos/?gestion=2027`);
+    expect(req.request.method).toBe('GET');
+    req.flush({ count: 0, results: [] });
+  });
+
+  it('creates a techo', () => {
+    service.crearTecho({ gestion: 2027, monto_total: '100000', fuente: 'f1' } as any).subscribe();
+    const req = httpMock.expectOne(`${environment.apiUrlV2}/sis-poa/techos/`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ gestion: 2027, monto_total: '100000', fuente: 'f1' });
+    req.flush({});
+  });
+
+  it('deletes a techo', () => {
+    service.eliminarTecho('t1').subscribe();
+    const req = httpMock.expectOne(`${environment.apiUrlV2}/sis-poa/techos/t1/`);
+    expect(req.request.method).toBe('DELETE');
+    req.flush(null);
+  });
 });

@@ -14,6 +14,7 @@ Documentación de la Plataforma Integral de Planificación del GAM Sacaba
 | [ADR-002](adr/ADR-002-api-v2.md) | API V2 con namespaces por sistema |
 | [ADR-003](adr/ADR-003-iam.md) | IAM: identidad OIDC + autorización por capacidades |
 | [ADR-004](adr/ADR-004-migracion.md) | Estrategia Expand/Migrate/Contract + LegacyMigrationMap |
+| [ADR-005](adr/ADR-005-preinversion-sispro.md) | Preinversión SISPRE (ITCP/TDR/EDTP) dentro del SIS-PRO V2 |
 | [WP-00 baseline](../pip_gams/WP00_baseline.md) | Estado congelado y verificado de partida |
 
 ## Estado de work packages
@@ -32,6 +33,7 @@ Documentación de la Plataforma Integral de Planificación del GAM Sacaba
 | WP-09 | Frontend SIS-PE V2 y corte | ✅ Completado (módulo SIS-PE + menú por capacidades) |
 | WP-10 | SIS-POA V2 | ✅ Completado (jerarquía canónica + importación) |
 | WP-11 | SIS-PRO V2 | ✅ Completado (ciclo del proyecto + trazabilidad) |
+| WP-11b | Preinversión SISPRE (ITCP/TDR/EDTP) | ✅ Completado (expediente RM 115 + DOCX + banco de proyectos) |
 | WP-12 | Infraestructura y servicios | ✅ Completado (health, beat, logging, pinning, Keycloak separado) |
 | WP-13 | Calidad, rendimiento y seguridad | ✅ Completado (N+1, E2E, cobertura, restauración ensayada) |
 | WP-14 | Retiro de legacy | ✅ Plan preparado (auditoría + roadmap; ejecución sujeta a gates) |

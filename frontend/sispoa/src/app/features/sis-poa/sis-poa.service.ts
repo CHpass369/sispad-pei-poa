@@ -39,6 +39,28 @@ export interface ValidacionTecho {
   mensaje: string;
 }
 
+export interface TechoV2 {
+  id: string;
+  gestion: number;
+  monto_total: string;
+  fuente: string;
+  fuente_codigo: string;
+  fuente_nombre: string;
+  organismo: string | null;
+  descripcion: string;
+  activo: boolean;
+}
+
+export interface ProgramacionFila {
+  actividad_id: string;
+  actividad_codigo: string;
+  actividad_nombre: string;
+  anio: number;
+  tipo: string;
+  programado: string;
+  ejecutado: string;
+}
+
 interface Paginado<T> {
   count: number;
   results: T[];
@@ -87,5 +109,23 @@ export class SisPoaService {
 
   crearAccion(poa: string, codigo: string, nombre: string): Observable<AccionPoaV2> {
     return this.http.post<AccionPoaV2>(`${this.base}/acciones/`, { poa, codigo, nombre });
+  }
+
+  programacionesDePoa(id: string): Observable<{ poa: string; codigo: string; filas: ProgramacionFila[] }> {
+    return this.http.get<{ poa: string; codigo: string; filas: ProgramacionFila[] }>(
+      `${this.base}/poas/${id}/programaciones/`,
+    );
+  }
+
+  listarTechos(params?: { gestion?: number; activo?: boolean }): Observable<Paginado<TechoV2>> {
+    return this.http.get<Paginado<TechoV2>>(`${this.base}/techos/`, { params: this.params(params) });
+  }
+
+  crearTecho(data: Partial<TechoV2>): Observable<TechoV2> {
+    return this.http.post<TechoV2>(`${this.base}/techos/`, data);
+  }
+
+  eliminarTecho(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/techos/${id}/`);
   }
 }

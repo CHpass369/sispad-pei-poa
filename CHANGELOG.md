@@ -2,6 +2,46 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.10.0] - SIS-PRO Preinversión (SISPRE / RM 115)
+
+### Added
+- WP-11b: módulo de preinversión SISPRE dentro de SIS-PRO V2 (apps/inversion):
+  - `Proyecto` extendido: tipología RM 115, geometría (PostGIS), presupuestos,
+    puntaje de madurez, habilitación POA y estado del expediente.
+  - Modelos de expediente: ITCP + condiciones previas, TDR + actividades/
+    productos/personal/presupuesto referencial, EDTP + secciones dinámicas por
+    tipología (catálogo RM 115), estudios técnicos, costos, financiamiento,
+    cronograma, plan O&M, indicadores de evaluación, componentes, beneficiarios,
+    alternativas, reformulaciones, documentos versionados con hash SHA-256,
+    revisiones/observaciones/aprobaciones y patrón Outbox.
+  - Servicios: clasificación RM 115, inicialización ITCP/EDTP, validaciones de
+    aprobación (condiciones críticas, consistencia costo-financiamiento, O&M),
+    cálculo de madurez 0-100 y paquete de transferencia a SISPOA.
+  - Generación documental DOCX (docxtpl) con plantillas ITCP/EDTP y tarea
+    Celery asíncrona; dependencias docxtpl/python-docx.
+  - API V2 bajo `/api/v2/sis-pro/`: proyectos-preinversion (clasificar,
+    inicializar ITCP/EDTP, madurez, validación, generación, transferencia,
+    reformulación, elegibles para POA), itcps, itcp-condiciones, tdrs, edtps,
+    secciones, estudios, costos, financiamiento, cronograma, plan O&M,
+    indicadores, componentes, beneficiarios, alternativas, documentos,
+    revisiones, observaciones y aprobaciones.
+  - Semilla idempotente `seed_sispro_preinversion` y 26 tests de contrato
+    (`tests/test_sis_pro_preinversion.py`).
+- WP-11b-fr: frontend del módulo de preinversión (SIS-PRO):
+  - `PreinversionService` tipado para los endpoint `/api/v2/sis-pro/` del
+    expediente (ITCP, condiciones, TDR, EDTP, secciones, costos,
+    financiamiento, componentes, documentos, transferencia).
+  - Cartera de preinversión (filtros por gestión/tipología/habilitado POA y
+    barra de madurez), expediente del proyecto (ficha, clasificación RM 115,
+    inicializar ITCP/EDTP, calcular madurez, validar, generar DOCX, paquete
+    de transferencia, enviar a SISPOA).
+  - Asistentes ITCP (matriz de condiciones con semáforo), TDR (actividades,
+    productos, personal y presupuesto referencial) y EDTP (secciones
+    dinámicas, componentes, estudios, costos y financiamiento).
+  - Rutas `/sis-pro/preinversion(/:id(/:asistente))` con CapabilityGuard y
+    entrada de menú habilitada en el sidebar; 11 tests de servicio
+    (`preinversion.service.spec.ts`).
+
 ## [0.9.0] — PIP-GAMS (refactor/pip-gams)
 
 Plataforma Integral de Planificación del GAM Sacaba (SIS-PE + SIS-POA +

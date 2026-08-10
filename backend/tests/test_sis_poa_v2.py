@@ -417,3 +417,55 @@ def test_api_validar_techo(poa_legacy, version_pei, formulador, fuente):
     )
     assert response.status_code == 200
     assert response.json()['excede'] is True
+
+
+# ---------------------------------------------------------------------------
+# Presupuesto y Techos (modulo V2)
+# ---------------------------------------------------------------------------
+
+
+def test_api_techos_listar_y_crear(poa_legacy, version_pei, formulador, fuente):
+    client = _client(formulador)
+    response = client.post(
+        '/api/v2/sis-poa/techos/',
+        {'gestion': 2027, 'monto_total': 200000, 'fuente': str(fuente.id)},
+        format='json',
+    )
+    assert response.status_code == 201
+    techo_id = response.json()['id']
+
+    lista = client.get('/api/v2/sis-poa/techos/?gestion=2027')
+    assert lista.status_code == 200
+    assert lista.json()['count'] == 1
+    assert lista.json()['results'][0]['fuente_codigo'] == '41-113'
+
+    borrado = client.delete(f'/api/v2/sis-poa/techos/{techo_id}/')
+    assert borrado.status_code == 204
+
+
+def test_api_techos_lector_solo_lectura(poa_legacy, version_pei, lector_poa, fuente):
+    response = _client(lector_poa).post(
+        '/api/v2/sis-poa/techos/',
+        {'gestion': 2027, 'monto_total': 200000, 'fuente': str(fuente.id)},
+        format='json',
+    )
+    assert response.status_code == 403
+
+
+def test_api_programaciones_por_poa(poa_legacy, version_pei, formulador):
+    importar_poa_v2()
+    poa = PoAInstitucional.objects.get(codigo='P-2027')
+    tarea = Tarea.objects.get(codigo='TAR-01')
+    ProgramacionActividad.objects.create(
+        actividad=tarea.actividad, anio=2027, tipo='financiera',
+        programado=100000, ejecutado=40000,
+    )
+    response = _client(formulador).get(
+        f'/api/v2/sis-poa/poas/{poa.id}/programaciones/'
+    )
+    assert response.status_code == 200
+    filas = response.json()['filas']
+    assert len(filas) == 1
+    assert filas[0]['actividad_codigo'] == 'ACT-01'
+    assert float(filas[0]['programado']) == 100000
+

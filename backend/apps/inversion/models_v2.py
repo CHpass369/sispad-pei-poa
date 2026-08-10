@@ -4,10 +4,16 @@ Evolución controlada de `inversion` como semilla del sistema de proyectos:
 ciclo completo idea → condiciones previas → preinversión → formulación →
 costos → revisión → contratación → ejecución → supervisión → cierre →
 evaluación, con trazabilidad ascendente Proyecto → POA → PEI → PAD (plan §14.2).
+
+Desde WP-11b (SISPRE) el modelo incorpora el dominio de preinversión:
+tipología RM 115, geometría, presupuestos referenciales y estados del
+expediente (ITCP → TDR → EDTP → banco de proyectos viables).
 """
 import uuid
+from decimal import Decimal
 
-from django.db import models
+from django.contrib.gis.db import models
+from django.core.validators import MaxValueValidator, MinValueValidator
 
 
 class FasesProyecto:
@@ -52,6 +58,60 @@ class EstadosProyecto:
     ]
 
 
+class EstadosExpedientePreinversion:
+    """Estados del expediente de preinversión (SISPRE, RM 115)."""
+
+    REGISTRADA = 'registrada'
+    EN_ADMISIBILIDAD = 'en_admisibilidad'
+    ADMITIDA = 'admitida'
+    ITCP_ELABORACION = 'itcp_elaboracion'
+    ITCP_REVISION = 'itcp_revision'
+    ITCP_APROBADO = 'itcp_aprobado'
+    EDTP_ELABORACION = 'edtp_elaboracion'
+    EDTP_REVISION = 'edtp_revision'
+    EDTP_APROBADO = 'edtp_aprobado'
+    VIABLE = 'viable'
+    HABILITADO_POA = 'habilitado_poa'
+    ENVIADO_POA = 'enviado_poa'
+    NO_VIABLE = 'no_viable'
+    ARCHIVADO = 'archivado'
+
+    CHOICES = [
+        (REGISTRADA, 'Iniciativa registrada'),
+        (EN_ADMISIBILIDAD, 'En admisibilidad'),
+        (ADMITIDA, 'Admitida'),
+        (ITCP_ELABORACION, 'ITCP en elaboración'),
+        (ITCP_REVISION, 'ITCP en revisión'),
+        (ITCP_APROBADO, 'ITCP aprobado'),
+        (EDTP_ELABORACION, 'EDTP en elaboración'),
+        (EDTP_REVISION, 'EDTP en revisión'),
+        (EDTP_APROBADO, 'EDTP aprobado'),
+        (VIABLE, 'Viable'),
+        (HABILITADO_POA, 'Habilitado para programación'),
+        (ENVIADO_POA, 'Enviado a SISPOA'),
+        (NO_VIABLE, 'No viable'),
+        (ARCHIVADO, 'Archivado'),
+    ]
+
+
+class TipologiaRM115:
+    """Tipologías de la Resolución Ministerial N.º 115."""
+
+    TIPO_I = 'I'
+    TIPO_II = 'II'
+    TIPO_III = 'III'
+    TIPO_IV = 'IV'
+    TIPO_V = 'V'
+
+    CHOICES = [
+        (TIPO_I, 'Desarrollo Empresarial Productivo'),
+        (TIPO_II, 'Apoyo al Desarrollo Productivo'),
+        (TIPO_III, 'Desarrollo Social'),
+        (TIPO_IV, 'Fortalecimiento Institucional'),
+        (TIPO_V, 'Investigación y Desarrollo Tecnológico'),
+    ]
+
+
 class Proyecto(models.Model):
     """Proyecto de inversión gestionado por su ciclo (SIS-PRO V2)."""
 
@@ -79,6 +139,41 @@ class Proyecto(models.Model):
     ejecucion_acumulada = models.DecimalField(
         max_digits=20, decimal_places=2, default=0,
     )
+    # -- Dominio de preinversión (SISPRE / RM 115) --------------------------
+    estado_preinversion = models.CharField(
+        max_length=30, choices=EstadosExpedientePreinversion.CHOICES,
+        default=EstadosExpedientePreinversion.REGISTRADA,
+    )
+    tipologia_rm115 = models.CharField(
+        max_length=4, choices=TipologiaRM115.CHOICES, blank=True, default='',
+    )
+    responsable = models.ForeignKey(
+        'accounts.Usuario', null=True, blank=True,
+        related_name='proyectos_responsables', on_delete=models.SET_NULL,
+    )
+    problema = models.TextField(blank=True, default='')
+    objetivo_general = models.TextField(blank=True, default='')
+    descripcion_localizacion = models.TextField(blank=True, default='')
+    distrito = models.CharField(max_length=40, blank=True, default='')
+    comunidad = models.CharField(max_length=255, blank=True, default='')
+    geom = models.GeometryField(srid=32719, null=True, blank=True)
+    presupuesto_estimado = models.DecimalField(
+        max_digits=18, decimal_places=2, null=True, blank=True,
+        validators=[MinValueValidator(Decimal('0'))],
+    )
+    presupuesto_aprobado = models.DecimalField(
+        max_digits=18, decimal_places=2, null=True, blank=True,
+        validators=[MinValueValidator(Decimal('0'))],
+    )
+    moneda = models.CharField(max_length=3, default='BOB')
+    puntaje_madurez = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0,
+        validators=[MinValueValidator(Decimal('0')), MaxValueValidator(Decimal('100'))],
+    )
+    habilitado_poa = models.BooleanField(default=False)
+    vigencia_viabilidad = models.DateField(null=True, blank=True)
+    codigos_externos = models.JSONField(default=dict, blank=True)
+    etiquetas = models.JSONField(default=list, blank=True)
     atributos = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -89,6 +184,7 @@ class Proyecto(models.Model):
         ordering = ['gestion', 'codigo_interno']
         indexes = [
             models.Index(fields=['gestion', 'fase']),
+            models.Index(fields=['estado_preinversion', 'gestion']),
         ]
 
     def __str__(self):

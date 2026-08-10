@@ -190,6 +190,33 @@ class Command(BaseCommand):
         )
         resumen['proyectos'] = 'PROY-001 (preinversión) + PROY-002 (ejecución)'
 
+        # ------------------------------------------------------------------
+        # Techos: fuentes financieras y techo por gestión (módulo Techos V2)
+        # ------------------------------------------------------------------
+        from apps.catalogos.models import FuenteFinanciamiento
+        from apps.techos.models import TechoPresupuestario
+        from datetime import date as _date
+
+        fuentes_tecnicas = [
+            ('41-113', 'CT - Coparticipación Tributaria'),
+            ('20-210', 'RE - Recursos Específicos'),
+        ]
+        fuentes = []
+        for codigo, denominacion in fuentes_tecnicas:
+            fuente, _ = FuenteFinanciamiento.objects.get_or_create(
+                codigo=codigo, gestion=2027,
+                defaults={
+                    'denominacion': denominacion,
+                    'fecha_vigencia_desde': _date(2027, 1, 1),
+                },
+            )
+            fuentes.append(fuente)
+        TechoPresupuestario.objects.get_or_create(
+            gestion=2027, fuente=fuentes[0],
+            defaults={'monto_total': 200000, 'descripcion': 'Techo demo 2027'},
+        )
+        resumen['techos'] = f"{len(fuentes)} fuentes + techo 2027 (Bs 200.000)"
+
         for clave, valor in resumen.items():
             self.stdout.write(f'  {clave}: {valor}')
         self.stdout.write(self.style.SUCCESS('Dataset demo V2 listo.'))

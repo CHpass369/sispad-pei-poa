@@ -134,6 +134,9 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
+# Plantillas DOCX del expediente de preinversión (SISPRE / RM 115)
+DOCUMENT_TEMPLATE_DIR = BASE_DIR / 'templates' / 'docx'
+
 STORAGES = {
     'default': {
         'BACKEND': 'django.core.files.storage.FileSystemStorage',

@@ -113,6 +113,45 @@ class PoAViewSet(viewsets.ModelViewSet):
     def validar_techo(self, request, pk=None):
         return Response(validar_techo(self.get_object()))
 
+    @action(detail=True, methods=['get'])
+    def programaciones(self, request, pk=None):
+        """Programaciones físico-financieras por actividad del POA."""
+        poa = self.get_object()
+        from django.db.models import Sum
+        filas = (
+            ProgramacionActividad.objects.filter(
+                actividad__operacion__accion__poa=poa,
+            )
+            .values('actividad_id', 'anio', 'tipo')
+            .annotate(
+                programado=Sum('programado'),
+                ejecutado=Sum('ejecutado'),
+            )
+            .order_by('actividad_id', 'anio', 'tipo')
+        )
+        actividades = {
+            str(a.id): {'codigo': a.codigo, 'nombre': a.nombre}
+            for a in Actividad.objects.filter(
+                operacion__accion__poa=poa,
+            )
+        }
+        return Response({
+            'poa': str(poa.id),
+            'codigo': poa.codigo,
+            'filas': [
+                {
+                    'actividad_id': str(f['actividad_id']),
+                    'actividad_codigo': actividades.get(str(f['actividad_id']), {}).get('codigo'),
+                    'actividad_nombre': actividades.get(str(f['actividad_id']), {}).get('nombre'),
+                    'anio': f['anio'],
+                    'tipo': f['tipo'],
+                    'programado': str(f['programado'] or 0),
+                    'ejecutado': str(f['ejecutado'] or 0),
+                }
+                for f in filas
+            ],
+        })
+
 
 class AccionViewSet(viewsets.ModelViewSet):
     queryset = AccionCortoPlazo.objects.select_related('poa', 'nodo_pei')

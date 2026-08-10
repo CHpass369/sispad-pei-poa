@@ -7,6 +7,8 @@ import { modulosPendientes } from '../sistemas/modulos-pendientes';
 import { SisPoaDashboardComponent } from './sis-poa-dashboard.component';
 import { SisPoaDetalleComponent } from './sis-poa-detalle.component';
 import { SisPoaListComponent } from './sis-poa-list.component';
+import { SisPoaPresupuestoComponent } from './sis-poa-presupuesto.component';
+import { SisPoaTechosComponent } from './sis-poa-techos.component';
 
 const routes: Routes = [
   { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
@@ -28,13 +30,23 @@ const routes: Routes = [
     canActivate: [CapabilityGuard],
     data: { capacidades: ['sis_poa.formulate'] },
   },
+  {
+    path: 'presupuesto',
+    component: SisPoaPresupuestoComponent,
+    canActivate: [CapabilityGuard],
+    data: { capacidades: ['sis_poa.formulate'] },
+  },
+  {
+    path: 'techos',
+    component: SisPoaTechosComponent,
+    canActivate: [CapabilityGuard],
+    data: { capacidades: ['sis_poa.formulate'] },
+  },
   // Módulos del plan maestro (§18.1 SIS-POA) en desarrollo
   ...modulosPendientes(
     [
       { ruta: 'poau', nombre: 'POAU por unidad' },
       { ruta: 'recursos', nombre: 'Recursos' },
-      { ruta: 'techos', nombre: 'Techos' },
-      { ruta: 'presupuesto', nombre: 'Presupuesto' },
       { ruta: 'seguimiento', nombre: 'Seguimiento operativo' },
       { ruta: 'modificaciones', nombre: 'Modificaciones' },
     ],
@@ -49,6 +61,8 @@ const routes: Routes = [
     SisPoaDashboardComponent,
     SisPoaListComponent,
     SisPoaDetalleComponent,
+    SisPoaPresupuestoComponent,
+    SisPoaTechosComponent,
   ],
   imports: [CommonModule, FormsModule, RouterModule.forChild(routes)],
 })
