@@ -62,6 +62,11 @@ import {
     <div class="card" *ngIf="proyecto && !cargando">
       <h3>Acciones del expediente</h3>
       <div class="acciones">
+        <a class="btn btn-sm btn-wizard" [routerLink]="['/sis-pro/preinversion', proyecto.id, 'wizard']">
+          ✨ Abrir wizard de llenado (ITCP → EDTP)
+        </a>
+      </div>
+      <div class="acciones mt">
         <button class="btn btn-sm" (click)="inicializarItcp()" [disabled]="!puedeEditar">
           🚀 Inicializar ITCP
         </button>
@@ -139,6 +144,7 @@ import {
     .btn { display: inline-flex; align-items: center; padding: 0.5rem 0.875rem; border-radius: 6px; border: none; font-size: 0.8125rem; font-weight: 600; cursor: pointer; text-decoration: none; }
     .btn-primary { background: var(--primary); color: white; }
     .btn-sm { background: #E3F2FD; color: #1565C0; }
+    .btn-wizard { background: #FFF3E0; color: #E65100; }
     .float-right { margin-left: auto; }
     .badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.6875rem; font-weight: 600; background: #E3F2FD; color: #1565C0; }
     .estado { background: #F3E5F5; color: #6A1B9A; }

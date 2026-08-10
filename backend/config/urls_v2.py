@@ -30,6 +30,7 @@ from apps.inversion.views_preinversion import (
     AprobacionViewSet,
     ComponenteProyectoViewSet,
     CondicionITCPViewSet,
+    DocumentoGeneradoViewSet,
     DocumentoPreinversionViewSet,
     EDTPViewSet,
     EstudioTecnicoViewSet,
@@ -123,6 +124,7 @@ sis_pro_router.register('componentes', ComponenteProyectoViewSet, basename='v2-c
 sis_pro_router.register('beneficiarios', GrupoBeneficiarioViewSet, basename='v2-beneficiarios-proyecto')
 sis_pro_router.register('alternativas', AlternativaProyectoViewSet, basename='v2-alternativas-proyecto')
 sis_pro_router.register('documentos-preinv', DocumentoPreinversionViewSet, basename='v2-documentos-preinv')
+sis_pro_router.register('documentos-generados', DocumentoGeneradoViewSet, basename='v2-documentos-generados')
 sis_pro_router.register('revisiones', RevisionViewSet, basename='v2-revisiones-preinv')
 sis_pro_router.register('observaciones', ObservacionViewSet, basename='v2-observaciones-preinv')
 sis_pro_router.register('aprobaciones', AprobacionViewSet, basename='v2-aprobaciones-preinv')

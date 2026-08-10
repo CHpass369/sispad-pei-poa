@@ -186,6 +186,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         { route: '/sis-pro/proyectos', label: 'Cartera', icon: '▤', capacidades: ['sis_pro.project.read'] },
         { route: '/inversion', label: 'Proyectos de Inversión', icon: '▤', roles: ['superadmin', 'tecnico_admin', 'planificador'], legacy: true },
         { route: '/sis-pro/preinversion', label: 'Preinversión', icon: '▤', capacidades: ['sis_pro.project.read'] },
+        { route: '/sis-pro/preinversion/inventario', label: 'Inventario documental', icon: '📚', capacidades: ['sis_pro.project.read'] },
         { route: '/sis-pro/formulacion', label: 'Formulación', icon: '▤', capacidades: ['sis_pro.project.read'], pendiente: true },
         { route: '/sis-pro/contratacion', label: 'Contratación', icon: '⇄', capacidades: ['sis_pro.project.read'], pendiente: true },
         { route: '/sis-pro/ejecucion', label: 'Ejecución', icon: '◷', capacidades: ['sis_pro.project.read'], pendiente: true },

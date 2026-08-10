@@ -6,9 +6,11 @@ import { CapabilityGuard } from '../../core/guards/capability.guard';
 import { modulosPendientes } from '../sistemas/modulos-pendientes';
 import { PreinversionDetalleComponent } from './preinversion-detalle.component';
 import { PreinversionEdtpComponent } from './preinversion-edtp.component';
+import { PreinversionInventarioComponent } from './preinversion-inventario.component';
 import { PreinversionItcpComponent } from './preinversion-itcp.component';
 import { PreinversionListComponent } from './preinversion-list.component';
 import { PreinversionTdrComponent } from './preinversion-tdr.component';
+import { PreinversionWizardComponent } from './preinversion-wizard.component';
 import { SisProDashboardComponent } from './sis-pro-dashboard.component';
 import { SisProDetalleComponent } from './sis-pro-detalle.component';
 import { SisProListComponent } from './sis-pro-list.component';
@@ -41,8 +43,20 @@ const routes: Routes = [
     data: { capacidades: ['sis_pro.project.read'] },
   },
   {
+    path: 'preinversion/inventario',
+    component: PreinversionInventarioComponent,
+    canActivate: [CapabilityGuard],
+    data: { capacidades: ['sis_pro.project.read'] },
+  },
+  {
     path: 'preinversion/:id',
     component: PreinversionDetalleComponent,
+    canActivate: [CapabilityGuard],
+    data: { capacidades: ['sis_pro.project.read'] },
+  },
+  {
+    path: 'preinversion/:id/wizard',
+    component: PreinversionWizardComponent,
     canActivate: [CapabilityGuard],
     data: { capacidades: ['sis_pro.project.read'] },
   },
@@ -86,6 +100,8 @@ const routes: Routes = [
     SisProDetalleComponent,
     PreinversionListComponent,
     PreinversionDetalleComponent,
+    PreinversionWizardComponent,
+    PreinversionInventarioComponent,
     PreinversionItcpComponent,
     PreinversionTdrComponent,
     PreinversionEdtpComponent,

@@ -34,6 +34,7 @@ import { PreinversionService, ProyectoPreinversion } from './preinversion.servic
           <option [ngValue]="false">No</option>
         </select>
       </label>
+      <a class="btn btn-sm btn-inventario" routerLink="/sis-pro/preinversion/inventario">📚 Inventario documental</a>
     </div>
 
     <div *ngIf="cargando" class="loading">Cargando expedientes...</div>
@@ -58,6 +59,7 @@ import { PreinversionService, ProyectoPreinversion } from './preinversion.servic
           </td>
           <td>{{ p.habilitado_poa ? '✅' : '—' }}</td>
           <td>
+            <a class="btn btn-sm" [routerLink]="['/sis-pro/preinversion', p.id, 'wizard']">Wizard</a>
             <a class="btn btn-sm" [routerLink]="['/sis-pro/preinversion', p.id]">Expediente</a>
           </td>
         </tr>
@@ -80,6 +82,7 @@ import { PreinversionService, ProyectoPreinversion } from './preinversion.servic
     .relleno { height: 100%; background: var(--primary); }
     .btn { display: inline-flex; align-items: center; padding: 0.5rem 0.875rem; border-radius: 6px; border: none; font-size: 0.8125rem; font-weight: 600; cursor: pointer; text-decoration: none; }
     .btn-sm { background: #E3F2FD; color: #1565C0; }
+    .btn-inventario { background: #EDE7F6; color: #4527A0; margin-left: auto; }
     .loading { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .empty { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .alert { padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1rem; }

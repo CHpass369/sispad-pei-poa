@@ -241,6 +241,20 @@ export interface GrupoBeneficiario {
   metodologia: string;
 }
 
+export interface DocumentoGenerado {
+  id: string;
+  proyecto: string;
+  tipo_documento: string;
+  estado: string;
+  plantilla: string;
+  archivo_docx: string | null;
+  archivo_pdf: string | null;
+  mensaje_error: string;
+  contexto: unknown;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ResultadoAccion {
   itcp_id?: string;
   edtp_id?: string;
@@ -508,6 +522,25 @@ export class PreinversionService {
 
   crearFinanciamiento(data: Partial<FuenteFinanciamientoEDTP>): Observable<FuenteFinanciamientoEDTP> {
     return this.http.post<FuenteFinanciamientoEDTP>(`${this.base}/edtp-financiamiento/`, data);
+  }
+
+  // -------------------------------------------------------------------------
+  // Documentos generados (inventario documental)
+  // -------------------------------------------------------------------------
+  listarDocumentosGenerados(params?: {
+    proyecto?: string;
+    tipo_documento?: string;
+    estado?: string;
+  }): Observable<Paginado<DocumentoGenerado>> {
+    return this.http.get<Paginado<DocumentoGenerado>>(`${this.base}/documentos-generados/`, {
+      params: this.params(params),
+    });
+  }
+
+  urlArchivo(archivo: string | null): string {
+    if (!archivo) return '';
+    if (archivo.startsWith('http')) return archivo;
+    return `${window.location.origin}${archivo}`;
   }
 
   // -------------------------------------------------------------------------

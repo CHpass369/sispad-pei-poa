@@ -17,6 +17,7 @@ from .models_preinversion import (
     AprobacionPreinversion,
     ComponenteProyecto,
     CondicionITCP,
+    DocumentoGenerado,
     DocumentoPreinversion,
     EDTP,
     EstudioTecnico,
@@ -43,6 +44,7 @@ from .serializers_preinversion import (
     AprobacionSerializer,
     ComponenteProyectoSerializer,
     CondicionITCPSerializer,
+    DocumentoGeneradoSerializer,
     DocumentoPreinversionSerializer,
     EDTPSerializer,
     EstudioTecnicoSerializer,
@@ -372,6 +374,14 @@ class DocumentoPreinversionViewSet(_BasePreinversionViewSet):
     ).prefetch_related('versiones')
     serializer_class = DocumentoPreinversionSerializer
     filterset_fields = ['proyecto', 'tipo_documento', 'etapa', 'estado']
+
+
+class DocumentoGeneradoViewSet(viewsets.ReadOnlyModelViewSet):
+    """Historial de documentos generados (inventario documental)."""
+
+    queryset = DocumentoGenerado.objects.select_related('proyecto')
+    serializer_class = DocumentoGeneradoSerializer
+    filterset_fields = ['proyecto', 'tipo_documento', 'estado']
 
 
 # ---------------------------------------------------------------------------
