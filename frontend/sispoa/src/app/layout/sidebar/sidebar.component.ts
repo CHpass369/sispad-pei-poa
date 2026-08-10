@@ -189,6 +189,20 @@ export class SidebarComponent implements OnInit, OnDestroy {
       ],
     },
     {
+      title: 'SIS-POA (V2)',
+      items: [
+        { route: '/sis-poa/dashboard', label: 'Dashboard Operativo', icon: '◉', capacidades: ['sis_poa.formulate'] },
+        { route: '/sis-poa/poas', label: 'POAs', icon: '▤', capacidades: ['sis_poa.formulate'] },
+      ],
+    },
+    {
+      title: 'SIS-PRO (V2)',
+      items: [
+        { route: '/sis-pro/dashboard', label: 'Dashboard Proyectos', icon: '◉', capacidades: ['sis_pro.project.read'] },
+        { route: '/sis-pro/proyectos', label: 'Cartera', icon: '▤', capacidades: ['sis_pro.project.read'] },
+      ],
+    },
+    {
       title: 'FORMULACIÓN',
       items: [
         { route: '/articulacion', label: 'Articulación PAD-PEI-POA', icon: '🔗', roles: ['superadmin', 'tecnico_admin', 'planificador'] },
