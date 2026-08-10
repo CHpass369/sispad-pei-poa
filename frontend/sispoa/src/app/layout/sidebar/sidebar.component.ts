@@ -1,5 +1,6 @@
 import { Component, EventEmitter, Output, ChangeDetectionStrategy, ChangeDetectorRef, OnInit, OnDestroy } from '@angular/core';
-import { Subject, takeUntil } from 'rxjs';
+import { NavigationEnd, Router } from '@angular/router';
+import { Subject, filter, takeUntil } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
 import { PermissionsService } from '../../core/services/permissions.service';
 import { CapabilitiesService } from '../../core/services/capabilities.service';
@@ -10,6 +11,7 @@ interface NavItem {
   icon: string;
   roles?: string[];
   capacidades?: string[];
+  pendiente?: boolean;
 }
 
 interface NavSection {
@@ -46,6 +48,7 @@ interface NavSection {
              [title]="collapsed ? item.label : ''">
             <span class="nav-icon">{{ item.icon }}</span>
             <span class="nav-label" *ngIf="!collapsed">{{ item.label }}</span>
+            <span class="nav-pendiente" *ngIf="item.pendiente && !collapsed" title="Módulo en desarrollo">en desarrollo</span>
           </a>
         </ng-container>
       </nav>
@@ -95,6 +98,11 @@ interface NavSection {
     .nav-item.active { background: var(--primary-light); color: white; font-weight: 600; }
     .nav-icon { width: 18px; text-align: center; font-size: 0.875rem; }
     .nav-label { white-space: nowrap; }
+    .nav-pendiente {
+      margin-left: auto; font-size: 0.5625rem; text-transform: uppercase;
+      background: rgba(255,255,255,0.12); color: var(--sidebar-text);
+      padding: 0.0625rem 0.375rem; border-radius: 4px; letter-spacing: 0.05em;
+    }
     .sidebar-footer { padding: 1rem 1.25rem; border-top: 1px solid rgba(255,255,255,0.1); }
     .version { font-size: 0.75rem; opacity: 0.5; }
     .sidebar-overlay { display: none; }
@@ -133,11 +141,58 @@ export class SidebarComponent implements OnInit, OnDestroy {
 
   visibleSections: NavSection[] = [];
   private destroy$ = new Subject<void>();
+  private sistemaActual = '';
+
+  /** Módulos del sistema activo según el plan maestro (§18.1). */
+  private sistemasMenu: Record<string, NavSection> = {
+    'sis-pe': {
+      title: 'SIS-PE',
+      items: [
+        { route: '/sis-pe/dashboard', label: 'Dashboard estratégico', icon: '◉', capacidades: ['sis_pe.instrumento.read'] },
+        { route: '/sis-pe/instrumentos', label: 'Instrumentos', icon: '▤', capacidades: ['sis_pe.instrumento.read'] },
+        { route: '/sis-pe/diagnostico', label: 'Diagnóstico', icon: '▤', capacidades: ['sis_pe.instrumento.read'], pendiente: true },
+        { route: '/sis-pe/pad', label: 'PAD', icon: '▤', capacidades: ['sis_pe.instrumento.read'], pendiente: true },
+        { route: '/sis-pe/pei', label: 'PEI', icon: '▤', capacidades: ['sis_pe.instrumento.read'], pendiente: true },
+        { route: '/sis-pe/articulacion', label: 'Articulación', icon: '⇄', capacidades: ['sis_pe.instrumento.read'], pendiente: true },
+        { route: '/sis-pe/indicadores', label: 'Indicadores', icon: '⊡', capacidades: ['sis_pe.instrumento.read'], pendiente: true },
+        { route: '/sis-pe/territorio', label: 'Territorio', icon: '◈', capacidades: ['sis_pe.instrumento.read'], pendiente: true },
+        { route: '/sis-pe/seguimiento', label: 'Seguimiento', icon: '◷', capacidades: ['sis_pe.instrumento.read'], pendiente: true },
+        { route: '/sis-pe/evaluacion', label: 'Evaluación', icon: '✓', capacidades: ['sis_pe.instrumento.read'], pendiente: true },
+      ],
+    },
+    'sis-poa': {
+      title: 'SIS-POA',
+      items: [
+        { route: '/sis-poa/dashboard', label: 'Dashboard operativo', icon: '◉', capacidades: ['sis_poa.formulate'] },
+        { route: '/sis-poa/poas', label: 'POA', icon: '▤', capacidades: ['sis_poa.formulate'] },
+        { route: '/sis-poa/poau', label: 'POAU', icon: '▤', capacidades: ['sis_poa.formulate'], pendiente: true },
+        { route: '/sis-poa/recursos', label: 'Recursos', icon: '⊞', capacidades: ['sis_poa.formulate'], pendiente: true },
+        { route: '/sis-poa/techos', label: 'Techos', icon: '⊡', capacidades: ['sis_poa.formulate'], pendiente: true },
+        { route: '/sis-poa/presupuesto', label: 'Presupuesto', icon: '⊞', capacidades: ['sis_poa.formulate'], pendiente: true },
+        { route: '/sis-poa/seguimiento', label: 'Seguimiento', icon: '◷', capacidades: ['sis_poa.formulate'], pendiente: true },
+        { route: '/sis-poa/modificaciones', label: 'Modificaciones', icon: '✎', capacidades: ['sis_poa.formulate'], pendiente: true },
+      ],
+    },
+    'sis-pro': {
+      title: 'SIS-PRO',
+      items: [
+        { route: '/sis-pro/dashboard', label: 'Dashboard proyectos', icon: '◉', capacidades: ['sis_pro.project.read'] },
+        { route: '/sis-pro/proyectos', label: 'Cartera', icon: '▤', capacidades: ['sis_pro.project.read'] },
+        { route: '/sis-pro/preinversion', label: 'Preinversión', icon: '▤', capacidades: ['sis_pro.project.read'], pendiente: true },
+        { route: '/sis-pro/formulacion', label: 'Formulación', icon: '▤', capacidades: ['sis_pro.project.read'], pendiente: true },
+        { route: '/sis-pro/contratacion', label: 'Contratación', icon: '⇄', capacidades: ['sis_pro.project.read'], pendiente: true },
+        { route: '/sis-pro/ejecucion', label: 'Ejecución', icon: '◷', capacidades: ['sis_pro.project.read'], pendiente: true },
+        { route: '/sis-pro/supervision', label: 'Supervisión', icon: '◈', capacidades: ['sis_pro.project.read'], pendiente: true },
+        { route: '/sis-pro/seguimiento', label: 'Seguimiento', icon: '◷', capacidades: ['sis_pro.project.read'], pendiente: true },
+      ],
+    },
+  };
 
   constructor(
     public auth: AuthService,
     private permissions: PermissionsService,
     private capabilities: CapabilitiesService,
+    private router: Router,
     private cdr: ChangeDetectorRef,
   ) {}
 
@@ -152,6 +207,16 @@ export class SidebarComponent implements OnInit, OnDestroy {
       this.rebuildMenu();
       this.cdr.markForCheck();
     });
+    // Menú contextual por sistema (ventana de selección → módulos del SIS)
+    this.router.events
+      .pipe(
+        takeUntil(this.destroy$),
+        filter((e): e is NavigationEnd => e instanceof NavigationEnd),
+      )
+      .subscribe(() => {
+        this.rebuildMenu();
+        this.cdr.markForCheck();
+      });
   }
 
   ngOnDestroy(): void {
@@ -160,6 +225,27 @@ export class SidebarComponent implements OnInit, OnDestroy {
   }
 
   private rebuildMenu(): void {
+    const url = this.router.url;
+    this.sistemaActual = ['sis-pe', 'sis-poa', 'sis-pro'].find(
+      s => url.startsWith(`/${s}`),
+    ) ?? '';
+
+    if (this.sistemaActual) {
+      // Dentro de un sistema: selector + módulos del SIS activo
+      const sistema = this.sistemasMenu[this.sistemaActual];
+      const items = sistema.items.filter(item =>
+        this.permissions.hasAnyCapability(item.capacidades),
+      );
+      this.visibleSections = [
+        {
+          title: 'SISTEMAS',
+          items: [{ route: '/sistemas', label: 'Selección de sistemas', icon: '🏠' }],
+        },
+        { title: sistema.title, items },
+      ];
+      return;
+    }
+
     this.visibleSections = this.allSections
       .map(section => {
         const items = section.items.filter(item => {
@@ -185,29 +271,9 @@ export class SidebarComponent implements OnInit, OnDestroy {
     {
       title: 'PRINCIPAL',
       items: [
+        { route: '/sistemas', label: 'Selección de sistemas', icon: '🏠' },
         { route: '/dashboard', label: 'Dashboard', icon: '◉' },
         { route: '/notificaciones', label: 'Notificaciones', icon: '🔔' },
-      ],
-    },
-    {
-      title: 'SIS-PE (V2)',
-      items: [
-        { route: '/sis-pe/dashboard', label: 'Dashboard Estratégico', icon: '◉', capacidades: ['sis_pe.instrumento.read'] },
-        { route: '/sis-pe/instrumentos', label: 'Instrumentos', icon: '▤', capacidades: ['sis_pe.instrumento.read'] },
-      ],
-    },
-    {
-      title: 'SIS-POA (V2)',
-      items: [
-        { route: '/sis-poa/dashboard', label: 'Dashboard Operativo', icon: '◉', capacidades: ['sis_poa.formulate'] },
-        { route: '/sis-poa/poas', label: 'POAs', icon: '▤', capacidades: ['sis_poa.formulate'] },
-      ],
-    },
-    {
-      title: 'SIS-PRO (V2)',
-      items: [
-        { route: '/sis-pro/dashboard', label: 'Dashboard Proyectos', icon: '◉', capacidades: ['sis_pro.project.read'] },
-        { route: '/sis-pro/proyectos', label: 'Cartera', icon: '▤', capacidades: ['sis_pro.project.read'] },
       ],
     },
     {
