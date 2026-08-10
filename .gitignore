@@ -42,3 +42,8 @@ Thumbs.db
 *.log
 auxiliar_pluri.xlsx
 .atl/
+
+# Cobertura de código
+.coverage
+htmlcov/
+
