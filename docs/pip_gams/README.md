@@ -33,3 +33,4 @@ Documentación de la Plataforma Integral de Planificación del GAM Sacaba
 | WP-10 | SIS-POA V2 | ✅ Completado (jerarquía canónica + importación) |
 | WP-11 | SIS-PRO V2 | ✅ Completado (ciclo del proyecto + trazabilidad) |
 | WP-12 | Infraestructura y servicios | ✅ Completado (health, beat, logging, pinning, Keycloak separado) |
+| WP-13 | Calidad, rendimiento y seguridad | ✅ Completado (N+1, E2E, cobertura, restauración ensayada) |

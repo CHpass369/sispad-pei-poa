@@ -87,6 +87,9 @@ class Proyecto(models.Model):
         verbose_name = 'Proyecto (SIS-PRO V2)'
         verbose_name_plural = 'Proyectos (SIS-PRO V2)'
         ordering = ['gestion', 'codigo_interno']
+        indexes = [
+            models.Index(fields=['gestion', 'fase']),
+        ]
 
     def __str__(self):
         return f'[{self.codigo_interno}] {self.nombre}'

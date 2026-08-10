@@ -319,6 +319,9 @@ class NodoEstrategico(models.Model):
         verbose_name = 'Nodo estratégico'
         verbose_name_plural = 'Nodos estratégicos'
         ordering = ['version', 'orden', 'codigo']
+        indexes = [
+            models.Index(fields=['version', 'tipo_nodo']),
+        ]
         constraints = [
             models.UniqueConstraint(
                 fields=['version', 'codigo'],
@@ -430,6 +433,9 @@ class VinculoEstrategico(models.Model):
         verbose_name = 'Vínculo estratégico'
         verbose_name_plural = 'Vínculos estratégicos'
         ordering = ['version', 'origen', 'destino']
+        indexes = [
+            models.Index(fields=['version', 'destino']),
+        ]
         constraints = [
             models.UniqueConstraint(
                 fields=['version', 'origen', 'destino', 'tipo'],

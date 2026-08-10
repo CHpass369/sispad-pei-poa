@@ -50,6 +50,9 @@ class PoAInstitucional(models.Model):
         verbose_name = 'POA institucional'
         verbose_name_plural = 'POAs institucionales'
         ordering = ['gestion', 'codigo']
+        indexes = [
+            models.Index(fields=['gestion', 'estado']),
+        ]
 
     def __str__(self):
         return f'[{self.codigo}] {self.nombre}'

@@ -128,6 +128,9 @@ class WorkflowInstance(models.Model):
         verbose_name = 'Instancia de workflow'
         verbose_name_plural = 'Instancias de workflow'
         ordering = ['-iniciado_en']
+        indexes = [
+            models.Index(fields=['entidad_tipo', 'entidad_id']),
+        ]
         constraints = [
             models.UniqueConstraint(
                 fields=['definicion', 'entidad_tipo', 'entidad_id'],
