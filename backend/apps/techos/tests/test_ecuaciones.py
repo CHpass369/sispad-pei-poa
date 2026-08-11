@@ -250,3 +250,136 @@ def test_validar_techo_excede(techo_2027, poa_2027):
     resultado = validar_techo(poa)
     assert resultado['excede'] is True
     assert resultado['techo'] == '245290497.00'
+
+
+# ---------------------------------------------------------------------------
+# 7. BudgetAllocationService (motor único): las ecuaciones también vía servicio
+# ---------------------------------------------------------------------------
+
+from apps.techos.services import BudgetAllocationService, budget_service  # noqa: E402
+
+
+def test_service_ecuacion_2027_resumen(techo_2027):
+    """get_techo_resumen reproduce el resumen legacy y suma claves nuevas."""
+    resumen = budget_service.get_techo_resumen(techo_2027)
+    assert resumen['techo_id'] == str(techo_2027.id)
+    assert resumen['gestion'] == 2027
+    assert resumen['monto_total'] == MONTO_RECURSOS
+    assert resumen['total_recursos'] == MONTO_RECURSOS
+    assert resumen['total_gastos_obligatorios'] == MONTO_GASTOS
+    assert resumen['monto_distribuido'] == MONTO_DISTRIBUIDO
+    assert resumen['saldo_disponible'] == SALDO_ESPERADO
+    assert resumen['excede'] is False
+    assert resumen['techo_distribuible'] == MONTO_DISTRIBUIBLE
+    assert resumen['monto_reservado'] == Decimal('0.00')
+
+
+def test_service_get_available_ecuacion_2027(techo_2027):
+    assert budget_service.get_available(techo_2027) == SALDO_ESPERADO
+
+
+def test_service_totales_techo(techo_2027):
+    assert budget_service.get_total_recursos(techo_2027) == MONTO_RECURSOS
+    assert budget_service.get_total_gastos_obligatorios(techo_2027) == MONTO_GASTOS
+    assert budget_service.get_techo_distribuible(techo_2027) == MONTO_DISTRIBUIBLE
+
+
+def test_service_get_distributed_nodo_hoja(techo_2027):
+    dist = techo_2027.distribuciones.get()
+    assert budget_service.get_distributed_nodo(dist) == MONTO_DISTRIBUIDO
+
+
+def test_service_agregados_por_gestion(techo_2027):
+    assert budget_service.get_techo_agregado_gestion(2027) == MONTO_RECURSOS
+    assert budget_service.get_distribuido_agregado_gestion(2027) == MONTO_DISTRIBUIDO
+    assert budget_service.get_saldo_por_distribuir_gestion(2027) == (
+        MONTO_RECURSOS - MONTO_DISTRIBUIDO
+    )
+
+
+def test_service_get_distribuido_por_programa(techo_2027):
+    prog = ProgramaPresupuestario.objects.create(
+        codigo='002', nombre='Programa 2', gestion=2027,
+    )
+    DistribucionTecho.objects.create(
+        techo=techo_2027, programa=prog, monto_asignado=Decimal('30000000.00'),
+    )
+    assert budget_service.get_distribuido_por_programa(prog) == Decimal('30000000.00')
+
+
+def test_service_estado_techo_parcial(techo_2027):
+    assert budget_service.estado_techo(techo_2027) == 'DISTRIBUCION_PARCIAL'
+
+
+def test_service_estado_techo_sin_configurar(techo_2027):
+    techo = TechoPresupuestario.objects.create(
+        gestion=2027, monto_total=MONTO_RECURSOS, fuente=techo_2027.fuente,
+        concepto='Sin distribución',
+    )
+    assert budget_service.estado_techo(techo) == 'SIN_CONFIGURAR'
+
+
+def test_service_estado_techo_inconsistente(techo_2027):
+    """Σ distribuido > distribuible => INCONSISTENTE (fail-loud, C3)."""
+    DistribucionTecho.objects.bulk_create([
+        DistribucionTecho(
+            techo=techo_2027, monto_asignado=MONTO_DISTRIBUIBLE + Decimal('1.00'),
+        ),
+    ])
+    assert budget_service.estado_techo(techo_2027) == 'INCONSISTENTE'
+
+
+def test_service_validate_allocation_dentro(techo_2027):
+    resultado = budget_service.validate_allocation(techo_2027, Decimal('10000000.00'))
+    assert resultado['valido'] is True
+    assert resultado['excede'] is False
+    assert resultado['monto_solicitado'] == Decimal('10000000.00')
+    assert resultado['saldo_disponible'] == SALDO_ESPERADO
+
+
+def test_service_validate_allocation_excede(techo_2027):
+    resultado = budget_service.validate_allocation(techo_2027, Decimal('200000000.00'))
+    assert resultado['valido'] is False
+    assert resultado['excede'] is True
+    assert resultado['saldo_disponible'] == SALDO_ESPERADO
+
+
+def test_service_validate_allocation_respeto_reserva(techo_2027):
+    """La guardia a nivel techo resta reservas (C3): la capacidad efectiva
+    es min(saldo_bolsa, techo_distribuible - Σ hojas - reservado_total)."""
+    DistribucionTecho.objects.create(
+        techo=techo_2027, monto_asignado=Decimal('0.00'),
+        monto_reserva=Decimal('10000000.00'),
+    )
+    resultado = budget_service.validate_allocation(techo_2027, Decimal('180000000.00'))
+    assert resultado['valido'] is False
+    assert resultado['excede'] is True
+    assert resultado['saldo_disponible'] == SALDO_ESPERADO - Decimal('10000000.00')
+    assert budget_service.validate_allocation(
+        techo_2027, Decimal('178826101.00'),
+    )['valido'] is True
+
+
+def test_service_validate_allocation_monto_negativo(techo_2027):
+    resultado = budget_service.validate_allocation(techo_2027, Decimal('-1.00'))
+    assert resultado['valido'] is False
+    assert 'negativo' in resultado['mensaje']
+
+
+def test_service_can_allocate(techo_2027):
+    assert budget_service.can_allocate(techo_2027, SALDO_ESPERADO) is True
+    assert budget_service.can_allocate(
+        techo_2027, SALDO_ESPERADO + Decimal('0.01'),
+    ) is False
+
+
+def test_service_get_saldo_por_movimientos(techo_2027, usuario):
+    """Compatibilidad legacy V1: saldo por movimientos aprobados."""
+    MovimientoTecho.objects.create(
+        techo=techo_2027, movement_type='reduccion',
+        amount=Decimal('500000.00'), justification='Reducción pin',
+        requested_by=usuario, approved_by=usuario, date=timezone.now(),
+    )
+    assert budget_service.get_saldo_por_movimientos(techo_2027) == (
+        MONTO_RECURSOS - Decimal('500000.00')
+    )
