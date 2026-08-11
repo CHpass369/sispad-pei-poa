@@ -1,67 +1,49 @@
 from decimal import Decimal
+import logging
+
 from django.db import transaction
 from django.db.models import Sum
 from .models import DistribucionTecho, MovimientoTecho, TechoPresupuestario
 
+logger = logging.getLogger(__name__)
+
 
 def obtener_saldo_disponible(techo):
-    movimientos_aprobados = MovimientoTecho.objects.filter(
-        techo=techo,
-        approved_by__isnull=False
-    )
+    """Wrapper de compatibilidad (D11): delega en BudgetAllocationService.
 
-    saldo = techo.monto_total
-    for mov in movimientos_aprobados:
-        if mov.movement_type in ('asignacion', 'incremento', 'transferencia', 'ajuste'):
-            saldo += mov.amount
-        elif mov.movement_type in ('reduccion', 'reserva', 'liberacion', 'reversion'):
-            saldo -= mov.amount
-    return saldo
+    Preserva la semántica legacy (saldo por movimientos aprobados, A11) para
+    no alterar la salida de los endpoints V1. La ecuación canónica vive en
+    BudgetAllocationService.get_available/get_techo_resumen.
+    """
+    return budget_service.get_saldo_por_movimientos(techo)
 
 
 def resumen_techo(techo):
-    """Resumen de control del techo: totales y saldo para distribución."""
-    recursos = techo.recursos.aggregate(total=Sum('monto'))['total'] or Decimal('0')
-    gastos_obligatorios = (
-        techo.gastos_obligatorios.filter(activo=True)
-        .aggregate(total=Sum('monto'))['total'] or Decimal('0')
-    )
-    distribuido = (
-        techo.distribuciones.filter(activo=True)
-        .aggregate(total=Sum('monto_asignado'))['total'] or Decimal('0')
-    )
-    return {
-        'techo_id': str(techo.id),
-        'gestion': techo.gestion,
-        'monto_total': techo.monto_total,
-        'total_recursos': recursos,
-        'total_gastos_obligatorios': gastos_obligatorios,
-        'monto_distribuido': distribuido,
-        'saldo_disponible': techo.monto_total - gastos_obligatorios - distribuido,
-        'excede': distribuido > (techo.monto_total - gastos_obligatorios),
-    }
+    """Wrapper de compatibilidad (D11): resumen unificado del servicio."""
+    return budget_service.get_techo_resumen(techo)
 
 
 def validar_distribucion_no_excede(techo, monto_asignado, exclude_id=None):
-    """Valida que una distribución no exceda el saldo disponible del techo."""
-    distribuido = (
-        techo.distribuciones.filter(activo=True)
-        .exclude(pk=exclude_id)
-        .aggregate(total=Sum('monto_asignado'))['total'] or Decimal('0')
+    """Wrapper de compatibilidad (D11): delega en validate_allocation con la
+    guardia a nivel techo (C3/C6). Resultado: {monto_solicitado,
+    saldo_disponible, excede, valido, nodo, mensaje}."""
+    return budget_service.validate_allocation(
+        techo, monto_asignado, exclude_id=exclude_id,
     )
-    gastos_obligatorios = (
-        techo.gastos_obligatorios.filter(activo=True)
-        .aggregate(total=Sum('monto'))['total'] or Decimal('0')
-    )
-    saldo = techo.monto_total - gastos_obligatorios - distribuido
-    return {
-        'monto_solicitado': monto_asignado,
-        'saldo_disponible': saldo,
-        'excede': monto_asignado > saldo,
-    }
 
 
 def validar_movimiento(movimiento):
+    """DEPRECADO (C6): wrapper del motor único; no computa saldos propios.
+
+    La validación de saldo delega en BudgetAllocationService.can_allocate.
+    Los checks estructurales (montos, transferencias) se conservan para no
+    cambiar el contrato de los endpoints V1 (A11). En S3 los movimientos V1
+    pasan a read-only o se enrutan a través del servicio.
+    """
+    logger.warning(
+        'validar_movimiento está deprecado; use '
+        'BudgetAllocationService.can_allocate/validate_allocation.'
+    )
     errores = []
 
     if movimiento.amount <= 0:
@@ -78,8 +60,8 @@ def validar_movimiento(movimiento):
 
     if movimiento.movement_type in ('incremento', 'asignacion', 'transferencia', 'ajuste'):
         if movimiento.source_ceiling:
-            saldo_origen = obtener_saldo_disponible(movimiento.source_ceiling)
-            if movimiento.amount > saldo_origen:
+            if not budget_service.can_allocate(movimiento.source_ceiling, movimiento.amount):
+                saldo_origen = budget_service.get_available(movimiento.source_ceiling)
                 errores.append(
                     f'El monto Bs {movimiento.amount} excede el saldo disponible '
                     f'del techo origen Bs {saldo_origen}.'
@@ -90,30 +72,28 @@ def validar_movimiento(movimiento):
 
 @transaction.atomic
 def aplicar_movimiento(movimiento):
+    """DEPRECADO (C6): wrapper del motor único; nunca escribe saldos fuera
+    del motor.
+
+    La validación delega en BudgetAllocationService.can_allocate (no se
+    computan saldos aquí). La escritura del registro MovimientoTecho se
+    conserva para compatibilidad V1 (A11); en S3 la escritura pasa por
+    allocate/reserve/release bajo lock.
+    """
+    logger.warning(
+        'aplicar_movimiento está deprecado; la escritura de saldos debe '
+        'pasar por BudgetAllocationService (allocate/reserve/release).'
+    )
     errores = validar_movimiento(movimiento)
     if errores:
         raise ValueError('; '.join(errores))
 
-    movimientos_existentes = MovimientoTecho.objects.filter(
-        techo=movimiento.techo,
-        approved_by__isnull=False
-    ).exclude(pk=movimiento.pk)
-
-    total_movimientos = sum(
-        m.amount for m in movimientos_existentes
-        if m.movement_type in ('reduccion', 'reserva', 'liberacion', 'reversion')
-    )
-    total_incrementos = sum(
-        m.amount for m in movimientos_existentes
-        if m.movement_type in ('asignacion', 'incremento', 'transferencia', 'ajuste')
-    )
-
-    nuevo_total = movimiento.techo.monto_total + total_incrementos - total_movimientos
     if movimiento.movement_type in ('reduccion', 'reserva', 'liberacion', 'reversion'):
-        if movimiento.amount > nuevo_total:
+        if not budget_service.can_allocate(movimiento.techo, movimiento.amount):
+            saldo_disponible = budget_service.get_available(movimiento.techo)
             raise ValueError(
                 f'El monto de reducción Bs {movimiento.amount} excede '
-                f'el saldo disponible Bs {nuevo_total}.'
+                f'el saldo disponible Bs {saldo_disponible}.'
             )
 
     movimiento.save()

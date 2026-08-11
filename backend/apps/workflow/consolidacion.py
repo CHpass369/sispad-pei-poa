@@ -22,7 +22,6 @@ from django.db.models import (
 )
 from django.db.models.functions import Coalesce
 
-from apps.indicadores.models import Operacion, Producto
 from apps.inversion.models import ProyectoInversion
 from apps.organizacion.models import UnidadOrganizacional
 from apps.planificacion.models import AccionCortoPlazo
@@ -31,6 +30,7 @@ from apps.presupuesto.models import (
     ProgramaPresupuestario,
 )
 from apps.techos.models import DistribucionTecho, TechoPresupuestario
+from apps.techos.services import budget_service
 from apps.workflow.models import Aprobacion, EnvioFormulacion, Observacion
 
 # ---------------------------------------------------------------------------
@@ -97,25 +97,19 @@ def _total_formulado(gestion: int) -> Decimal:
 
 
 def _total_techo(gestion: int) -> Decimal:
-    """Suma de todos los techos presupuestarios activos de la gestión."""
-    return _monto(
-        TechoPresupuestario.objects.filter(gestion=gestion, activo=True).aggregate(
-            total=Coalesce(Sum("monto_total", output_field=DecimalField()), Value(Decimal("0.00")))
-        )["total"]
-    )
+    """Suma de todos los techos presupuestarios activos de la gestión.
+
+    Delega en el BudgetAllocationService (motor único, D11).
+    """
+    return budget_service.get_techo_agregado_gestion(gestion)
 
 
 def _total_distribuido(gestion: int) -> Decimal:
-    """Suma de todas las distribuciones de techo activas de la gestión."""
-    return _monto(
-        DistribucionTecho.objects.filter(
-            techo__gestion=gestion, activo=True
-        ).aggregate(
-            total=Coalesce(
-                Sum("monto_asignado", output_field=DecimalField()), Value(Decimal("0.00"))
-            )
-        )["total"]
-    )
+    """Suma de todas las distribuciones de techo activas de la gestión.
+
+    Delega en el BudgetAllocationService (motor único, D11).
+    """
+    return budget_service.get_distribuido_agregado_gestion(gestion)
 
 
 # ---------------------------------------------------------------------------
@@ -169,7 +163,7 @@ def consolidar_poa_institucional(gestion: int) -> dict[str, Any]:
     totales = {
         "techo": total_tech,
         "techo_distribuido": total_dist,
-        "saldo_por_distribuir": total_tech - total_dist,
+        "saldo_por_distribuir": budget_service.get_saldo_por_distribuir_gestion(gestion),
         "formulado": total_form,
         "aprobado": total_aprobado,
         "diferencia_techo_vs_formulado": total_tech - total_form,
@@ -265,50 +259,6 @@ def consolidar_poa_institucional(gestion: int) -> dict[str, Any]:
                 }
             )
 
-    # ── Inconsistencias ─────────────────────────────────────────────────
-    # Acciones de corto plazo sin ninguna línea presupuestaria vinculada
-    acp_con_ppto_ids = set(
-        lineas.exclude(operacion__isnull=True)
-        .values_list("operacion__accion_corto_plazo_id", flat=True)
-        .distinct()
-    )
-    acciones_sin_presupuesto = list(
-        AccionCortoPlazo.objects.filter(gestion=gestion, activo=True)
-        .exclude(id__in=acp_con_ppto_ids)
-        .values("codigo", "nombre", unidad_responsable_nombre=F("unidad_responsable__nombre"))
-    )
-
-    # Líneas presupuestarias sin operación vinculada
-    lineas_sin_operacion = list(
-        lineas.filter(operacion__isnull=True).values(
-            "id",
-            "programa__codigo",
-            "objeto_gasto__denominacion",
-            "importe",
-        )[:100]  # limitar a 100 para no explotar la respuesta
-    )
-
-    # ── Duplicidades ────────────────────────────────────────────────────
-    # Productos con el mismo código dentro de la misma gestión
-    duplicados_productos = list(
-        Producto.objects.filter(
-            accion_corto_plazo__gestion=gestion, activo=True
-        )
-        .values("codigo", "nombre")
-        .annotate(total=Count("id"))
-        .filter(total__gt=1)
-    )
-
-    # Operaciones con el mismo código dentro de la misma gestión
-    duplicados_operaciones = list(
-        Operacion.objects.filter(
-            accion_corto_plazo__gestion=gestion, activo=True
-        )
-        .values("codigo", "nombre")
-        .annotate(total=Count("id"))
-        .filter(total__gt=1)
-    )
-
     # ── Alertas ─────────────────────────────────────────────────────────
     alertas: list[dict[str, Any]] = []
 
@@ -322,58 +272,6 @@ def consolidar_poa_institucional(gestion: int) -> dict[str, Any]:
                     "no ha realizado ningún envío de formulación."
                 ),
                 "detalle": u,
-            }
-        )
-
-    for acp in acciones_sin_presupuesto:
-        alertas.append(
-            {
-                "tipo": "accion_sin_presupuesto",
-                "severidad": "moderada",
-                "mensaje": (
-                    f"La acción de corto plazo {acp['codigo']} — "
-                    f"{acp['nombre'][:80]} no tiene líneas presupuestarias."
-                ),
-                "detalle": acp,
-            }
-        )
-
-    if lineas_sin_operacion:
-        alertas.append(
-            {
-                "tipo": "presupuesto_sin_accion",
-                "severidad": "moderada",
-                "mensaje": (
-                    f"Existen {len(lineas_sin_operacion)} líneas presupuestarias "
-                    "sin operación vinculada (presupuesto sin acción)."
-                ),
-                "detalle": {"cantidad": len(lineas_sin_operacion), "muestra": lineas_sin_operacion[:10]},
-            }
-        )
-
-    for dup in duplicados_productos:
-        alertas.append(
-            {
-                "tipo": "producto_duplicado",
-                "severidad": "leve",
-                "mensaje": (
-                    f"El producto '{dup['codigo']} — {dup['nombre'][:80]}' "
-                    f"aparece {dup['total']} veces en la gestión."
-                ),
-                "detalle": dup,
-            }
-        )
-
-    for dup in duplicados_operaciones:
-        alertas.append(
-            {
-                "tipo": "operacion_duplicada",
-                "severidad": "leve",
-                "mensaje": (
-                    f"La operación '{dup['codigo']} — {dup['nombre'][:80]}' "
-                    f"aparece {dup['total']} veces en la gestión."
-                ),
-                "detalle": dup,
             }
         )
 

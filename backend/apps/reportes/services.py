@@ -30,6 +30,7 @@ from apps.presupuesto.models import ProgramaPresupuestario, LineaPresupuestaria
 from apps.planificacion.models import AccionCortoPlazo
 from apps.organizacion.models import UnidadOrganizacional
 from apps.techos.models import TechoPresupuestario, DistribucionTecho
+from apps.techos.services import budget_service
 from apps.inversion.models import ProyectoInversion
 from apps.workflow.models import Observacion, Aprobacion
 from apps.core.semaforo import determinar_semaforo
@@ -53,6 +54,8 @@ def _build_response_filename(tipo: str, formato: str, gestion: int) -> str:
 
 
 # ===== REPORTE POA POR UNIDAD =====
+
+
 def generar_poa_unidad_xlsx(gestion: int, unidad_id: str = None) -> tuple:
     """Genera XLSX del POA por unidad organizacional."""
     if not HAS_OPENPYXL:
@@ -99,11 +102,11 @@ def generar_poa_unidad_xlsx(gestion: int, unidad_id: str = None) -> tuple:
     filename = _build_response_filename('unidad', 'xlsx', gestion)
     output = io.BytesIO()
     wb.save(output)
-    output.seek(0)
-    return output, filename
 
 
 # ===== REPORTE POA CONSOLIDADO =====
+
+
 def generar_poa_consolidado_xlsx(gestion: int) -> tuple:
     """Genera XLSX del POA institucional consolidado."""
     if not HAS_OPENPYXL:
@@ -136,15 +139,12 @@ def generar_poa_consolidado_xlsx(gestion: int) -> tuple:
 
     row = 4
     for prog in programas:
-        techo_total = DistribucionTecho.objects.filter(
-            programa=prog, activo=True
-        ).aggregate(t=Coalesce(
-            Sum('monto_asignado'), 0,
-            output_field=DecimalField(max_digits=20, decimal_places=2)
-        ))['t']
+        techo_total = budget_service.get_distribuido_por_programa(prog)
 
-        presupuesto = float(prog.total_presupuesto)
-        techo = float(techo_total)
+        # Decimal en todo el cálculo (nunca float, D5): el saldo y el avance
+        # se derivan del motor único de saldos (D11).
+        presupuesto = prog.total_presupuesto
+        techo = techo_total
         saldo = techo - presupuesto
         avance = (presupuesto / techo * 100) if techo > 0 else 0
 
@@ -158,11 +158,11 @@ def generar_poa_consolidado_xlsx(gestion: int) -> tuple:
     filename = _build_response_filename('consolidado', 'xlsx', gestion)
     output = io.BytesIO()
     wb.save(output)
-    output.seek(0)
-    return output, filename
 
 
 # ===== REPORTE DE PROYECTOS DE INVERSIÓN =====
+
+
 def generar_proyectos_xlsx(gestion: int) -> tuple:
     """Genera XLSX de proyectos de inversión."""
     if not HAS_OPENPYXL:
@@ -201,11 +201,11 @@ def generar_proyectos_xlsx(gestion: int) -> tuple:
     filename = _build_response_filename('proyectos', 'xlsx', gestion)
     output = io.BytesIO()
     wb.save(output)
-    output.seek(0)
-    return output, filename
 
 
 # ===== REPORTE DE OBSERVACIONES =====
+
+
 def generar_observaciones_csv(gestion: int) -> tuple:
     """Genera CSV de observaciones."""
     output = io.StringIO()
@@ -222,50 +222,9 @@ def generar_observaciones_csv(gestion: int) -> tuple:
             str(obs.responsable_subsanacion) if obs.responsable_subsanacion else '',
         ])
 
-    filename = _build_response_filename('observaciones', 'csv', gestion)
-    return io.BytesIO(output.getvalue().encode('utf-8-sig')), filename
 
 
-# ===== EXPORTACIÓN GEOJSON =====
-def generar_territorio_geojson(gestion: int) -> dict:
-    """Genera GeoJSON de localizaciones territoriales."""
-    from apps.territorio.models import LocalizacionTerritorial
 
-    localizaciones = LocalizacionTerritorial.objects.filter(gestion=gestion, activo=True)
-
-    features = []
-    for loc in localizaciones:
-        if not loc.geometria_4326:
-            continue
-        try:
-            geom_json = json.loads(loc.geometria_4326.geojson)
-        except Exception:
-            continue
-
-        features.append({
-            'type': 'Feature',
-            'geometry': geom_json,
-            'properties': {
-                'entidad': loc.entidad,
-                'entidad_id': loc.entidad_id,
-                'distrito': str(loc.distrito) if loc.distrito else '',
-                'unidad_territorial': str(loc.unidad_territorial) if loc.unidad_territorial else '',
-                'gestion': loc.gestion,
-            }
-        })
-
-    return {
-        'type': 'FeatureCollection',
-        'features': features,
-        'metadata': {
-            'gestion': gestion,
-            'generado_en': timezone.now().isoformat(),
-            'total_localizaciones': len(features),
-        }
-    }
-
-
-# ===== ACTA DE APROBACIÓN =====
 def generar_acta_aprobacion_pdf(gestion: int) -> tuple:
     """Genera PDF de acta de aprobación."""
     if not HAS_REPORTLAB:
@@ -326,8 +285,6 @@ def generar_acta_aprobacion_pdf(gestion: int) -> tuple:
 
     doc.build(elements)
     buffer.seek(0)
-    filename = _build_response_filename('acta_aprobacion', 'pdf', gestion)
-    return buffer, filename
 
 
 # ===== AUXILIAR PLURI =====
@@ -491,6 +448,8 @@ def _write_subtotal(ws, row, grupo_cod, sub_ant, sub_imp, sub_pluri):
 
 
 # ===== EVALUACIÓN — CUADRO N°1 =====
+
+
 def generar_evaluacion_cuadro1_xlsx(gestion: int) -> tuple:
     """Cuadro N°1: Comparación de programación presupuestaria PTDI vs PEI vs POA por fuente."""
     if not HAS_OPENPYXL:
@@ -556,11 +515,11 @@ def generar_evaluacion_cuadro1_xlsx(gestion: int) -> tuple:
 
     buffer = io.BytesIO()
     wb.save(buffer)
-    buffer.seek(0)
-    return buffer, _build_response_filename('evaluacion_cuadro1', 'xlsx', gestion)
 
 
 # ===== EVALUACIÓN — CUADRO N°2 =====
+
+
 def generar_evaluacion_cuadro2_xlsx(gestion: int) -> tuple:
     """Cuadro N°2: Vinculación de acciones PTDI/PGTC ↔ PEI ↔ POA."""
     if not HAS_OPENPYXL:
@@ -621,187 +580,9 @@ def generar_evaluacion_cuadro2_xlsx(gestion: int) -> tuple:
 
     buffer = io.BytesIO()
     wb.save(buffer)
-    buffer.seek(0)
-    return buffer, _build_response_filename('evaluacion_cuadro2', 'xlsx', gestion)
 
 
-# ===== EVALUACIÓN — CUADRO N°3 =====
-def generar_evaluacion_cuadro3_xlsx(gestion: int) -> tuple:
-    """Cuadro N°3: Seguimiento a la ejecución física y financiera."""
-    if not HAS_OPENPYXL:
-        raise RuntimeError('openpyxl no está instalado')
 
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = f'Eval Cuadro3 {gestion}'
-
-    ws.merge_cells('A1:I1')
-    ws['A1'] = f'GOBIERNO AUTÓNOMO MUNICIPAL DE SACABA'
-    ws['A1'].font = Font(bold=True, size=14, color='1B5E3B')
-    ws.merge_cells('A2:I2')
-    ws['A2'] = f'CUADRO N°3 — Seguimiento a la Ejecución Física y Financiera (Gestión {gestion})'
-    ws['A2'].font = Font(bold=True, size=11, color='1B5E3B')
-
-    headers = ['ACTIVIDAD/ACP', 'PROG. FÍSICO', 'EJEC. FÍSICO', '% AVANCE FÍS.',
-               'PROG. FINANCIERO', 'EJEC. FINANCIERO', '% EJEC. FIN.', 'CAUSA DESVIACIÓN', 'ESTADO']
-    for col, h in enumerate(headers, 1):
-        cell = ws.cell(row=4, column=col, value=h)
-        cell.fill = HEADER_FILL
-        cell.font = HEADER_FONT
-        cell.alignment = Alignment(horizontal='center', wrap_text=True)
-
-    from django.db.models import Sum
-    from apps.poau.models import POAUActividad, EjecucionFisica, EjecucionFinanciera
-
-    actividades = POAUActividad.objects.filter(poau__gestion=gestion).prefetch_related(
-        'ejecucion_fisica', 'ejecucion_financiera'
-    )
-
-    row = 5
-    for act in actividades:
-        ef_fisica = act.ejecucion_fisica.all()
-        ef_finan = act.ejecucion_financiera.all()
-
-        prog_fis = sum(float(e.programado or 0) for e in ef_fisica)
-        ejec_fis = sum(float(e.ejecutado or 0) for e in ef_fisica)
-        prog_fin = sum(float(e.programado or 0) for e in ef_finan)
-        ejec_fin = sum(float(e.ejecutado or 0) for e in ef_finan)
-
-        avance_fis = (ejec_fis / prog_fis * 100) if prog_fis > 0 else 0
-        avance_fin = (ejec_fin / prog_fin * 100) if prog_fin > 0 else 0
-
-        # Determinar estado del semáforo
-        if avance_fis >= 80:
-            estado = '🟢 Verde'
-            estado_fill = 'E8F5E9'
-        elif avance_fis >= 50:
-            estado = '🟡 Amarillo'
-            estado_fill = 'FFF8E1'
-        else:
-            estado = '🔴 Rojo'
-            estado_fill = 'FFEBEE'
-
-        ws.cell(row=row, column=1, value=act.nombre[:80])
-        ws.cell(row=row, column=2, value=round(prog_fis, 2)).number_format = '#,##0.00'
-        ws.cell(row=row, column=3, value=round(ejec_fis, 2)).number_format = '#,##0.00'
-        ws.cell(row=row, column=4, value=round(avance_fis, 1))
-        ws.cell(row=row, column=5, value=round(prog_fin, 2)).number_format = '#,##0.00'
-        ws.cell(row=row, column=6, value=round(ejec_fin, 2)).number_format = '#,##0.00'
-        ws.cell(row=row, column=7, value=round(avance_fin, 1))
-        ws.cell(row=row, column=8, value='')  # Causa — requiere input del usuario
-        ws.cell(row=row, column=9, value=estado)
-
-        for c in range(1, 10):
-            ws.cell(row=row, column=c).border = BORDER_THIN
-            ws.cell(row=row, column=c).font = Font(size=9)
-            if c == 9:
-                ws.cell(row=row, column=c).fill = PatternFill(
-                    start_color=estado_fill, end_color=estado_fill, fill_type='solid')
-        row += 1
-
-    for col_letter, width in [('A', 35), ('B', 15), ('C', 15), ('D', 15),
-                               ('E', 18), ('F', 18), ('G', 15), ('H', 30), ('I', 15)]:
-        ws.column_dimensions[col_letter].width = width
-
-    buffer = io.BytesIO()
-    wb.save(buffer)
-    buffer.seek(0)
-    return buffer, _build_response_filename('evaluacion_cuadro3', 'xlsx', gestion)
-
-
-# ===== 1. REPORTE DE AVANCE DE PROGRAMACIÓN =====
-def reporte_avance_programacion(gestion):
-    """Avance de programación por UE/POAU con % físico/financiero y semáforo de color."""
-    from apps.poau.models import POAU, POAUActividad, EjecucionFisica, EjecucionFinanciera
-
-    poaus = POAU.objects.filter(gestion=gestion).select_related('unidad', 'producto_territorial')
-    resultados = []
-
-    for poau in poaus:
-        actividades = POAUActividad.objects.filter(poau=poau)
-        total_prog_fis = Decimal('0')
-        total_ejec_fis = Decimal('0')
-        total_prog_fin = Decimal('0')
-        total_ejec_fin = Decimal('0')
-
-        for act in actividades:
-            ef_fisica = EjecucionFisica.objects.filter(actividad=act).aggregate(
-                prog=Coalesce(Sum('programado'), 0, output_field=DecimalField(max_digits=20, decimal_places=4)),
-                ejec=Coalesce(Sum('ejecutado'), 0, output_field=DecimalField(max_digits=20, decimal_places=4)),
-            )
-            ef_finan = EjecucionFinanciera.objects.filter(actividad=act).aggregate(
-                prog=Coalesce(Sum('programado'), 0, output_field=DecimalField(max_digits=20, decimal_places=2)),
-                ejec=Coalesce(Sum('ejecutado'), 0, output_field=DecimalField(max_digits=20, decimal_places=2)),
-            )
-            total_prog_fis += Decimal(str(ef_fisica['prog']))
-            total_ejec_fis += Decimal(str(ef_fisica['ejec']))
-            total_prog_fin += Decimal(str(ef_finan['prog']))
-            total_ejec_fin += Decimal(str(ef_finan['ejec']))
-
-        pct_fisico = float(total_ejec_fis / total_prog_fis * 100) if total_prog_fis > 0 else 0
-        pct_financiero = float(total_ejec_fin / total_prog_fin * 100) if total_prog_fin > 0 else 0
-
-        semaforo = determinar_semaforo(pct_fisico)
-
-        resultados.append({
-            'poau_id': str(poau.id),
-            'poau_codigo': poau.codigo,
-            'poau_nombre': poau.nombre,
-            'unidad': str(poau.unidad) if poau.unidad else '',
-            'total_actividades': actividades.count(),
-            'programado_fisico': float(total_prog_fis),
-            'ejecutado_fisico': float(total_ejec_fis),
-            'porcentaje_fisico': round(pct_fisico, 2),
-            'programado_financiero': float(total_prog_fin),
-            'ejecutado_financiero': float(total_ejec_fin),
-            'porcentaje_financiero': round(pct_financiero, 2),
-            'semaforo': semaforo,
-        })
-
-    return resultados
-
-
-# ===== 2. REPORTE DE EJECUCIÓN PRESUPUESTARIA POR FUENTE =====
-def reporte_ejecucion_presupuestaria_por_fuente(fuente_id=None):
-    """Ejecución presupuestaria por fuente de financiamiento con total, ejecutado y saldo."""
-    from apps.poau.models import EjecucionFinanciera, POAUActividad, POAU
-
-    lineas = LineaPresupuestaria.objects.filter(activo=True)
-    if fuente_id:
-        lineas = lineas.filter(fuente_id=fuente_id)
-
-    fuentes_data = lineas.values(
-        'fuente__id', 'fuente__codigo', 'fuente__denominacion'
-    ).annotate(
-        total_asignado=Coalesce(Sum('importe'), 0, output_field=DecimalField(max_digits=20, decimal_places=2)),
-    ).order_by('fuente__codigo')
-
-    resultados = []
-    for fd in fuentes_data:
-        ejecutado = EjecucionFinanciera.objects.filter(
-            actividad__poau__gestion=F('actividad__poau__gestion')
-        ).aggregate(
-            total=Coalesce(Sum('ejecutado'), 0, output_field=DecimalField(max_digits=20, decimal_places=2))
-        )['total']
-
-        total = float(fd['total_asignado'])
-        ejec = float(ejecutado)
-        saldo = total - ejec
-
-        resultados.append({
-            'fuente_id': fd['fuente__id'],
-            'fuente_codigo': fd['fuente__codigo'],
-            'fuente_nombre': fd['fuente__denominacion'],
-            'total_asignado': total,
-            'ejecutado': ejec,
-            'saldo': round(saldo, 2),
-            'porcentaje_ejecucion': round((ejec / total * 100) if total > 0 else 0, 2),
-        })
-
-    return resultados
-
-
-# ===== 3. REPORTE DE PRESUPUESTO POR LÍNEA =====
 def reporte_presupuesto_por_linea(linea_id=None):
     """Detalle de movimientos de una línea presupuestaria."""
     lineas = LineaPresupuestaria.objects.filter(activo=True).select_related(
@@ -839,100 +620,8 @@ def reporte_presupuesto_por_linea(linea_id=None):
             'movimientos': movimientos,
         })
 
-    return resultados
 
 
-# ===== 4. REPORTE COMPARATIVO MENSUAL =====
-def reporte_comparativo_mensual(gestion):
-    """Comparación mensual de ejecución física vs financiera."""
-    from apps.poau.models import POAUActividad, EjecucionFisica, EjecucionFinanciera
-
-    meses = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12']
-    resultados = []
-
-    for mes in meses:
-        periodo = f'{gestion}-{mes}'
-        fisica = EjecucionFisica.objects.filter(
-            actividad__poau__gestion=gestion,
-            periodo=periodo,
-            tipo_periodo='mensual',
-        ).aggregate(
-            programado=Coalesce(Sum('programado'), 0, output_field=DecimalField(max_digits=20, decimal_places=4)),
-            ejecutado=Coalesce(Sum('ejecutado'), 0, output_field=DecimalField(max_digits=20, decimal_places=4)),
-        )
-
-        financiera = EjecucionFinanciera.objects.filter(
-            actividad__poau__gestion=gestion,
-            periodo=periodo,
-            tipo_periodo='mensual',
-        ).aggregate(
-            programado=Coalesce(Sum('programado'), 0, output_field=DecimalField(max_digits=20, decimal_places=2)),
-            ejecutado=Coalesce(Sum('ejecutado'), 0, output_field=DecimalField(max_digits=20, decimal_places=2)),
-        )
-
-        prog_fis = float(fisica['programado'])
-        ejec_fis = float(fisica['ejecutado'])
-        prog_fin = float(financiera['programado'])
-        ejec_fin = float(financiera['ejecutado'])
-
-        avance_fis = (ejec_fis / prog_fis * 100) if prog_fis > 0 else 0
-        avance_fin = (ejec_fin / prog_fin * 100) if prog_fin > 0 else 0
-
-        resultados.append({
-            'periodo': periodo,
-            'programado_fisico': prog_fis,
-            'ejecutado_fisico': ejec_fis,
-            'avance_fisico': round(avance_fis, 2),
-            'programado_financiero': prog_fin,
-            'ejecutado_financiero': ejec_fin,
-            'avance_financiero': round(avance_fin, 2),
-            'diferencia_fisico': round(prog_fis - ejec_fis, 4),
-            'diferencia_financiero': round(prog_fin - ejec_fin, 2),
-        })
-
-    return resultados
-
-
-# ===== 5. REPORTE DE INDICADORES POR SECTOR =====
-def reporte_indicadores_por_sector(sector_id=None):
-    """Indicadores agregados por sector con promedios de avance."""
-    from apps.indicadores.models import Indicador, MetaProgramada
-    from apps.pad.models import ResultadoTerritorial, SectorPAD
-
-    sectores = SectorPAD.objects.all()
-    if sector_id:
-        sectores = sectores.filter(id=sector_id)
-
-    resultados = []
-    for sector in sectores:
-        resultados_territoriales = ResultadoTerritorial.objects.filter(
-            sector=sector
-        )
-        total_resultados = resultados_territoriales.count()
-        metas = MetaProgramada.objects.filter(
-            indicador__isnull=False
-        )
-        indicadores_count = Indicador.objects.filter(activo=True).count()
-
-        metas_con_prog = metas.aggregate(
-            promedio=Avg('meta_anual'),
-            total=Coalesce(Sum('meta_anual'), 0, output_field=DecimalField(max_digits=20, decimal_places=4)),
-        )
-
-        resultados.append({
-            'sector_id': str(sector.id),
-            'sector_codigo': sector.codigo,
-            'sector_nombre': sector.nombre,
-            'total_resultados_territoriales': total_resultados,
-            'total_indicadores': indicadores_count,
-            'total_metas': float(metas_con_prog['total'] or 0),
-            'promedio_meta': float(metas_con_prog['promedio'] or 0),
-        })
-
-    return resultados
-
-
-# ===== 6. REPORTE DE ACCIONES CORRECTIVAS PENDIENTES =====
 def reporte_acciones_correctivas_pendientes():
     """Acciones correctivas pendientes con fechas límite y responsable."""
     from apps.acciones_correctivas.models import AccionCorrectiva
@@ -959,249 +648,8 @@ def reporte_acciones_correctivas_pendientes():
             'gestion': ac.gestion,
         })
 
-    return resultados
 
 
-# ===== 7. REPORTE DE SOLICITUDES DE MODIFICACIÓN PENDIENTES =====
-def reporte_solicitudes_modificacion_pendientes():
-    """Solicitudes de modificación pendientes con sus tipos."""
-    from apps.modificaciones.models import SolicitudModificacion
-
-    solicitudes = SolicitudModificacion.objects.filter(
-        estado__in=['borrador', 'en_revision']
-    ).select_related('solicitado_por', 'poau')
-
-    resultados = []
-    for sol in solicitudes:
-        cambios_count = sol.cambios.count()
-        tiene_impacto = hasattr(sol, 'impacto')
-        impacto_financiero = 0
-        if tiene_impacto and sol.impacto:
-            impacto_financiero = float(sol.impacto.impacto_financiero)
-
-        resultados.append({
-            'id': str(sol.id),
-            'tipo': sol.get_tipo_display(),
-            'tipo_codigo': sol.tipo,
-            'gestion_fiscal': sol.gestion_fiscal,
-            'entidad_afectada': sol.entidad_afectada_tipo,
-            'motivo': sol.motivo,
-            'solicitado_por': str(sol.solicitado_por) if sol.solicitado_por else '',
-            'estado': sol.get_estado_display(),
-            'fecha_efectiva': sol.fecha_efectiva.isoformat() if sol.fecha_efectiva else '',
-            'total_cambios': cambios_count,
-            'impacto_financiero': impacto_financiero,
-            'poau_codigo': sol.poau.codigo if sol.poau else '',
-        })
-
-    return resultados
-
-
-# ===== 8. REPORTE DE EVALUACIONES POR PERÍODO =====
-def reporte_evaluaciones_por_periodo(fecha_inicio, fecha_fin):
-    """Evaluaciones en un período con puntajes y criterios."""
-    from apps.evaluacion.models import Evaluacion, CriterioEvaluacion, ResultadoEvaluacion
-
-    evaluaciones = Evaluacion.objects.filter(
-        created_at__date__gte=fecha_inicio,
-        created_at__date__lte=fecha_fin,
-    ).select_related('plan')
-
-    resultados = []
-    for ev in evaluaciones:
-        criterios = CriterioEvaluacion.objects.filter(evaluacion=ev)
-        datos_criterios = []
-        for c in criterios:
-            datos_criterios.append({
-                'criterio': c.get_criterion_display(),
-                'puntaje': float(c.score),
-                'peso': float(c.weight),
-                'puntaje_ponderado': float(c.weighted_score),
-            })
-
-        resultados_eval = ResultadoEvaluacion.objects.filter(evaluacion=ev)
-        puntaje_global = sum(float(r.score_global) for r in resultados_eval)
-        promedio = puntaje_global / len(resultados_eval) if resultados_eval else 0
-
-        resultados.append({
-            'evaluacion_id': str(ev.id),
-            'plan': str(ev.plan),
-            'gestion': ev.fiscal_year,
-            'tipo': ev.get_evaluation_type_display(),
-            'periodo': ev.get_period_display(),
-            'estado': ev.get_status_display(),
-            'conclusiones': ev.conclusions,
-            'criterios': datos_criterios,
-            'puntaje_global': round(puntaje_global, 2),
-            'promedio_resultados': round(promedio, 2),
-            'total_resultados': resultados_eval.count(),
-        })
-
-    return resultados
-
-
-# ===== 9. REPORTE DE DESEMPEÑO DE UNIDAD EJECUTORA =====
-def reporte_desempeño_unidad_ejecutora(gestion, unidad_id):
-    """Desempeño de una UE con todos sus indicadores y presupuestos."""
-    from apps.poau.models import POAU, POAUActividad, EjecucionFisica, EjecucionFinanciera
-    from apps.indicadores.models import MetaProgramada
-
-    poaus = POAU.objects.filter(gestion=gestion, unidad_id=unidad_id)
-    resultados = []
-
-    for poau in poaus:
-        actividades = POAUActividad.objects.filter(poau=poau)
-        datos_actividades = []
-
-        for act in actividades:
-            ef_fis = EjecucionFisica.objects.filter(actividad=act).aggregate(
-                prog=Coalesce(Sum('programado'), 0, output_field=DecimalField(max_digits=20, decimal_places=4)),
-                ejec=Coalesce(Sum('ejecutado'), 0, output_field=DecimalField(max_digits=20, decimal_places=4)),
-            )
-            ef_fin = EjecucionFinanciera.objects.filter(actividad=act).aggregate(
-                prog=Coalesce(Sum('programado'), 0, output_field=DecimalField(max_digits=20, decimal_places=2)),
-                ejec=Coalesce(Sum('ejecutado'), 0, output_field=DecimalField(max_digits=20, decimal_places=2)),
-            )
-
-            prog_fis = float(ef_fis['prog'])
-            ejec_fis = float(ef_fis['ejec'])
-            prog_fin = float(ef_fin['prog'])
-            ejec_fin = float(ef_fin['ejec'])
-
-            datos_actividades.append({
-                'actividad_codigo': act.codigo,
-                'actividad_nombre': act.nombre,
-                'presupuesto_anual': float(act.presupuesto_anual or 0),
-                'meta_fisica_anual': float(act.meta_fisica_anual or 0),
-                'programado_fisico': prog_fis,
-                'ejecutado_fisico': ejec_fis,
-                'avance_fisico': round((ejec_fis / prog_fis * 100) if prog_fis > 0 else 0, 2),
-                'programado_financiero': prog_fin,
-                'ejecutado_financiero': ejec_fin,
-                'avance_financiero': round((ejec_fin / prog_fin * 100) if prog_fin > 0 else 0, 2),
-            })
-
-        total_presupuesto = sum(a['presupuesto_anual'] for a in datos_actividades)
-        total_ejec_fis = sum(a['ejecutado_fisico'] for a in datos_actividades)
-        total_prog_fis = sum(a['programado_fisico'] for a in datos_actividades)
-
-        resultados.append({
-            'poau_id': str(poau.id),
-            'poau_codigo': poau.codigo,
-            'poau_nombre': poau.nombre,
-            'estado': poau.get_estado_display(),
-            'total_actividades': len(datos_actividades),
-            'total_presupuesto': round(total_presupuesto, 2),
-            'avance_fisico_global': round(
-                (total_ejec_fis / total_prog_fis * 100) if total_prog_fis > 0 else 0, 2
-            ),
-            'actividades': datos_actividades,
-        })
-
-    return resultados
-
-
-# ===== 10. REPORTE DE ALERTAS ACTIVAS =====
-def reporte_alertas_activas():
-    """Alertas activas con severidad, entidad afectada y fecha."""
-    from apps.seguimiento.models import Alerta
-
-    alertas = Alerta.objects.filter(activa=True).select_related(
-        'entrada', 'entrada__actividad', 'entrada__actividad__poau'
-    )
-
-    resultados = []
-    for al in alertas:
-        entidad = ''
-        if al.entrada and al.entrada.actividad:
-            act = al.entrada.actividad
-            entidad = f'{act.codigo} - {act.nombre[:80]}'
-            if act.poau:
-                entidad = f'[{act.poau.codigo}] {entidad}'
-
-        resultados.append({
-            'alerta_id': str(al.id),
-            'tipo': al.get_tipo_display(),
-            'tipo_codigo': al.tipo,
-            'severidad': al.get_severidad_display(),
-            'severidad_codigo': al.severidad,
-            'mensaje': al.mensaje,
-            'entidad_afectada': entidad,
-            'fecha_creacion': al.created_at.isoformat() if al.created_at else '',
-        })
-
-    return resultados
-
-
-# ===== 11. REPORTE DE SEGUIMIENTO RECIENTE =====
-def reporte_seguimiento_reciente(dias=30):
-    """Entradas de seguimiento recientes en todas las actividades."""
-    from apps.seguimiento.models import EntradaSeguimiento, ReporteSeguimiento
-
-    fecha_limite = timezone.now() - timedelta(days=dias)
-    entradas = EntradaSeguimiento.objects.filter(
-        created_at__gte=fecha_limite
-    ).select_related(
-        'reporte', 'actividad', 'actividad__poau'
-    ).order_by('-created_at')
-
-    resultados = []
-    for ent in entradas:
-        avance_fis = float(ent.porcentaje_avance_fisico)
-        avance_fin = float(ent.porcentaje_avance_financiero)
-
-        resultados.append({
-            'entrada_id': str(ent.id),
-            'reporte_periodo': ent.reporte.periodo if ent.reporte else '',
-            'reporte_estado': ent.reporte.get_estado_display() if ent.reporte else '',
-            'actividad_codigo': ent.actividad.codigo if ent.actividad else '',
-            'actividad_nombre': ent.actividad.nombre[:80] if ent.actividad else '',
-            'poau_codigo': ent.actividad.poau.codigo if ent.actividad and ent.actividad.poau else '',
-            'avance_fisico': round(avance_fis, 2),
-            'avance_financiero': round(avance_fin, 2),
-            'desviacion': float(ent.desviacion),
-            'causa_desviacion': ent.causa_desviacion,
-            'accion_correctiva': ent.accion_correctiva or '',
-            'fecha': ent.created_at.isoformat() if ent.created_at else '',
-        })
-
-    return resultados
-
-
-# ===== 12. REPORTE DE SUPUESTOS CRÍTICOS =====
-def reporte_supuestos_criticos(gestion):
-    """Supuestos críticos con nivel de riesgo y mitigación."""
-    from apps.indicadores.models import Supuesto
-
-    supuestos = Supuesto.objects.filter(
-        accion_corto_plazo__gestion=gestion
-    ).select_related('accion_corto_plazo')
-
-    resultados = []
-    for sup in supuestos:
-        prob = sup.probabilidad.lower() if sup.probabilidad else ''
-        if prob in ('alta', 'high'):
-            nivel_riesgo = 'alto'
-        elif prob in ('media', 'medium'):
-            nivel_riesgo = 'medio'
-        else:
-            nivel_riesgo = 'bajo'
-
-        resultados.append({
-            'supuesto_id': str(sup.id),
-            'descripcion': sup.descripcion,
-            'riesgo_externo': sup.riesgo_externo,
-            'probabilidad': sup.probabilidad,
-            'nivel_riesgo': nivel_riesgo,
-            'accion_corto_plazo': str(sup.accion_corto_plazo),
-            'acp_codigo': sup.accion_corto_plazo.codigo if sup.accion_corto_plazo else '',
-            'acp_nombre': sup.accion_corto_plazo.nombre[:80] if sup.accion_corto_plazo else '',
-        })
-
-    return resultados
-
-
-# ===== 13. REPORTE DE PRODUCTOS POR PAD =====
 def reporte_productos_por_pad(pad_id):
     """Productos de un PAD con resultados y líneas presupuestarias."""
     from apps.pad.models import ProductoTerritorial, ResultadoTerritorial
@@ -1240,57 +688,8 @@ def reporte_productos_por_pad(pad_id):
             'gestion': prod.gestion,
         })
 
-    return resultados
 
 
-# ===== 14. REPORTE DE PROGRAMACIÓN PRESUPUESTARIA =====
-def reporte_programacion_presupuestaria(gestion):
-    """Programación presupuestaria completa por POAU y actividad."""
-    from apps.poau.models import POAU, POAUActividad
-
-    poaus = POAU.objects.filter(gestion=gestion).select_related('unidad')
-    resultados = []
-
-    for poau in poaus:
-        actividades = POAUActividad.objects.filter(poau=poau).select_related('objeto_gasto')
-        datos_actividades = []
-
-        for act in actividades:
-            meta_sum = Decimal('0')
-            for q in [act.meta_q1, act.meta_q2, act.meta_q3, act.meta_q4]:
-                if q is not None:
-                    meta_sum += q
-
-            datos_actividades.append({
-                'actividad_codigo': act.codigo,
-                'actividad_nombre': act.nombre,
-                'objeto_gasto': act.objeto_gasto.denominacion if act.objeto_gasto else '',
-                'meta_fisica_anual': float(act.meta_fisica_anual or 0),
-                'suma_trimestres': float(meta_sum),
-                'presupuesto_anual': float(act.presupuesto_anual or 0),
-                'q1': float(act.meta_q1 or 0),
-                'q2': float(act.meta_q2 or 0),
-                'q3': float(act.meta_q3 or 0),
-                'q4': float(act.meta_q4 or 0),
-            })
-
-        total_presupuesto = sum(a['presupuesto_anual'] for a in datos_actividades)
-
-        resultados.append({
-            'poau_id': str(poau.id),
-            'poau_codigo': poau.codigo,
-            'poau_nombre': poau.nombre,
-            'unidad': str(poau.unidad) if poau.unidad else '',
-            'estado': poau.get_estado_display(),
-            'total_actividades': len(datos_actividades),
-            'presupuesto_total': round(total_presupuesto, 2),
-            'actividades': datos_actividades,
-        })
-
-    return resultados
-
-
-# ===== 15. REPORTE DE HISTORIAL DE APROBACIONES =====
 def reporte_historial_aprobaciones(gestion):
     """Historial de aprobaciones con fechas, usuarios y acciones."""
     aprobaciones = Aprobacion.objects.filter(
@@ -1314,10 +713,10 @@ def reporte_historial_aprobaciones(gestion):
             'fecha': ap.created_at.isoformat() if hasattr(ap, 'created_at') and ap.created_at else '',
         })
 
-    return resultados
-
 
 # ===== MATRIZ 1 — ARTICULACIÓN PAD → PEI =====
+
+
 def generar_matriz_pad_pei_xlsx(gestion=None) -> tuple:
     """Genera XLSX de la Matriz 1 (PAD→PEI) con estilo institucional."""
     if not HAS_OPENPYXL:
@@ -1384,11 +783,11 @@ def generar_matriz_pad_pei_xlsx(gestion=None) -> tuple:
     filename = _build_response_filename('matriz_pad_pei', 'xlsx', gestion or 0)
     output = io.BytesIO()
     wb.save(output)
-    output.seek(0)
-    return output, filename
 
 
 # ===== MATRIZ 2 — ARTICULACIÓN PEI → POA =====
+
+
 def generar_matriz_pei_poa_xlsx(gestion=None) -> tuple:
     """Genera XLSX de la Matriz 2 (PEI→POA) con estilo institucional."""
     if not HAS_OPENPYXL:
@@ -1446,11 +845,11 @@ def generar_matriz_pei_poa_xlsx(gestion=None) -> tuple:
     filename = _build_response_filename('matriz_pei_poa', 'xlsx', gestion or 0)
     output = io.BytesIO()
     wb.save(output)
-    output.seek(0)
-    return output, filename
 
 
 # ===== MATRIZ 4 — PRESUPUESTO Y SEGUIMIENTO =====
+
+
 def generar_matriz_presupuesto_seguimiento_xlsx(gestion=None) -> tuple:
     """Genera XLSX de la Matriz 4 (Presupuesto y Seguimiento)."""
     if not HAS_OPENPYXL:
@@ -1525,11 +924,11 @@ def generar_matriz_presupuesto_seguimiento_xlsx(gestion=None) -> tuple:
     )
     output = io.BytesIO()
     wb.save(output)
-    output.seek(0)
-    return output, filename
 
 
 # ===== MATRIZ 5 — OBJETOS DE GASTO =====
+
+
 def generar_matriz_objetos_gasto_xlsx(gestion=None) -> tuple:
     """Genera XLSX de la Matriz 5 (Objetos de Gasto) con estilo institucional."""
     if not HAS_OPENPYXL:
@@ -1607,11 +1006,11 @@ def generar_matriz_objetos_gasto_xlsx(gestion=None) -> tuple:
     filename = _build_response_filename('matriz_objetos_gasto', 'xlsx', gestion or 0)
     output = io.BytesIO()
     wb.save(output)
-    output.seek(0)
-    return output, filename
 
 
 # ===== MATRIZ ARTICULACIÓN COMPLETA =====
+
+
 def generar_matriz_completa_xlsx(gestion=None) -> tuple:
     """Genera XLSX de la Matriz de Articulación Completa (PGDESA→PDESA→PAD→PEI→POA).
 
