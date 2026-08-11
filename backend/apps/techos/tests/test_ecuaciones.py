@@ -8,6 +8,11 @@ ningún saldo).
 
 Ecuación 2027: recursos 245.290.497,00 - gastos obligatorios 6.464.396,00
 = distribuible 238.826.101,00.
+
+Los pins de validar_techo (apps.sis_poa.migration_v2) viven en
+test_validar_techo_sispoa.py (C2): este módulo NO importa apps.sis_poa
+para poder coleccionar en HEAD, sin el swap poau→sis_poa del branch
+hermano.
 """
 import io as _io
 import types
@@ -20,14 +25,6 @@ from django.utils import timezone
 from apps.accounts.models import Usuario
 from apps.catalogos.models import FuenteFinanciamiento
 from apps.presupuesto.models import ProgramaPresupuestario
-from apps.sis_poa.models import (
-    AccionCortoPlazo,
-    Actividad,
-    Operacion,
-    PoAInstitucional,
-    ProgramacionActividad,
-)
-from apps.sis_poa.migration_v2 import validar_techo
 from apps.techos.models import (
     DistribucionTecho,
     GastoObligatorio,
@@ -223,48 +220,9 @@ def test_reportes_consolidado_techo_por_programa(monkeypatch, techo_2027):
 
 
 # ---------------------------------------------------------------------------
-# 6. sis_poa/migration_v2.validar_techo
+# 6. validar_techo — movido a test_validar_techo_sispoa.py (C2/C3):
+#    importa apps.sis_poa y se salta en HEAD (sin el swap poau→sis_poa).
 # ---------------------------------------------------------------------------
-
-@pytest.fixture
-def poa_2027(db):
-    poa = PoAInstitucional.objects.create(
-        gestion=2027, codigo='P-2027', nombre='POA 2027',
-    )
-    accion = AccionCortoPlazo.objects.create(
-        poa=poa, codigo='ACP-01', nombre='Acción 1',
-    )
-    operacion = Operacion.objects.create(
-        accion=accion, codigo='OP-01', nombre='Operación 1',
-    )
-    actividad = Actividad.objects.create(
-        operacion=operacion, codigo='ACT-01', nombre='Actividad 1',
-    )
-    return poa, actividad
-
-
-def _programar_financiero(actividad, monto):
-    ProgramacionActividad.objects.create(
-        actividad=actividad, anio=2027, tipo='financiera', programado=monto,
-    )
-
-
-def test_validar_techo_dentro_del_techo(techo_2027, poa_2027):
-    poa, actividad = poa_2027
-    _programar_financiero(actividad, Decimal('100000.00'))
-    resultado = validar_techo(poa)
-    assert resultado['excede'] is False
-    assert resultado['techo'] == '245290497.00'
-    assert resultado['formulado'] == '100000.0000'
-
-
-def test_validar_techo_excede(techo_2027, poa_2027):
-    poa, actividad = poa_2027
-    _programar_financiero(actividad, Decimal('300000000.00'))
-    resultado = validar_techo(poa)
-    assert resultado['excede'] is True
-    assert resultado['techo'] == '245290497.00'
-
 
 # ---------------------------------------------------------------------------
 # 7. BudgetAllocationService (motor único): las ecuaciones también vía servicio
@@ -472,3 +430,123 @@ def test_distribucion_clean_resta_reserva_del_techo(techo_2027):
     )
     with pytest.raises(ValidationError):
         fila.full_clean()
+
+
+# ---------------------------------------------------------------------------
+# 9. Pins C4 (W1): guardia de movimientos restaurada
+#    (validar_movimiento / aplicar_movimiento, apps.techos.services)
+# ---------------------------------------------------------------------------
+
+from apps.techos.services import aplicar_movimiento, validar_movimiento  # noqa: E402
+
+
+def test_validar_movimiento_transferencia_excede_saldo_origen(techo_2027, usuario):
+    """C4 (W1): una transferencia cuyo monto excede el saldo por movimientos
+    del techo origen se rechaza."""
+    destino = TechoPresupuestario.objects.create(
+        gestion=2027, monto_total=Decimal('1000.00'), fuente=techo_2027.fuente,
+        concepto='Techo destino C4',
+    )
+    movimiento = MovimientoTecho(
+        techo=techo_2027, movement_type='transferencia',
+        source_ceiling=techo_2027, destination_ceiling=destino,
+        amount=MONTO_RECURSOS + Decimal('1.00'),
+        justification='Transferencia que excede el saldo',
+        requested_by=usuario, date=timezone.now(),
+    )
+    errores = validar_movimiento(movimiento)
+    assert any('excede el saldo disponible' in e for e in errores)
+
+
+def test_validar_movimiento_transferencia_dentro_del_saldo(techo_2027, usuario):
+    """C4 (W1): control positivo — transferencia dentro del saldo sin errores."""
+    destino = TechoPresupuestario.objects.create(
+        gestion=2027, monto_total=Decimal('1000.00'), fuente=techo_2027.fuente,
+        concepto='Techo destino C4',
+    )
+    movimiento = MovimientoTecho(
+        techo=techo_2027, movement_type='transferencia',
+        source_ceiling=techo_2027, destination_ceiling=destino,
+        amount=Decimal('1000.00'),
+        justification='Transferencia dentro del saldo',
+        requested_by=usuario, date=timezone.now(),
+    )
+    assert validar_movimiento(movimiento) == []
+
+
+def test_aplicar_movimiento_reduccion_excede_saldo(techo_2027, usuario):
+    """C4 (W1): una reducción que dejaría el saldo por movimientos en
+    negativo se rechaza; no persiste nada."""
+    movimiento = MovimientoTecho(
+        techo=techo_2027, movement_type='reduccion',
+        amount=MONTO_RECURSOS + Decimal('1.00'),
+        justification='Reducción que deja saldo negativo',
+        requested_by=usuario, date=timezone.now(),
+    )
+    with pytest.raises(ValueError):
+        aplicar_movimiento(movimiento)
+    assert MovimientoTecho.objects.filter(techo=techo_2027).count() == 0
+
+
+def test_aplicar_movimiento_pk_none_nuevo_registro_permitido(techo_2027, usuario):
+    """C4 (W1): con pk=None (registro nuevo) el excluir_id no excluye nada
+    y la validación usa el saldo vigente: una reducción dentro del saldo se
+    aplica y persiste. (El display V1 solo cuenta movimientos APROBADOS,
+    A11: el registro recién creado no altera obtener_saldo_disponible.)"""
+    movimiento = MovimientoTecho(
+        techo=techo_2027, movement_type='reduccion',
+        amount=Decimal('500000.00'),
+        justification='Reducción pin C4',
+        requested_by=usuario, date=timezone.now(),
+    )
+    aplicado = aplicar_movimiento(movimiento)
+    assert aplicado.pk is not None
+    assert MovimientoTecho.objects.filter(pk=aplicado.pk).exists()
+    assert obtener_saldo_disponible(techo_2027) == MONTO_RECURSOS
+
+
+def test_aplicar_movimiento_misma_ecuacion_que_display_v1(techo_2027, usuario):
+    """C4 (W1): aplicar_movimiento valida contra la misma ecuación que
+    muestra obtener_saldo_disponible (saldo por movimientos aprobados,
+    A11)."""
+    MovimientoTecho.objects.create(
+        techo=techo_2027, movement_type='reduccion',
+        amount=Decimal('500000.00'), justification='Reducción aprobada',
+        requested_by=usuario, approved_by=usuario, date=timezone.now(),
+    )
+    saldo_display = obtener_saldo_disponible(techo_2027)
+    assert saldo_display == MONTO_RECURSOS - Decimal('500000.00')
+
+    # Exactamente el saldo mostrado → permitido.
+    aplicar_movimiento(MovimientoTecho(
+        techo=techo_2027, movement_type='reduccion',
+        amount=saldo_display, justification='Reducción al límite V1',
+        requested_by=usuario, date=timezone.now(),
+    ))
+    # Un centavo más que el saldo mostrado → rechazado.
+    with pytest.raises(ValueError):
+        aplicar_movimiento(MovimientoTecho(
+            techo=techo_2027, movement_type='reduccion',
+            amount=saldo_display + Decimal('0.01'), justification='Excede V1',
+            requested_by=usuario, date=timezone.now(),
+        ))
+
+
+# ---------------------------------------------------------------------------
+# 10. Pins C5: TechoPresupuestario.total_gastos_obligatorios (activo=True)
+# ---------------------------------------------------------------------------
+
+def test_total_gastos_obligatorios_respeta_gastos_inactivos(techo_2027):
+    """C5: la property delega en el motor (activo=True); desactivar un
+    GastoObligatorio la actualiza de forma consistente con el motor y con
+    el saldo disponible."""
+    go = techo_2027.gastos_obligatorios.first()
+    go.activo = False
+    go.save(update_fields=['activo'])
+    esperado = MONTO_GASTOS - go.monto
+    assert techo_2027.total_gastos_obligatorios == esperado
+    assert techo_2027.total_gastos_obligatorios == (
+        budget_service.get_total_gastos_obligatorios(techo_2027)
+    )
+    # El saldo disponible se libera por el monto desactivado.
+    assert techo_2027.saldo_disponible == SALDO_ESPERADO + go.monto
