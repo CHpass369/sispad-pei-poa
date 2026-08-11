@@ -2,7 +2,8 @@
 
 Importa la cadena operativa legacy (articulacion.AccionPOA → OperacionPOAU →
 ActividadPOAU → TareaPOAU) a la jerarquía canónica V2, con trazabilidad en
-LegacyMigrationMap y reporte de duplicidades (indicadores vs articulacion).
+LegacyMigrationMap. El reporte de duplicidades vive en la contraparte de
+apps.poau (fuera de alcance de este slice, W8).
 """
 from django.db.models import Sum
 
@@ -23,24 +24,6 @@ from apps.sis_poa.models import (
     ProgramacionActividad,
     Tarea,
 )
-
-NIVELES_POA = [
-    ('AccionPOA', 'accion'),
-    ('OperacionPOAU', 'operacion'),
-    ('ActividadPOAU', 'actividad'),
-    ('TareaPOAU', 'tarea'),
-]
-
-
-def _padre_v2(obj, por_nivel):
-    for campo, nivel in (('accion_poa', 'accion'),
-                         ('operacion', 'operacion'),
-                         ('actividad', 'actividad')):
-        if hasattr(obj, campo):
-            padre = getattr(obj, campo)
-            if padre:
-                return por_nivel[nivel].get(padre.pk)
-    return None
 
 
 def importar_poa_v2(lote='poa', dry_run=False, gestion=None):

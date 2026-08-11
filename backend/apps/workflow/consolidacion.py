@@ -8,9 +8,12 @@ Django ORM y Decimal para cálculos monetarios.
 
 from __future__ import annotations
 
+import logging
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 from django.db.models import (
     Count,
@@ -32,6 +35,19 @@ from apps.presupuesto.models import (
 from apps.techos.models import DistribucionTecho, TechoPresupuestario
 from apps.techos.services import budget_service
 from apps.workflow.models import Aprobacion, EnvioFormulacion, Observacion
+
+# W5: modelos de duplicidades (Producto/Operación) viven en apps.indicadores
+# en HEAD. El import se hace con guarda para que la rama hermana que elimina
+# apps/indicadores pueda degradar con warning en vez de romper la carga del
+# módulo; en HEAD la app existe y las alertas se computan completas.
+try:
+    from apps.indicadores.models import Operacion as OperacionIndicadores
+    from apps.indicadores.models import Producto as ProductoIndicadores
+    _HAS_INDICADORES = True
+except ModuleNotFoundError:  # pragma: no cover — rama hermana elimina la app
+    OperacionIndicadores = None  # type: ignore
+    ProductoIndicadores = None  # type: ignore
+    _HAS_INDICADORES = False
 
 # ---------------------------------------------------------------------------
 # Configuración de asignaciones obligatorias (ajustable por municipio)
@@ -259,6 +275,68 @@ def consolidar_poa_institucional(gestion: int) -> dict[str, Any]:
                 }
             )
 
+    # ── Inconsistencias ─────────────────────────────────────────────────
+    # Acciones de corto plazo sin ninguna línea presupuestaria vinculada
+    # (W5: restaurado — el refactor S1 lo eliminó por error).
+    #
+    # Nota: la FK LineaPresupuestaria.operacion apunta a
+    # indicadores.Operacion; cuando apps/indicadores no está disponible
+    # (rama hermana que la elimina) se omiten las 4 alertas con warning.
+    acp_con_ppto_ids: set = set()
+    acciones_sin_presupuesto: list = []
+    lineas_sin_operacion: list = []
+
+    # ── Duplicidades ────────────────────────────────────────────────────
+    # Productos y operaciones con el mismo código dentro de la misma gestión
+    duplicados_productos: list = []
+    duplicados_operaciones: list = []
+
+    if _HAS_INDICADORES:
+        acp_con_ppto_ids = set(
+            lineas.exclude(operacion__isnull=True)
+            .values_list("operacion__accion_corto_plazo_id", flat=True)
+            .distinct()
+        )
+        acciones_sin_presupuesto = list(
+            AccionCortoPlazo.objects.filter(gestion=gestion, activo=True)
+            .exclude(id__in=acp_con_ppto_ids)
+            .values("codigo", "nombre", unidad_responsable_nombre=F("unidad_responsable__nombre"))
+        )
+
+        # Líneas presupuestarias sin operación vinculada
+        lineas_sin_operacion = list(
+            lineas.filter(operacion__isnull=True).values(
+                "id",
+                "programa__codigo",
+                "objeto_gasto__denominacion",
+                "importe",
+            )[:100]  # limitar a 100 para no explotar la respuesta
+        )
+
+        duplicados_productos = list(
+            ProductoIndicadores.objects.filter(
+                accion_corto_plazo__gestion=gestion, activo=True
+            )
+            .values("codigo", "nombre")
+            .annotate(total=Count("id"))
+            .filter(total__gt=1)
+        )
+
+        duplicados_operaciones = list(
+            OperacionIndicadores.objects.filter(
+                accion_corto_plazo__gestion=gestion, activo=True
+            )
+            .values("codigo", "nombre")
+            .annotate(total=Count("id"))
+            .filter(total__gt=1)
+        )
+    else:  # pragma: no cover — rama hermana elimina apps/indicadores
+        logger.warning(
+            "consolidar_poa_institucional: apps.indicadores no está "
+            "disponible; se omiten las alertas accion_sin_presupuesto, "
+            "presupuesto_sin_accion, producto_duplicado y operacion_duplicada."
+        )
+
     # ── Alertas ─────────────────────────────────────────────────────────
     alertas: list[dict[str, Any]] = []
 
@@ -272,6 +350,58 @@ def consolidar_poa_institucional(gestion: int) -> dict[str, Any]:
                     "no ha realizado ningún envío de formulación."
                 ),
                 "detalle": u,
+            }
+        )
+
+    for acp in acciones_sin_presupuesto:
+        alertas.append(
+            {
+                "tipo": "accion_sin_presupuesto",
+                "severidad": "moderada",
+                "mensaje": (
+                    f"La acción de corto plazo {acp['codigo']} — "
+                    f"{acp['nombre'][:80]} no tiene líneas presupuestarias."
+                ),
+                "detalle": acp,
+            }
+        )
+
+    if lineas_sin_operacion:
+        alertas.append(
+            {
+                "tipo": "presupuesto_sin_accion",
+                "severidad": "moderada",
+                "mensaje": (
+                    f"Existen {len(lineas_sin_operacion)} líneas presupuestarias "
+                    "sin operación vinculada (presupuesto sin acción)."
+                ),
+                "detalle": {"cantidad": len(lineas_sin_operacion), "muestra": lineas_sin_operacion[:10]},
+            }
+        )
+
+    for dup in duplicados_productos:
+        alertas.append(
+            {
+                "tipo": "producto_duplicado",
+                "severidad": "leve",
+                "mensaje": (
+                    f"El producto '{dup['codigo']} — {dup['nombre'][:80]}' "
+                    f"aparece {dup['total']} veces en la gestión."
+                ),
+                "detalle": dup,
+            }
+        )
+
+    for dup in duplicados_operaciones:
+        alertas.append(
+            {
+                "tipo": "operacion_duplicada",
+                "severidad": "leve",
+                "mensaje": (
+                    f"La operación '{dup['codigo']} — {dup['nombre'][:80]}' "
+                    f"aparece {dup['total']} veces en la gestión."
+                ),
+                "detalle": dup,
             }
         )
 
