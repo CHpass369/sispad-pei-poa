@@ -213,8 +213,8 @@ class BudgetAllocationService:
         return self._decimal(nodo.monto_asignado)
 
     def get_available(self, bolsa, exclude_id=None) -> Decimal:
-        """Saldo disponible: techo distribuible - distribuido (techo) o
-        vigente - reservado - distribuido (bolsa, S2).
+        """Saldo disponible: techo distribuible - distribuido - reservado
+        (techo) o vigente - reservado - distribuido (bolsa, S2).
 
         Con exclude_id se excluye la fila editada (W2): al revalidar una
         hoja, su monto asignado y su reserva vuelven a la capacidad; de lo
@@ -238,7 +238,7 @@ class BudgetAllocationService:
                     distribuido -= self._decimal(fila.monto_asignado)
                     reservado -= self._decimal(fila.monto_reserva)
         if isinstance(bolsa, TechoPresupuestario):
-            return self.get_techo_distribuible(bolsa) - distribuido
+            return self.get_techo_distribuible(bolsa) - distribuido - reservado
         return self.get_amount(bolsa) - reservado - distribuido
 
     # ------------------------------------------------------------------
@@ -288,7 +288,7 @@ class BudgetAllocationService:
             'monto_distribuido': distribuido,
             'monto_reservado': reservado,
             'techo_distribuible': distribuible,
-            'saldo_disponible': distribuible - distribuido,
+            'saldo_disponible': distribuible - distribuido - reservado,
             'excede': distribuido > distribuible,
             'estado': self.estado_techo(techo),
         }
@@ -311,7 +311,11 @@ class BudgetAllocationService:
 
         distribuible = self.get_techo_distribuible(techo)
         distribuido = self._sum_activo(techo.distribuciones, 'monto_asignado')
-        if distribuido > distribuible:
+        reservado = self._sum_activo(techo.distribuciones, 'monto_reserva')
+        # C3: Σ activo hojas + reservado_total ≤ techo_distribuible; un
+        # sobre-compromiso solo por reservas (monto_asignado 0) también
+        # es INCONSISTENTE (fail-loud).
+        if distribuido + reservado > distribuible:
             return 'INCONSISTENTE'
         if distribuido == distribuible:
             return 'DISTRIBUCION_COMPLETA'
@@ -416,7 +420,7 @@ class BudgetAllocationService:
 
     def validate_allocation(
         self, bolsa, monto, categoria=None, unidad=None, usuario=None,
-        nodo=None, exclude_id=None,
+        nodo=None, exclude_id=None, monto_reserva_nuevo=0,
     ) -> dict:
         """Valida una asignación contra la capacidad efectiva (R5.4).
 
@@ -426,10 +430,19 @@ class BudgetAllocationService:
         techo_distribuible, por lo que la bolsa individual no alcanza a
         ver el exceso. No muta ni adquiere locks (S3).
 
+        monto_reserva_nuevo (C3/D2): la fila que se está escribiendo
+        compromete monto_asignado + monto_reserva; el monto_reserva en
+        memoria se resta de la capacidad igual que el monto_asignado
+        (validate_allocation solo recibe el monto_asignado como `monto`,
+        y el caller DistribucionTecho.clean() pasa su monto_reserva aquí;
+        con exclude_id el monto viejo de la fila ya volvió a la
+        capacidad).
+
         Retorna {valido, monto_solicitado, saldo_disponible, nodo,
         excede, mensaje}.
         """
         monto = self._decimal(monto)
+        monto_reserva_nuevo = self._decimal(monto_reserva_nuevo)
         techo = getattr(bolsa, 'techo', None)
         if techo is None:
             techo = bolsa  # S1: el techo legacy actúa como bolsa
@@ -453,7 +466,10 @@ class BudgetAllocationService:
         # min(saldo_bolsa, capacidad_techo) colapsa al saldo viejo y toda
         # edición positiva se rechaza (doble conteo).
         saldo_bolsa = self.get_available(bolsa, exclude_id=exclude_id)
-        capacidad_techo = techo_distribuible - distribuido_hojas - reservado_total
+        capacidad_techo = (
+            techo_distribuible - distribuido_hojas - reservado_total
+            - monto_reserva_nuevo
+        )
         saldo_disponible = min(saldo_bolsa, capacidad_techo)
 
         excede = monto > saldo_disponible

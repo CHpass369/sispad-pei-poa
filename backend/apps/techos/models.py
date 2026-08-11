@@ -183,12 +183,16 @@ class DistribucionTecho(TimeStampedModel):
         # ecuación que validate_allocation, que resta el reservado total
         # (W4) y excluye la fila editada leyendo su monto viejo de BD
         # (W3: Decimal('0.00') es falsy, por eso no se usa 'or self.monto').
+        # monto_reserva_nuevo (C3/D2): la fila compromete monto_asignado +
+        # monto_reserva; el monto_reserva en memoria entra en la ecuación
+        # (antes solo se validaba monto_asignado contra la capacidad).
         # Red de seguridad del modelo; la barrera de concurrencia real
         # (locks/ledger) llega en S3.
         resultado = budget_service.validate_allocation(
             self.techo,
             self.monto_asignado,
             exclude_id=None if self._state.adding else self.pk,
+            monto_reserva_nuevo=self.monto_reserva,
         )
         if not resultado['valido']:
             raise VE(resultado['mensaje'])
