@@ -183,7 +183,12 @@ def test_workflow_saldo_por_distribuir(techo_2027):
 # ---------------------------------------------------------------------------
 
 def test_reportes_consolidado_techo_por_programa(monkeypatch, techo_2027):
-    """El consolidado muestra el techo asignado por programa (sin float)."""
+    """El consolidado muestra el techo asignado por programa (sin float).
+
+    W6: además de las celdas, se fija el contrato (output, filename) que
+    B1 restaura — los llamadores (_responder_descarga y
+    generar_reporte_presupuestario_async) desempaquetan esa tupla.
+    """
     import openpyxl
 
     import apps.reportes.services as reportes_mod
@@ -199,13 +204,22 @@ def test_reportes_consolidado_techo_por_programa(monkeypatch, techo_2027):
     monkeypatch.setattr(
         reportes_mod, 'io', types.SimpleNamespace(BytesIO=lambda: captured),
     )
-    reportes_mod.generar_poa_consolidado_xlsx(2027)
+    output, filename = reportes_mod.generar_poa_consolidado_xlsx(2027)
+
+    # Contrato del generador (B1): (BytesIO, nombre de archivo) — el output
+    # es el mismo objeto que el BytesIO capturado por el monkeypatch.
+    assert output is captured
+    assert filename.startswith('poa_consolidado_2027_')
+    assert filename.endswith('.xlsx')
 
     ws = openpyxl.load_workbook(captured).active
-    fila = 4  # primera fila de datos (encabezados en fila 3)
-    assert ws.cell(row=fila, column=4).value == 30000000  # Techo (Bs)
-    assert ws.cell(row=fila, column=5).value == 30000000  # Saldo (Bs)
-    assert ws.cell(row=fila, column=7).value == 'Completo'
+    FILA_PRIMER_PROGRAMA = 4  # encabezados en fila 3
+    COL_TECHO = 4  # Techo (Bs)
+    COL_SALDO = 5  # Saldo (Bs)
+    COL_ESTADO = 7  # Estado
+    assert ws.cell(row=FILA_PRIMER_PROGRAMA, column=COL_TECHO).value == 30000000
+    assert ws.cell(row=FILA_PRIMER_PROGRAMA, column=COL_SALDO).value == 30000000
+    assert ws.cell(row=FILA_PRIMER_PROGRAMA, column=COL_ESTADO).value == 'Completo'
 
 
 # ---------------------------------------------------------------------------
@@ -383,3 +397,78 @@ def test_service_get_saldo_por_movimientos(techo_2027, usuario):
     assert budget_service.get_saldo_por_movimientos(techo_2027) == (
         MONTO_RECURSOS - Decimal('500000.00')
     )
+
+
+# ---------------------------------------------------------------------------
+# 8. Pins de corrección (W2/W3/W4): edición con exclude_id y guardia de modelo
+# ---------------------------------------------------------------------------
+
+def test_service_validate_allocation_edicion_exclude_id(techo_2027):
+    """W2: al editar una fila (600→550 sobre techo 1000) su monto viejo
+    vuelve a la capacidad. Sin exclude_id el doble conteo (saldo de bolsa
+    que aún incluye la fila) colapsa el min() y rechaza toda edición
+    positiva."""
+    techo = TechoPresupuestario.objects.create(
+        gestion=2027, monto_total=Decimal('1000.00'), fuente=techo_2027.fuente,
+        concepto='Techo W2',
+    )
+    fila = DistribucionTecho.objects.create(
+        techo=techo, monto_asignado=Decimal('600.00'),
+    )
+
+    # Sin exclude_id: saldo de bolsa 400 (1000 - 600) → 550 rechazado.
+    assert budget_service.validate_allocation(
+        techo, Decimal('550.00'),
+    )['valido'] is False
+
+    # Con exclude_id: los 600 vuelven → capacidad 1000 → 550 válido.
+    resultado = budget_service.validate_allocation(
+        techo, Decimal('550.00'), exclude_id=fila.pk,
+    )
+    assert resultado['valido'] is True
+    assert resultado['saldo_disponible'] == Decimal('1000.00')
+
+    # Sobre la misma capacidad corregida, 1000.01 sigue excediendo.
+    assert budget_service.validate_allocation(
+        techo, Decimal('1000.01'), exclude_id=fila.pk,
+    )['valido'] is False
+
+
+def test_distribucion_clean_edicion_fila_cero_respeta_guardia(techo_2027):
+    """W3: editar una fila cuyo monto viejo es Decimal('0.00') (falsy) no
+    debe tomar el monto nuevo como 'viejo': el exceso se rechaza."""
+    from django.core.exceptions import ValidationError
+
+    fila = DistribucionTecho.objects.create(
+        techo=techo_2027, monto_asignado=Decimal('0.00'),
+    )
+    # 200.000.000 > saldo disponible (238.826.101 - 50.000.000 = 188.826.101)
+    fila.monto_asignado = Decimal('200000000.00')
+    with pytest.raises(ValidationError):
+        fila.full_clean()
+
+    # Control positivo: una edición dentro del saldo sí es válida.
+    fila.monto_asignado = Decimal('100000000.00')
+    fila.full_clean()  # no levanta
+
+
+def test_distribucion_clean_resta_reserva_del_techo(techo_2027):
+    """W4: la guardia del modelo resta el reservado total, igual que
+    validate_allocation (C3): una fila que excede la capacidad efectiva
+    (techo_distribuible - Σ hojas - reservado) se rechaza."""
+    from django.core.exceptions import ValidationError
+
+    techo = TechoPresupuestario.objects.create(
+        gestion=2027, monto_total=Decimal('1000.00'), fuente=techo_2027.fuente,
+        concepto='Techo W4',
+    )
+    DistribucionTecho.objects.create(
+        techo=techo, monto_asignado=Decimal('600.00'),
+        monto_reserva=Decimal('200.00'),
+    )
+    # Capacidad efectiva = 1000 - 600 - 200 = 200 → 300 se rechaza.
+    fila = DistribucionTecho(
+        techo=techo, monto_asignado=Decimal('300.00'),
+    )
+    with pytest.raises(ValidationError):
+        fila.full_clean()

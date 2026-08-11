@@ -99,3 +99,52 @@ class TestConsolidacion:
         r1 = consolidar_poa_institucional(2026)
         r2 = consolidar_poa_institucional(2026)
         assert r1['estado'] == r2['estado']
+
+    def test_alertas_contrato_consolidacion(self, gestion, programa, fuentes, objetos_gasto):
+        """W5: contrato de alertas de consolidar_poa_institucional.
+
+        Una línea sin operación vinculada emite la alerta
+        'presupuesto_sin_accion' (restaurada en W5) cuando apps.indicadores
+        está disponible (HEAD). Cada alerta debe traer tipo/severidad/mensaje.
+        """
+        from datetime import date
+        from django.conf import settings
+        from apps.organizacion.models import DireccionAdministrativa, UnidadEjecutora
+        from apps.catalogos.models import FinalidadFuncion
+
+        da, _ = DireccionAdministrativa.objects.get_or_create(
+            codigo='99', gestion=2026,
+            defaults={'nombre': 'DA Test', 'fecha_vigencia_desde': date(2026, 1, 1)}
+        )
+        ue, _ = UnidadEjecutora.objects.get_or_create(
+            codigo='99', da=da, gestion=2026,
+            defaults={'nombre': 'UE Test', 'fecha_vigencia_desde': date(2026, 1, 1)}
+        )
+        fuente = fuentes.first()
+        objeto = objetos_gasto.first()
+        ff, _ = FinalidadFuncion.objects.get_or_create(
+            codigo='TEST', gestion=2026,
+            defaults={'denominacion': 'Finalidad Test',
+                      'fecha_vigencia_desde': date(2026, 1, 1)}
+        )
+        LineaPresupuestaria.objects.create(
+            gestion=2026, entidad='TEST',
+            da=da, ue=ue, programa=programa,
+            finalidad_funcion=ff, fuente=fuente,
+            objeto_gasto=objeto,
+            importe=Decimal('100000.00'),
+        )
+
+        resultado = consolidar_poa_institucional(2026)
+        alertas = resultado['alertas']
+        assert isinstance(alertas, list)
+        for a in alertas:
+            assert {'tipo', 'severidad', 'mensaje'} <= set(a)
+        tipos = {a['tipo'] for a in alertas}
+        if 'apps.indicadores' in settings.INSTALLED_APPS:
+            assert 'presupuesto_sin_accion' in tipos
+        else:
+            # Rama hermana eliminó apps.indicadores (y la FK operacion de
+            # LineaPresupuestaria): consolidacion degrada con warning y
+            # omite las 4 alertas ligadas (ver consolidacion.py, W5).
+            assert 'presupuesto_sin_accion' not in tipos
