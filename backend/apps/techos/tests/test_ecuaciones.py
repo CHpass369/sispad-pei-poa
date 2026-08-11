@@ -550,3 +550,129 @@ def test_total_gastos_obligatorios_respeta_gastos_inactivos(techo_2027):
     )
     # El saldo disponible se libera por el monto desactivado.
     assert techo_2027.saldo_disponible == SALDO_ESPERADO + go.monto
+
+
+# ---------------------------------------------------------------------------
+# 11. Pins D1/D2 (4R): el saldo disponible a nivel techo resta reservado_total
+#     y la guardia C3 valida el monto_reserva propio de la fila
+# ---------------------------------------------------------------------------
+
+def test_techo_saldo_disponible_resta_reserva(techo_2027):
+    """D1: las tres rutas de lectura (get_available, get_techo_resumen,
+    property saldo_disponible) restan reservado_total y coinciden con la
+    capacidad de validate_allocation: techo 1000, asignado 100, reserva 200
+    → saldo disponible 700.00."""
+    techo = TechoPresupuestario.objects.create(
+        gestion=2027, monto_total=Decimal('1000.00'), fuente=techo_2027.fuente,
+        concepto='Techo D1',
+    )
+    DistribucionTecho.objects.create(
+        techo=techo, monto_asignado=Decimal('100.00'),
+        monto_reserva=Decimal('200.00'),
+    )
+    esperado = Decimal('700.00')
+    assert budget_service.get_available(techo) == esperado
+    assert budget_service.get_techo_resumen(techo)['saldo_disponible'] == esperado
+    assert techo.saldo_disponible == esperado
+    # La capacidad de validate_allocation coincide: 700 entra, 700.01 no.
+    assert budget_service.validate_allocation(techo, esperado)['valido'] is True
+    assert budget_service.validate_allocation(
+        techo, esperado + Decimal('0.01'),
+    )['valido'] is False
+
+
+def test_techo_saldo_disponible_cero_con_reserva_total(techo_2027):
+    """D1: techo 1000, asignado 100, reserva 900 → saldo disponible 0.00
+    en las tres rutas de lectura (reserva consume todo el saldo)."""
+    techo = TechoPresupuestario.objects.create(
+        gestion=2027, monto_total=Decimal('1000.00'), fuente=techo_2027.fuente,
+        concepto='Techo D1 reserva total',
+    )
+    DistribucionTecho.objects.create(
+        techo=techo, monto_asignado=Decimal('100.00'),
+        monto_reserva=Decimal('900.00'),
+    )
+    assert budget_service.get_available(techo) == Decimal('0.00')
+    assert budget_service.get_techo_resumen(techo)['saldo_disponible'] == Decimal('0.00')
+    assert techo.saldo_disponible == Decimal('0.00')
+    assert budget_service.validate_allocation(
+        techo, Decimal('0.00'),
+    )['valido'] is True
+    assert budget_service.validate_allocation(
+        techo, Decimal('0.01'),
+    )['valido'] is False
+
+
+def test_distribucion_clean_reserva_nueva_excede_capacidad(techo_2027):
+    """D2 (a): una fila nueva cuyo monto_reserva (en memoria) excede la
+    capacidad efectiva se rechaza. Antes solo se validaba monto_asignado:
+    una reserva gigante con monto_asignado 0 persistía en silencio."""
+    from django.core.exceptions import ValidationError
+
+    techo = TechoPresupuestario.objects.create(
+        gestion=2027, monto_total=Decimal('1000.00'), fuente=techo_2027.fuente,
+        concepto='Techo D2',
+    )
+    fila = DistribucionTecho(
+        techo=techo, monto_asignado=Decimal('0.00'),
+        monto_reserva=Decimal('999999999.00'),
+    )
+    with pytest.raises(ValidationError):
+        fila.full_clean()
+
+
+def test_distribucion_clean_edicion_reserva_excede_capacidad(techo_2027):
+    """D2 (b): editar una fila para subir monto_reserva más allá de la
+    capacidad efectiva se rechaza: el monto viejo de la fila vuelve a la
+    capacidad (exclude_id) y el monto_reserva nuevo se valida."""
+    from django.core.exceptions import ValidationError
+
+    techo = TechoPresupuestario.objects.create(
+        gestion=2027, monto_total=Decimal('1000.00'), fuente=techo_2027.fuente,
+        concepto='Techo D2 edición',
+    )
+    fila = DistribucionTecho.objects.create(
+        techo=techo, monto_asignado=Decimal('100.00'),
+        monto_reserva=Decimal('100.00'),
+    )
+    fila.monto_reserva = Decimal('1000.00')
+    with pytest.raises(ValidationError):
+        fila.full_clean()
+
+    # Control: dentro de la capacidad sí se puede subir la reserva
+    # (100 asignado + 800 reserva = 900 ≤ 1000).
+    fila.monto_reserva = Decimal('800.00')
+    fila.full_clean()  # no levanta
+
+
+def test_distribucion_clean_reserva_dentro_capacidad_permitida(techo_2027):
+    """D2 (c): control positivo — una fila con monto_asignado + monto_reserva
+    dentro de la capacidad efectiva se persiste sin error."""
+    techo = TechoPresupuestario.objects.create(
+        gestion=2027, monto_total=Decimal('1000.00'), fuente=techo_2027.fuente,
+        concepto='Techo D2 válido',
+    )
+    fila = DistribucionTecho.objects.create(
+        techo=techo, monto_asignado=Decimal('100.00'),
+        monto_reserva=Decimal('200.00'),
+    )
+    assert fila.pk is not None
+
+
+def test_service_estado_techo_inconsistente_reserva_only(techo_2027):
+    """D2 (d): sobre-compromiso solo por reservas (monto_asignado 0,
+    monto_reserva > distribuible) → INCONSISTENTE (fail-loud), igual que
+    el sobre-compromiso por monto_asignado. El estado solo puede existir
+    por fuera del ORM (bulk_create/migraciones): DistribucionTecho.save()
+    ya rechaza la fila (D2 a)."""
+    techo = TechoPresupuestario.objects.create(
+        gestion=2027, monto_total=Decimal('1000.00'), fuente=techo_2027.fuente,
+        concepto='Techo D2 estado',
+    )
+    DistribucionTecho.objects.bulk_create([
+        DistribucionTecho(
+            techo=techo, monto_asignado=Decimal('0.00'),
+            monto_reserva=Decimal('1500.00'),
+        ),
+    ])
+    assert budget_service.estado_techo(techo) == 'INCONSISTENTE'
