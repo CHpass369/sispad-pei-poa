@@ -156,6 +156,22 @@ def _registrar_mapa(modelo, obj, destino, lote, dry_run):
     entry.save()
 
 
+def _formato_decimal(valor) -> str:
+    """Formato consistente NUMERIC(18,2) para el resumen.
+
+    Evita el falsy de Decimal('0.00')/0: `str(valor or 0)` imprimiría '0'
+    en vez de '0.00'. Normaliza a 2 decimales para que formulado/techo
+    compartan la misma base de comparación.
+    """
+    from decimal import Decimal
+
+    if valor is None:
+        return '0.00'
+    if not isinstance(valor, Decimal):
+        valor = Decimal(str(valor))
+    return str(valor.quantize(Decimal('0.01')))
+
+
 def resumen_presupuesto(poa):
     """Proyección: programado/ejecutado físico y financiero del POA."""
     programaciones = ProgramacionActividad.objects.filter(
@@ -168,15 +184,15 @@ def resumen_presupuesto(poa):
         'poa': str(poa.id),
         'codigo': poa.codigo,
         'gestion': poa.gestion,
-        'fisica': {'programado': '0', 'ejecutado': '0'},
-        'financiera': {'programado': '0', 'ejecutado': '0'},
+        'fisica': {'programado': '0.00', 'ejecutado': '0.00'},
+        'financiera': {'programado': '0.00', 'ejecutado': '0.00'},
         'actividades': poa.acciones.count(),
     }
     for fila in programaciones:
         tipo = fila['tipo']
         resumen[tipo] = {
-            'programado': str(fila['programado'] or 0),
-            'ejecutado': str(fila['ejecutado'] or 0),
+            'programado': _formato_decimal(fila['programado']),
+            'ejecutado': _formato_decimal(fila['ejecutado']),
         }
     return resumen
 
@@ -186,6 +202,12 @@ def validar_techo(poa):
 
     Delega en el BudgetAllocationService (motor único, D11) y filtra solo
     techos ACTIVOS (spec NFR).
+
+    La comparación es incondicional (`formulado > techo`): con techo
+    Decimal('0.00') (gestión sin techos) el guard `if techo and ...` se
+    saltaba por falsy y devolvía "dentro del techo" en falso. Ahora la
+    ausencia de techo tiene rama propia ('Sin techo presupuestario
+    configurado').
     """
     from decimal import Decimal
     from apps.techos.services import budget_service
@@ -193,16 +215,28 @@ def validar_techo(poa):
     financiero = resumen_presupuesto(poa)['financiera']
     formulado = Decimal(financiero['programado'])
     techo = budget_service.get_techo_agregado_gestion(poa.gestion)
-    if techo and formulado > techo:
+    if formulado > techo:
+        mensaje = (
+            'No hay techo presupuestario configurado para la gestión.'
+            if techo == 0
+            else 'El formulado financiero excede el techo presupuestario.'
+        )
         return {
             'excede': True,
-            'techo': str(techo),
-            'formulado': str(formulado),
-            'mensaje': 'El formulado financiero excede el techo presupuestario.',
+            'techo': _formato_decimal(techo),
+            'formulado': _formato_decimal(formulado),
+            'mensaje': mensaje,
+        }
+    if techo == 0:
+        return {
+            'excede': False,
+            'techo': _formato_decimal(techo),
+            'formulado': _formato_decimal(formulado),
+            'mensaje': 'Sin techo presupuestario configurado para la gestión.',
         }
     return {
         'excede': False,
-        'techo': str(techo),
-        'formulado': str(formulado),
+        'techo': _formato_decimal(techo),
+        'formulado': _formato_decimal(formulado),
         'mensaje': 'Formulado dentro del techo.',
     }
