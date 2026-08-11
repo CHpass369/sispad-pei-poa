@@ -43,7 +43,15 @@ class TechoPresupuestario(TimeStampedModel):
 
     @property
     def total_gastos_obligatorios(self):
-        return sum(g.monto for g in self.gastos_obligatorios.all())
+        """Σ montos de los gastos obligatorios ACTIVOS del techo.
+
+        Delega en el BudgetAllocationService (motor único, D11): la
+        ecuación canónica filtra activo=True (misma fuente que
+        get_techo_distribuible/saldo_disponible). Sumar la queryset sin
+        filtro divergía del motor al desactivar un GastoObligatorio.
+        """
+        from .services import budget_service
+        return budget_service.get_total_gastos_obligatorios(self)
 
     @property
     def monto_distribuido(self):
