@@ -119,12 +119,10 @@ export class ReportesComponent {
     { id: 'consolidado', label: 'Consolidado', formatos: ['xlsx', 'csv', 'pdf'], endpoint: '/reportes/consolidado/' },
     { id: 'proyectos', label: 'Proyectos', formatos: ['xlsx', 'pdf'], endpoint: '/reportes/proyectos/' },
     { id: 'observaciones', label: 'Observaciones', formatos: ['xlsx', 'csv', 'pdf'], endpoint: '/reportes/observaciones/' },
-    { id: 'mapa', label: 'Mapa', formatos: ['pdf'], endpoint: '/reportes/mapa/' },
     { id: 'acta_aprobacion', label: 'Acta de aprobación', formatos: ['pdf'], endpoint: '/reportes/acta_aprobacion/' },
     { id: 'auxiliar_pluri', label: 'Auxiliar Pluri', formatos: ['xlsx'], endpoint: '/reportes/auxiliar_pluri/' },
     { id: 'evaluacion_cuadro1', label: 'Evaluación — Cuadro N°1', formatos: ['xlsx'], endpoint: '/reportes/evaluacion_cuadro1/' },
     { id: 'evaluacion_cuadro2', label: 'Evaluación — Cuadro N°2', formatos: ['xlsx'], endpoint: '/reportes/evaluacion_cuadro2/' },
-    { id: 'evaluacion_cuadro3', label: 'Evaluación — Cuadro N°3', formatos: ['xlsx'], endpoint: '/reportes/evaluacion_cuadro3/' },
   ];
 
   tipoSeleccionado = '';
