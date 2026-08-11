@@ -2,12 +2,11 @@
 Servicios de generación de reportes del POA.
 Soporta PDF (reportlab), XLSX (openpyxl), CSV y GeoJSON.
 """
-import csv, io, json
+import csv, io
 from decimal import Decimal
-from datetime import datetime, timedelta
-from django.db.models import Sum, Count, Q, DecimalField, IntegerField, Avg, F, Value
+from datetime import datetime
+from django.db.models import Sum, Count, DecimalField, IntegerField
 from django.db.models.functions import Coalesce
-from django.utils import timezone
 
 try:
     import openpyxl
@@ -28,12 +27,10 @@ except ImportError:
 
 from apps.presupuesto.models import ProgramaPresupuestario, LineaPresupuestaria
 from apps.planificacion.models import AccionCortoPlazo
-from apps.organizacion.models import UnidadOrganizacional
-from apps.techos.models import TechoPresupuestario, DistribucionTecho
+from apps.techos.models import DistribucionTecho
 from apps.techos.services import budget_service
 from apps.inversion.models import ProyectoInversion
 from apps.workflow.models import Observacion, Aprobacion
-from apps.core.semaforo import determinar_semaforo
 from apps.articulacion.models import (
     ArticulacionPADPEI, ProductoPAD, ProductoPEI, ResultadoPAD, ResultadoPEI,
     AccionPOA, OperacionPOAU, ActividadPOAU, TareaPOAU,
@@ -102,6 +99,8 @@ def generar_poa_unidad_xlsx(gestion: int, unidad_id: str = None) -> tuple:
     filename = _build_response_filename('unidad', 'xlsx', gestion)
     output = io.BytesIO()
     wb.save(output)
+    output.seek(0)
+    return output, filename
 
 
 # ===== REPORTE POA CONSOLIDADO =====
@@ -158,6 +157,8 @@ def generar_poa_consolidado_xlsx(gestion: int) -> tuple:
     filename = _build_response_filename('consolidado', 'xlsx', gestion)
     output = io.BytesIO()
     wb.save(output)
+    output.seek(0)
+    return output, filename
 
 
 # ===== REPORTE DE PROYECTOS DE INVERSIÓN =====
@@ -201,6 +202,8 @@ def generar_proyectos_xlsx(gestion: int) -> tuple:
     filename = _build_response_filename('proyectos', 'xlsx', gestion)
     output = io.BytesIO()
     wb.save(output)
+    output.seek(0)
+    return output, filename
 
 
 # ===== REPORTE DE OBSERVACIONES =====
@@ -222,6 +225,8 @@ def generar_observaciones_csv(gestion: int) -> tuple:
             str(obs.responsable_subsanacion) if obs.responsable_subsanacion else '',
         ])
 
+    filename = _build_response_filename('observaciones', 'csv', gestion)
+    return io.BytesIO(output.getvalue().encode('utf-8-sig')), filename
 
 
 
@@ -285,6 +290,8 @@ def generar_acta_aprobacion_pdf(gestion: int) -> tuple:
 
     doc.build(elements)
     buffer.seek(0)
+    filename = _build_response_filename('acta_aprobacion', 'pdf', gestion)
+    return buffer, filename
 
 
 # ===== AUXILIAR PLURI =====
@@ -515,6 +522,8 @@ def generar_evaluacion_cuadro1_xlsx(gestion: int) -> tuple:
 
     buffer = io.BytesIO()
     wb.save(buffer)
+    buffer.seek(0)
+    return buffer, _build_response_filename('evaluacion_cuadro1', 'xlsx', gestion)
 
 
 # ===== EVALUACIÓN — CUADRO N°2 =====
@@ -580,7 +589,8 @@ def generar_evaluacion_cuadro2_xlsx(gestion: int) -> tuple:
 
     buffer = io.BytesIO()
     wb.save(buffer)
-
+    buffer.seek(0)
+    return buffer, _build_response_filename('evaluacion_cuadro2', 'xlsx', gestion)
 
 
 def reporte_presupuesto_por_linea(linea_id=None):
@@ -620,6 +630,7 @@ def reporte_presupuesto_por_linea(linea_id=None):
             'movimientos': movimientos,
         })
 
+    return resultados
 
 
 def reporte_acciones_correctivas_pendientes():
@@ -648,6 +659,7 @@ def reporte_acciones_correctivas_pendientes():
             'gestion': ac.gestion,
         })
 
+    return resultados
 
 
 def reporte_productos_por_pad(pad_id):
@@ -688,6 +700,7 @@ def reporte_productos_por_pad(pad_id):
             'gestion': prod.gestion,
         })
 
+    return resultados
 
 
 def reporte_historial_aprobaciones(gestion):
@@ -712,6 +725,8 @@ def reporte_historial_aprobaciones(gestion):
             'motivo_reapertura': ap.motivo_reapertura,
             'fecha': ap.created_at.isoformat() if hasattr(ap, 'created_at') and ap.created_at else '',
         })
+
+    return resultados
 
 
 # ===== MATRIZ 1 — ARTICULACIÓN PAD → PEI =====
@@ -783,6 +798,8 @@ def generar_matriz_pad_pei_xlsx(gestion=None) -> tuple:
     filename = _build_response_filename('matriz_pad_pei', 'xlsx', gestion or 0)
     output = io.BytesIO()
     wb.save(output)
+    output.seek(0)
+    return output, filename
 
 
 # ===== MATRIZ 2 — ARTICULACIÓN PEI → POA =====
@@ -845,6 +862,8 @@ def generar_matriz_pei_poa_xlsx(gestion=None) -> tuple:
     filename = _build_response_filename('matriz_pei_poa', 'xlsx', gestion or 0)
     output = io.BytesIO()
     wb.save(output)
+    output.seek(0)
+    return output, filename
 
 
 # ===== MATRIZ 4 — PRESUPUESTO Y SEGUIMIENTO =====
@@ -924,6 +943,8 @@ def generar_matriz_presupuesto_seguimiento_xlsx(gestion=None) -> tuple:
     )
     output = io.BytesIO()
     wb.save(output)
+    output.seek(0)
+    return output, filename
 
 
 # ===== MATRIZ 5 — OBJETOS DE GASTO =====
@@ -1006,6 +1027,8 @@ def generar_matriz_objetos_gasto_xlsx(gestion=None) -> tuple:
     filename = _build_response_filename('matriz_objetos_gasto', 'xlsx', gestion or 0)
     output = io.BytesIO()
     wb.save(output)
+    output.seek(0)
+    return output, filename
 
 
 # ===== MATRIZ ARTICULACIÓN COMPLETA =====
