@@ -10,12 +10,10 @@ from .services import (
     generar_poa_consolidado_xlsx,
     generar_proyectos_xlsx,
     generar_observaciones_csv,
-    generar_territorio_geojson,
     generar_acta_aprobacion_pdf,
     generar_auxiliar_pluri_xlsx,
     generar_evaluacion_cuadro1_xlsx,
     generar_evaluacion_cuadro2_xlsx,
-    generar_evaluacion_cuadro3_xlsx,
     generar_matriz_pad_pei_xlsx,
     generar_matriz_pei_poa_xlsx,
     generar_matriz_presupuesto_seguimiento_xlsx,
@@ -77,18 +75,6 @@ class ReporteGeneradoViewSet(viewsets.ModelViewSet):
         )
 
     @action(detail=False, methods=['get'])
-    def mapa(self, request):
-        """GET /api/v1/reportes/mapa/?gestion=2026"""
-        gestion = request.query_params.get('gestion')
-        if not gestion:
-            return Response({'error': 'gestión requerida'}, status=status.HTTP_400_BAD_REQUEST)
-        try:
-            geojson = generar_territorio_geojson(int(gestion))
-            return Response(geojson)
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-    @action(detail=False, methods=['get'])
     def acta_aprobacion(self, request):
         """GET /api/v1/reportes/acta_aprobacion/?gestion=2026"""
         return _responder_descarga(request, generar_acta_aprobacion_pdf, 'application/pdf')
@@ -109,11 +95,6 @@ class ReporteGeneradoViewSet(viewsets.ModelViewSet):
     def evaluacion_cuadro2(self, request):
         """GET /api/v1/reportes/evaluacion_cuadro2/?gestion=2026"""
         return _responder_descarga(request, generar_evaluacion_cuadro2_xlsx, XLSX_CONTENT_TYPE)
-
-    @action(detail=False, methods=['get'])
-    def evaluacion_cuadro3(self, request):
-        """GET /api/v1/reportes/evaluacion_cuadro3/?gestion=2026"""
-        return _responder_descarga(request, generar_evaluacion_cuadro3_xlsx, XLSX_CONTENT_TYPE)
 
     @action(detail=False, methods=['get'])
     def articulacion_matriz_pad_pei(self, request):
