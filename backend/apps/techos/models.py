@@ -169,23 +169,21 @@ class DistribucionTecho(TimeStampedModel):
 
     def clean(self):
         from django.core.exceptions import ValidationError as VE
-        if self._state.adding:
-            # Fila nueva: saldo_disponible aún no descuenta este monto.
-            saldo = self.techo.saldo_disponible
-        else:
-            # Actualización: saldo_disponible ya descuenta el monto viejo de
-            # esta fila; lo sumamos de vuelta para comparar contra el nuevo.
-            viejo = (
-                DistribucionTecho.objects.filter(pk=self.pk)
-                .values_list('monto_asignado', flat=True)
-                .first()
-            ) or self.monto_asignado
-            saldo = self.techo.saldo_disponible + viejo
-        if self.monto_asignado > saldo:
-            raise VE(
-                f'El monto Bs {self.monto_asignado} excede el saldo disponible '
-                f'del techo Bs {saldo}.'
-            )
+        from .services import budget_service
+
+        # Guardia a nivel techo (C3) vía el motor único (D11): misma
+        # ecuación que validate_allocation, que resta el reservado total
+        # (W4) y excluye la fila editada leyendo su monto viejo de BD
+        # (W3: Decimal('0.00') es falsy, por eso no se usa 'or self.monto').
+        # Red de seguridad del modelo; la barrera de concurrencia real
+        # (locks/ledger) llega en S3.
+        resultado = budget_service.validate_allocation(
+            self.techo,
+            self.monto_asignado,
+            exclude_id=None if self._state.adding else self.pk,
+        )
+        if not resultado['valido']:
+            raise VE(resultado['mensaje'])
 
     def save(self, *args, **kwargs):
         self.full_clean()

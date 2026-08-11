@@ -35,10 +35,13 @@ def validar_distribucion_no_excede(techo, monto_asignado, exclude_id=None):
 def validar_movimiento(movimiento):
     """DEPRECADO (C6): wrapper del motor único; no computa saldos propios.
 
-    La validación de saldo delega en BudgetAllocationService.can_allocate.
-    Los checks estructurales (montos, transferencias) se conservan para no
-    cambiar el contrato de los endpoints V1 (A11). En S3 los movimientos V1
-    pasan a read-only o se enrutan a través del servicio.
+    La validación de saldo reproduce la ecuación legacy por movimientos
+    aprobados (get_saldo_por_movimientos, semántica A11 de
+    obtener_saldo_disponible) hasta que S3 provea el camino canónico de
+    mutación (allocate/reserve/release bajo lock). NO usa can_allocate:
+    esa guardia es por distribución (D11) y aflojaría el control de
+    dinero de los endpoints V1. Los checks estructurales (montos,
+    transferencias) se conservan para no cambiar el contrato (A11).
     """
     logger.warning(
         'validar_movimiento está deprecado; use '
@@ -60,8 +63,10 @@ def validar_movimiento(movimiento):
 
     if movimiento.movement_type in ('incremento', 'asignacion', 'transferencia', 'ajuste'):
         if movimiento.source_ceiling:
-            if not budget_service.can_allocate(movimiento.source_ceiling, movimiento.amount):
-                saldo_origen = budget_service.get_available(movimiento.source_ceiling)
+            saldo_origen = budget_service.get_saldo_por_movimientos(
+                movimiento.source_ceiling,
+            )
+            if movimiento.amount > saldo_origen:
                 errores.append(
                     f'El monto Bs {movimiento.amount} excede el saldo disponible '
                     f'del techo origen Bs {saldo_origen}.'
@@ -75,10 +80,12 @@ def aplicar_movimiento(movimiento):
     """DEPRECADO (C6): wrapper del motor único; nunca escribe saldos fuera
     del motor.
 
-    La validación delega en BudgetAllocationService.can_allocate (no se
-    computan saldos aquí). La escritura del registro MovimientoTecho se
-    conserva para compatibilidad V1 (A11); en S3 la escritura pasa por
-    allocate/reserve/release bajo lock.
+    La validación reproduce la ecuación legacy por movimientos aprobados
+    (get_saldo_por_movimientos, A11) igual que validar_movimiento; no se
+    computan saldos aquí ni se usa can_allocate (guardia por distribución,
+    D11) para no aflojar el control de dinero de los endpoints V1. La
+    escritura del registro MovimientoTecho se conserva para compatibilidad
+    V1 (A11); en S3 la escritura pasa por allocate/reserve/release bajo lock.
     """
     logger.warning(
         'aplicar_movimiento está deprecado; la escritura de saldos debe '
@@ -89,11 +96,13 @@ def aplicar_movimiento(movimiento):
         raise ValueError('; '.join(errores))
 
     if movimiento.movement_type in ('reduccion', 'reserva', 'liberacion', 'reversion'):
-        if not budget_service.can_allocate(movimiento.techo, movimiento.amount):
-            saldo_disponible = budget_service.get_available(movimiento.techo)
+        nuevo_total = budget_service.get_saldo_por_movimientos(
+            movimiento.techo, excluir_id=movimiento.pk,
+        )
+        if movimiento.amount > nuevo_total:
             raise ValueError(
                 f'El monto de reducción Bs {movimiento.amount} excede '
-                f'el saldo disponible Bs {saldo_disponible}.'
+                f'el saldo disponible Bs {nuevo_total}.'
             )
 
     movimiento.save()
@@ -145,17 +154,39 @@ class BudgetAllocationService:
 
     def get_amount(self, bolsa) -> Decimal:
         """Monto vigente de la bolsa (monto_vigente, S2). Para el techo
-        legacy expone monto_total."""
+        legacy expone monto_total.
+
+        Fallo ruidoso (no silencioso): una bolsa que no exponga el campo
+        esperado indica un renombrado/forma desconocida; devolver 0.00
+        permitiría sobre-asignar en silencio (W7).
+        """
         if isinstance(bolsa, TechoPresupuestario):
             return self._decimal(bolsa.monto_total)
-        return self._decimal(getattr(bolsa, 'monto_vigente', Decimal('0.00')))
+        try:
+            return self._decimal(bolsa.monto_vigente)
+        except AttributeError as e:
+            raise AttributeError(
+                'Bolsa con forma desconocida: '
+                f'{type(bolsa).__name__} no expone monto_vigente (¿campo '
+                'renombrado en S2?).'
+            ) from e
 
     def get_reserved(self, bolsa) -> Decimal:
         """Monto reservado: columna monto_reservado de la bolsa (S2) o
-        Σ monto_reserva de las distribuciones activas del techo legacy."""
+        Σ monto_reserva de las distribuciones activas del techo legacy.
+
+        Fallo ruidoso (W7): misma política que get_amount.
+        """
         if isinstance(bolsa, TechoPresupuestario):
             return self._sum_activo(bolsa.distribuciones, 'monto_reserva')
-        return self._decimal(getattr(bolsa, 'monto_reservado', Decimal('0.00')))
+        try:
+            return self._decimal(bolsa.monto_reservado)
+        except AttributeError as e:
+            raise AttributeError(
+                'Bolsa con forma desconocida: '
+                f'{type(bolsa).__name__} no expone monto_reservado (¿campo '
+                'renombrado en S2?).'
+            ) from e
 
     def get_distributed(self, bolsa) -> Decimal:
         """Monto distribuido activo: SUM(DistribucionTecho.activo) de la
@@ -181,12 +212,34 @@ class BudgetAllocationService:
                 pass
         return self._decimal(nodo.monto_asignado)
 
-    def get_available(self, bolsa) -> Decimal:
+    def get_available(self, bolsa, exclude_id=None) -> Decimal:
         """Saldo disponible: techo distribuible - distribuido (techo) o
-        vigente - reservado - distribuido (bolsa, S2)."""
+        vigente - reservado - distribuido (bolsa, S2).
+
+        Con exclude_id se excluye la fila editada (W2): al revalidar una
+        hoja, su monto asignado y su reserva vuelven a la capacidad; de lo
+        contrario el saldo de la bolsa seguiría contando la fila y el min()
+        de validate_allocation rechazaría toda edición positiva.
+        """
+        distribuido = self.get_distributed(bolsa)
+        reservado = self.get_reserved(bolsa)
+        if exclude_id is not None:
+            techo = (
+                bolsa if isinstance(bolsa, TechoPresupuestario)
+                else getattr(bolsa, 'techo', None)
+            )
+            if techo is not None:
+                fila = (
+                    DistribucionTecho.objects
+                    .filter(pk=exclude_id, techo=techo, activo=True)
+                    .first()
+                )
+                if fila is not None:
+                    distribuido -= self._decimal(fila.monto_asignado)
+                    reservado -= self._decimal(fila.monto_reserva)
         if isinstance(bolsa, TechoPresupuestario):
-            return self.get_techo_distribuible(bolsa) - self.get_distributed(bolsa)
-        return self.get_amount(bolsa) - self.get_reserved(bolsa) - self.get_distributed(bolsa)
+            return self.get_techo_distribuible(bolsa) - distribuido
+        return self.get_amount(bolsa) - reservado - distribuido
 
     # ------------------------------------------------------------------
     # Consultas a nivel techo
@@ -215,6 +268,12 @@ class BudgetAllocationService:
 
         Mismas claves que el resumen legacy + claves nuevas
         (monto_reservado, techo_distribuible, estado).
+
+        NOTA (W8): este método es por-techo (4 consultas SUM). Para uso
+        batch (p. ej. listar techos de una gestión) no se debe invocar en
+        un loop: implementar resumen_techos(qs) que agregue con
+        prefetch_related('recursos', 'gastos_obligatorios', 'distribuciones')
+        o SUM agrupado por techo en una sola consulta.
         """
         gastos = self.get_total_gastos_obligatorios(techo)
         distribuido = self._sum_activo(techo.distribuciones, 'monto_asignado')
@@ -321,18 +380,24 @@ class BudgetAllocationService:
             'monto_asignado',
         )
 
-    def get_saldo_por_movimientos(self, techo) -> Decimal:
+    def get_saldo_por_movimientos(self, techo, excluir_id=None) -> Decimal:
         """Saldo por movimientos aprobados (compatibilidad legacy V1, A11).
 
         No es la ecuación canónica: reproduce la semántica histórica de
         obtener_saldo_disponible (monto_total ± movimientos aprobados)
         para no alterar la salida de los endpoints V1. La ecuación
         canónica vive en get_available/get_techo_resumen.
+
+        excluir_id excluye un movimiento concreto (re-validación de un
+        movimiento ya persistido, como hacía aplicar_movimiento legacy).
         """
+        movimientos = MovimientoTecho.objects.filter(
+            techo=techo, approved_by__isnull=False,
+        )
+        if excluir_id is not None:
+            movimientos = movimientos.exclude(pk=excluir_id)
         saldo = self._decimal(techo.monto_total)
-        for mov in MovimientoTecho.objects.filter(
-            techo=techo, approved_by__isnull=False
-        ):
+        for mov in movimientos:
             if mov.movement_type in ('asignacion', 'incremento', 'transferencia', 'ajuste'):
                 saldo += self._decimal(mov.amount)
             elif mov.movement_type in ('reduccion', 'reserva', 'liberacion', 'reversion'):
@@ -384,7 +449,10 @@ class BudgetAllocationService:
                 distribuido_hojas -= self._decimal(fila.monto_asignado)
                 reservado_total -= self._decimal(fila.monto_reserva)
 
-        saldo_bolsa = self.get_available(bolsa)
+        # W2: el saldo de la bolsa también excluye la fila editada; si no,
+        # min(saldo_bolsa, capacidad_techo) colapsa al saldo viejo y toda
+        # edición positiva se rechaza (doble conteo).
+        saldo_bolsa = self.get_available(bolsa, exclude_id=exclude_id)
         capacidad_techo = techo_distribuible - distribuido_hojas - reservado_total
         saldo_disponible = min(saldo_bolsa, capacidad_techo)
 
