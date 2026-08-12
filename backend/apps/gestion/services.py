@@ -3,9 +3,13 @@ from django.utils import timezone
 
 from .models import GestionFiscal, CicloFormulacion, EtapaFormulacion
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 def estado_operativo(estado):
-    """Mapeo centralizado 8→4 de estados de gestión (Q3, design §10).
+    """Mapeo centralizado 10→4 de estados de gestión (Q3, design §10).
 
     BORRADOR ← preparacion/abierta/formulacion/revision/consolidacion
     VIGENTE  ← aprobacion/vigente
@@ -30,6 +34,15 @@ def estado_operativo(estado):
         return 'CERRADA'
     if estado == GestionFiscal.Estado.ANULADA:
         return 'ANULADA'
+    # Fallback silencioso a BORRADOR (sospechoso 4R): no inventar un
+    # mapeo; loguear para que un estado nuevo sin mapear no pase
+    # desapercibido (p. ej. un valor que ya no existe en choices o un
+    # estado aditivo agregado en el futuro).
+    logger.warning(
+        'estado_operativo: estado %r sin mapeo explícito; se asume '
+        'BORRADOR (Q3). Revisar GestionFiscal.Estado.',
+        estado,
+    )
     return 'BORRADOR'
 
 

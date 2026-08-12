@@ -1,7 +1,7 @@
 """
 Tests del mapeo operativo de estados de gestión (Q3, slice S2).
 
-estado_operativo() es el mapeo centralizado 8→4 (BORRADOR / VIGENTE /
+estado_operativo() es el mapeo centralizado 10→4 (BORRADOR / VIGENTE /
 CERRADA / ANULADA) usado por wizard, API y validación. Los estados
 VIGENTE y ANULADA son aditivos sobre los 8 existentes.
 """
