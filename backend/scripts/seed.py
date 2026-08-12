@@ -1019,8 +1019,13 @@ def _seed_budget_and_evaluation(
     users,
     plan_pei,
 ):
+    # W-real 4R: desde 0004 el techo es 1:1 con GestionFiscal (NOT NULL);
+    # sin esto el seed revienta tras la migración. get_or_create reutiliza
+    # la gestión ya sembrada por _seed_gestion_and_organization.
+    gestion_fiscal, _ = GestionFiscal.objects.get_or_create(anio=DEMO_YEAR)
     techo, _ = TechoPresupuestario.objects.get_or_create(
         gestion=DEMO_YEAR,
+        gestion_fiscal=gestion_fiscal,
         fuente=catalogs['source'],
         organismo=catalogs['organism'],
         defaults={
