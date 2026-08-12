@@ -13,22 +13,37 @@ Ejecuta, dentro de transaction.atomic y en modo fail-loud:
 4. **Grupos**: TechoRecursoGrupo por (fuente, organismo) + un
    TechoRecursoDetalle por RecursoTecho; los RecursoTecho NO se borran
    (fuente legacy V1 read-only).
-5. **Bolsas**: por (fuente, organismo, tipo_gasto); tipo_gasto = CORRIENTE
-   por defecto (D10; la clasificación real llega por API en S4).
-   monto_inicial = Σ del grupo si el mapeo es 1:1, 0 si ambiguo; en toda
-   creación monto_vigente = monto_inicial + monto_ajustes (C8), nunca
-   null ni 0 por omisión.
+5. **Bolsas**: por (fuente, organismo); tipo_gasto = CORRIENTE (D10; la
+   clasificación real llega por API en S4). monto_inicial = Σ del grupo
+   (mapeo siempre 1:1: los recursos legacy no traen ObjetoGasto y el
+   branch ambiguo era código muerto). En toda creación monto_vigente =
+   monto_inicial + monto_ajustes (C8), nunca null ni 0 por omisión.
 6. **Plano → jerárquico (DD4)**: categoría sintética 'MIGRACION LEGACY
    0004' (bolsa = única candidata si el techo tiene una sola bolsa, si no
-   null) con monto = Σ legacy, y una hoja por fila legacy (padre =
-   categoría sintética).
+   null) con monto = Σ legacy, marcador persistente en `concepto` (el
+   identificador del árbol legacy vive en BD, sospechoso 4R), y una hoja
+   por fila legacy (padre = categoría sintética).
 7. **Validación post (fail-loud)**: Σ legacy pre == Σ hojas post;
    Σ recursos == Σ grupos; monto_total == total_recursos; Σ bolsas.vigente
-   == Σ grupos 1:1 (la diferencia esperada de bolsas ambiguas se reporta
-   explícitamente, nunca en silencio). Cualquier otra diferencia →
-   RuntimeError (nada se aplica parcialmente).
+   == Σ grupos. Cualquier diferencia → RuntimeError (nada se aplica
+   parcialmente).
 
-Reversión: migrate techos 0003 + drop de objetos nuevos (aditivo).
+REVERSIBLE (K5 4R, opción "reverse real"): el forward toma una SNAPSHOT en
+la tabla `techos_0004_backup` (monto_total original por techo + ids de las
+filas legacy activas) ANTES de mutar cada techo. El reverse:
+1. restaura monto_total original (Q1/DD6 se revierte);
+2. borra las hojas sintéticas y la categoría sintética (marcador
+   `concepto`);
+3. reactiva EXACTAMENTE las filas legacy capturadas;
+4. borra bolsas y grupos (los detalles van en cascada con el grupo); las
+   GestionFiscal creadas por get_or_create se conservan (la reversión de
+   0004_nucleo_techo revierte la columna; una gestión huérfana es un
+   registro válido e inofensivo);
+5. descarta la tabla de snapshot.
+Así el estado 0003 queda exacto (sin datos 0004 residuales que lo
+corrompan). Limitación documentada: si tras migrar se crearon
+movimientos/ajustes (S3+) que referencien bolsas/distribuciones, el
+reverse falla por FK PROTECT — el rollback debe hacerse ANTES de operar.
 """
 from decimal import Decimal
 
@@ -37,6 +52,8 @@ from django.db import migrations, models, transaction
 from django.db.models import Count, Sum
 
 NOMBRE_CATEGORIA_SINTETICA = 'MIGRACION LEGACY 0004'
+TIPO_GASTO_LEGACY = 'CORRIENTE'  # D10: recursos legacy sin ObjetoGasto
+TABLA_SNAPSHOT = 'techos_0004_backup'
 
 
 def _resolver_constraints_diferidos():
@@ -61,16 +78,6 @@ def _suma(queryset, campo):
     return total if total is not None else Decimal('0.00')
 
 
-def _tipo_gasto_de_recurso(recurso):
-    """Deriva CORRIENTE/INVERSION por ObjetoGasto cuando sea posible.
-
-    Los recursos legacy (0003) no traen objeto_gasto; CORRIENTE por
-    defecto (D10) y queda `sin_clasificar` visible. La clasificación real
-    la hace el usuario vía la API de clasificación (S4), no la migración.
-    """
-    return 'CORRIENTE'
-
-
 def migrar_nucleo_techo(apps, schema_editor):
     Techo = apps.get_model('techos', 'Techopresupuestario')
     Recurso = apps.get_model('techos', 'RecursoTecho')
@@ -82,6 +89,17 @@ def migrar_nucleo_techo(apps, schema_editor):
 
     reporte = []
     errores = []
+
+    # Snapshot K5 4R: tabla que guarda el estado 0003 por techo
+    # (monto_total original + ids legacy activos) para el reverse real.
+    with schema_editor.connection.cursor() as cursor:
+        cursor.execute(
+            f'CREATE TABLE IF NOT EXISTS {TABLA_SNAPSHOT} ('
+            '  techo_id uuid PRIMARY KEY,'
+            '  monto_total_legacy numeric(20,2) NOT NULL,'
+            '  legacy_ids uuid[] NOT NULL'
+            ')'
+        )
 
     with transaction.atomic():
         # ------------------------------------------------------------------
@@ -126,10 +144,31 @@ def migrar_nucleo_techo(apps, schema_editor):
         # 3)-5) monto_total, grupos+detalles y bolsas, por techo
         # ------------------------------------------------------------------
         totales_legacy_pre = {}   # techo_id -> Σ monto_asignado legacy activo
-        montos_grupos_ambiguos = {}  # techo_id -> Decimal
 
         for techo in Techo.objects.all().order_by('id'):
             tid = str(techo.id)
+
+            # Estado 0003 ANTES de cualquier mutación de este techo: las
+            # filas legacy activas y su Σ (para la validación post) y la
+            # snapshot para el reverse (K5 4R).
+            legacy = list(
+                Distribucion.objects.filter(techo=techo, activo=True)
+                .order_by('id')
+            )
+            totales_legacy_pre[tid] = _suma(
+                Distribucion.objects.filter(techo=techo, activo=True),
+                'monto_asignado',
+            )
+            with schema_editor.connection.cursor() as cursor:
+                cursor.execute(
+                    f'INSERT INTO {TABLA_SNAPSHOT} '
+                    '(techo_id, monto_total_legacy, legacy_ids) '
+                    'VALUES (%s, %s, %s::uuid[]) '
+                    f'ON CONFLICT (techo_id) DO UPDATE SET '
+                    'monto_total_legacy = EXCLUDED.monto_total_legacy, '
+                    'legacy_ids = EXCLUDED.legacy_ids',
+                    [techo.id, techo.monto_total, [str(f.id) for f in legacy]],
+                )
 
             # 3) monto_total = SUM(RecursoTecho.monto) (Q1/DD6)
             total_recursos = _suma(Recurso.objects.filter(techo=techo), 'monto')
@@ -165,59 +204,28 @@ def migrar_nucleo_techo(apps, schema_editor):
             for grupo in grupos.values():
                 grupo.save(update_fields=['monto', 'updated_at'])
 
-            # 5) Bolsas por (fuente, organismo, tipo_gasto) con C8
-            tipos_por_clave = {}
-            for recurso in recursos:
-                clave = (str(recurso.fuente_id), str(recurso.organismo_id or ''))
-                tipos_por_clave.setdefault(clave, set()).add(
-                    _tipo_gasto_de_recurso(recurso),
-                )
-            bolsa_por_clave = {}
-            montos_ambiguos = Decimal('0.00')
-            for clave, tipos in tipos_por_clave.items():
+            # 5) Bolsas por (fuente, organismo) con C8; tipo de gasto
+            # CORRIENTE (D10): los recursos legacy (0003) no traen
+            # ObjetoGasto, el mapeo es SIEMPRE 1:1 y la clasificación real
+            # llega por la API de clasificación (S4). El branch "ambiguo"
+            # era código muerto (sospechoso 4R) y se eliminó.
+            for clave, grupo in grupos.items():
                 fuente_id, organismo_id = clave
                 organismo_db = None if organismo_id == '' else organismo_id
-                if len(tipos) == 1:
-                    # 1:1 grupo → bolsa: monto_inicial = Σ del grupo
-                    monto_inicial = grupos[clave].monto
-                    tipo_gasto = tipos.pop()
-                else:
-                    # Mapeo ambiguo: bolsa 0; el fixture/comando dev ajusta
-                    # después; la integridad se preserva porque
-                    # techo_distribuible no depende de bolsas.
-                    monto_inicial = Decimal('0.00')
-                    tipo_gasto = 'CORRIENTE'
-                    montos_ambiguos += grupos[clave].monto
-                    reporte.append(
-                        f'techo {tid}: grupo (fuente {fuente_id}, organismo '
-                        f'{organismo_id}) con tipos {sorted(tipos)} → bolsa '
-                        f'ambiguo con monto_inicial 0 (diferencia esperada '
-                        f'Bs {montos_ambiguos} se reporta en la validación)'
-                    )
-                bolsa = Bolsa.objects.create(
+                Bolsa.objects.create(
                     techo=techo,
                     fuente_id=fuente_id,
                     organismo_id=organismo_db,
-                    tipo_gasto=tipo_gasto,
-                    monto_inicial=monto_inicial,
+                    tipo_gasto=TIPO_GASTO_LEGACY,
+                    monto_inicial=grupo.monto,
                     monto_ajustes=Decimal('0.00'),
                     # C8: monto_vigente = monto_inicial + monto_ajustes
                     # SIEMPRE; nunca null ni 0 por omisión.
-                    monto_vigente=monto_inicial + Decimal('0.00'),
+                    monto_vigente=grupo.monto + Decimal('0.00'),
                     monto_reservado=Decimal('0.00'),
                 )
-                bolsa_por_clave[clave] = bolsa
-            montos_grupos_ambiguos[tid] = montos_ambiguos
 
             # 6) Plano → jerárquico (DD4): categoría sintética + hojas
-            legacy = list(
-                Distribucion.objects.filter(techo=techo, activo=True)
-                .order_by('id')
-            )
-            totales_legacy_pre[tid] = _suma(
-                Distribucion.objects.filter(techo=techo, activo=True),
-                'monto_asignado',
-            )
             if not legacy:
                 continue
             bolsa_candidata = None
@@ -228,6 +236,10 @@ def migrar_nucleo_techo(apps, schema_editor):
                 techo=techo,
                 bolsa=bolsa_candidata,
                 categoria_programatica=None,
+                # Marcador persistente del árbol legacy (sospechoso 4R):
+                # la identificación de la categoría sintética vive en BD,
+                # no en un contrato implícito de la jerarquía.
+                concepto=NOMBRE_CATEGORIA_SINTETICA,
                 monto_asignado=_suma(
                     Distribucion.objects.filter(techo=techo, activo=True),
                     'monto_asignado',
@@ -301,18 +313,10 @@ def migrar_nucleo_techo(apps, schema_editor):
             bolsas = Bolsa.objects.filter(techo=techo)
             if bolsas.exists():
                 suma_vigente = _suma(bolsas, 'monto_vigente')
-                esperado = grupos_total - montos_grupos_ambiguos[tid]
-                if suma_vigente != esperado:
+                if suma_vigente != grupos_total:
                     errores.append(
                         f'techo {tid}: Σ bolsas.monto_vigente {suma_vigente} '
-                        f'!= Σ grupos 1:1 {esperado} (grupos ambiguos '
-                        f'{montos_grupos_ambiguos[tid]})'
-                    )
-                elif montos_grupos_ambiguos[tid] > 0:
-                    reporte.append(
-                        f'techo {tid}: diferencia esperada de bolsas '
-                        f'ambiguas Bs {montos_grupos_ambiguos[tid]} '
-                        f'(grupos sin mapeo 1:1 a bolsa)'
+                        f'!= Σ grupos {grupos_total}'
                     )
 
         if errores:
@@ -332,6 +336,60 @@ def migrar_nucleo_techo(apps, schema_editor):
                 print(f'  - {linea}')
 
 
+def _revertir_nucleo_techo(apps, schema_editor):
+    """Reverse REAL de la data-migration 0004 (K5 4R).
+
+    Restaura el estado 0003 exacto usando la snapshot `techos_0004_backup`
+    tomada en el forward (por eso el reverse NUNCA deja S1 corrupto):
+    1. monto_total original (Q1/DD6 se revierte).
+    2. Se borran las hojas sintéticas y la categoría sintética (marcador
+       persistente `concepto`, sospechoso 4R).
+    3. Se reactivan EXACTAMENTE las filas legacy capturadas.
+    4. Se borran bolsas y grupos (detalles en cascada con el grupo); las
+       distribuciones que referenciaban bolsas ya no existen. Las
+       GestionFiscal creadas por get_or_create se conservan (la reversión
+       de 0004_nucleo_techo revierte la columna; una gestión huérfana es
+       un registro válido e inofensivo).
+    5. Se descarta la tabla de snapshot.
+    """
+    Techo = apps.get_model('techos', 'Techopresupuestario')
+    Distribucion = apps.get_model('techos', 'DistribucionTecho')
+    Bolsa = apps.get_model('techos', 'BolsaPresupuestaria')
+    Grupo = apps.get_model('techos', 'TechoRecursoGrupo')
+
+    with schema_editor.connection.cursor() as cursor:
+        cursor.execute(f"SELECT to_regclass('public.{TABLA_SNAPSHOT}')")
+        if cursor.fetchone()[0] is None:
+            # El forward nunca corrió en esta BD (o ya se revirtió).
+            return
+    with schema_editor.connection.cursor() as cursor:
+        cursor.execute(
+            f'SELECT techo_id, monto_total_legacy, legacy_ids '
+            f'FROM {TABLA_SNAPSHOT}'
+        )
+        snapshots = cursor.fetchall()
+
+    for techo_id, monto_legacy, legacy_ids in snapshots:
+        Techo.objects.filter(pk=techo_id).update(monto_total=monto_legacy)
+        # Hojas sintéticas (hijos de la categoría sintética) y la
+        # categoría sintética misma (concepto = marcador 0004).
+        Distribucion.objects.filter(
+            techo_id=techo_id, padre__concepto=NOMBRE_CATEGORIA_SINTETICA,
+        ).delete()
+        Distribucion.objects.filter(
+            techo_id=techo_id, concepto=NOMBRE_CATEGORIA_SINTETICA,
+        ).delete()
+        # Filas legacy originales: reactivar exactamente las capturadas.
+        Distribucion.objects.filter(pk__in=legacy_ids).update(activo=True)
+        # Bolsas y grupos (detalles en cascada con el grupo). Las
+        # distribuciones que los referenciaban ya no existen.
+        Bolsa.objects.filter(techo_id=techo_id).delete()
+        Grupo.objects.filter(techo_id=techo_id).delete()
+
+    with schema_editor.connection.cursor() as cursor:
+        cursor.execute(f'DROP TABLE IF EXISTS {TABLA_SNAPSHOT}')
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -339,7 +397,8 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunPython(migrar_nucleo_techo, migrations.RunPython.noop),
+        # Reverse REAL (K5 4R): restaura el estado 0003 desde la snapshot.
+        migrations.RunPython(migrar_nucleo_techo, _revertir_nucleo_techo),
         # Estado final R2.1: FK → OneToOne no-null (unique). Solo se llega
         # aquí si el pre-check C2 (1:1) pasó y el backfill completó.
         migrations.AlterField(

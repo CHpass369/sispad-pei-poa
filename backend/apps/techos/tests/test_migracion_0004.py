@@ -207,6 +207,47 @@ def test_data_migration_integridad_pre_post():
 
 
 @pytest.mark.django_db(transaction=True)
+def test_reverse_0004_restaura_estado_0003():
+    """K5 4R: el reverse de 0004_nucleo_techo_datos restaura el estado
+    0003 exacto (monto_total original, legacy reactivadas, sin residuos
+    de la jerarquía sintética ni de la tabla de snapshot)."""
+    escenario = _crear_escenario_0003()
+
+    _migrar(TECHOS_0004_DATOS)
+
+    # Reverse: volver al esquema 0003 (ejercita _revertir_nucleo_techo).
+    _migrar(TECHOS_0003)
+    old_apps = _apps_en(TECHOS_0003)
+
+    Techo = old_apps.get_model('techos', 'Techopresupuestario')
+    Distribucion = old_apps.get_model('techos', 'DistribucionTecho')
+    # La gestión fiscal vive en otra app (no está en el estado 0003 de
+    # techos): se consulta con el registro real de apps.
+    from django.apps import apps as django_apps
+    Gestion = django_apps.get_model('gestion', 'GestionFiscal')
+
+    techo = Techo.objects.get(pk=escenario['techo_id'])
+    # monto_total original (1000.00), NO el recalculado (750.00, Q1/DD6).
+    assert techo.monto_total == Decimal('1000.00')
+    # Las 2 filas legacy planas vuelven a estar activas (450.00).
+    activas = Distribucion.objects.filter(techo=techo, activo=True)
+    assert activas.count() == 2
+    assert activas.aggregate(
+        total=models_Sum('monto_asignado'),
+    )['total'] == Decimal('450.00')
+    # Sin categoría sintética ni hojas residuales (solo las legacy).
+    assert Distribucion.objects.filter(techo=techo).count() == 2
+    # La GestionFiscal creada por get_or_create queda como residuo
+    # documentado (registro válido e inofensivo; la columna la revierte
+    # el reverse de 0004_nucleo_techo).
+    assert Gestion.objects.filter(anio=2026).exists()
+    # La tabla de snapshot se descarta al revertir.
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT to_regclass('public.techos_0004_backup')")
+        assert cursor.fetchone()[0] is None
+
+
+@pytest.mark.django_db(transaction=True)
 def test_precheck_c2_aborta_con_dos_techos_misma_gestion():
     _migrar(TECHOS_0003)
     old_apps = _apps_en(TECHOS_0003)
