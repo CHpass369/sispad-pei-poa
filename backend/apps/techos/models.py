@@ -98,7 +98,17 @@ class TechoPresupuestario(TimeStampedModel):
 
     @property
     def monto_distribuido(self):
-        return sum(d.monto_asignado for d in self.distribuciones.filter(activo=True))
+        """Σ hojas activas (motor único, D11): delega en get_distributed.
+
+        NO se suma el árbol completo: la categoría sintética 'MIGRACION
+        LEGACY 0004' (data-migration 0004) tiene monto = Σ de sus hojas y
+        contarla de nuevo duplicaría el saldo (K1 4R: 900 vs motor 450).
+        La única ecuación canónica es _sum_hojas_activas del
+        BudgetAllocationService; este property y get_techo_resumen
+        comparten esa fuente.
+        """
+        from .services import budget_service
+        return budget_service.get_distributed(self)
 
     @property
     def saldo_disponible(self):
@@ -433,6 +443,13 @@ class DistribucionTecho(TimeStampedModel):
         'presupuesto.ProgramaPresupuestario', on_delete=models.PROTECT,
         null=True, blank=True, related_name='distribuciones_techo'
     )
+    concepto = models.CharField(
+        max_length=300, blank=True, default='',
+        help_text='Marcador persistente de la categoría sintética '
+                  '"MIGRACION LEGACY 0004" creada por la data-migration '
+                  '0004 (identificación estable del árbol legacy, sospechoso '
+                  '4R: el marcador no vivía en BD).',
+    )
     monto_asignado = models.DecimalField(max_digits=18, decimal_places=2, validators=[MinValueValidator(0)])
     monto_reserva = models.DecimalField(max_digits=18, decimal_places=2, default=0, validators=[MinValueValidator(0)])
     activo = models.BooleanField(default=True)
@@ -488,22 +505,32 @@ class DistribucionTecho(TimeStampedModel):
 
         if self.padre_id and self.padre_id != self.pk:
             padre = self.padre
-            suma_hijos = budget_service.get_sum_hijos(padre)
-            if not self._state.adding and self.activo:
-                # Edición: la fila ya está contada en BD con su monto viejo.
-                viejo = (
-                    DistribucionTecho.objects.filter(pk=self.pk)
-                    .values_list('monto_asignado', flat=True)
-                    .first()
-                )
-                if viejo is not None:
-                    suma_hijos -= viejo
-            if suma_hijos + self.monto_asignado > padre.monto_asignado:
-                raise VE(
-                    f'La distribución Bs {self.monto_asignado} excede el '
-                    f'monto del nodo padre Bs {padre.monto_asignado} '
-                    f'(Σ hijos activos Bs {suma_hijos}).'
-                )
+            if self.activo:
+                # Solo se valida cuando la fila queda ACTIVA: al desactivar
+                # (W-real 4R) la fila deja de contar en Σ(hijos) y quitar
+                # una fila nunca puede violar SUM(hijos) ≤ padre (R4.2).
+                # La suma se lee de BD, donde la fila editada sigue con su
+                # estado viejo; se descuenta su monto SOLO si estaba
+                # ACTIVA (contaba en get_sum_hijos). Si estaba inactiva,
+                # nunca contó y restarla subestimaría la carga de los
+                # hermanos al reactivar la hoja (su monto se SUMA a los
+                # hermanos sin descuento).
+                suma_hijos = budget_service.get_sum_hijos(padre)
+                if not self._state.adding:
+                    viejo_monto, viejo_activo = (
+                        DistribucionTecho.objects.filter(pk=self.pk)
+                        .values_list('monto_asignado', 'activo')
+                        .first()
+                        or (None, False)
+                    )
+                    if viejo_activo and viejo_monto is not None:
+                        suma_hijos -= viejo_monto
+                if suma_hijos + self.monto_asignado > padre.monto_asignado:
+                    raise VE(
+                        f'La distribución Bs {self.monto_asignado} excede el '
+                        f'monto del nodo padre Bs {padre.monto_asignado} '
+                        f'(Σ hijos activos Bs {suma_hijos}).'
+                    )
 
     def save(self, *args, **kwargs):
         self.full_clean()

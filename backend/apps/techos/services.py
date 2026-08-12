@@ -3,7 +3,13 @@ import logging
 
 from django.db import transaction
 from django.db.models import Sum
-from .models import DistribucionTecho, MovimientoTecho, TechoPresupuestario
+from .models import (
+    DistribucionTecho,
+    GastoObligatorio,
+    MovimientoTecho,
+    RecursoTecho,
+    TechoPresupuestario,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -189,12 +195,17 @@ class BudgetAllocationService:
 
     def get_reserved(self, bolsa) -> Decimal:
         """Monto reservado: columna monto_reservado de la bolsa (S2) o
-        Σ monto_reserva de las distribuciones activas del techo legacy.
+        Σ monto_reserva de las HOJAS activas del techo legacy.
+
+        Espejo de get_distributed (K2 4R): en la jerarquía sintética
+        (MIGRACION LEGACY 0004) la categoría tiene monto_reserva = Σ de sus
+        hojas; sumar todas las filas activas duplicaría la reserva (40 vs
+        hojas 20) y rompería saldo_disponible contra get_techo_resumen.
 
         Fallo ruidoso (W7): misma política que get_amount.
         """
         if isinstance(bolsa, TechoPresupuestario):
-            return self._sum_activo(bolsa.distribuciones, 'monto_reserva')
+            return self._sum_hojas_activas(bolsa, 'monto_reserva')
         try:
             return self._decimal(bolsa.monto_reservado)
         except AttributeError as e:
@@ -303,10 +314,9 @@ class BudgetAllocationService:
         (monto_reservado, techo_distribuible, estado).
 
         NOTA (W8): este método es por-techo (4 consultas SUM). Para uso
-        batch (p. ej. listar techos de una gestión) no se debe invocar en
-        un loop: implementar resumen_techos(qs) que agregue con
-        prefetch_related('recursos', 'gastos_obligatorios', 'distribuciones')
-        o SUM agrupado por techo en una sola consulta.
+        batch (p. ej. listar techos de una gestión) NO se debe invocar en
+        un loop: usar resumen_techos(qs), que agrega con SUMs agrupados en
+        una ronda fija de consultas (contrato de salida idéntico).
         """
         gastos = self.get_total_gastos_obligatorios(techo)
         distribuido = self._sum_hojas_activas(techo, 'monto_asignado')
@@ -326,13 +336,96 @@ class BudgetAllocationService:
             'estado': self.estado_techo(techo),
         }
 
-    def estado_techo(self, techo) -> str:
+    def resumen_techos(self, techos) -> dict:
+        """Resumen batch de N techos (W8) — misma ecuación que
+        get_techo_resumen, una sola ronda de SUMs agrupados.
+
+        Reemplaza N invocaciones a get_techo_resumen (4 SUMs por techo) por
+        3 SUMs agrupados totales (recursos, gastos activos, hojas activas),
+        independientes del número de techos. Contrato de salida IDÉNTICO
+        (mismas claves) para no bifurcar la ecuación (D11); el estado
+        calculado reutiliza los saldos ya agregados vía estado_techo(saldos).
+
+        Retorna {techo_id_str: resumen}. El serializer V2 lo usa en
+        listado y cae a get_techo_resumen solo en detail/fallback.
+        """
+        techos = list(techos)
+        if not techos:
+            return {}
+        ids = [t.id for t in techos]
+
+        recursos = {
+            r['techo_id']: self._decimal(r['total'])
+            for r in (
+                RecursoTecho.objects.filter(techo_id__in=ids)
+                .values('techo_id').annotate(total=Sum('monto'))
+            )
+        }
+        gastos = {
+            g['techo_id']: self._decimal(g['total'])
+            for g in (
+                GastoObligatorio.objects.filter(techo_id__in=ids, activo=True)
+                .values('techo_id').annotate(total=Sum('monto'))
+            )
+        }
+        hojas = (
+            DistribucionTecho.objects
+            .filter(techo_id__in=ids, activo=True)
+            .exclude(hijos__activo=True)
+            .values('techo_id')
+            .annotate(
+                asignado=Sum('monto_asignado'),
+                reserva=Sum('monto_reserva'),
+            )
+        )
+        distribuido = {h['techo_id']: self._decimal(h['asignado']) for h in hojas}
+        reservado = {h['techo_id']: self._decimal(h['reserva']) for h in hojas}
+
+        resumen = {}
+        for techo in techos:
+            tid = str(techo.id)
+            total_recursos = recursos.get(techo.id, Decimal('0.00'))
+            total_gastos = gastos.get(techo.id, Decimal('0.00'))
+            monto_total = self._decimal(techo.monto_total)
+            distribuible = (
+                monto_total
+                - total_gastos
+                - self._decimal(getattr(techo, 'otras_afectaciones', Decimal('0.00')))
+            )
+            dist = distribuido.get(techo.id, Decimal('0.00'))
+            resv = reservado.get(techo.id, Decimal('0.00'))
+            saldos = {
+                'techo_distribuible': distribuible,
+                'monto_distribuido': dist,
+                'monto_reservado': resv,
+            }
+            resumen[tid] = {
+                'techo_id': tid,
+                'gestion': techo.gestion,
+                'monto_total': monto_total,
+                'total_recursos': total_recursos,
+                'total_gastos_obligatorios': total_gastos,
+                'monto_distribuido': dist,
+                'monto_reservado': resv,
+                'techo_distribuible': distribuible,
+                'saldo_disponible': distribuible - dist - resv,
+                'excede': dist > distribuible,
+                'estado': self.estado_techo(techo, saldos=saldos),
+            }
+        return resumen
+
+    def estado_techo(self, techo, saldos=None) -> str:
         """Estado calculado del techo (DD3).
 
         Precedencia: CERRADO > VIGENTE > INCONSISTENTE >
         DISTRIBUCION_COMPLETA > DISTRIBUCION_PARCIAL > EN_CONFIGURACION >
         SIN_CONFIGURAR. En S1 no existe gestion_fiscal ni bolsas: los
         estados CERRADO/VIGENTE/EN_CONFIGURACION quedan inertes hasta S2.
+
+        `saldos` (opcional, W8): dict con techo_distribuible,
+        monto_distribuido y monto_reservado ya agregados para uso batch
+        (resumen_techos); evita re-agregar en un loop sin bifurcar la
+        ecuación (D11).
         """
         gestion = getattr(techo, 'gestion_fiscal', None)
         if gestion is not None:
@@ -342,9 +435,14 @@ class BudgetAllocationService:
             if operativo == 'VIGENTE':
                 return 'VIGENTE'
 
-        distribuible = self.get_techo_distribuible(techo)
-        distribuido = self._sum_hojas_activas(techo, 'monto_asignado')
-        reservado = self._sum_hojas_activas(techo, 'monto_reserva')
+        if saldos is None:
+            distribuible = self.get_techo_distribuible(techo)
+            distribuido = self._sum_hojas_activas(techo, 'monto_asignado')
+            reservado = self._sum_hojas_activas(techo, 'monto_reserva')
+        else:
+            distribuible = saldos['techo_distribuible']
+            distribuido = saldos['monto_distribuido']
+            reservado = saldos['monto_reservado']
         # C3: Σ activo hojas + reservado_total ≤ techo_distribuible; un
         # sobre-compromiso solo por reservas (monto_asignado 0) también
         # es INCONSISTENTE (fail-loud).
@@ -571,7 +669,7 @@ class BudgetAllocationService:
 
 
 def _estado_operativo_gestion(estado: str) -> str:
-    """Mapeo operativo 8→4 de GestionFiscal (Q3).
+    """Mapeo operativo 10→4 de GestionFiscal (Q3).
 
     Centralizado en apps/gestion/services.py (estado_operativo); este
     wrapper evita importar gestion en el módulo raíz (evita dependencias
