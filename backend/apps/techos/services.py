@@ -147,6 +147,22 @@ class BudgetAllocationService:
         """Suma agregada en BD solo de filas activas."""
         return self._sum(qs.filter(activo=True), campo)
 
+    def _sum_hojas_activas(self, techo, campo='monto_asignado') -> Decimal:
+        """Σ del campo sobre las filas HOJA activas del techo.
+
+        En la jerarquía bolsa → categoría → UO (S2) la categoría sintética
+        agrupa a las hojas y su monto es Σ de las hojas: sumar todo el
+        árbol duplicaría el monto (C3 cuenta "Σ activo hojas (bolsas +
+        legacy)"). Las filas planas legacy (sin padre, S1) son hojas, por
+        lo que el resultado no cambia para el esquema plano.
+        """
+        return self._sum(
+            techo.distribuciones
+            .filter(activo=True)
+            .exclude(hijos__activo=True),
+            campo,
+        )
+
     # ------------------------------------------------------------------
     # Consultas a nivel bolsa (duck-typed: en S1 el techo legacy actúa
     # como bolsa; BolsaPresupuestaria llega en S2)
@@ -189,14 +205,27 @@ class BudgetAllocationService:
             ) from e
 
     def get_distributed(self, bolsa) -> Decimal:
-        """Monto distribuido activo: SUM(DistribucionTecho.activo) de la
-        bolsa (S2) o del techo legacy."""
+        """Monto distribuido activo: Σ hojas activas de la bolsa (S2) o
+        del techo legacy."""
         if isinstance(bolsa, TechoPresupuestario):
-            return self._sum_activo(bolsa.distribuciones, 'monto_asignado')
+            return self._sum_hojas_activas(bolsa, 'monto_asignado')
         qs = getattr(bolsa, 'distribuciones', None)
         if qs is None:
             qs = bolsa.distribuciontecho_set.all()
-        return self._sum_activo(qs, 'monto_asignado')
+        return self._sum(
+            qs.filter(activo=True).exclude(hijos__activo=True), 'monto_asignado',
+        )
+
+    def get_sum_hijos(self, padre) -> Decimal:
+        """Σ monto_asignado de los hijos ACTIVOS del nodo padre (R4.2).
+
+        A diferencia de get_distributed_nodo (saldo de un nodo, que para
+        un nodo sin hijos devuelve su monto_asignado), esta operación
+        responde SOLO la suma de hijos: un nodo intermedio recién creado
+        sin hijos devuelve 0, que es lo que la validación SUM(hijos) ≤
+        padre necesita.
+        """
+        return self._sum_activo(padre.hijos.all(), 'monto_asignado')
 
     def get_distributed_nodo(self, nodo) -> Decimal:
         """Monto distribuido del nodo: Σ hijos activos si es nodo
@@ -229,9 +258,13 @@ class BudgetAllocationService:
                 else getattr(bolsa, 'techo', None)
             )
             if techo is not None:
+                # Solo se excluye si la fila está contada en Σ hojas: una
+                # fila con hijos activos (nivel categoría) no está en la
+                # suma y su monto no debe volver a la capacidad (W3).
                 fila = (
                     DistribucionTecho.objects
                     .filter(pk=exclude_id, techo=techo, activo=True)
+                    .exclude(hijos__activo=True)
                     .first()
                 )
                 if fila is not None:
@@ -276,8 +309,8 @@ class BudgetAllocationService:
         o SUM agrupado por techo en una sola consulta.
         """
         gastos = self.get_total_gastos_obligatorios(techo)
-        distribuido = self._sum_activo(techo.distribuciones, 'monto_asignado')
-        reservado = self._sum_activo(techo.distribuciones, 'monto_reserva')
+        distribuido = self._sum_hojas_activas(techo, 'monto_asignado')
+        reservado = self._sum_hojas_activas(techo, 'monto_reserva')
         distribuible = self.get_techo_distribuible(techo)
         return {
             'techo_id': str(techo.id),
@@ -304,14 +337,14 @@ class BudgetAllocationService:
         gestion = getattr(techo, 'gestion_fiscal', None)
         if gestion is not None:
             operativo = _estado_operativo_gestion(gestion.estado)
-            if operativo == 'CERRADA':
+            if operativo in ('CERRADA', 'ANULADA'):
                 return 'CERRADO'
             if operativo == 'VIGENTE':
                 return 'VIGENTE'
 
         distribuible = self.get_techo_distribuible(techo)
-        distribuido = self._sum_activo(techo.distribuciones, 'monto_asignado')
-        reservado = self._sum_activo(techo.distribuciones, 'monto_reserva')
+        distribuido = self._sum_hojas_activas(techo, 'monto_asignado')
+        reservado = self._sum_hojas_activas(techo, 'monto_reserva')
         # C3: Σ activo hojas + reservado_total ≤ techo_distribuible; un
         # sobre-compromiso solo por reservas (monto_asignado 0) también
         # es INCONSISTENTE (fail-loud).
@@ -351,6 +384,35 @@ class BudgetAllocationService:
         return 'DISPONIBLE'
 
     # ------------------------------------------------------------------
+    # Conciliación de grupos FF/OF (R2.5/Q2) — sin umbral de silencio
+    # ------------------------------------------------------------------
+
+    def get_diferencia(self, grupo) -> Decimal:
+        """|Σ detalles − monto| del grupo (Decimal exacto, Q2).
+
+        Arimética Decimal sobre NUMERIC(18,2): cualquier |diferencia| > 0
+        es CON_DIFERENCIA; nunca se tolera un umbral que oculte errores.
+        """
+        suma_detalles = self._sum(grupo.detalles.all(), 'monto')
+        return abs(suma_detalles - self._decimal(grupo.monto))
+
+    def get_estado_conciliacion(self, grupo) -> str:
+        """Estado de conciliación del grupo: PENDIENTE/CONCILIADO/CON_DIFERENCIA."""
+        if not grupo.detalles.exists():
+            return 'PENDIENTE'
+        if self.get_diferencia(grupo) == 0:
+            return 'CONCILIADO'
+        return 'CON_DIFERENCIA'
+
+    def get_sin_clasificar(self, grupo) -> Decimal:
+        """sin_clasificar = monto − corriente − inversión (R4.4)."""
+        return (
+            self._decimal(grupo.monto)
+            - self._decimal(grupo.monto_corriente)
+            - self._decimal(grupo.monto_inversion)
+        )
+
+    # ------------------------------------------------------------------
     # Agregados por gestión / programa (compatibilidad consolidación,
     # reportes y validar_techo — D11)
     # ------------------------------------------------------------------
@@ -363,9 +425,11 @@ class BudgetAllocationService:
         )
 
     def get_distribuido_agregado_gestion(self, gestion) -> Decimal:
-        """Σ monto_asignado de las distribuciones activas de una gestión."""
+        """Σ monto_asignado de las hojas activas de distribución de una gestión."""
         return self._sum(
-            DistribucionTecho.objects.filter(techo__gestion=gestion, activo=True),
+            DistribucionTecho.objects
+            .filter(techo__gestion=gestion, activo=True)
+            .exclude(hijos__activo=True),
             'monto_asignado',
         )
 
@@ -377,10 +441,11 @@ class BudgetAllocationService:
         )
 
     def get_distribuido_por_programa(self, programa) -> Decimal:
-        """Σ monto_asignado de las distribuciones activas de un programa
-        (reportes)."""
+        """Σ monto_asignado de las hojas activas de un programa (reportes)."""
         return self._sum(
-            DistribucionTecho.objects.filter(programa=programa, activo=True),
+            DistribucionTecho.objects
+            .filter(programa=programa, activo=True)
+            .exclude(hijos__activo=True),
             'monto_asignado',
         )
 
@@ -448,14 +513,16 @@ class BudgetAllocationService:
             techo = bolsa  # S1: el techo legacy actúa como bolsa
 
         techo_distribuible = self.get_techo_distribuible(techo)
-        distribuido_hojas = self._sum_activo(techo.distribuciones, 'monto_asignado')
-        reservado_total = self._sum_activo(techo.distribuciones, 'monto_reserva')
+        distribuido_hojas = self._sum_hojas_activas(techo, 'monto_asignado')
+        reservado_total = self._sum_hojas_activas(techo, 'monto_reserva')
 
         if exclude_id is not None:
-            # Edición de una fila: su monto actual vuelve a la capacidad.
+            # Edición de una hoja: su monto actual vuelve a la capacidad.
+            # (una fila con hijos activos no está en Σ hojas y no se resta)
             fila = (
                 DistribucionTecho.objects
                 .filter(pk=exclude_id, techo=techo, activo=True)
+                .exclude(hijos__activo=True)
                 .first()
             )
             if fila is not None:
@@ -506,16 +573,12 @@ class BudgetAllocationService:
 def _estado_operativo_gestion(estado: str) -> str:
     """Mapeo operativo 8→4 de GestionFiscal (Q3).
 
-    Provisional en S1 (gestion_fiscal llega en S2); en S2 se centraliza en
-    apps/gestion/services.py como estado_operativo().
+    Centralizado en apps/gestion/services.py (estado_operativo); este
+    wrapper evita importar gestion en el módulo raíz (evita dependencias
+    circulares) y mantiene un único punto de llamada.
     """
-    if estado in ('cerrada', 'archivada', 'anulada'):
-        return 'CERRADA'
-    if estado in ('aprobacion', 'vigente'):
-        return 'VIGENTE'
-    if estado in ('preparacion', 'abierta', 'formulacion', 'revision', 'consolidacion'):
-        return 'BORRADOR'
-    return 'BORRADOR'
+    from apps.gestion.services import estado_operativo
+    return estado_operativo(estado)
 
 
 budget_service = BudgetAllocationService()
