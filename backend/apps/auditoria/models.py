@@ -19,6 +19,15 @@ class EventoAuditoria(models.Model):
         EXPORTAR = 'exportar', 'Exportación'
         CONSOLIDAR = 'consolidar', 'Consolidación'
         CERRAR = 'cerrar', 'Cierre'
+        # Acciones del núcleo de techos (S2, DD9)
+        DISTRIBUCION = 'distribucion', 'Distribución'
+        REDISTRIBUCION = 'redistribucion', 'Redistribución'
+        RESERVA = 'reserva', 'Reserva'
+        LIBERACION = 'liberacion', 'Liberación'
+        REVERSION = 'reversion', 'Reversión'
+        AJUSTE = 'ajuste', 'Ajuste'
+        CONCILIAR = 'conciliar', 'Conciliación'
+        ACTIVAR = 'activar', 'Activación'
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     usuario = models.ForeignKey(
