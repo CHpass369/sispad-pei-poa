@@ -26,6 +26,7 @@ if 'apps.sis_poa' not in settings.INSTALLED_APPS:
 pytest.importorskip('apps.sis_poa.models')
 
 from apps.catalogos.models import FuenteFinanciamiento  # noqa: E402
+from apps.gestion.models import GestionFiscal  # noqa: E402
 from apps.sis_poa.migration_v2 import validar_techo  # noqa: E402
 from apps.sis_poa.models import (  # noqa: E402
     AccionCortoPlazo,
@@ -61,6 +62,7 @@ def techo_2027(db, fuente):
     """Techo 2027 con recursos y gastos obligatorios de la ecuación pin."""
     techo = TechoPresupuestario.objects.create(
         gestion=2027,
+        gestion_fiscal=GestionFiscal.objects.create(anio=2027, estado='preparacion'),
         monto_total=MONTO_RECURSOS,
         fuente=fuente,
         concepto='Techo 2027',

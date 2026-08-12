@@ -24,6 +24,7 @@ from django.utils import timezone
 
 from apps.accounts.models import Usuario
 from apps.catalogos.models import FuenteFinanciamiento
+from apps.gestion.models import GestionFiscal
 from apps.presupuesto.models import ProgramaPresupuestario
 from apps.techos.models import (
     DistribucionTecho,
@@ -46,6 +47,16 @@ MONTO_DISTRIBUIDO = Decimal('50000000.00')
 SALDO_ESPERADO = MONTO_DISTRIBUIBLE - MONTO_DISTRIBUIDO  # 188.826.101,00
 
 
+def _gestion(anio):
+    """Gestión fiscal para el techo 1:1 (R2.1). El techo 2027 (fixture) ya
+    ocupa GestionFiscal(2027); los techos auxiliares usan 2028 para no
+    colisionar con el OneToOne."""
+    gestion, _ = GestionFiscal.objects.get_or_create(
+        anio=anio, defaults={'estado': 'preparacion'},
+    )
+    return gestion
+
+
 @pytest.fixture
 def fuente(db):
     return FuenteFinanciamiento.objects.create(
@@ -61,6 +72,7 @@ def techo_2027(db, fuente):
     """Techo 2027 con recursos y gastos obligatorios de la ecuación pin."""
     techo = TechoPresupuestario.objects.create(
         gestion=2027,
+        gestion_fiscal=_gestion(2027),
         monto_total=MONTO_RECURSOS,
         fuente=fuente,
         concepto='Techo 2027',
@@ -107,7 +119,8 @@ def test_saldo_disponible_property_ecuacion_2027(techo_2027):
 def test_saldo_disponible_property_sin_distribuir(techo_2027):
     """Ecuación 2027 con distribución cero: el saldo es el distribuible."""
     techo = TechoPresupuestario.objects.create(
-        gestion=2027, monto_total=MONTO_RECURSOS, fuente=techo_2027.fuente,
+        gestion=2028, gestion_fiscal=_gestion(2028),
+        monto_total=MONTO_RECURSOS, fuente=techo_2027.fuente,
         concepto='Techo 2027 sin distribuir',
     )
     RecursoTecho.objects.create(
@@ -285,7 +298,8 @@ def test_service_estado_techo_parcial(techo_2027):
 
 def test_service_estado_techo_sin_configurar(techo_2027):
     techo = TechoPresupuestario.objects.create(
-        gestion=2027, monto_total=MONTO_RECURSOS, fuente=techo_2027.fuente,
+        gestion=2028, gestion_fiscal=_gestion(2028),
+        monto_total=MONTO_RECURSOS, fuente=techo_2027.fuente,
         concepto='Sin distribución',
     )
     assert budget_service.estado_techo(techo) == 'SIN_CONFIGURAR'
@@ -367,7 +381,8 @@ def test_service_validate_allocation_edicion_exclude_id(techo_2027):
     que aún incluye la fila) colapsa el min() y rechaza toda edición
     positiva."""
     techo = TechoPresupuestario.objects.create(
-        gestion=2027, monto_total=Decimal('1000.00'), fuente=techo_2027.fuente,
+        gestion=2028, gestion_fiscal=_gestion(2028),
+        monto_total=Decimal('1000.00'), fuente=techo_2027.fuente,
         concepto='Techo W2',
     )
     fila = DistribucionTecho.objects.create(
@@ -417,7 +432,8 @@ def test_distribucion_clean_resta_reserva_del_techo(techo_2027):
     from django.core.exceptions import ValidationError
 
     techo = TechoPresupuestario.objects.create(
-        gestion=2027, monto_total=Decimal('1000.00'), fuente=techo_2027.fuente,
+        gestion=2028, gestion_fiscal=_gestion(2028),
+        monto_total=Decimal('1000.00'), fuente=techo_2027.fuente,
         concepto='Techo W4',
     )
     DistribucionTecho.objects.create(
@@ -444,7 +460,8 @@ def test_validar_movimiento_transferencia_excede_saldo_origen(techo_2027, usuari
     """C4 (W1): una transferencia cuyo monto excede el saldo por movimientos
     del techo origen se rechaza."""
     destino = TechoPresupuestario.objects.create(
-        gestion=2027, monto_total=Decimal('1000.00'), fuente=techo_2027.fuente,
+        gestion=2028, gestion_fiscal=_gestion(2028),
+        monto_total=Decimal('1000.00'), fuente=techo_2027.fuente,
         concepto='Techo destino C4',
     )
     movimiento = MovimientoTecho(
@@ -461,7 +478,8 @@ def test_validar_movimiento_transferencia_excede_saldo_origen(techo_2027, usuari
 def test_validar_movimiento_transferencia_dentro_del_saldo(techo_2027, usuario):
     """C4 (W1): control positivo — transferencia dentro del saldo sin errores."""
     destino = TechoPresupuestario.objects.create(
-        gestion=2027, monto_total=Decimal('1000.00'), fuente=techo_2027.fuente,
+        gestion=2028, gestion_fiscal=_gestion(2028),
+        monto_total=Decimal('1000.00'), fuente=techo_2027.fuente,
         concepto='Techo destino C4',
     )
     movimiento = MovimientoTecho(
@@ -563,7 +581,8 @@ def test_techo_saldo_disponible_resta_reserva(techo_2027):
     capacidad de validate_allocation: techo 1000, asignado 100, reserva 200
     → saldo disponible 700.00."""
     techo = TechoPresupuestario.objects.create(
-        gestion=2027, monto_total=Decimal('1000.00'), fuente=techo_2027.fuente,
+        gestion=2028, gestion_fiscal=_gestion(2028),
+        monto_total=Decimal('1000.00'), fuente=techo_2027.fuente,
         concepto='Techo D1',
     )
     DistribucionTecho.objects.create(
@@ -585,7 +604,8 @@ def test_techo_saldo_disponible_cero_con_reserva_total(techo_2027):
     """D1: techo 1000, asignado 100, reserva 900 → saldo disponible 0.00
     en las tres rutas de lectura (reserva consume todo el saldo)."""
     techo = TechoPresupuestario.objects.create(
-        gestion=2027, monto_total=Decimal('1000.00'), fuente=techo_2027.fuente,
+        gestion=2028, gestion_fiscal=_gestion(2028),
+        monto_total=Decimal('1000.00'), fuente=techo_2027.fuente,
         concepto='Techo D1 reserva total',
     )
     DistribucionTecho.objects.create(
@@ -610,7 +630,8 @@ def test_distribucion_clean_reserva_nueva_excede_capacidad(techo_2027):
     from django.core.exceptions import ValidationError
 
     techo = TechoPresupuestario.objects.create(
-        gestion=2027, monto_total=Decimal('1000.00'), fuente=techo_2027.fuente,
+        gestion=2028, gestion_fiscal=_gestion(2028),
+        monto_total=Decimal('1000.00'), fuente=techo_2027.fuente,
         concepto='Techo D2',
     )
     fila = DistribucionTecho(
@@ -628,7 +649,8 @@ def test_distribucion_clean_edicion_reserva_excede_capacidad(techo_2027):
     from django.core.exceptions import ValidationError
 
     techo = TechoPresupuestario.objects.create(
-        gestion=2027, monto_total=Decimal('1000.00'), fuente=techo_2027.fuente,
+        gestion=2028, gestion_fiscal=_gestion(2028),
+        monto_total=Decimal('1000.00'), fuente=techo_2027.fuente,
         concepto='Techo D2 edición',
     )
     fila = DistribucionTecho.objects.create(
@@ -649,7 +671,8 @@ def test_distribucion_clean_reserva_dentro_capacidad_permitida(techo_2027):
     """D2 (c): control positivo — una fila con monto_asignado + monto_reserva
     dentro de la capacidad efectiva se persiste sin error."""
     techo = TechoPresupuestario.objects.create(
-        gestion=2027, monto_total=Decimal('1000.00'), fuente=techo_2027.fuente,
+        gestion=2028, gestion_fiscal=_gestion(2028),
+        monto_total=Decimal('1000.00'), fuente=techo_2027.fuente,
         concepto='Techo D2 válido',
     )
     fila = DistribucionTecho.objects.create(
@@ -666,7 +689,8 @@ def test_service_estado_techo_inconsistente_reserva_only(techo_2027):
     por fuera del ORM (bulk_create/migraciones): DistribucionTecho.save()
     ya rechaza la fila (D2 a)."""
     techo = TechoPresupuestario.objects.create(
-        gestion=2027, monto_total=Decimal('1000.00'), fuente=techo_2027.fuente,
+        gestion=2028, gestion_fiscal=_gestion(2028),
+        monto_total=Decimal('1000.00'), fuente=techo_2027.fuente,
         concepto='Techo D2 estado',
     )
     DistribucionTecho.objects.bulk_create([

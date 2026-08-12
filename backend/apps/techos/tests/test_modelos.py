@@ -8,6 +8,7 @@ from django.utils import timezone
 
 from apps.accounts.models import Usuario
 from apps.catalogos.models import FuenteFinanciamiento, OrganismoFinanciador
+from apps.gestion.models import GestionFiscal
 from apps.organizacion.models import (
     TipoUnidad, UnidadOrganizacional, DireccionAdministrativa,
     UnidadEjecutora,
@@ -65,8 +66,17 @@ class TechosBaseTestCase(TestCase):
             codigo='000', nombre='Programa Test',
             gestion=2026,
         )
+        # S2 (R2.1): techo 1:1 con GestionFiscal; los techos auxiliares de
+        # la gestión 2027 usan una gestión propia para no violar el OneToOne.
+        self.gestion = GestionFiscal.objects.create(
+            anio=2026, estado='preparacion',
+        )
+        self.gestion_2027 = GestionFiscal.objects.create(
+            anio=2027, estado='preparacion',
+        )
         self.techo = TechoPresupuestario.objects.create(
-            gestion=2026, monto_total=Decimal('1000000.00'),
+            gestion=2026, gestion_fiscal=self.gestion,
+            monto_total=Decimal('1000000.00'),
             fuente=self.fuente, organismo=self.organismo,
         )
 
@@ -87,24 +97,31 @@ class TechoPresupuestarioModelTest(TechosBaseTestCase):
 
     def test_techo_sin_organismo(self):
         techo = TechoPresupuestario.objects.create(
-            gestion=2026, monto_total=Decimal('500000.00'),
+            gestion=2027, gestion_fiscal=self.gestion_2027,
+            monto_total=Decimal('500000.00'),
             fuente=self.fuente,
         )
         self.assertIsNone(techo.organismo)
 
     def test_techo_monto_cero(self):
         techo = TechoPresupuestario.objects.create(
-            gestion=2026, monto_total=Decimal('0.00'),
+            gestion=2027, gestion_fiscal=self.gestion_2027,
+            monto_total=Decimal('0.00'),
             fuente=self.fuente_2,
         )
         self.assertEqual(techo.monto_total, Decimal('0.00'))
 
     def test_techo_ordenacion(self):
+        # S2: techo 1:1 con la gestión (R2.1) → el segundo techo usa la
+        # gestión 2027; el Meta ordena por ['-gestion', 'fuente__codigo'].
         TechoPresupuestario.objects.create(
-            gestion=2026, monto_total=Decimal('200000.00'),
+            gestion=2027, gestion_fiscal=self.gestion_2027,
+            monto_total=Decimal('200000.00'),
             fuente=self.fuente_2,
         )
-        techos = list(TechoPresupuestario.objects.filter(gestion=2026))
+        techos = list(
+            TechoPresupuestario.objects.filter(gestion__in=[2026, 2027])
+        )
         self.assertEqual(len(techos), 2)
         self.assertEqual(techos[0].fuente.codigo, '20-210')
         self.assertEqual(techos[1].fuente.codigo, '41-113')
@@ -195,7 +212,8 @@ class MovimientoTechoModelTest(TechosBaseTestCase):
 
     def test_movimiento_transferencia(self):
         techo_dest = TechoPresupuestario.objects.create(
-            gestion=2026, monto_total=Decimal('200000.00'),
+            gestion=2027, gestion_fiscal=self.gestion_2027,
+            monto_total=Decimal('200000.00'),
             fuente=self.fuente_2,
         )
         mv = MovimientoTecho.objects.create(

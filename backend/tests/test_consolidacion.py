@@ -85,10 +85,14 @@ class TestConsolidacion:
 
     def test_verificar_techo_sin_distribuir(self, gestion, fuentes):
         """Debe detectar techos sin distribuir."""
+        # S2 (R2.1): el techo es 1:1 con la GestionFiscal (no-null).
         techo, _ = TechoPresupuestario.objects.get_or_create(
             gestion=2026, fuente=fuentes.first(),
-            defaults={'monto_total': 1000000}
+            defaults={'monto_total': 1000000, 'gestion_fiscal': gestion},
         )
+        if techo.gestion_fiscal_id is None:
+            techo.gestion_fiscal = gestion
+            techo.save(update_fields=['gestion_fiscal', 'updated_at'])
         resultado = verificar_consistencia_presupuestaria(2026)
         alertas = resultado.get('alertas', [])
         techos_alertas = [a for a in alertas if 'techo' in str(a).lower()]
