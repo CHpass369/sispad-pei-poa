@@ -4,6 +4,35 @@ from django.utils import timezone
 from .models import GestionFiscal, CicloFormulacion, EtapaFormulacion
 
 
+def estado_operativo(estado):
+    """Mapeo centralizado 8→4 de estados de gestión (Q3, design §10).
+
+    BORRADOR ← preparacion/abierta/formulacion/revision/consolidacion
+    VIGENTE  ← aprobacion/vigente
+    CERRADA  ← cerrada/archivada
+    ANULADA  ← anulada
+
+    Único lugar que define el estado operativo; lo usan el wizard, la
+    API y la validación del núcleo de techos. El núcleo NO inventa un
+    ciclo paralelo: GestionFiscal sigue siendo la fuente (R1.1).
+    """
+    if estado in (
+        GestionFiscal.Estado.PREPARACION,
+        GestionFiscal.Estado.ABIERTA,
+        GestionFiscal.Estado.FORMULACION,
+        GestionFiscal.Estado.REVISION,
+        GestionFiscal.Estado.CONSOLIDACION,
+    ):
+        return 'BORRADOR'
+    if estado in (GestionFiscal.Estado.APROBACION, GestionFiscal.Estado.VIGENTE):
+        return 'VIGENTE'
+    if estado in (GestionFiscal.Estado.CERRADA, GestionFiscal.Estado.ARCHIVADA):
+        return 'CERRADA'
+    if estado == GestionFiscal.Estado.ANULADA:
+        return 'ANULADA'
+    return 'BORRADOR'
+
+
 def crear_gestion(anio, descripcion='', anio_inicio_plurianual=None, anio_fin_plurianual=None, creado_por=None):
     gestion = GestionFiscal(
         anio=anio,

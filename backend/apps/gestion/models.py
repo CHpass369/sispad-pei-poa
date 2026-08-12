@@ -12,8 +12,10 @@ class GestionFiscal(models.Model):
         REVISION = 'revision', 'Revisión'
         CONSOLIDACION = 'consolidacion', 'Consolidación'
         APROBACION = 'aprobacion', 'Aprobación'
+        VIGENTE = 'vigente', 'Vigente'
         CERRADA = 'cerrada', 'Cerrada'
         ARCHIVADA = 'archivada', 'Archivada'
+        ANULADA = 'anulada', 'Anulada'
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     anio = models.PositiveIntegerField(unique=True, verbose_name='Gestión fiscal')
@@ -42,6 +44,9 @@ class GestionFiscal(models.Model):
         verbose_name = 'Gestión fiscal'
         verbose_name_plural = 'Gestiones fiscales'
         ordering = ['-anio']
+        indexes = [
+            models.Index(fields=['estado']),
+        ]
 
     def __str__(self):
         return f'Gestión {self.anio}'
