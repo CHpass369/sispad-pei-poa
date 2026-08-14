@@ -7,6 +7,7 @@ import { BudgetService } from './budget.service';
 import { DirectiveCeilingComponent } from './directive-ceiling.component';
 import { FiscalYearComponent } from './fiscal-year.component';
 import { MonedaPipe } from './moneda.pipe';
+import { ProgrammaticCategoriesComponent } from './programmatic-categories.component';
 
 const routes: Routes = [
   { path: '', redirectTo: 'gestion-fiscal', pathMatch: 'full' },
@@ -22,10 +23,21 @@ const routes: Routes = [
     canActivate: [CapabilityGuard],
     data: { capacidades: ['sis_poa.budget.manage', 'sis_poa.formulate'] },
   },
+  {
+    path: 'categorias-programaticas',
+    component: ProgrammaticCategoriesComponent,
+    canActivate: [CapabilityGuard],
+    data: { capacidades: ['sis_poa.budget.manage', 'sis_poa.formulate'] },
+  },
 ];
 
 @NgModule({
-  declarations: [FiscalYearComponent, DirectiveCeilingComponent, MonedaPipe],
+  declarations: [
+    FiscalYearComponent,
+    DirectiveCeilingComponent,
+    ProgrammaticCategoriesComponent,
+    MonedaPipe,
+  ],
   imports: [CommonModule, FormsModule, RouterModule.forChild(routes)],
   providers: [BudgetService],
 })

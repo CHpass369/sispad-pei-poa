@@ -35,6 +35,50 @@ export interface DetalleUnidad {
   nombre: string;
 }
 
+// -- Categorías programáticas (Fase 3) -------------------------------------
+
+export interface ProgrammaticCategory {
+  id: number;
+  gestion: number;
+  codigo: string;
+  denominacion: string;
+  nivel: string;
+  nivel_display: string;
+  parent: number | null;
+  estado: string;
+  codigo_compuesto: string;
+}
+
+export interface ProgrammaticCategoryInput {
+  gestion: number;
+  codigo: string;
+  denominacion: string;
+  nivel: string;
+  parent?: number | null;
+}
+
+export interface CategoriaNodo {
+  id: string;
+  codigo: string;
+  denominacion: string;
+  nivel: string;
+  estado: string;
+  hijos: CategoriaNodo[];
+}
+
+export interface CatalogoOpciones {
+  fuentes: DetalleCatalogo[];
+  organismos: DetalleCatalogo[];
+  rubros: DetalleCatalogo[];
+  objetos_gasto: DetalleCatalogo[];
+  entidades_transferencia: DetalleCatalogo[];
+  distritos: DetalleUnidad[];
+  direcciones: DetalleUnidad[];
+  unidades_ejecutoras: DetalleUnidad[];
+  unidades_organizacionales: DetalleUnidad[];
+}
+
+
 /** Composición del techo directivo (§22). Montos en string (convención API). */
 export interface Composition {
   gestion: number;
@@ -293,5 +337,36 @@ export class BudgetService {
 
   subirDocumento(formData: FormData): Observable<BudgetDocument> {
     return this.http.post<BudgetDocument>(`${this.base}/documents/`, formData);
+  }
+
+  // -- Categorías programáticas y catálogos (Fase 3) -------------------------
+
+  listarCategorias(params?: { gestion?: number; nivel?: string }): Observable<Paginado<ProgrammaticCategory>> {
+    return this.http.get<Paginado<ProgrammaticCategory>>(
+      `${this.base}/programmatic-categories/`,
+      { params: this.params(params) },
+    );
+  }
+
+  crearCategoria(data: ProgrammaticCategoryInput): Observable<ProgrammaticCategory> {
+    return this.http.post<ProgrammaticCategory>(`${this.base}/programmatic-categories/`, data);
+  }
+
+  arbolCategorias(gestion: number): Observable<CategoriaNodo[]> {
+    return this.http.get<CategoriaNodo[]>(`${this.base}/programmatic-categories/tree/`, {
+      params: this.params({ gestion }),
+    });
+  }
+
+  duplicarCategoria(id: number, gestionDestino: number): Observable<unknown> {
+    return this.http.post(`${this.base}/programmatic-categories/${id}/duplicar_a_gestion/`, {
+      gestion_destino: gestionDestino,
+    });
+  }
+
+  opcionesCatalogo(params?: { gestion?: number }): Observable<CatalogoOpciones> {
+    return this.http.get<CatalogoOpciones>(`${this.base}/catalogs/`, {
+      params: this.params(params),
+    });
   }
 }

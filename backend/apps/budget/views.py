@@ -29,6 +29,7 @@ from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import OpenApiTypes, extend_schema
 from rest_framework import viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -41,6 +42,7 @@ from .models import (
     DirectiveCeiling,
     DirectiveCeilingVersion,
     MandatoryExpense,
+    ProgrammaticCategory,
 )
 from .serializers import (
     BudgetDocumentSerializer,
@@ -48,6 +50,7 @@ from .serializers import (
     DirectiveCeilingSerializer,
     FiscalYearSerializer,
     MandatoryExpenseSerializer,
+    ProgrammaticCategorySerializer,
     _serializar_montos,
 )
 from .services import (
@@ -56,6 +59,7 @@ from .services import (
     composicion_techo,
     enviar_a_revision,
     fijar_techo,
+    gestion_habilitada,
     habilitar_gestion,
     observar,
 )
@@ -256,3 +260,131 @@ class BudgetDocumentViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save()
+
+
+# ---------------------------------------------------------------------------
+# Fase 3 - CategorAas programAticas + catAAlogos para formularios
+# ---------------------------------------------------------------------------
+class ProgrammaticCategoryViewSet(viewsets.ModelViewSet):
+    """CRUD de categorAas programAticas del ciclo (por gestiA3n)."""
+
+    queryset = ProgrammaticCategory.objects.select_related('parent').all()
+    serializer_class = ProgrammaticCategorySerializer
+    http_method_names = ['get', 'post', 'patch', 'delete']
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        gestion = self.request.query_params.get('gestion')
+        if gestion:
+            qs = qs.filter(gestion_id=gestion)
+        nivel = self.request.query_params.get('nivel')
+        if nivel:
+            qs = qs.filter(nivel=nivel)
+        return qs
+
+    def perform_create(self, serializer):
+        gestion = serializer.validated_data.get('gestion')
+        if gestion and not gestion_habilitada(gestion):
+            raise ValidationError(
+                'No se pueden crear categorAas para una gestiA3n no habilitada.'
+            )
+        serializer.save()
+
+    @action(detail=False, methods=['get'])
+    def tree(self, request):
+        """AArbol de categorAas por gestiA3n (parametro ?gestion= obligatorio)."""
+        gestion = request.query_params.get('gestion')
+        if not gestion:
+            return Response(
+                {'error': 'El parAametro ?gestion= es obligatorio.'},
+                status=400,
+            )
+        categorias = ProgrammaticCategory.objects.filter(
+            gestion_id=gestion, parent__isnull=True,
+        ).order_by('nivel', 'codigo')
+
+        def _nodo(cat):
+            return {
+                'id': str(cat.id),
+                'codigo': cat.codigo,
+                'denominacion': cat.denominacion,
+                'nivel': cat.nivel,
+                'estado': cat.estado,
+                'hijos': [_nodo(h) for h in
+                          cat.hijos.order_by('nivel', 'codigo')],
+            }
+
+        return Response([_nodo(c) for c in categorias])
+
+    @action(detail=True, methods=['post'])
+    def duplicar_a_gestion(self, request, pk=None):
+        """Copia la categorAa (y su subArbol) a otra gestiA3n."""
+        destino = request.data.get('gestion_destino')
+        if not destino:
+            return Response({'error': 'gestion_destino es obligatorio.'}, status=400)
+        try:
+            destino_obj = GestionFiscal.objects.get(pk=destino)
+        except GestionFiscal.DoesNotExist:
+            return Response({'error': 'GestiA3n destino no existe.'}, status=400)
+        origen = self.get_object()
+        copias = {}
+        for cat in [origen, *origen.hijos.order_by('nivel', 'codigo')]:
+            nuevo = ProgrammaticCategory.objects.create(
+                gestion=destino_obj,
+                codigo=cat.codigo,
+                denominacion=cat.denominacion,
+                nivel=cat.nivel,
+                parent=copias.get(cat.parent_id),
+                vigencia_desde=cat.vigencia_desde,
+                vigencia_hasta=cat.vigencia_hasta,
+                estado=cat.estado,
+                origen=cat.origen or 'duplicado',
+                normativa=cat.normativa,
+            )
+            copias[cat.id] = nuevo
+        return Response({'detail': f'CategorAa y {len(copias)-1} hijos duplicados.'}, status=201)
+
+
+class CatalogOptionsView(APIView):
+    """CAtAlogos corporativos para poblar selects del ciclo presupuestario.
+
+    GET /api/v2/sis-poa/budget/catalogs/ -> {fuentes, organismos, rubros,
+    objetos_gasto, distritos, da, ue, unidades}
+    """
+
+    def get(self, request):
+        from apps.catalogos.models import (
+            EntidadTransferencia,
+            FuenteFinanciamiento,
+            ObjetoGasto,
+            OrganismoFinanciador,
+            RubroRecurso,
+        )
+        from apps.organizacion.models import (
+            DireccionAdministrativa,
+            UnidadEjecutora,
+            UnidadOrganizacional,
+        )
+        from apps.territorio.models import Distrito
+
+        gestion = request.query_params.get('gestion')
+
+        def _opts(qs, codigo='codigo', nombre='denominacion'):
+            return [
+                {'id': str(o.pk), 'codigo': getattr(o, codigo), 'nombre': getattr(o, nombre)}
+                for o in qs[:500]
+            ]
+
+        data = {
+            'fuentes': _opts(FuenteFinanciamiento.objects.all()),
+            'organismos': _opts(OrganismoFinanciador.objects.all()),
+            'rubros': _opts(RubroRecurso.objects.all()),
+            'objetos_gasto': _opts(ObjetoGasto.objects.all()),
+            'entidades_transferencia': _opts(EntidadTransferencia.objects.all()),
+            'distritos': _opts(Distrito.objects.all(), codigo='codigo', nombre='nombre'),
+            'direcciones': _opts(DireccionAdministrativa.objects.all(), nombre='nombre'),
+            'unidades_ejecutoras': _opts(UnidadEjecutora.objects.all(), nombre='nombre'),
+            'unidades_organizacionales': _opts(
+                UnidadOrganizacional.objects.all(), nombre='nombre'),
+        }
+        return Response(data)

@@ -9,6 +9,7 @@ Los montos (DecimalField) se serializan como string por convenciÃ³n de DRF
 """
 from decimal import Decimal
 
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError
 from rest_framework import serializers
 
@@ -21,6 +22,7 @@ from .models import (
     DirectiveCeilingVersion,
     EstadosTecho,
     MandatoryExpense,
+    ProgrammaticCategory,
 )
 from .services import (
     composicion_techo,
@@ -348,3 +350,43 @@ class BudgetDocumentSerializer(serializers.ModelSerializer):
             updated_by=usuario,
         )
         return documento
+
+
+# ---------------------------------------------------------------------------
+# Fase 3 - CategorAas programAticas del ciclo
+# ---------------------------------------------------------------------------
+class ProgrammaticCategorySerializer(serializers.ModelSerializer):
+    nivel_display = serializers.CharField(source='get_nivel_display', read_only=True)
+    estado_display = serializers.CharField(source='get_estado_display', read_only=True)
+    codigo_compuesto = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ProgrammaticCategory
+        fields = [
+            'id', 'gestion', 'codigo', 'denominacion', 'nivel', 'nivel_display',
+            'parent', 'vigencia_desde', 'vigencia_hasta', 'estado',
+            'estado_display', 'origen', 'normativa', 'observaciones',
+            'codigo_compuesto', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+    def get_codigo_compuesto(self, obj):
+        """Codigo jerAarquico: prog[.sub[.proy[.act]]] preservando ceros."""
+        partes = []
+        nodo = obj
+        while nodo:
+            partes.append(nodo.codigo)
+            nodo = nodo.parent
+        return '.'.join(reversed(partes))
+
+    def _manejar_clean(self, fn, *args, **kwargs):
+        try:
+            return fn(*args, **kwargs)
+        except DjangoValidationError as e:
+            raise serializers.ValidationError(e.message_dict) from e
+
+    def create(self, validated_data):
+        return self._manejar_clean(super().create, validated_data)
+
+    def update(self, instance, validated_data):
+        return self._manejar_clean(super().update, instance, validated_data)

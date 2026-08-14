@@ -7,11 +7,13 @@ from rest_framework.routers import DefaultRouter
 
 from .views import (
     BudgetDocumentViewSet,
+    CatalogOptionsView,
     CeilingResourceViewSet,
     CompositionView,
     DirectiveCeilingViewSet,
     FiscalYearViewSet,
     MandatoryExpenseViewSet,
+    ProgrammaticCategoryViewSet,
 )
 
 budget_router = DefaultRouter()
@@ -26,6 +28,10 @@ budget_router.register(
     basename='v2-mandatory-expenses',
 )
 budget_router.register('documents', BudgetDocumentViewSet, basename='v2-budget-documents')
+budget_router.register(
+    'programmatic-categories', ProgrammaticCategoryViewSet,
+    basename='v2-programmatic-categories',
+)
 
 urlpatterns = [
     path(
@@ -33,5 +39,6 @@ urlpatterns = [
         CompositionView.as_view(),
         name='v2-directive-ceiling-composition',
     ),
+    path('catalogs/', CatalogOptionsView.as_view(), name='v2-budget-catalogs'),
     *budget_router.urls,
 ]

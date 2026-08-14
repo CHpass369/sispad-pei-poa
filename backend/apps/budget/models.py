@@ -423,3 +423,97 @@ class BudgetDocument(TimeStampedModel):
             self.sha256 = digest.hexdigest()
             self.size = self.archivo.size
         super().save(*args, **kwargs)
+
+# ---------------------------------------------------------------------------
+# Fase 3 - CategorAas programAticas del ciclo (jeraquAa PROGRAMA/SUBPROGRAMA/
+# PROYECTO/ACTIVIDAD por gestiA3n). CAtAlogo propio del ciclo presupuestario;
+# los niveles no son obligatorios en todas las categorAas.
+# ---------------------------------------------------------------------------
+class NivelCategoria:
+    PROGRAMA = 'PROGRAMA'
+    SUBPROGRAMA = 'SUBPROGRAMA'
+    PROYECTO = 'PROYECTO'
+    ACTIVIDAD = 'ACTIVIDAD'
+
+    CHOICES = [
+        (PROGRAMA, 'Programa'),
+        (SUBPROGRAMA, 'Subprograma'),
+        (PROYECTO, 'Proyecto'),
+        (ACTIVIDAD, 'Actividad'),
+    ]
+
+
+class EstadoCategoria:
+    ACTIVA = 'ACTIVA'
+    INACTIVA = 'INACTIVA'
+
+    CHOICES = [
+        (ACTIVA, 'Activa'),
+        (INACTIVA, 'Inactiva'),
+    ]
+
+
+class ProgrammaticCategory(TimeStampedModel):
+    """CategorAa programAtica del ciclo presupuestario (por gestiA3n).
+
+    JerarquAa flexible: PROGRAMA -> SUBPROGRAMA -> PROYECTO -> ACTIVIDAD.
+    Los cA3digos se almacenan como VARCHAR (ceros iniciales preservados,
+    cA3digos compuestos); una apertura no puede usar una categorAa inexistente
+    (la FK lo garantiza).
+    """
+
+    gestion = models.ForeignKey(
+        'gestion.GestionFiscal', on_delete=models.CASCADE,
+        related_name='categorias_programaticas',
+    )
+    codigo = models.CharField(max_length=20)
+    denominacion = models.CharField(max_length=300)
+    nivel = models.CharField(
+        max_length=20, choices=NivelCategoria.CHOICES,
+        default=NivelCategoria.PROGRAMA,
+    )
+    parent = models.ForeignKey(
+        'self', on_delete=models.CASCADE, null=True, blank=True,
+        related_name='hijos',
+    )
+    vigencia_desde = models.DateField(null=True, blank=True)
+    vigencia_hasta = models.DateField(null=True, blank=True)
+    estado = models.CharField(
+        max_length=20, choices=EstadoCategoria.CHOICES,
+        default=EstadoCategoria.ACTIVA,
+    )
+    origen = models.CharField(max_length=40, blank=True, default='')
+    normativa = models.CharField(max_length=120, blank=True, default='')
+    observaciones = models.TextField(blank=True, default='')
+
+    class Meta:
+        verbose_name = 'CategorAa programAtica'
+        verbose_name_plural = 'CategorAas programAticas'
+        ordering = ['gestion', 'nivel', 'codigo']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['gestion', 'codigo'],
+                name='budget_categoria_gestion_codigo_uniq',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['gestion', 'parent']),
+        ]
+
+    def __str__(self):
+        return f'{self.codigo} - {self.denominacion}'
+
+    def clean(self):
+        from django.core.exceptions import ValidationError as VE
+        if self.parent and self.parent.gestion_id != self.gestion_id:
+            raise VE({'parent': 'La categorAa padre debe pertenecer a la misma gestiA3n.'})
+        if self.parent and self.parent.nivel == self.nivel:
+            raise VE({'parent': 'El nivel padre no puede ser igual al nivel de la categorAa.'})
+        niveles = [NivelCategoria.PROGRAMA, NivelCategoria.SUBPROGRAMA,
+                   NivelCategoria.PROYECTO, NivelCategoria.ACTIVIDAD]
+        if self.parent and niveles.index(self.nivel) <= niveles.index(self.parent.nivel):
+            raise VE({'nivel': 'El nivel debe ser mAs profundo que el de la categorAa padre.'})
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)

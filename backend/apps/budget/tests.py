@@ -29,6 +29,7 @@ from .models import (
     DirectiveCeiling,
     DirectiveCeilingVersion,
     MandatoryExpense,
+    ProgrammaticCategory,
 )
 from .services import (
     ajuste_de_techo,
@@ -674,3 +675,98 @@ class FiscalYearServiceTests(TestCase):
         habilitar_gestion(gestion, None)
         gestion.refresh_from_db()
         self.assertEqual(gestion.estado, 'HABILITADA')
+
+
+# ===========================================================================
+# Fase 3 - CategorAas programAticas + catAAlogos
+# ===========================================================================
+class ProgrammaticCategoryTests(TestCase):
+    def setUp(self):
+        self.admin = Usuario.objects.create_superuser(
+            email='admin@cat.test', password='test2026'
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.admin)
+        self.gestion = crear_gestion(2031, estado='HABILITADA')
+        self.url = BUDGET_URL + 'programmatic-categories/'
+
+    def _crear_categoria(self, codigo='097', nivel='PROGRAMA', parent=None, **extra):
+        data = {
+            'gestion': self.gestion.id,
+            'codigo': codigo,
+            'denominacion': 'CategorAa ' + codigo,
+            'nivel': nivel,
+            'parent': getattr(parent, 'id', parent) if parent else None,
+            **extra,
+        }
+        return self.client.post(self.url, data, format='json')
+
+    def test_crear_programa_preserva_ceros(self):
+        resp = self._crear_categoria('097')
+        self.assertEqual(resp.status_code, 201, resp.content[:300])
+        self.assertEqual(resp.data['codigo'], '097')
+
+    def test_crear_jerarquia_programa_subprograma(self):
+        prog = self._crear_categoria('09', nivel='PROGRAMA')
+        self.assertEqual(prog.status_code, 201)
+        sub = self._crear_categoria('010', nivel='SUBPROGRAMA', parent=prog.data['id'])
+        self.assertEqual(sub.status_code, 201)
+        self.assertEqual(sub.data['codigo_compuesto'], '09.010')
+
+    def test_nivel_no_puede_ser_menor_al_padre(self):
+        sub = self._crear_categoria('010', nivel='SUBPROGRAMA')
+        self.assertEqual(sub.status_code, 201)
+        prog_hijo = self._crear_categoria('09', nivel='PROGRAMA', parent=sub.data['id'])
+        self.assertEqual(prog_hijo.status_code, 400)
+
+    def test_duplicado_codigo_misma_gestion_rechazado(self):
+        self._crear_categoria('097')
+        resp = self._crear_categoria('097')
+        self.assertEqual(resp.status_code, 400)
+
+    def test_no_crea_en_gestion_no_habilitada(self):
+        gestion_cerrada = crear_gestion(2032, estado='CERRADA')
+        resp = self.client.post(self.url, {
+            'gestion': gestion_cerrada.id,
+            'codigo': '01',
+            'denominacion': 'Sin habilitar',
+            'nivel': 'PROGRAMA',
+        }, format='json')
+        self.assertEqual(resp.status_code, 400)
+
+    def test_tree_por_gestion(self):
+        prog = self._crear_categoria('09', nivel='PROGRAMA').data['id']
+        self._crear_categoria('010', nivel='SUBPROGRAMA', parent=prog)
+        resp = self.client.get(self.url + 'tree/', {'gestion': self.gestion.id})
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.data), 1)
+        self.assertEqual(len(resp.data[0]['hijos']), 1)
+
+    def test_duplicar_a_otra_gestion(self):
+        prog = self._crear_categoria('09', nivel='PROGRAMA').data['id']
+        sub = self._crear_categoria('010', nivel='SUBPROGRAMA', parent=prog).data['id']
+        destino = crear_gestion(2033, estado='HABILITADA')
+        resp = self.client.post(
+            f'{self.url}{prog}/duplicar_a_gestion/',
+            {'gestion_destino': destino.id}, format='json')
+        self.assertEqual(resp.status_code, 201)
+        copias = ProgrammaticCategory.objects.filter(gestion=destino)
+        self.assertEqual(copias.count(), 2)
+        self.assertEqual(copias.get(nivel='SUBPROGRAMA').codigo, '010')
+
+
+class CatalogOptionsTests(TestCase):
+    def setUp(self):
+        self.admin = Usuario.objects.create_superuser(
+            email='admin@catopts.test', password='test2026'
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.admin)
+
+    def test_catalogs_devuelve_todos_los_catalogos(self):
+        resp = self.client.get(BUDGET_URL + 'catalogs/')
+        self.assertEqual(resp.status_code, 200)
+        for key in ['fuentes', 'organismos', 'rubros', 'objetos_gasto',
+                    'distritos', 'direcciones', 'unidades_ejecutoras',
+                    'unidades_organizacionales']:
+            self.assertIn(key, resp.data)
