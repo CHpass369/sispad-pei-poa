@@ -41,3 +41,14 @@ Documentación de la Plataforma Integral de Planificación del GAM Sacaba
 **Bloque completo del plan maestro ejecutado (WP-00 → WP-14).** La ejecución
 del retiro de V1 (WP-14) queda pendiente de los gates del plan: cutover del
 frontend V2, reconciliación 100% y periodo de observación.
+
+## Medición local (2026-08-14, PostgreSQL 16 nativo + PostGIS 3.4)
+
+- Suite completa: **963 tests + 239 subtests verdes** (apps/ 766 + tests/ 197;
+  supera los 926 del changelog).
+- `migrate --check`: sin migraciones pendientes (201 tablas, esquema al día).
+- `legacy_audit --inventario`: **348 registros** (335 nuevos) con checksum.
+- `legacy_audit --reconciliar`: **13/13 reconciliados, 0 discrepancias**
+  (9 migrados + 4 ya reconciliados; 335 pendientes de `--marcar-migrado`).
+- `migrar_pad --comparar`: BD local con datos de demo (L1/R1/PR1 solo en
+  `pad`); la reconciliación 100% real se mide sobre los datos de producción.

@@ -127,6 +127,10 @@ SIS-PRO sobre núcleo transversal). Ver `docs/pip_gams/` para arquitectura.
 ### Fixed
 - Budget validation rules enforcement
 - Workflow state transition guards
+- Verificación completa en PostgreSQL local (sin Docker): **963 tests + 239
+  subtests verdes**, `legacy_audit --inventario` (348 registros con checksum)
+  y `legacy_audit --reconciliar` (13/13, 0 discrepancias). Documentado en
+  `docs/pip_gams/README.md`.
 - Seguridad: flujo de restablecimiento de contraseña reescrito con
   `PasswordResetTokenGenerator` de Django (token de un solo uso, 24 h):
   - Eliminado `set_password` duplicado que rompía la contraseña del usuario
