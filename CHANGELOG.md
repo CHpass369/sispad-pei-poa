@@ -127,6 +127,20 @@ SIS-PRO sobre núcleo transversal). Ver `docs/pip_gams/` para arquitectura.
 ### Fixed
 - Budget validation rules enforcement
 - Workflow state transition guards
+- Seguridad: flujo de restablecimiento de contraseña reescrito con
+  `PasswordResetTokenGenerator` de Django (token de un solo uso, 24 h):
+  - Eliminado `set_password` duplicado que rompía la contraseña del usuario
+    si el reset no se completaba (regresión verificada con tests).
+  - El email ya no contiene un bearer token de sesión (JWT), sino un token
+    de reset con hash; el endpoint de confirmación requiere ahora `email` +
+    `token` + `new_password` + `confirm_password`.
+  - `PASSWORD_RESET_TIMEOUT = 86400` hace cierta la promesa de 24 h del email.
+  - 8 tests nuevos de contrato del flujo (`apps/accounts/tests.py`).
+- Docs: versión real de PostgreSQL/PostGIS (17/3.4) en ARQUITECTURA.md,
+  INSTALACION.md y README.md.
+- Backend: settings de prueba sin Docker (`config/settings_test_sqlite.py` +
+  `config/urls_test_sqlite.py`) para correr tests de apps no-geo con SQLite:
+  `pytest apps/accounts/tests.py --ds=config.settings_test_sqlite`.
 
 ## [1.0.0] — 2026-07-15
 

@@ -205,7 +205,7 @@ El servicio `postgres-postgis` usa la imagen `postgis/postgis:17-3.4` que incluy
 
 ```bash
 # Ubuntu/Debian
-sudo apt install postgresql-16-postgis-3
+sudo apt install postgresql-17-postgis-3
 
 # macOS (Homebrew)
 brew install postgis

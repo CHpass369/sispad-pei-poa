@@ -58,7 +58,7 @@
 ### Stack Tecnologico
 
 - **Framework**: Django 6.0.7 + Django REST Framework 3.17.1
-- **Base de datos**: PostgreSQL 16 + PostGIS 3.4
+- **Base de datos**: PostgreSQL 17 + PostGIS 3.4
 - **Cache/Celery**: Redis 7
 - **Auth**: SimpleJWT + mozilla-django-oidc
 - **Docs API**: drf-spectacular (OpenAPI 3.0)

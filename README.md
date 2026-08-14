@@ -6,7 +6,7 @@ Plataforma institucional para gestionar la formulación del Plan Operativo Anual
 
 ## Stack
 
-- **Backend**: Python 3.14, Django 6.0, DRF, PostgreSQL 18 + PostGIS 3.6
+- **Backend**: Python 3.14, Django 6.0, DRF, PostgreSQL 17 + PostGIS 3.4
 - **Frontend**: Angular (en desarrollo)
 - **GIS**: PostGIS, GeoServer (en configuración)
 - **Infra**: Gunicorn, Nginx, Celery + Redis
