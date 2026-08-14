@@ -1,0 +1,82 @@
+"""Settings de prueba sin Docker: SQLite + apps mínimas.
+
+Permite correr tests de las apps que NO usan campos geo (PostGIS)
+directamente con el venv local, sin base de datos Docker:
+
+    cd backend
+    .venv\\Scripts\\python.exe -m pytest apps/accounts/tests.py \
+        -q --ds=config.settings_test_sqlite
+
+NO usar para la suite completa: las apps con modelos geo
+(territorio, inversion) requieren PostgreSQL/PostGIS.
+"""
+from .settings import *  # noqa: F403
+
+# --- Base de datos: SQLite en memoria (solo para tests) ---
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': ':memory:',
+    }
+}
+
+# --- Aplicaciones mínimas: solo las necesarias para auth y DRF ---
+INSTALLED_APPS = [
+    'django.contrib.auth',
+    'django.contrib.contenttypes',
+    'django.contrib.sessions',
+    'django.contrib.messages',
+    'django.contrib.staticfiles',
+    'django.contrib.admin',
+    'rest_framework',
+    'rest_framework_simplejwt',
+    'corsheaders',
+    'apps.core',
+    'apps.accounts',
+    'apps.organizacion',
+]
+
+# --- Sin migraciones: el esquema se crea directo desde los modelos ---
+MIGRATION_MODULES = {
+    label: None
+    for label in ['auth', 'contenttypes', 'sessions', 'messages',
+                  'staticfiles', 'core', 'accounts', 'organizacion']
+}
+
+# --- Middleware mínimo para DRF/SimpleJWT en tests ---
+MIDDLEWARE = [
+    'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.common.CommonMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.messages.middleware.MessageMiddleware',
+]
+
+ROOT_URLCONF = 'config.urls_test_sqlite'
+
+TEMPLATES = [{
+    'BACKEND': 'django.template.backends.django.DjangoTemplates',
+    'DIRS': [],
+    'APP_DIRS': True,
+    'OPTIONS': {
+        'context_processors': [
+            'django.template.context_processors.request',
+            'django.contrib.auth.context_processors.auth',
+        ],
+    },
+}]
+
+PASSWORD_HASHERS = [
+    'django.contrib.auth.hashers.MD5PasswordHasher',
+]
+
+# Email en memoria para tests (django.core.mail.outbox)
+EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'
+
+# Sin throttling en tests
+REST_FRAMEWORK = {
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': None,
+        'user': None,
+        'login': None,
+    },
+}

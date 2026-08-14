@@ -1,7 +1,7 @@
 import logging
-import secrets
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
+from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.mail import send_mail
 from django.conf import settings
@@ -123,34 +123,26 @@ class PasswordResetRequestView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # Respuesta genérica en todos los casos: no revelar si el email existe.
+        generic = {'detail': 'Si el email existe, recibirá instrucciones para restablecer su contraseña'}
         try:
             user = Usuario.objects.get(email=email, activo=True)
         except Usuario.DoesNotExist:
-            return Response(
-                {'detail': 'Si el email existe, recibirá instrucciones para restablecer su contraseña'},
-                status=status.HTTP_200_OK,
-            )
+            return Response(generic, status=status.HTTP_200_OK)
 
-        token = secrets.token_urlsafe(48)
-        user.set_password(token)
-        user.save()
-
-        token_for_reset = RefreshToken.for_user(user)
-        reset_token = str(token_for_reset.access)
-
-        user.set_password(token)
-        user.save()
+        # Token de un solo uso (hash almacenado, PASSWORD_RESET_TIMEOUT define la vigencia).
+        # NO se altera la contraseña ni se envía un bearer token por email.
+        token = default_token_generator.make_token(user)
 
         try:
             frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:4200')
-            reset_url = f'{frontend_url}/auth/reset-password?token={reset_token}'
+            reset_url = f'{frontend_url}/auth/reset-password?token={token}&email={email}'
             send_mail(
                 subject='Restablecimiento de contraseña - SISPOA',
                 message=(
                     f'Estimado/a {user.get_full_name() or user.email}:\n\n'
                     f'Recibimos una solicitud para restablecer su contraseña.\n\n'
-                    f'Su token de restablecimiento es: {reset_token}\n\n'
-                    f'O puede usar el siguiente enlace:\n{reset_url}\n\n'
+                    f'Use el siguiente enlace para continuar:\n{reset_url}\n\n'
                     f'Si no solicitó este cambio, ignore este mensaje.\n\n'
                     f'El token expirará en 24 horas.'
                 ),
@@ -161,10 +153,7 @@ class PasswordResetRequestView(APIView):
         except Exception as e:
             logger.error(f'Error enviando email de reset para {email}: {e}')
 
-        return Response(
-            {'detail': 'Si el email existe, recibirá instrucciones para restablecer su contraseña'},
-            status=status.HTTP_200_OK,
-        )
+        return Response(generic, status=status.HTTP_200_OK)
 
 
 class PasswordResetConfirmView(APIView):
@@ -172,13 +161,14 @@ class PasswordResetConfirmView(APIView):
     throttle_classes = [LoginThrottle]
 
     def post(self, request):
+        email = request.data.get('email')
         token = request.data.get('token')
         new_password = request.data.get('new_password')
         confirm_password = request.data.get('confirm_password')
 
-        if not token or not new_password or not confirm_password:
+        if not email or not token or not new_password or not confirm_password:
             return Response(
-                {'error': 'Token, nueva contraseña y confirmación son requeridos'},
+                {'error': 'Email, token, nueva contraseña y confirmación son requeridos'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -189,11 +179,15 @@ class PasswordResetConfirmView(APIView):
             )
 
         try:
-            from rest_framework_simplejwt.tokens import AccessToken
-            access_token = AccessToken(token)
-            user_id = access_token['user_id']
-            user = Usuario.objects.get(pk=user_id, activo=True)
-        except Exception:
+            user = Usuario.objects.get(email=email, activo=True)
+        except Usuario.DoesNotExist:
+            return Response(
+                {'error': 'Token inválido o expirado'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # El token es de un solo uso y valida contra el hash interno del usuario.
+        if not default_token_generator.check_token(user, token):
             return Response(
                 {'error': 'Token inválido o expirado'},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -203,7 +197,7 @@ class PasswordResetConfirmView(APIView):
             validate_password(new_password, user=user)
         except DjangoValidationError as e:
             return Response(
-                {'error': 'La contraseña no cumple los requisitos de seguridad',
+                {'error': 'La nueva contraseña no cumple los requisitos de seguridad',
                  'detalles': e.messages},
                 status=status.HTTP_400_BAD_REQUEST,
             )

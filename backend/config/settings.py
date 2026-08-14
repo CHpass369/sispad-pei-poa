@@ -192,6 +192,10 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
+# Vigencia del token de restablecimiento de contraseña (24 horas, coincide
+# con el texto del email de reset; PasswordResetTokenGenerator).
+PASSWORD_RESET_TIMEOUT = 86400
+
 # CORS
 CORS_ALLOWED_ORIGINS = os.environ.get(
     'CORS_ALLOWED_ORIGINS',
