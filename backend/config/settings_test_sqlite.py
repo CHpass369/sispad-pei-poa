@@ -20,7 +20,35 @@ DATABASES = {
     }
 }
 
-# --- Aplicaciones mínimas: solo las necesarias para auth y DRF ---
+# --- Aplicaciones: todas las locales NO-geo (territorio/inversion requieren
+# --- PostgreSQL/PostGIS y quedan fuera de este settings).
+LOCAL_APPS_TEST = [
+    'apps.core',
+    'apps.accounts',
+    'apps.organizacion',
+    'apps.gestion',
+    'apps.catalogos',
+    'apps.normativa',
+    'apps.planificacion',
+    'apps.indicadores',
+    'apps.recursos',
+    'apps.techos',
+    'apps.presupuesto',
+    'apps.pad',
+    'apps.workflow',
+    'apps.documentos',
+    'apps.reportes',
+    'apps.auditoria',
+    'apps.poau',
+    'apps.evaluacion',
+    'apps.modificaciones',
+    'apps.notificaciones',
+    'apps.seguimiento',
+    'apps.acciones_correctivas',
+    'apps.articulacion',
+    'apps.codificacion',
+]
+
 INSTALLED_APPS = [
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -31,16 +59,26 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
-    'apps.core',
-    'apps.accounts',
-    'apps.organizacion',
+    *LOCAL_APPS_TEST,
 ]
 
-# --- Sin migraciones: el esquema se crea directo desde los modelos ---
+# --- Sin migraciones: el esquema se crea directo desde los modelos.
+# --- SQLite no puede ejecutar los triggers plpgsql de las migraciones
+# --- (articulacion/catalogos/codificacion/presupuesto) y el grafo de
+# --- migraciones cruza apps, así que no se ejecuta ninguna. Los seeds que
+# --- los tests presuponen los siembra tests/conftest.py (reutilizando las
+# --- funciones seed de las data migrations) cuando SETTINGS_MODULE es este.
 MIGRATION_MODULES = {
     label: None
-    for label in ['auth', 'contenttypes', 'sessions', 'messages',
-                  'staticfiles', 'core', 'accounts', 'organizacion']
+    for label in [
+        'auth', 'contenttypes', 'sessions', 'messages', 'staticfiles',
+        'core', 'accounts', 'organizacion', 'gestion', 'catalogos',
+        'normativa', 'planificacion', 'indicadores', 'recursos', 'techos',
+        'presupuesto', 'pad', 'workflow', 'documentos', 'reportes',
+        'auditoria', 'poau', 'evaluacion', 'modificaciones',
+        'notificaciones', 'seguimiento', 'acciones_correctivas',
+        'articulacion', 'codificacion',
+    ]
 }
 
 # --- Middleware mínimo para DRF/SimpleJWT en tests ---

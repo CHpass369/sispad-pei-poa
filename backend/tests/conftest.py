@@ -4,6 +4,8 @@ Fixtures compartidas para todos los tests de SISPOA.
 import pytest
 from datetime import date
 from decimal import Decimal
+from django.conf import settings
+from django.apps import apps as real_apps
 from rest_framework.test import APIClient
 from apps.accounts.models import Usuario, Rol
 from apps.gestion.models import GestionFiscal
@@ -24,6 +26,32 @@ from apps.planificacion.models import Plan, NodoPlanificacion, AccionMedianoPlaz
 def api_client():
     """Cliente DRF sin autenticar."""
     return APIClient()
+
+
+@pytest.fixture(autouse=True)
+def _seeds_sqlite(db):
+    """Siembra mínima SOLO para config.settings_test_sqlite.
+
+    Ese settings crea el esquema directo desde los modelos (sin data
+    migrations, porque SQLite no soporta los triggers plpgsql ni el
+    catálogo geo). Para que los tests que presuponen catálogos siembren
+    igual, se reutilizan las funciones seed de las propias data
+    migrations (misma fuente, sin duplicar lógica). En PostgreSQL
+    (config.settings) no hace nada: las migraciones ya sembraron.
+    """
+    if settings.SETTINGS_MODULE != 'config.settings_test_sqlite':
+        return
+    from importlib import import_module
+    # Workflow: definición 'validacion_instrumento' + pasos (WP-08).
+    import_module(
+        'apps.workflow.migrations.'
+        '0002_workflowdefinition_workflowstepdefinition_and_more'
+    ).seed_definiciones(real_apps, None)
+    # IAM: catálogo de capacidades + mapeo por rol (WP-03 / ADR-003).
+    import_module(
+        'apps.accounts.migrations.'
+        '0002_capacidad_alcanceorganizacional_rol_capacidades'
+    ).seed_capacidades(real_apps, None)
 
 
 @pytest.fixture
