@@ -52,28 +52,7 @@ from apps.acciones_correctivas.models import (
     CompromisoAccionCorrectiva,
 )
 from apps.catalogos import models as catalog_models
-from apps.evaluacion.models import (
-    CriterioEvaluacion,
-    Evaluacion,
-    LeccionAprendida,
-    Recomendacion,
-    ResultadoEvaluacion,
-)
 from apps.gestion.models import CicloFormulacion, EtapaFormulacion, GestionFiscal
-from apps.indicadores.models import (
-    Indicador,
-    MedioVerificacion,
-    MetaProgramada,
-    Operacion as IndicadorOperacion,
-    Producto as IndicadorProducto,
-    Supuesto,
-    Tarea as IndicadorTarea,
-)
-from apps.modificaciones.models import (
-    CambioModificacion,
-    ImpactoModificacion,
-    SolicitudModificacion,
-)
 from apps.notificaciones.models import (
     Notificacion,
     PreferenciaNotificacion,
@@ -103,12 +82,6 @@ from apps.planificacion.models import (
     Plan,
     PlanVersion,
 )
-from apps.poau.models import (
-    EjecucionFinanciera,
-    EjecucionFisica,
-    POAU,
-    POAUActividad,
-)
 from apps.presupuesto.models import (
     ActividadPresupuestaria,
     LineaPresupuestaria,
@@ -116,8 +89,6 @@ from apps.presupuesto.models import (
     ProyectoPresupuestario,
 )
 from apps.reportes.models import ReporteGenerado
-from apps.recursos.models import EstimacionPlurianual, EstimacionRecurso
-from apps.seguimiento.models import Alerta, EntradaSeguimiento, ReporteSeguimiento
 from apps.techos.models import DistribucionTecho, MovimientoTecho, TechoPresupuestario
 from apps.workflow.models import EnvioFormulacion, Observacion, Revision
 
@@ -146,7 +117,6 @@ AMBIGUOUS_TERRITORIAL_RESULT_CODES = (
     "TEST.1",
     "TEST.FULL.1",
 )
-AMBIGUOUS_POAU_CODES = ("cZXc", "ZXC")
 
 SEED_PLAN_CODES = (
     "PDES-2021",
@@ -180,16 +150,7 @@ SEED_UNIT_CODES = (
 SEED_TYPE_CODES = ("MAE", "SEC", "JEF", "UNI", "UE", "INST", "DIR")
 SEED_DA_CODES = ("100", "200", "300", "DA-DEMO")
 SEED_UE_CODES = ("UE-100", "UE-200", "UE-300", "UE-DEMO")
-SEED_POAU_CODES = (
-    "POAU-UPL-2026",
-    "POAU-UIP-2026",
-    "POAU-UMANT-2026",
-    "POAU-DEMO-2026",
-)
 SEED_PROGRAM_CODES = ("P-001", "P-002", "P-003", "P-DEMO-01")
-SEED_INDICATOR_CODES = tuple(f"IND-{index:03d}" for index in range(1, 7)) + (
-    "IND-DEMO-001",
-)
 EXPLICIT_DEMO_CATALOG_CODES = {
     "ObjetoGasto": ("OG-DEMO",),
     "FuenteFinanciamiento": ("FF-DEMO",),
@@ -240,8 +201,6 @@ UNIT_DEMO_CODES, UNIT_AMBIGUOUS_CODES = _split_demo_codes(SEED_UNIT_CODES)
 TYPE_DEMO_CODES, TYPE_AMBIGUOUS_CODES = _split_demo_codes(SEED_TYPE_CODES)
 DA_DEMO_CODES, DA_AMBIGUOUS_CODES = _split_demo_codes(SEED_DA_CODES)
 UE_DEMO_CODES, UE_AMBIGUOUS_CODES = _split_demo_codes(SEED_UE_CODES)
-POAU_DEMO_CODES, POAU_AMBIGUOUS_CODES = _split_demo_codes(SEED_POAU_CODES)
-INDICATOR_DEMO_CODES, INDICATOR_AMBIGUOUS_CODES = _split_demo_codes(SEED_INDICATOR_CODES)
 PROGRAM_DEMO_CODES, PROGRAM_AMBIGUOUS_CODES = _split_demo_codes(SEED_PROGRAM_CODES)
 POLICY_DEMO_CODES, POLICY_AMBIGUOUS_CODES = _split_demo_codes(SEED_POLICY_CODES)
 LINEAMIENTO_DEMO_CODES, LINEAMIENTO_AMBIGUOUS_CODES = _split_demo_codes(SEED_LINEAMIENTO_CODES)
@@ -267,27 +226,14 @@ CATALOG_MODELS = (
 DELETION_ORDER = (
     CompromisoAccionCorrectiva,
     AccionCorrectiva,
-    Alerta,
-    EntradaSeguimiento,
-    ReporteSeguimiento,
-    CriterioEvaluacion,
-    ResultadoEvaluacion,
-    LeccionAprendida,
-    Recomendacion,
-    Evaluacion,
     Observacion,
     Revision,
     EnvioFormulacion,
-    CambioModificacion,
-    ImpactoModificacion,
-    SolicitudModificacion,
     Notificacion,
     PreferenciaNotificacion,
     TipoNotificacion,
     ReporteGenerado,
     AsignacionUsuarioUnidad,
-    EjecucionFisica,
-    EjecucionFinanciera,
     SeguimientoPresupuesto,
     AsignacionObjetoGasto,
     TareaNormativa,
@@ -304,20 +250,9 @@ DELETION_ORDER = (
     AcuerdoInternacional,
     ProductoPEI,
     ResultadoPEI,
-    POAUActividad,
-    POAU,
-    MetaProgramada,
-    MedioVerificacion,
-    IndicadorTarea,
-    IndicadorProducto,
-    Supuesto,
-    IndicadorOperacion,
-    Indicador,
     LineaPresupuestaria,
     ActividadPresupuestaria,
     ProyectoPresupuestario,
-    EstimacionPlurianual,
-    EstimacionRecurso,
     DistribucionTecho,
     MovimientoTecho,
     TechoPresupuestario,
@@ -429,7 +364,6 @@ def _build_candidate_sets(include_ambiguous_test_data: bool) -> dict[type[models
     if include_ambiguous_test_data:
         acp_q |= Q(codigo__in=ACP_AMBIGUOUS_CODES)
     _add(candidates, AccionCortoPlazo, AccionCortoPlazo.objects.filter(acp_q))
-    acp_ids = candidates.get(AccionCortoPlazo, set())
 
     policy_q = Q(codigo__in=POLICY_DEMO_CODES)
     if include_ambiguous_test_data:
@@ -581,40 +515,6 @@ def _build_candidate_sets(include_ambiguous_test_data: bool) -> dict[type[models
         ),
     )
 
-    poau_q = Q(codigo__startswith="SIM-2027") | Q(codigo__in=POAU_DEMO_CODES)
-    if include_ambiguous_test_data:
-        poau_q |= Q(nombre__icontains="demo") | Q(codigo__in=POAU_AMBIGUOUS_CODES)
-        _add(candidates, POAU, POAU.objects.filter(codigo__in=AMBIGUOUS_POAU_CODES))
-    _add(candidates, POAU, POAU.objects.filter(poau_q))
-    poau_ids = candidates.get(POAU, set())
-    _add(
-        candidates,
-        POAUActividad,
-        POAUActividad.objects.filter(
-            Q(poau_id__in=poau_ids) | Q(accion_corto_plazo_id__in=acp_ids)
-        ),
-    )
-    poau_activity_ids = candidates.get(POAUActividad, set())
-    _add(candidates, EjecucionFisica, EjecucionFisica.objects.filter(actividad_id__in=poau_activity_ids))
-    _add(candidates, EjecucionFinanciera, EjecucionFinanciera.objects.filter(actividad_id__in=poau_activity_ids))
-
-    indicador_q = Q(codigo__in=INDICATOR_DEMO_CODES) | Q(codigo__startswith="SIM-2027")
-    if include_ambiguous_test_data:
-        indicador_q |= Q(nombre__icontains="demo") | Q(codigo__in=INDICATOR_AMBIGUOUS_CODES)
-    _add(candidates, Indicador, Indicador.objects.filter(indicador_q))
-    indicador_ids = candidates.get(Indicador, set())
-    _add(candidates, MetaProgramada, MetaProgramada.objects.filter(indicador_id__in=indicador_ids))
-    _add(candidates, MedioVerificacion, MedioVerificacion.objects.filter(indicador_id__in=indicador_ids))
-    _add(
-        candidates,
-        IndicadorOperacion,
-        IndicadorOperacion.objects.filter(accion_corto_plazo_id__in=acp_ids),
-    )
-    indicador_operation_ids = candidates.get(IndicadorOperacion, set())
-    _add(candidates, IndicadorTarea, IndicadorTarea.objects.filter(operacion_id__in=indicador_operation_ids))
-    _add(candidates, IndicadorProducto, IndicadorProducto.objects.filter(accion_corto_plazo_id__in=acp_ids))
-    _add(candidates, Supuesto, Supuesto.objects.filter(accion_corto_plazo_id__in=acp_ids))
-
     program_q = Q(codigo__in=PROGRAM_DEMO_CODES)
     if include_ambiguous_test_data:
         program_q |= Q(descripcion__icontains="demo") | Q(codigo__in=PROGRAM_AMBIGUOUS_CODES)
@@ -663,37 +563,12 @@ def _build_candidate_sets(include_ambiguous_test_data: bool) -> dict[type[models
             | Q(destination_ceiling_id__in=techo_ids)
         ),
     )
-    _add(
-        candidates,
-        EstimacionRecurso,
-        EstimacionRecurso.objects.filter(
-            Q(fuente_id__in=_catalog_ids(candidates, catalog_models.FuenteFinanciamiento))
-            | Q(organismo_id__in=_catalog_ids(candidates, catalog_models.OrganismoFinanciador))
-        ),
-    )
-    _add(
-        candidates,
-        EstimacionPlurianual,
-        EstimacionPlurianual.objects.filter(
-            estimacion_origen_id__in=candidates.get(EstimacionRecurso, set())
-        ),
-    )
 
-    report_q = Q(unidad_organizacional_id__in=candidates.get(UnidadOrganizacional, set()))
-    if include_ambiguous_test_data:
-        report_q |= Q(periodo__startswith="2026-Q2", gestion=2026)
-    _add(candidates, ReporteSeguimiento, ReporteSeguimiento.objects.filter(report_q))
-    report_ids = candidates.get(ReporteSeguimiento, set())
-    _add(candidates, EntradaSeguimiento, EntradaSeguimiento.objects.filter(reporte_id__in=report_ids))
-    entry_ids = candidates.get(EntradaSeguimiento, set())
-    _add(candidates, Alerta, Alerta.objects.filter(entrada_id__in=entry_ids))
     _add(
         candidates,
         AccionCorrectiva,
         AccionCorrectiva.objects.filter(
-            Q(alerta_id__in=candidates.get(Alerta, set()))
-            | Q(entry_id__in=entry_ids)
-            | Q(responsible_id__in=candidates.get(Usuario, set()))
+            Q(responsible_id__in=candidates.get(Usuario, set()))
             | Q(responsible_unit_id__in=candidates.get(UnidadOrganizacional, set()))
         ),
     )
@@ -704,13 +579,6 @@ def _build_candidate_sets(include_ambiguous_test_data: bool) -> dict[type[models
             accion_correctiva_id__in=candidates.get(AccionCorrectiva, set())
         ),
     )
-
-    _add(candidates, Evaluacion, Evaluacion.objects.filter(plan_id__in=plan_ids))
-    evaluation_ids = candidates.get(Evaluacion, set())
-    _add(candidates, CriterioEvaluacion, CriterioEvaluacion.objects.filter(evaluacion_id__in=evaluation_ids))
-    _add(candidates, ResultadoEvaluacion, ResultadoEvaluacion.objects.filter(evaluacion_id__in=evaluation_ids))
-    _add(candidates, LeccionAprendida, LeccionAprendida.objects.filter(evaluacion_id__in=evaluation_ids))
-    _add(candidates, Recomendacion, Recomendacion.objects.filter(evaluacion_id__in=evaluation_ids))
 
     _add(candidates, EnvioFormulacion, EnvioFormulacion.objects.filter(unidad_id__in=candidates.get(UnidadOrganizacional, set())))
     envio_ids = candidates.get(EnvioFormulacion, set())
@@ -740,17 +608,6 @@ def _build_candidate_sets(include_ambiguous_test_data: bool) -> dict[type[models
         PreferenciaNotificacion,
         PreferenciaNotificacion.objects.filter(user_id__in=candidates.get(Usuario, set())),
     )
-
-    _add(
-        candidates,
-        SolicitudModificacion,
-        SolicitudModificacion.objects.filter(
-            Q(poau_id__in=poau_ids) | Q(solicitado_por_id__in=candidates.get(Usuario, set()))
-        ),
-    )
-    modification_ids = candidates.get(SolicitudModificacion, set())
-    _add(candidates, CambioModificacion, CambioModificacion.objects.filter(solicitud_id__in=modification_ids))
-    _add(candidates, ImpactoModificacion, ImpactoModificacion.objects.filter(solicitud_id__in=modification_ids))
 
     _add(
         candidates,
@@ -839,12 +696,6 @@ def _build_ambiguous_exact_key_matches() -> dict[type[models.Model], set]:
         AcuerdoInternacional.objects.filter(
             tipo_acuerdo="ODS", codigo__in=AMBIGUOUS_ODS_DUPLICATE_CODES
         ),
-    )
-    _add(matches, POAU, POAU.objects.filter(codigo__in=POAU_AMBIGUOUS_CODES))
-    _add(
-        matches,
-        Indicador,
-        Indicador.objects.filter(codigo__in=INDICATOR_AMBIGUOUS_CODES),
     )
     _add(
         matches,

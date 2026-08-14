@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { ApiService } from '../../core/services/api.service';
 import {
   ARTICULATION_MANAGEMENT,
@@ -29,6 +29,7 @@ import {
             <label>Estado</label>
             <select [(ngModel)]="filtroEstado" class="form-control" (change)="aplicarFiltros()">
               <option value="">Todos</option>
+              <option value="PROVISIONAL">Provisional</option>
               <option value="REFERENCIAL">Referencial</option>
               <option value="VALIDADO">Validado</option>
               <option value="APROBADO">Aprobado</option>
@@ -80,7 +81,7 @@ import {
                 <td>
                   <span class="badge" [class.badge-success]="item.estado==='APROBADO'"
                         [class.badge-warning]="item.estado==='VALIDADO'"
-                        [class.badge-info]="item.estado==='REFERENCIAL'">
+                        [class.badge-info]="item.estado==='REFERENCIAL'||item.estado==='PROVISIONAL'">
                     {{ item.estado }}
                   </span>
                 </td>
@@ -154,7 +155,7 @@ export class MatrizPADPEIComponent implements OnInit {
   filtroCodigo = '';
   filtroEstado = '';
 
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void {
     this.cargarDatos();
@@ -170,8 +171,9 @@ export class MatrizPADPEIComponent implements OnInit {
         this.articulaciones = mapM1Rows(response);
         this.aplicarFiltros();
         this.cargando = false;
+        this.cdr.detectChanges();
       },
-      error: () => { this.cargando = false; },
+      error: (err) => { console.log('M1_ERROR:', JSON.stringify(err)); this.cargando = false; },
     });
   }
 

@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 
 export interface ProyectoPreinversion {
@@ -57,6 +58,9 @@ export interface CondicionITCP {
   fecha_limite: string | null;
   critica: boolean;
   orden: number;
+  archivo: string | null;
+  archivo_url: string | null;
+  nombre_archivo: string;
 }
 
 export interface TDR {
@@ -324,15 +328,11 @@ const ESTADOS_CONDICION = [
 const ESTADOS_DOCUMENTO = ['borrador', 'en_revision', 'observado', 'aprobado', 'rechazado'];
 
 const CATEGORIAS_CONDICION: Record<string, string> = {
-  justificacion: 'Justificación y alineamiento',
-  idea: 'Idea del proyecto',
-  compromiso_social: 'Compromiso social',
   derecho_propietario: 'Derecho propietario',
-  terceros: 'Derechos de vía y terceros',
-  ambiente: 'Impactos ambientales',
-  riesgo: 'Riesgos y cambio climático',
-  otros: 'Otros aspectos',
-  conclusiones: 'Conclusiones y recomendaciones',
+  uso_suelo: 'Compatibilidad de uso de suelo',
+  terceros: 'Derecho de vía / afectaciones',
+  riesgo: 'Riesgos no mitigables',
+  competencia_institucional: 'Competencia institucional',
 };
 
 /** Servicio tipado de preinversión SIS-PRO V2 (SISPRE / RM 115). */
@@ -449,13 +449,19 @@ export class PreinversionService {
   }
 
   listarCondiciones(params?: { itcp?: string; proyecto?: string }): Observable<CondicionITCP[]> {
-    return this.http.get<CondicionITCP[]>(`${this.base}/itcp-condiciones/`, {
+    return this.http.get<Paginado<CondicionITCP>>(`${this.base}/itcp-condiciones/`, {
       params: this.params(params),
-    });
+    }).pipe(map((p) => p.results));
   }
 
   actualizarCondicion(id: string, data: Partial<CondicionITCP>): Observable<CondicionITCP> {
     return this.http.patch<CondicionITCP>(`${this.base}/itcp-condiciones/${id}/`, data);
+  }
+
+  subirArchivoCondicion(id: string, archivo: File): Observable<CondicionITCP> {
+    const form = new FormData();
+    form.append('archivo', archivo, archivo.name);
+    return this.http.patch<CondicionITCP>(`${this.base}/itcp-condiciones/${id}/`, form);
   }
 
   // -------------------------------------------------------------------------

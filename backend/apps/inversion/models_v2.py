@@ -294,7 +294,7 @@ class VinculoProyectoActividad(models.Model):
         Proyecto, related_name='vinculos_actividad', on_delete=models.CASCADE,
     )
     actividad = models.ForeignKey(
-        'poau.Actividad', related_name='proyectos_vinculados',
+        'sis_poa.Actividad', related_name='proyectos_vinculados',
         on_delete=models.PROTECT,
     )
     es_principal = models.BooleanField(default=True)
@@ -313,31 +313,3 @@ class VinculoProyectoActividad(models.Model):
 
     def __str__(self):
         return f'{self.proyecto} → {self.actividad}'
-
-
-class ProyectoTerritorio(models.Model):
-    """Localización territorial del proyecto (PostGIS)."""
-
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    proyecto = models.ForeignKey(
-        Proyecto, related_name='territorios', on_delete=models.CASCADE,
-    )
-    localizacion = models.ForeignKey(
-        'territorio.LocalizacionTerritorial', related_name='proyectos',
-        on_delete=models.PROTECT,
-    )
-    es_principal = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        verbose_name = 'Territorio de proyecto'
-        verbose_name_plural = 'Territorios de proyecto'
-        constraints = [
-            models.UniqueConstraint(
-                fields=['proyecto', 'localizacion'],
-                name='uniq_proyecto_localizacion',
-            ),
-        ]
-
-    def __str__(self):
-        return f'{self.proyecto} → {self.localizacion}'

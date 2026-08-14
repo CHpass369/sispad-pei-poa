@@ -167,6 +167,12 @@ class EjePGDESA(CatalogoSegmentoBase):
         related_name='ejes_pgdesa',
         verbose_name='Versión de catálogo',
     )
+    objetivo_impacto = models.TextField(
+        blank=True,
+        default='',
+        verbose_name='Objetivo de Impacto',
+        help_text='Texto oficial del objetivo de impacto del Eje PGDESA (PDESA 2026-2030).',
+    )
 
     class Meta(CatalogoSegmentoBase.Meta):
         verbose_name = 'Eje PGDESA'
@@ -193,6 +199,12 @@ class ComponentePDESA(CatalogoSegmentoBase):
         on_delete=models.CASCADE,
         related_name='componentes',
         verbose_name='Eje PGDESA',
+    )
+    objetivo_efecto = models.TextField(
+        blank=True,
+        default='',
+        verbose_name='Objetivo de Efecto',
+        help_text='Texto oficial del objetivo de efecto del Componente PDESA (PDESA 2026-2030).',
     )
 
     class Meta(CatalogoSegmentoBase.Meta):
@@ -603,8 +615,21 @@ class LineamientoPAD(CatalogoSegmentoBase):
 
     Catálogo versionado que reemplaza a `pad.LineamientoEstrategico` y
     `articulacion.LineamientoPAD` (ambos quedan deprecados hasta T5).
+
+    El catálogo maestro trae 170 lineamientos por territorio sin código
+    oficial (H6): el importador asigna correlativo LL de 3 dígitos
+    (``001``..``170``), por eso este modelo amplía el ancho del segmento a 3
+    (los códigos legacy de 2 dígitos siguen siendo válidos).
     """
 
+    codigo = models.CharField(
+        max_length=3,
+        validators=[RegexValidator(
+            regex=r'^\d{2,3}$',
+            message='El código debe tener 2 o 3 dígitos numéricos.',
+        )],
+        verbose_name='Código',
+    )
     version_catalogo = models.ForeignKey(
         VersionCatalogoPlan,
         on_delete=models.CASCADE,
@@ -616,6 +641,15 @@ class LineamientoPAD(CatalogoSegmentoBase):
         on_delete=models.PROTECT,
         related_name='lineamientos_pad',
         verbose_name='Entidad territorial CGEO',
+    )
+    componente = models.ForeignKey(
+        ComponentePDESA,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='lineamientos',
+        verbose_name='Componente PDESA',
+        help_text='Relación CONTIENE del catálogo maestro (opción A).',
     )
 
     class Meta(CatalogoSegmentoBase.Meta):
@@ -629,6 +663,7 @@ class LineamientoPAD(CatalogoSegmentoBase):
         ]
         indexes = [
             models.Index(fields=['entidad_territorial', 'activo']),
+            models.Index(fields=['componente']),
         ]
 
 

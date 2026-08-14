@@ -41,19 +41,8 @@ from apps.catalogos.models import (
     TipoProducto,
     UnidadMedida,
 )
-from apps.evaluacion.models import (
-    CriterioEvaluacion,
-    Evaluacion,
-    Recomendacion,
-    ResultadoEvaluacion,
-)
 from apps.gestion.models import GestionFiscal
-from apps.indicadores.models import Indicador, MetaProgramada
-from apps.notificaciones.models import (
-    Notificacion,
-    PreferenciaNotificacion,
-    TipoNotificacion,
-)
+from apps.notificaciones.models import PreferenciaNotificacion
 from apps.organizacion.models import (
     AsignacionUsuarioUnidad,
     DireccionAdministrativa,
@@ -61,30 +50,20 @@ from apps.organizacion.models import (
     UnidadEjecutora,
     UnidadOrganizacional,
 )
-from apps.pad.models import (
-    LineamientoEstrategico,
-    PoliticaPAD,
-    ProductoTerritorial,
-    ResultadoTerritorial,
-    SectorPAD,
-)
+from apps.pad.models import SectorPAD
 from apps.planificacion.models import (
-    AccionCortoPlazo,
-    AccionMedianoPlazo,
     ArticulacionPlanificacion as PlanArticulacion,
     NodoPlanificacion,
     Plan,
 )
-from apps.poau.models import POAU, POAUActividad
 from apps.presupuesto.models import (
     ActividadPresupuestaria,
     LineaPresupuestaria,
     ProgramaPresupuestario,
     ProyectoPresupuestario,
 )
-from apps.seguimiento.models import EntradaSeguimiento, ReporteSeguimiento
 from apps.techos.models import DistribucionTecho, TechoPresupuestario
-from apps.workflow.models import EnvioFormulacion, Observacion, Revision
+from apps.workflow.models import EnvioFormulacion, Revision
 
 
 DEMO_YEAR = 2026
@@ -799,7 +778,7 @@ def _seed_pei_poa(productos_pad, unit, catalogs, plan_pei):
     return resultados_pei, productos_pei, acciones
 
 
-def _seed_poau_and_tracking(acciones, unit, users, catalogs, poau_activity):
+def _seed_poau_and_tracking(acciones, users, catalogs):
     operaciones = []
     actividades = []
     tareas = []
@@ -866,148 +845,10 @@ def _seed_poau_and_tracking(acciones, unit, users, catalogs, poau_activity):
         actividades.append(actividad)
         tareas.append(tarea)
 
-    reporte, _ = ReporteSeguimiento.objects.update_or_create(
-        gestion=DEMO_YEAR,
-        periodo='2026-Q2',
-        unidad_organizacional=unit,
-        defaults={
-            'estado': 'enviado',
-            'submitted_at': timezone.make_aware(datetime(DEMO_YEAR, 6, 30)),
-            'submitted_by': users['seguimiento'],
-        },
-    )
-    EntradaSeguimiento.objects.update_or_create(
-        reporte=reporte,
-        actividad=poau_activity,
-        defaults={
-            'programado_fisico': Decimal('0.50'),
-            'ejecutado_fisico': Decimal('0.45'),
-            'porcentaje_avance_fisico': Decimal('90.00'),
-            'presupuesto_inicial': Decimal('250000.00'),
-            'presupuesto_actual': Decimal('250000.00'),
-            'programado_financiero': Decimal('125000.00'),
-            'ejecutado_financiero': Decimal('112500.00'),
-            'porcentaje_avance_financiero': Decimal('90.00'),
-            'desviacion': Decimal('10.00'),
-            'causa_desviacion': 'Ajuste de cronograma demo.',
-            'accion_correctiva': 'Reprogramación demo del segundo semestre.',
-            'proyeccion_cierre': 'Cumplimiento esperado al cierre de gestión.',
-            'evidencia': 'Informe técnico demo simulado.',
-        },
-    )
-    return operaciones, actividades, tareas, reporte
-
-
-def _seed_pad_branch_for_poau(unit, catalogs, plan_pei):
-    politica, _ = PoliticaPAD.objects.update_or_create(
-        codigo='DEMO-POL-01',
-        gestion=DEMO_YEAR,
-        defaults={
-            'nombre': 'Política PAD demo de servicios municipales',
-            'descripcion': DEMO_DESCRIPTION,
-        },
-    )
-    lineamiento, _ = LineamientoEstrategico.objects.update_or_create(
-        codigo='DEMO-LIN-01',
-        politica=politica,
-        gestion=DEMO_YEAR,
-        defaults={'nombre': 'Lineamiento estratégico demo',},
-    )
-    sector = SectorPAD.objects.get(codigo='01')
-    resultado, _ = ResultadoTerritorial.objects.update_or_create(
-        codigo='DEMO-RT-01',
-        lineamiento=lineamiento,
-        gestion=DEMO_YEAR,
-        defaults={
-            'nombre': 'Resultado territorial demo para POAU',
-            'sector': sector,
-            'indicador': 'Cobertura de servicio demo',
-            'formula': 'beneficiarios / población objetivo * 100',
-            'linea_base': Decimal('10'),
-            'meta_2030': Decimal('90'),
-            'cod_geografico': '031001',
-            'estado': 'aprobado',
-        },
-    )
-    producto, _ = ProductoTerritorial.objects.update_or_create(
-        codigo='DEMO-PT-01',
-        resultado=resultado,
-        gestion=DEMO_YEAR,
-        defaults={
-            'nombre': 'Producto territorial demo para POAU',
-            'territorializacion': 'Municipio demo de Sacaba',
-            'responsable': 'Unidad ejecutora demo',
-            'indicador': 'Productos entregados',
-            'linea_base': Decimal('0'),
-            'meta_2030': Decimal('1'),
-            'cuenta_con_financiamiento': 'SI',
-            'presupuesto_total_pad': Decimal('250000.00'),
-        },
-    )
-    nodo_amp = _ensure_node(
-        plan_pei,
-        'DEMO-AMP-01',
-        'accion_mediano',
-        'Acción de mediano plazo demo',
-        1,
-    )
-    amp, _ = _upsert_non_unique(
-        AccionMedianoPlazo,
-        {'codigo': 'DEMO-AMP-01'},
-        {
-            'nombre': 'Acción de mediano plazo demo',
-            'descripcion': DEMO_DESCRIPTION,
-            'nodo_planificacion': nodo_amp,
-            'gestion_inicio': DEMO_YEAR,
-            'gestion_fin': DEMO_END_YEAR,
-            'responsable': unit.responsable,
-        },
-    )
-    acp, _ = AccionCortoPlazo.objects.update_or_create(
-        codigo='DEMO-ACP-01',
-        gestion=DEMO_YEAR,
-        defaults={
-            'nombre': 'Acción de corto plazo demo',
-            'descripcion': DEMO_DESCRIPTION,
-            'justificacion': 'Registro demo para validar el vínculo POAU.',
-            'accion_mediano_plazo': amp,
-            'unidad_responsable': unit,
-            'fecha_inicio': DEMO_DATE,
-            'fecha_fin': date(DEMO_YEAR, 12, 31),
-        },
-    )
-    poau, _ = POAU.objects.update_or_create(
-        codigo='POAU-DEMO-2026',
-        defaults={
-            'unidad': unit,
-            'producto_territorial': producto,
-            'gestion': DEMO_YEAR,
-            'nombre': 'POAU demo de unidad',
-            'descripcion': DEMO_DESCRIPTION,
-            'estado': 'enviado',
-            'responsable': unit.responsable,
-        },
-    )
-    POAUActividad.objects.update_or_create(
-        poau=poau,
-        codigo='POAU-DEMO-2026-01',
-        defaults={
-            'nombre': 'Actividad POAU demo vinculada a acción de corto plazo',
-            'objeto_gasto': catalogs['object_expense'],
-            'meta_fisica_anual': Decimal('1'),
-            'presupuesto_anual': Decimal('250000.00'),
-            'meta_q1': Decimal('0'),
-            'meta_q2': Decimal('0.5'),
-            'meta_q3': Decimal('0.25'),
-            'meta_q4': Decimal('0.25'),
-            'accion_corto_plazo': acp,
-        },
-    )
-    return poau, producto
+    return operaciones, actividades, tareas
 
 
 def _seed_budget_and_evaluation(
-    poau,
     acciones,
     operaciones,
     actividades,
@@ -1016,8 +857,6 @@ def _seed_budget_and_evaluation(
     da,
     ue,
     catalogs,
-    users,
-    plan_pei,
 ):
     # W-real 4R: desde 0004 el techo es 1:1 con GestionFiscal (NOT NULL);
     # sin esto el seed revienta tras la migración. get_or_create reutiliza
@@ -1123,106 +962,9 @@ def _seed_budget_and_evaluation(
             'estado': 'REFERENCIAL',
         },
     )
-    evaluation, _ = Evaluacion.objects.update_or_create(
-        plan=plan_pei,
-        fiscal_year=DEMO_YEAR,
-        evaluation_type='anual',
-        period='AN',
-        defaults={
-            'responsible_team': 'Equipo de evaluación demo',
-            'status': 'en_curso',
-            'conclusions': 'La cadena demo cuenta con trazabilidad para revisión funcional.',
-            'recommendations': 'Mantener la evidencia y actualizar los avances periódicamente.',
-        },
-    )
-    CriterioEvaluacion.objects.update_or_create(
-        evaluacion=evaluation,
-        criterion='eficacia',
-        defaults={
-            'score': Decimal('90.00'),
-            'weight': Decimal('0.50'),
-            'justification': 'Avance físico demo consistente con la programación.',
-            'observations': DEMO_DESCRIPTION,
-        },
-    )
-    ResultadoEvaluacion.objects.update_or_create(
-        evaluacion=evaluation,
-        poau=poau,
-        defaults={
-            'unidad': unit,
-            'score_global': Decimal('90.00'),
-            'status': 'parcial',
-            'observations': 'Resultado parcial demo para mostrar el flujo de evaluación.',
-        },
-    )
-    Recomendacion.objects.get_or_create(
-        evaluacion=evaluation,
-        description='Consolidar evidencia trimestral de las actividades demo.',
-        defaults={
-            'priority': 'media',
-            'responsible_unit': unit.nombre,
-            'status': 'pendiente',
-            'due_date': date(DEMO_YEAR, 12, 15),
-        },
-    )
-    indicador, _ = Indicador.objects.update_or_create(
-        codigo='IND-DEMO-001',
-        defaults={
-            'nombre': 'Porcentaje de avance físico demo',
-            'descripcion': DEMO_DESCRIPTION,
-            'formula': 'ejecutado / programado * 100',
-            'unidad_medida': catalogs['unit_measure'],
-            'tipo_comportamiento': 'porcentaje',
-            'linea_base': Decimal('0'),
-            'anio_linea_base': DEMO_YEAR,
-            'fuente_linea_base': 'Seed demo reproducible',
-            'meta_anual': Decimal('100'),
-            'medio_verificacion': 'Reporte de seguimiento demo.',
-            'frecuencia_medicion': 'Trimestral',
-            'responsable': users['seguimiento'],
-            'activo': True,
-        },
-    )
-    MetaProgramada.objects.update_or_create(
-        indicador=indicador,
-        gestion=DEMO_YEAR,
-        version=1,
-        defaults={
-            'meta_anual': Decimal('100'),
-            'trimestre1': Decimal('20'),
-            'trimestre2': Decimal('50'),
-            'trimestre3': Decimal('75'),
-            'trimestre4': Decimal('100'),
-            'observaciones': DEMO_DESCRIPTION,
-        },
-    )
 
 
-def _seed_notifications_and_workflow(unit, users, poau):
-    notification_type, _ = TipoNotificacion.objects.update_or_create(
-        codigo='DEMO-SEGUIMIENTO',
-        defaults={
-            'nombre': 'Seguimiento demo',
-            'descripcion': DEMO_DESCRIPTION,
-            'template_subject': 'Avance demo de gestión {gestion}',
-            'template_body': 'Se registró un avance demo para la gestión {gestion}.',
-            'is_active': True,
-        },
-    )
-    Notificacion.objects.update_or_create(
-        user=users['seguimiento'],
-        tipo=notification_type,
-        entity_type='poau',
-        entity_id=poau.id,
-        gestion=DEMO_YEAR,
-        defaults={
-            'titulo': 'Seguimiento demo disponible',
-            'mensaje': 'Existe una entrada de seguimiento demo para revisar.',
-            'priority': 'media',
-            'is_read': False,
-            'metadata': {'demo': True},
-        },
-    )
+def _seed_notifications_and_workflow(unit, users):
     PreferenciaNotificacion.objects.update_or_create(
         user=users['seguimiento'],
         defaults={'receive_internal': True, 'receive_email': False, 'frequency': 'inmediata'},
@@ -1246,21 +988,6 @@ def _seed_notifications_and_workflow(unit, users, poau):
             'estado': 'en_curso',
         },
     )
-    Observacion.objects.update_or_create(
-        codigo='DEMO-OBS-001',
-        defaults={
-            'revision': revision,
-            'tipo': 'tecnica',
-            'severidad': 'leve',
-            'modulo': 'articulacion',
-            'registro_id': str(poau.id),
-            'texto': 'Verificar evidencia del producto demo antes del cierre.',
-            'responsable_subsanacion': users['tecnico'],
-            'fecha_limite': timezone.make_aware(datetime(DEMO_YEAR, 11, 30)),
-            'estado': 'abierta',
-            'gestion': DEMO_YEAR,
-        },
-    )
 
 
 @transaction.atomic
@@ -1279,23 +1006,12 @@ def seed_demo_data():
         catalogs,
         plan_pei,
     )
-    # The POAU model uses the existing short-term action branch; expose one
-    # complete POAU record in addition to the AccionPOA→OperacionPOAU chain.
-    poau, _ = _seed_pad_branch_for_poau(
-        unit_operativa,
-        catalogs,
-        plan_pei,
-    )
-    poau_activity = POAUActividad.objects.get(poau=poau, codigo='POAU-DEMO-2026-01')
-    operaciones, actividades, tareas, _ = _seed_poau_and_tracking(
+    operaciones, actividades, tareas = _seed_poau_and_tracking(
         acciones,
-        unit_operativa,
         users,
         catalogs,
-        poau_activity,
     )
     _seed_budget_and_evaluation(
-        poau,
         acciones,
         operaciones,
         actividades,
@@ -1304,10 +1020,8 @@ def seed_demo_data():
         da,
         ue,
         catalogs,
-        users,
-        plan_pei,
     )
-    _seed_notifications_and_workflow(unit_operativa, users, poau)
+    _seed_notifications_and_workflow(unit_operativa, users)
 
     counts = {
         'usuarios_demo': len(DEMO_USERS),

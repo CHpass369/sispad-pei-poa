@@ -128,17 +128,6 @@ def validar_accion_pei_sin_pad(accion_pei):
     }
 
 
-def validar_meta_sin_indicador(meta):
-    from apps.indicadores.models import Indicador
-    indicadores = Indicador.objects.filter(meta_asociada=meta)
-    if not indicadores.exists():
-        return {
-            'valido': False,
-            'mensaje': f'La meta "{meta}" no tiene indicadores asociados.',
-        }
-    return {'valido': True, 'mensaje': 'Meta con indicadores'}
-
-
 def validar_indicador_sin_unidad(indicador):
     if not indicador.unidad_medida:
         return {

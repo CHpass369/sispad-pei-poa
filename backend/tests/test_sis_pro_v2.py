@@ -28,7 +28,7 @@ from apps.planificacion.models_v2 import (
     VersionInstrumento,
     VersionMetodologia,
 )
-from apps.poau.models_v2 import (
+from apps.sis_poa.models import (
     AccionCortoPlazo,
     Actividad,
     Operacion,

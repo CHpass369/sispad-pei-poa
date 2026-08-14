@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { ApiService } from '../../core/services/api.service';
 import { buildReportUrl } from './matrices-contracts';
 
@@ -66,6 +66,7 @@ export function buildOperacionTree(rows: any[]): {
             <label>Estado</label>
             <select [(ngModel)]="filtroEstado" class="form-control" (change)="aplicarFiltro()">
               <option value="">Todos</option>
+              <option value="PROVISIONAL">Provisional</option>
               <option value="REFERENCIAL">Referencial</option>
               <option value="ENVIADO">Enviado</option>
               <option value="APROBADO">Aprobado</option>
@@ -122,7 +123,7 @@ export function buildOperacionTree(rows: any[]): {
                   <td>{{ op.data.fecha_fin || '—' }}</td>
                   <td>
                     <span class="badge"
-                          [class.badge-info]="op.data.estado==='REFERENCIAL'"
+                          [class.badge-info]="op.data.estado==='REFERENCIAL'||op.data.estado==='PROVISIONAL'"
                           [class.badge-warning]="op.data.estado==='ENVIADO'"
                           [class.badge-success]="op.data.estado==='APROBADO'"
                           [class.badge-danger]="op.data.estado==='OBSERVADO'">{{ op.data.estado }}</span>
@@ -138,8 +139,8 @@ export function buildOperacionTree(rows: any[]): {
                           <span class="codigo-sub">{{ act.data.codigo_actividad }}</span>
                           <span class="act-nombre"><strong>{{ act.data.denominacion }}</strong></span>
                           <span class="act-meta">Meta: {{ act.data.meta_anual || '—' }} {{ act.data.unidad_medida || '' }}</span>
-                          <span class="badge badge-info" *ngIf="act.data.estado==='REFERENCIAL'">{{ act.data.estado }}</span>
-                          <span class="badge badge-success" *ngIf="act.data.estado!=='REFERENCIAL'">{{ act.data.estado }}</span>
+                          <span class="badge badge-info" *ngIf="act.data.estado==='REFERENCIAL'||act.data.estado==='PROVISIONAL'">{{ act.data.estado }}</span>
+                          <span class="badge badge-success" *ngIf="act.data.estado!=='REFERENCIAL'&&act.data.estado!=='PROVISIONAL'">{{ act.data.estado }}</span>
                         </div>
                         <div *ngIf="act.expandida && act.tareas.length > 0" class="tareas-list">
                           <div *ngFor="let t of act.tareas" class="tarea-item">
@@ -148,8 +149,8 @@ export function buildOperacionTree(rows: any[]): {
                             <span class="tar-resp">{{ t.responsable || '—' }}</span>
                             <span class="tar-fechas">{{ t.fecha_inicio || '—' }} → {{ t.fecha_fin || '—' }}</span>
                             <span *ngIf="t.metas != null" class="tar-meta">Meta: {{ t.metas }}</span>
-                            <span class="badge badge-info" *ngIf="t.estado==='REFERENCIAL'">{{ t.estado }}</span>
-                            <span class="badge badge-success" *ngIf="t.estado!=='REFERENCIAL'">{{ t.estado }}</span>
+                            <span class="badge badge-info" *ngIf="t.estado==='REFERENCIAL'||t.estado==='PROVISIONAL'">{{ t.estado }}</span>
+                            <span class="badge badge-success" *ngIf="t.estado!=='REFERENCIAL'&&t.estado!=='PROVISIONAL'">{{ t.estado }}</span>
                           </div>
                           <div *ngIf="act.tareas.length === 0" class="tarea-item empty">Sin tareas</div>
                         </div>
@@ -251,7 +252,7 @@ export class MatrizPOAPOAUComponent implements OnInit {
   filtroEstado = '';
   stats = { ops: 0, acts: 0, tars: 0 };
 
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void {
     this.cargarDatos();
@@ -266,6 +267,7 @@ export class MatrizPOAPOAUComponent implements OnInit {
         this.stats = tree.stats;
         this.aplicarFiltro();
         this.cargando = false;
+        this.cdr.detectChanges();
       },
       error: () => { this.cargando = false; },
     });

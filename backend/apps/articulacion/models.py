@@ -57,6 +57,49 @@ class AcuerdoInternacional(models.Model):
         return f'[{self.get_tipo_acuerdo_display()}] {self.codigo} - {self.denominacion[:80]}'
 
 
+class MetaAcuerdoInternacional(models.Model):
+    """Meta de acuerdo internacional (NDC/NDT/KMGBF) con código largo.
+
+    ``AcuerdoInternacional.codigo`` (max 10) no alcanza para los códigos del
+    catálogo (``NDC3.AGROPECUARIO.M01``): este modelo usa ``codigo_sistema``
+    como código (max 50). Los ODS se conservan en ``AcuerdoInternacional``;
+    NDC/NDT migran aquí y KMGBF nace aquí (R2 del mapeo).
+    """
+
+    TIPO_ACUERDO_CHOICES = [
+        ('NDC', 'NDC'),
+        ('NDT', 'NDT'),
+        ('KMGBF', 'KMGBF'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tipo_acuerdo = models.CharField(
+        max_length=10, choices=TIPO_ACUERDO_CHOICES,
+        verbose_name='Tipo de acuerdo',
+    )
+    codigo = models.CharField(max_length=50, verbose_name='Código')
+    denominacion = models.TextField(verbose_name='Denominación')
+    instrumento_origen = models.CharField(
+        max_length=50, blank=True, default='', verbose_name='Instrumento de origen',
+    )
+    activo = models.BooleanField(default=True, verbose_name='Activo')
+    metadatos_importacion = models.JSONField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'Meta de acuerdo internacional'
+        verbose_name_plural = 'Metas de acuerdos internacionales'
+        ordering = ['tipo_acuerdo', 'codigo']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tipo_acuerdo', 'codigo'],
+                name='uniq_meta_acuerdo_tipo_codigo',
+            ),
+        ]
+
+    def __str__(self):
+        return f'[{self.get_tipo_acuerdo_display()}] {self.codigo}'
+
+
 class Normativa(TimeStampedModel):
     NIVEL_CHOICES = [
         ('Nacional', 'Nacional'),
@@ -126,8 +169,16 @@ class ResultadoPAD(CodigoSegmentadoModel):
     codigo_resultado = models.CharField(max_length=50, verbose_name='Código resultado')
     denominacion = models.TextField(verbose_name='Denominación')
     lineamiento_pad = models.CharField(max_length=20, verbose_name='Lineamiento PAD')
+    politica = models.TextField(
+        blank=True, verbose_name='Política',
+        help_text='Directriz territorial (columna C de la Matriz A).',
+    )
     territorializacion = models.TextField(blank=True, verbose_name='Territorialización')
     responsable_pad = models.CharField(max_length=200, blank=True, verbose_name='Responsable PAD')
+    cuenta_con_financiamiento = models.BooleanField(
+        default=False, verbose_name='Cuenta con financiamiento',
+        help_text='Columna U de la Matriz A (SÍ/NO) a nivel de fila.',
+    )
     vigencia_desde = models.IntegerField(verbose_name='Vigencia desde')
     vigencia_hasta = models.IntegerField(verbose_name='Vigencia hasta')
     cod_geografico = models.CharField(max_length=20, verbose_name='Código geográfico')
@@ -153,14 +204,19 @@ class ResultadoPAD(CodigoSegmentadoModel):
         related_name='resultados_pad_ods', verbose_name='Acuerdo ODS'
     )
     acuerdo_ndc = models.ManyToManyField(
-        AcuerdoInternacional, blank=True,
+        MetaAcuerdoInternacional, blank=True,
         limit_choices_to={'tipo_acuerdo': 'NDC'},
         related_name='resultados_pad_ndc', verbose_name='Acuerdo NDC'
     )
     acuerdo_ndt = models.ManyToManyField(
-        AcuerdoInternacional, blank=True,
+        MetaAcuerdoInternacional, blank=True,
         limit_choices_to={'tipo_acuerdo': 'NDT'},
         related_name='resultados_pad_ndt', verbose_name='Acuerdo NDT'
+    )
+    acuerdo_kmgbf = models.ManyToManyField(
+        MetaAcuerdoInternacional, blank=True,
+        limit_choices_to={'tipo_acuerdo': 'KMGBF'},
+        related_name='resultados_pad_kmgbf', verbose_name='Acuerdo KMGBF'
     )
     acuerdo_3030 = models.ManyToManyField(
         AcuerdoInternacional, blank=True,
@@ -234,6 +290,10 @@ class ProductoPAD(CodigoSegmentadoModel):
     )
     territorializacion = models.TextField(blank=True, verbose_name='Territorialización')
     responsable = models.CharField(max_length=200, blank=True, verbose_name='Responsable')
+    cuenta_con_financiamiento = models.BooleanField(
+        default=False, verbose_name='Cuenta con financiamiento',
+        help_text='Columna U de la Matriz A (SÍ/NO) a nivel de fila de producto.',
+    )
 
     class Meta:
         verbose_name = 'Producto PAD'
@@ -397,11 +457,25 @@ class IndicadorCadena(TimeStampedModel):
         ProductoPAD, on_delete=models.CASCADE, null=True, blank=True,
         related_name='indicadores', verbose_name='Producto PAD'
     )
+    resultado_pad = models.ForeignKey(
+        ResultadoPAD, on_delete=models.CASCADE, null=True, blank=True,
+        related_name='indicadores', verbose_name='Resultado PAD',
+        help_text='Indicador a nivel de resultado PAD (Matriz A, fila de resultado).',
+    )
     producto_pei = models.ForeignKey(
         ProductoPEI, on_delete=models.CASCADE, null=True, blank=True,
         related_name='indicadores', verbose_name='Producto PEI'
     )
     programacion_fisica = models.JSONField(null=True, blank=True, verbose_name='Programación física')
+    presupuesto_total = models.DecimalField(
+        max_digits=20, decimal_places=2, null=True, blank=True,
+        verbose_name='Presupuesto total PAD (Bs.)',
+        help_text='Presupuesto referencial del PAD para el quinquenio (Matriz B, sin decimales en captura).',
+    )
+    presupuesto_anual = models.JSONField(
+        null=True, blank=True, verbose_name='Presupuesto anual 2026-2030 (Bs.)',
+        help_text='Programación financiera anual del quinquenio (Matriz B, sin decimales en captura).',
+    )
     presupuesto_inversion_total = models.DecimalField(
         max_digits=20, decimal_places=2, null=True, blank=True,
         verbose_name='Presupuesto inversión total'
@@ -979,3 +1053,90 @@ class AsignacionObjetoGasto(TimeStampedModel):
 
     def __str__(self):
         return f'[{self.codigo_asignacion}] G{self.gestion} - {self.descripcion_objeto[:60]}'
+
+
+class BorradorMatrizPAD(TimeStampedModel):
+    """Borrador del wizard de Matrices PAD (11 pasos, sin articulación PEI).
+
+    Cada paso del wizard persiste su sección en ``datos`` mediante PATCH
+    parcial (``seccion`` + ``valores``): los visualizadores Matriz A/B leen
+    en vivo desde el borrador hasta que la action ``materializar`` crea los
+    registros operativos (ResultadoPAD → ProductoPAD → IndicadorCadena) en
+    una transacción atómica y deja el borrador en estado COMPLETO.
+    """
+
+    ESTADO_BORRADOR = 'BORRADOR'
+    ESTADO_COMPLETO = 'COMPLETO'
+    ESTADO_CHOICES = [
+        (ESTADO_BORRADOR, 'Borrador'),
+        (ESTADO_COMPLETO, 'Completo'),
+    ]
+
+    # Secciones del wizard por paso (claves del JSONField ``datos``)
+    #
+    # Estructura REAL de las matrices PAD: un borrador contiene VARIOS
+    # resultados territoriales, cada uno con VARIOS productos, todos
+    # conviviendo como filas de la misma Matriz A / Matriz B. La sección
+    # ``resultados`` es una colección::
+    #
+    #   resultados: [
+    #     {denominacion, territorializacion, responsable,
+    #      cuenta_con_financiamiento,
+    #      indicador: {indicador, formula, unidad_medida, linea_base,
+    #                  meta_2030, programacion_fisica},
+    #      presupuesto_total, presupuesto_anual,
+    #      productos: [ {mismos campos que el resultado}, ... ]},
+    #     ...
+    #   ]
+    #
+    # Las secciones p1_nacional..p5_lineamiento son la cabecera de cadena
+    # (nacional/acuerdos/sectorial/territorial/lineamiento) que la Matriz B
+    # repite por fila. Las secciones p6..p10 se conservan SOLO para
+    # retrocompatibilidad con borradores creados antes de la colección: la
+    # lectura (materializar / matrices A-B) las transforma al formato nuevo.
+    SECCIONES = (
+        'p1_nacional',
+        'p2_acuerdos',
+        'p3_sectorial',
+        'p4_territorial',
+        'p5_lineamiento',
+        'resultados',
+        # Legacy (aceptado en PATCH, ignorado en lectura si existe resultados)
+        'p6_resultado',
+        'p7_producto',
+        'p8_indicador_resultado',
+        'p9_indicador_producto',
+        'p10_financiera',
+    )
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    gestion = models.IntegerField(default=2026, verbose_name='Gestión')
+    estado = models.CharField(
+        max_length=20, choices=ESTADO_CHOICES, default=ESTADO_BORRADOR,
+        verbose_name='Estado',
+    )
+    datos = models.JSONField(
+        default=dict, verbose_name='Datos del wizard',
+        help_text=(
+            'Secciones de cabecera p1_nacional..p5_lineamiento + colección '
+            'resultados[] (cada resultado con sus productos).'
+        ),
+    )
+    id_resultado_pad = models.ForeignKey(
+        ResultadoPAD, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='borradores_matriz_pad',
+        verbose_name='Resultado PAD materializado',
+        help_text='Se llena al materializar el borrador.',
+    )
+
+    class Meta:
+        verbose_name = 'Borrador de Matriz PAD'
+        verbose_name_plural = 'Borradores de Matrices PAD'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return (
+            f'Borrador PAD G{self.gestion} '
+            f'{self.get_estado_display()} '
+            f'({self.created_at:%Y-%m-%d %H:%M})'
+        )

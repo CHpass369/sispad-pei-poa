@@ -15,16 +15,6 @@ class AccionCorrectiva(TimeStampedModel):
         CANCELADA = 'cancelada', 'Cancelada'
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    alerta = models.ForeignKey(
-        'seguimiento.Alerta', on_delete=models.SET_NULL,
-        null=True, blank=True, related_name='acciones_correctivas',
-        verbose_name='Alerta',
-    )
-    entry = models.ForeignKey(
-        'seguimiento.EntradaSeguimiento', on_delete=models.SET_NULL,
-        null=True, blank=True, related_name='acciones_correctivas',
-        verbose_name='Entrada de Seguimiento',
-    )
     description = models.TextField(verbose_name='Descripción')
     cause = models.TextField(verbose_name='Causa')
     responsible = models.ForeignKey(

@@ -34,10 +34,21 @@ from .models_preinversion import (
 # ITCP
 # ---------------------------------------------------------------------------
 class CondicionITCPSerializer(serializers.ModelSerializer):
+    archivo_url = serializers.SerializerMethodField()
+
     class Meta:
         model = CondicionITCP
         fields = '__all__'
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def get_archivo_url(self, obj):
+        if not obj.archivo:
+            return None
+        request = self.context.get('request')
+        url = obj.archivo.url
+        if request is not None:
+            return request.build_absolute_uri(url)
+        return url
 
     def validate(self, attrs):
         if attrs.get('estado') == 'no_aplica' and not attrs.get('justificacion_no_aplica'):

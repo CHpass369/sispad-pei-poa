@@ -22,10 +22,6 @@ class PostgresBackupService:
         'articulacion_operacionpoau',
         'articulacion_actividadpoau',
         'articulacion_tareapoau',
-        'poau_poau',
-        'poau_poauactividad',
-        'poau_ejecucionfisica',
-        'poau_ejecucionfinanciera',
     }
 
     @classmethod

@@ -13,11 +13,6 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from apps.accounts.views_v2 import MeViewSet
-from apps.evaluacion.views_v2 import (
-    EvaluacionV2ViewSet,
-    LeccionV2ViewSet,
-    RecomendacionV2ViewSet,
-)
 from apps.inversion.views_v2 import (
     CondicionViewSet,
     CostoViewSet,
@@ -59,7 +54,7 @@ from apps.planificacion.views_v2 import (
     VersionViewSet,
     VinculoViewSet,
 )
-from apps.poau.views_v2 import (
+from apps.sis_poa.views_v2 import (
     AccionViewSet,
     ActividadViewSet,
     OperacionViewSet,
@@ -67,7 +62,11 @@ from apps.poau.views_v2 import (
     ProgramacionViewSet,
     TareaViewSet,
 )
-from apps.techos.views_v2 import TechoViewSetV2
+from apps.techos.views_v2 import (
+    GastoObligatorioViewSetV2,
+    RecursoTechoViewSetV2,
+    TechoViewSetV2,
+)
 from apps.workflow.views_v2 import (
     DefinicionViewSet,
     InstanciaViewSet,
@@ -85,9 +84,6 @@ sis_pe_router.register('nodos', NodoViewSet, basename='v2-nodos')
 sis_pe_router.register('vinculos', VinculoViewSet, basename='v2-vinculos')
 sis_pe_router.register('tipos-instrumento', TipoInstrumentoViewSet, basename='v2-tipos-instrumento')
 sis_pe_router.register('metodologias', MetodologiaViewSet, basename='v2-metodologias')
-sis_pe_router.register('evaluaciones', EvaluacionV2ViewSet, basename='v2-evaluaciones')
-sis_pe_router.register('lecciones', LeccionV2ViewSet, basename='v2-lecciones')
-sis_pe_router.register('recomendaciones', RecomendacionV2ViewSet, basename='v2-recomendaciones')
 
 sis_poa_router.register('poas', PoAViewSet, basename='v2-poas')
 sis_poa_router.register('acciones', AccionViewSet, basename='v2-acciones-poa')
@@ -96,6 +92,8 @@ sis_poa_router.register('actividades', ActividadViewSet, basename='v2-actividade
 sis_poa_router.register('tareas', TareaViewSet, basename='v2-tareas')
 sis_poa_router.register('programaciones', ProgramacionViewSet, basename='v2-programaciones')
 sis_poa_router.register('techos', TechoViewSetV2, basename='v2-techos')
+sis_poa_router.register('techo-recursos', RecursoTechoViewSetV2, basename='v2-techo-recursos')
+sis_poa_router.register('techo-gastos-obligatorios', GastoObligatorioViewSetV2, basename='v2-techo-gastos-obligatorios')
 
 sis_pro_router.register('proyectos', ProyectoViewSet, basename='v2-proyectos')
 sis_pro_router.register('proyectos-preinversion', ProyectoPreinversionViewSet, basename='v2-proyectos-preinversion')

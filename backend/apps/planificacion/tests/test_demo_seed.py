@@ -22,8 +22,6 @@ from apps.catalogos.models import FuenteFinanciamiento
 from apps.gestion.models import GestionFiscal
 from apps.pad.models import SectorPAD
 from apps.planificacion.models import NodoPlanificacion, Plan
-from apps.poau.models import POAU, POAUActividad
-from apps.seguimiento.models import EntradaSeguimiento, ReporteSeguimiento
 
 
 def _walk_matrix(nodes):
@@ -98,9 +96,6 @@ class DemoSeedTest(TestCase):
         self.assertEqual(ProductoPAD.objects.count(), 120)
         self.assertEqual(ResultadoPAD.objects.filter(nodo_pdesa__isnull=True).count(), 0)
         self.assertEqual(ArticulacionPADPEI.objects.count(), 120)
-        self.assertEqual(POAUActividad.objects.count(), POAU.objects.count())
-        self.assertGreater(EntradaSeguimiento.objects.count(), 0)
-        self.assertGreater(ReporteSeguimiento.objects.count(), 0)
         self.assertEqual(Plan.objects.filter(tipo='pgdesa').count(), 1)
         self.assertEqual(Plan.objects.filter(tipo='pdesa').count(), 1)
         self.assertGreaterEqual(NodoPlanificacion.objects.filter(nivel='eje').count(), 7)
@@ -307,9 +302,6 @@ class DemoSeedTest(TestCase):
             'resultados_pei': ResultadoPEI.objects.count(),
             'productos_pei': ProductoPEI.objects.count(),
             'acciones_poa': AccionPOA.objects.count(),
-            'poaus': POAU.objects.count(),
-            'reportes': ReporteSeguimiento.objects.count(),
-            'entradas': EntradaSeguimiento.objects.count(),
         }
 
     def _codes(self):

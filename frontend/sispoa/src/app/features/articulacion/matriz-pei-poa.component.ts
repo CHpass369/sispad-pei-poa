@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { ApiService } from '../../core/services/api.service';
 import {
   ARTICULATION_MANAGEMENT,
@@ -29,6 +29,7 @@ import {
             <label>Estado</label>
             <select [(ngModel)]="filtroEstado" class="form-control" (change)="aplicarFiltros()">
               <option value="">Todos</option>
+              <option value="PROVISIONAL">Provisional</option>
               <option value="REFERENCIAL">Referencial</option>
               <option value="ENVIADO">Enviado</option>
               <option value="APROBADO">Aprobado</option>
@@ -90,8 +91,7 @@ import {
                 <td>
                   <span class="badge" [class.badge-success]="item.estado==='APROBADO'||item.estado==='FINALIZADO'"
                         [class.badge-warning]="item.estado==='ENVIADO'||item.estado==='EJECUCION'"
-                        [class.badge-danger]="item.estado==='OBSERVADO'"
-                        [class.badge-info]="item.estado==='REFERENCIAL'">
+                        [class.badge-info]="item.estado==='REFERENCIAL'||item.estado==='PROVISIONAL'">
                     {{ item.estado }}
                   </span>
                 </td>
@@ -168,7 +168,7 @@ export class MatrizPEIPOAComponent implements OnInit {
   filtroEstado = '';
   filtroGestion = '';
 
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void {
     this.cargarDatos();
@@ -186,6 +186,7 @@ export class MatrizPEIPOAComponent implements OnInit {
         this.gestiones = [...new Set(items.map((a: any) => a.gestion).filter(Boolean))] as number[];
         this.aplicarFiltros();
         this.cargando = false;
+        this.cdr.detectChanges();
       },
       error: () => { this.cargando = false; },
     });

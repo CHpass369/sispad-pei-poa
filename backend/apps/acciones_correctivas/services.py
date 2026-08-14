@@ -6,9 +6,9 @@ from .models import AccionCorrectiva, CompromisoAccionCorrectiva
 
 
 def crear_accion_correctiva(
-    alerta_id, description, cause, responsible_id, due_date,
+    description, cause, responsible_id, due_date,
     start_date=None, expected_result='', responsible_unit_id=None,
-    entry_id=None, gestion=None,
+    gestion=None,
 ):
     now = timezone.now()
     if gestion is None:
@@ -17,8 +17,6 @@ def crear_accion_correctiva(
         start_date = now.date()
 
     accion = AccionCorrectiva.objects.create(
-        alerta_id=alerta_id,
-        entry_id=entry_id,
         description=description,
         cause=cause,
         responsible_id=responsible_id,

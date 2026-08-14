@@ -10,8 +10,7 @@ class Migration(migrations.Migration):
     dependencies = [
         ('inversion', '0002_initial'),
         ('organizacion', '0001_initial'),
-        ('poau', '0003_accioncortoplazo_operacion_actividad_and_more'),
-        ('territorio', '0001_initial'),
+        ('sis_poa', '0001_initial'),
     ]
 
     operations = [
@@ -94,28 +93,13 @@ class Migration(migrations.Migration):
             },
         ),
         migrations.CreateModel(
-            name='ProyectoTerritorio',
-            fields=[
-                ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('es_principal', models.BooleanField(default=False)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('localizacion', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='proyectos', to='territorio.localizacionterritorial')),
-                ('proyecto', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='territorios', to='inversion.proyecto')),
-            ],
-            options={
-                'verbose_name': 'Territorio de proyecto',
-                'verbose_name_plural': 'Territorios de proyecto',
-                'constraints': [models.UniqueConstraint(fields=('proyecto', 'localizacion'), name='uniq_proyecto_localizacion')],
-            },
-        ),
-        migrations.CreateModel(
             name='VinculoProyectoActividad',
             fields=[
                 ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
                 ('es_principal', models.BooleanField(default=True)),
                 ('justificacion', models.TextField(blank=True, default='')),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('actividad', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='proyectos_vinculados', to='poau.actividad')),
+                ('actividad', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='proyectos_vinculados', to='sis_poa.actividad')),
                 ('proyecto', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='vinculos_actividad', to='inversion.proyecto')),
             ],
             options={

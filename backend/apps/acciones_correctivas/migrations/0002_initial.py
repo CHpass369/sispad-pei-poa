@@ -12,25 +12,14 @@ class Migration(migrations.Migration):
     dependencies = [
         ('acciones_correctivas', '0001_initial'),
         ('organizacion', '0001_initial'),
-        ('seguimiento', '0001_initial'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.AddField(
             model_name='accioncorrectiva',
-            name='alerta',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='acciones_correctivas', to='seguimiento.alerta', verbose_name='Alerta'),
-        ),
-        migrations.AddField(
-            model_name='accioncorrectiva',
             name='created_by',
             field=models.ForeignKey(blank=True, editable=False, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='+', to=settings.AUTH_USER_MODEL),
-        ),
-        migrations.AddField(
-            model_name='accioncorrectiva',
-            name='entry',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='acciones_correctivas', to='seguimiento.entradaseguimiento', verbose_name='Entrada de Seguimiento'),
         ),
         migrations.AddField(
             model_name='accioncorrectiva',

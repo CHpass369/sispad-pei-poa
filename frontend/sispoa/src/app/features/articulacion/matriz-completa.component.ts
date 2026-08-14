@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, ViewChild, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
@@ -189,7 +189,10 @@ export class MatrizCompletaComponent implements OnInit {
   totalNodos = 0;
   todosExpandidos = false;
 
-  constructor(private service: MatrizCompletaService) {}
+  constructor(
+    private service: MatrizCompletaService,
+    private cdr: ChangeDetectorRef,
+  ) {}
 
   ngOnInit(): void {
     this.cargarArbol();
@@ -207,6 +210,7 @@ export class MatrizCompletaComponent implements OnInit {
         this.arbolData = res.data || [];
         this.totalNodos = res.stats?.total || 0;
         this.cargando = false;
+        this.cdr.markForCheck();
         this.cargarResultadosPAD();
       },
       error: (err) => {
@@ -220,6 +224,7 @@ export class MatrizCompletaComponent implements OnInit {
               : err.status === 500
                 ? 'Error interno del servidor'
                 : `Error ${err.status || 'desconocido'}`;
+        this.cdr.markForCheck();
       },
     });
   }
@@ -228,9 +233,11 @@ export class MatrizCompletaComponent implements OnInit {
     this.service.getResultadosPAD(this.gestion).subscribe({
       next: (res) => {
         this.resultadosPad = res.results || res || [];
+        this.cdr.markForCheck();
       },
       error: () => {
         this.resultadosPad = [];
+        this.cdr.markForCheck();
       },
     });
   }

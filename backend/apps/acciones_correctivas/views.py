@@ -14,7 +14,7 @@ from .services import verificar_vencimiento, obtener_acciones_por_cumplir
 
 class AccionCorrectivaViewSet(viewsets.ModelViewSet):
     queryset = AccionCorrectiva.objects.select_related(
-        'alerta', 'entry', 'responsible', 'responsible_unit', 'verified_by',
+        'responsible', 'responsible_unit', 'verified_by',
     ).annotate(
         total_compromisos=Count('compromisos'),
         compromisos_cumplidos=Count(
@@ -23,7 +23,6 @@ class AccionCorrectivaViewSet(viewsets.ModelViewSet):
     )
     filterset_fields = [
         'status', 'gestion', 'responsible', 'responsible_unit',
-        'alerta', 'entry',
     ]
     search_fields = ['description', 'cause', 'expected_result', 'evidence']
     ordering_fields = [

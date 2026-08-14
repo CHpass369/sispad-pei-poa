@@ -156,12 +156,10 @@ export class SidebarComponent implements OnInit, OnDestroy {
         { route: '/sis-pe/instrumentos', label: 'Instrumentos', icon: '▤', capacidades: ['sis_pe.instrumento.read'] },
         { route: '/sis-pe/diagnostico', label: 'Diagnóstico', icon: '▤', capacidades: ['sis_pe.instrumento.read'], pendiente: true },
         { route: '/articulador', label: 'PAD', icon: '▤', roles: ['superadmin', 'tecnico_admin', 'planificador'], legacy: true },
+        { route: '/matrices-pad', label: 'Matrices PAD', icon: '▦', capacidades: ['sis_pe.instrumento.read'] },
         { route: '/sis-pe/pei', label: 'PEI', icon: '▤', capacidades: ['sis_pe.instrumento.read'], pendiente: true },
         { route: '/articulacion', label: 'Articulación', icon: '⇄', roles: ['superadmin', 'tecnico_admin', 'planificador'], legacy: true },
-        { route: '/indicadores', label: 'Indicadores', icon: '⊡', roles: ['superadmin', 'tecnico_admin', 'planificador'], legacy: true },
-        { route: '/territorio', label: 'Territorio', icon: '◈', roles: ['superadmin', 'tecnico_admin'], legacy: true },
         { route: '/sis-pe/seguimiento', label: 'Seguimiento estratégico', icon: '◷', capacidades: ['sis_pe.instrumento.read'], pendiente: true },
-        { route: '/evaluacion', label: 'Evaluación', icon: '✓', roles: ['superadmin', 'tecnico_admin', 'evaluador'], legacy: true },
       ],
     },
     'sis-poa': {
@@ -169,14 +167,8 @@ export class SidebarComponent implements OnInit, OnDestroy {
       items: [
         { route: '/sis-poa/dashboard', label: 'Dashboard operativo', icon: '◉', capacidades: ['sis_poa.formulate'] },
         { route: '/sis-poa/poas', label: 'POA', icon: '▤', capacidades: ['sis_poa.formulate'] },
-        { route: '/poau', label: 'POAU', icon: '▤', roles: ['superadmin', 'tecnico_admin', 'jefe_ue', 'director'], legacy: true },
-        { route: '/recursos', label: 'Recursos', icon: '⊞', roles: ['superadmin', 'tecnico_admin'], legacy: true },
         { route: '/sis-poa/techos', label: 'Techos', icon: '⊡', capacidades: ['sis_poa.formulate'] },
         { route: '/sis-poa/presupuesto', label: 'Presupuesto', icon: '⊞', capacidades: ['sis_poa.formulate'] },
-        { route: '/planificacion/formulacion', label: 'Formulación POA', icon: '✎', roles: ['superadmin', 'tecnico_admin', 'planificador'], legacy: true },
-        { route: '/seguimiento', label: 'Seguimiento', icon: '◷', roles: ['superadmin', 'tecnico_admin', 'jefe_ue', 'director', 'tecnico'], legacy: true },
-        { route: '/modificaciones', label: 'Modificaciones', icon: '✎', roles: ['superadmin', 'tecnico_admin'], legacy: true },
-        { route: '/consolidacion', label: 'Consolidación', icon: '⊞', roles: ['superadmin', 'tecnico_admin'], legacy: true },
       ],
     },
     'sis-pro': {

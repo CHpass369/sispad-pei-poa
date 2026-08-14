@@ -15,7 +15,6 @@ from apps.core.services.limpieza_datos_simulados import CleanupError
 from apps.organizacion.models import TipoUnidad, UnidadOrganizacional
 from apps.pad.models import SectorPAD
 from apps.planificacion.models import Plan
-from apps.poau.models import POAU
 from scripts.seed import DEMO_PASSWORD_ENV
 
 
@@ -85,7 +84,6 @@ class LimpiezaDatosSimuladosTest(TestCase):
         self.assertFalse(UnidadOrganizacional.objects.filter(codigo="ORG-DEMO").exists())
         # Explicitly DEMO-named markers still prove ownership in normal mode.
         self.assertFalse(Plan.objects.filter(codigo="PEI-DEMO-2026").exists())
-        self.assertFalse(POAU.objects.filter(codigo="POAU-DEMO-2026").exists())
 
     def test_commit_preserves_legitimate_rows_colliding_on_exact_seed_identifiers(self):
         unit_type = TipoUnidad.objects.get(codigo="SEC")
@@ -201,7 +199,6 @@ class LimpiezaDatosSimuladosTest(TestCase):
             get_user_model().objects.filter(email="test@test.com").exists()
         )
         self.assertFalse(Plan.objects.filter(codigo="SIM-2027-EM-DJR-01-PLAN-PEI").exists())
-        self.assertFalse(POAU.objects.filter(codigo="POAU-DEMO-2026").exists())
         self.assertEqual(report["ambiguous_excluded_total"], 0)
         self.assertEqual(
             SectorPAD.objects.filter(

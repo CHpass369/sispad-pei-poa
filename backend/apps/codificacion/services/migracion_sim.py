@@ -34,7 +34,6 @@ from apps.codificacion.models import (
 )
 from apps.codificacion.services.codificador import CodificadorService
 from apps.pad.models import LineamientoEstrategico
-from apps.poau.models import EjecucionFinanciera, EjecucionFisica, POAU, POAUActividad
 
 
 class MigracionSIMService:
@@ -295,23 +294,6 @@ class MigracionSIMService:
                 })
         return entries
 
-    @staticmethod
-    def snapshot_counts():
-        return {
-            'articulacion_resultadopad': ResultadoPAD.objects.count(),
-            'articulacion_productopad': ProductoPAD.objects.count(),
-            'articulacion_resultadopei': ResultadoPEI.objects.count(),
-            'articulacion_productopei': ProductoPEI.objects.count(),
-            'articulacion_accionpoa': AccionPOA.objects.count(),
-            'articulacion_operacionpoau': OperacionPOAU.objects.count(),
-            'articulacion_actividadpoau': ActividadPOAU.objects.count(),
-            'articulacion_tareapoau': TareaPOAU.objects.count(),
-            'poau_poau': POAU.objects.count(),
-            'poau_poauactividad': POAUActividad.objects.count(),
-            'poau_ejecucionfisica': EjecucionFisica.objects.count(),
-            'poau_ejecucionfinanciera': EjecucionFinanciera.objects.count(),
-        }
-
     @classmethod
     def _hash_payload(cls, manifest):
         entries = []
@@ -325,7 +307,6 @@ class MigracionSIMService:
             'gestion': manifest['gestion'],
             'entradas': entries,
             'lineamientos': manifest['lineamientos']['entradas'],
-            'poau_espejo': manifest['poau_espejo'],
         }
 
     @classmethod
@@ -355,7 +336,6 @@ class MigracionSIMService:
                     item['estado'] == 'sin_correspondencia' for item in lineamientos
                 ),
             },
-            'poau_espejo': self.snapshot_counts(),
             'resumen': {
                 'registros': len(entries),
                 'cambios_planificados': sum(

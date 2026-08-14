@@ -6,6 +6,7 @@ documentos, revisiones, observaciones, aprobaciones y acciones del ciclo
 """
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 
 from apps.accounts.permissions import TieneAlgunaCapacidad
@@ -253,6 +254,18 @@ class CondicionITCPViewSet(_BasePreinversionViewSet):
     queryset = CondicionITCP.objects.select_related('itcp', 'proyecto')
     serializer_class = CondicionITCPSerializer
     filterset_fields = ['itcp', 'proyecto', 'categoria', 'estado', 'critica']
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
+
+    def perform_update(self, serializer):
+        archivo = self.request.FILES.get('archivo')
+        if archivo:
+            serializer.save(
+                archivo=archivo,
+                nombre_archivo=archivo.name,
+                updated_by=self.request.user,
+            )
+        else:
+            serializer.save(updated_by=self.request.user)
 
 
 # ---------------------------------------------------------------------------

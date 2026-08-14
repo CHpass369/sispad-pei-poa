@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { ApiService } from '../../core/services/api.service';
 import { Router } from '@angular/router';
 
@@ -9,7 +9,10 @@ import { Router } from '@angular/router';
     <div class="form-page">
       <div class="page-header">
         <h2>Nueva Articulación PAD → PEI</h2>
-        <p class="text-secondary">Complete los pasos para crear una cadena completa de articulación</p>
+        <p class="text-secondary">
+          Secuencia metodológica de la guía PAD (4.5.2) y sus matrices A/B:
+          nacional → acuerdos → sectorial → territorial → indicadores → programación → PEI.
+        </p>
       </div>
 
       <!-- Barra de progreso -->
@@ -31,26 +34,15 @@ import { Router } from '@angular/router';
         <!-- ======= PASO 1: Planificación Nacional ======= -->
         <div *ngIf="pasoActual === 1">
           <h3 class="step-title">Paso 1: Planificación Nacional</h3>
+          <p class="field-hint">Matriz B — bloques A-D: Eje PGDESA (impacto) → Componente PDESA (efecto).</p>
           <div class="form-grid">
             <div class="field">
               <label>Eje PGDESA</label>
-              <select [(ngModel)]="form.eje_pgdesa" class="form-control">
-                <option value="">Seleccionar...</option>
-                <option value="EJE 1 - Reconstrucción Económica">EJE 1 - Reconstrucción Económica</option>
-                <option value="EJE 2 - Desarrollo Social">EJE 2 - Desarrollo Social</option>
-                <option value="EJE 3 - Medio Ambiente y Cambio Climático">EJE 3 - Medio Ambiente y Cambio Climático</option>
-                <option value="EJE 4 - Descentralización y Autonomías">EJE 4 - Descentralización y Autonomías</option>
-              </select>
-            </div>
-            <div class="field">
-              <label>Componente PDESA</label>
-              <select [(ngModel)]="form.componente_pdesa" class="form-control">
-                <option value="">Seleccionar...</option>
-                <option value="CP-01 - Fortalecimiento Productivo">CP-01 - Fortalecimiento Productivo</option>
-                <option value="CP-02 - Infraestructura y Servicios">CP-02 - Infraestructura y Servicios</option>
-                <option value="CP-03 - Desarrollo Humano">CP-03 - Desarrollo Humano</option>
-                <option value="CP-04 - Gestión Ambiental">CP-04 - Gestión Ambiental</option>
-                <option value="CP-05 - Fortalecimiento Institucional">CP-05 - Fortalecimiento Institucional</option>
+              <select [(ngModel)]="form.eje" class="form-control" (change)="onEjeChange()">
+                <option [ngValue]="null">Seleccionar...</option>
+                <option *ngFor="let eje of catalogoEjes" [ngValue]="eje">
+                  {{ eje.codigo }} - {{ eje.denominacion }}
+                </option>
               </select>
             </div>
             <div class="field">
@@ -58,8 +50,17 @@ import { Router } from '@angular/router';
               <input [(ngModel)]="form.objetivo_impacto" class="form-control" placeholder="Objetivo de impacto del PGDESA">
             </div>
             <div class="field">
-              <label>Efecto</label>
-              <input [(ngModel)]="form.efecto" class="form-control" placeholder="Efecto esperado">
+              <label>Componente PDESA</label>
+              <select [(ngModel)]="form.componente" class="form-control" (change)="onComponenteChange()">
+                <option [ngValue]="null">Seleccionar...</option>
+                <option *ngFor="let comp of componentesFiltrados" [ngValue]="comp">
+                  {{ comp.codigo }} - {{ comp.denominacion }}
+                </option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Objetivo de Efecto</label>
+              <input [(ngModel)]="form.objetivo_efecto" class="form-control" placeholder="Efecto esperado del PDESA">
             </div>
           </div>
         </div>
@@ -67,29 +68,43 @@ import { Router } from '@angular/router';
         <!-- ======= PASO 2: Acuerdos Internacionales ======= -->
         <div *ngIf="pasoActual === 2">
           <h3 class="step-title">Paso 2: Acuerdos Internacionales</h3>
+          <p class="field-hint">Matriz B — bloques E-H: ODS → NDC → NDT → Compromisos 30/30 (KMGBF).</p>
           <div class="form-grid">
-            <div class="field-full">
+            <div class="field">
               <label>ODS (Objetivos de Desarrollo Sostenible)</label>
-              <div class="checkbox-grid">
-                <label *ngFor="let ods of catalogoODS" class="checkbox-item">
-                  <input type="checkbox" [value]="ods.id"
-                         [checked]="form.ods_seleccionados.includes(ods.id)"
-                         (change)="toggleODS(ods.id)">
-                  <span>{{ ods.codigo || ods.nombre }}</span>
-                </label>
-              </div>
+              <select [(ngModel)]="form.ods" class="form-control">
+                <option [ngValue]="null">Seleccionar...</option>
+                <option *ngFor="let ods of catalogoODS" [ngValue]="ods">
+                  ODS {{ ods.codigo }} - {{ ods.denominacion || ods.nombre }}
+                </option>
+              </select>
             </div>
             <div class="field">
               <label>NDC (Contribución Nacional Determinada)</label>
-              <input [(ngModel)]="form.ndc" class="form-control" placeholder="NDC">
+              <select [(ngModel)]="form.ndc" class="form-control">
+                <option [ngValue]="null">Seleccionar...</option>
+                <option *ngFor="let ndc of catalogoNDC" [ngValue]="ndc">
+                  {{ ndc.codigo }} - {{ ndc.denominacion }}
+                </option>
+              </select>
             </div>
             <div class="field">
-              <label>NDT</label>
-              <input [(ngModel)]="form.ndt" class="form-control" placeholder="NDT">
+              <label>NDT (Principios de Navegación para el Desarrollo)</label>
+              <select [(ngModel)]="form.ndt" class="form-control">
+                <option [ngValue]="null">Seleccionar...</option>
+                <option *ngFor="let ndt of catalogoNDT" [ngValue]="ndt">
+                  {{ ndt.codigo }} - {{ ndt.denominacion }}
+                </option>
+              </select>
             </div>
             <div class="field">
-              <label>30/30</label>
-              <input [(ngModel)]="form.meta_3030" class="form-control" placeholder="Meta 30/30">
+              <label>Compromisos 30/30 (KMGBF)</label>
+              <select [(ngModel)]="form.kmgbf" class="form-control">
+                <option [ngValue]="null">Seleccionar...</option>
+                <option *ngFor="let kmgbf of catalogo3030" [ngValue]="kmgbf">
+                  {{ kmgbf.codigo }} - {{ kmgbf.denominacion }}
+                </option>
+              </select>
             </div>
           </div>
         </div>
@@ -97,71 +112,273 @@ import { Router } from '@angular/router';
         <!-- ======= PASO 3: Planificación Sectorial ======= -->
         <div *ngIf="pasoActual === 3">
           <h3 class="step-title">Paso 3: Planificación Sectorial</h3>
+          <p class="field-hint">Matriz B — bloques I-L: sector del clasificador presupuestario → resultado sectorial del PDS.</p>
           <div class="form-grid">
             <div class="field">
-              <label>Sector</label>
-              <select [(ngModel)]="form.sector" class="form-control">
-                <option value="">Seleccionar sector...</option>
-                <option value="SALUD">Salud</option>
-                <option value="EDUCACION">Educación</option>
-                <option value="INFRAESTRUCTURA">Infraestructura</option>
-                <option value="DESARROLLO_PRODUCTIVO">Desarrollo Productivo</option>
-                <option value="MEDIO_AMBIENTE">Medio Ambiente</option>
-                <option value="DESARROLLO_SOCIAL">Desarrollo Social</option>
-                <option value="INSTITUCIONAL">Institucional</option>
+              <label>Sector (economía plural)</label>
+              <select [(ngModel)]="form.sector" class="form-control" (change)="onSectorChange()">
+                <option [ngValue]="null">Seleccionar sector...</option>
+                <option *ngFor="let sec of catalogoSectores" [ngValue]="sec">
+                  {{ sec.codigo }} - {{ sec.denominacion }}
+                </option>
               </select>
             </div>
             <div class="field">
-              <label>Código Resultado PDS</label>
-              <input [(ngModel)]="form.codigo_resultado_pds" class="form-control" placeholder="Ej: R-PDS-01">
+              <label>Resultado Sectorial (PDS)</label>
+              <select [(ngModel)]="form.resultado_sectorial" class="form-control">
+                <option [ngValue]="null">Seleccionar...</option>
+                <option *ngFor="let rs of resultadosSectorialesFiltrados" [ngValue]="rs">
+                  {{ rs.codigo }} - {{ rs.denominacion }}
+                </option>
+              </select>
             </div>
-            <div class="field-full">
-              <label>Nombre Resultado PDS</label>
-              <input [(ngModel)]="form.nombre_resultado_pds" class="form-control" placeholder="Denominación del resultado PDS">
+            <div class="field-full text-secondary" *ngIf="resultadosSectorialesFiltrados.length === 0">
+              No hay resultados sectoriales para este sector; puede continuar sin seleccionar.
             </div>
           </div>
         </div>
 
-        <!-- ======= PASO 4: PAD ======= -->
+        <!-- ======= PASO 4: Contexto Territorial ======= -->
         <div *ngIf="pasoActual === 4">
-          <h3 class="step-title">Paso 4: Plan de Acción Departamental (PAD)</h3>
+          <h3 class="step-title">Paso 4: Contexto Territorial</h3>
+          <p class="field-hint">Matriz A — columnas B-C / Matriz B M-N: código geográfico (clasificador CGEO INE) + ETA + política.</p>
           <div class="form-grid">
             <div class="field">
-              <label>Código Geográfico</label>
-              <input [(ngModel)]="form.codigo_geografico" class="form-control" placeholder="Código municipio/departamento">
+              <label>Código Geográfico (CGEO)</label>
+              <select [(ngModel)]="form.cgeo" class="form-control" (change)="onCgeoChange()">
+                <option [ngValue]="null">Seleccionar...</option>
+                <option *ngFor="let e of catalogoEntidadesTerritoriales" [ngValue]="e">
+                  {{ e.codigo }} - {{ e.denominacion }} ({{ e.nivel }})
+                </option>
+              </select>
             </div>
             <div class="field">
               <label>ETA (Estructura Territorial de Apoyo)</label>
-              <input [(ngModel)]="form.eta" class="form-control" placeholder="ETA">
-            </div>
-            <h4 class="section-subtitle">Resultado PAD</h4>
-            <div class="field">
-              <label>Código Resultado PAD</label>
-              <input [(ngModel)]="form.codigo_resultado_pad" class="form-control" placeholder="Ej: RPAD-01">
+              <input [(ngModel)]="form.eta" class="form-control" placeholder="Denominación de la ETA">
             </div>
             <div class="field-full">
-              <label>Denominación Resultado PAD</label>
-              <textarea [(ngModel)]="form.denominacion_resultado_pad" class="form-control" rows="2" placeholder="Descripción del resultado PAD"></textarea>
-            </div>
-            <h4 class="section-subtitle">Producto PAD</h4>
-            <div class="field">
-              <label>Código Producto PAD</label>
-              <input [(ngModel)]="form.codigo_producto_pad" class="form-control" placeholder="Ej: PPAD-01">
-            </div>
-            <div class="field-full">
-              <label>Denominación Producto PAD</label>
-              <textarea [(ngModel)]="form.denominacion_producto_pad" class="form-control" rows="2" placeholder="Descripción del producto PAD"></textarea>
+              <label>Política (directriz territorial)</label>
+              <textarea [(ngModel)]="form.politica" class="form-control" rows="2"
+                        placeholder="Directriz territorial (columna C de la Matriz A)"></textarea>
             </div>
           </div>
         </div>
 
-        <!-- ======= PASO 5: PEI ======= -->
+        <!-- ======= PASO 5: Lineamiento Estratégico PAD ======= -->
         <div *ngIf="pasoActual === 5">
-          <h3 class="step-title">Paso 5: Plan Estratégico Institucional (PEI)</h3>
+          <h3 class="step-title">Paso 5: Lineamiento Estratégico PAD</h3>
+          <p class="field-hint">Matriz A — columnas D-E; guía 4.3: el lineamiento es el primer elemento a registrar, y organiza los demás elementos del plan.</p>
+          <div class="form-grid">
+            <div class="field-full">
+              <label>Lineamiento Estratégico (cascada: componente PDESA del paso 1)</label>
+              <select [(ngModel)]="form.lineamiento" class="form-control" (change)="onLineamientoChange()">
+                <option [ngValue]="null">Seleccionar...</option>
+                <option *ngFor="let ll of lineamientosFiltrados" [ngValue]="ll">
+                  {{ ll.codigo }} - {{ ll.denominacion }}
+                </option>
+              </select>
+              <span class="text-secondary" *ngIf="!form.componente">Primero seleccione el componente PDESA en el paso 1.</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ======= PASO 6: Resultado PAD ======= -->
+        <div *ngIf="pasoActual === 6">
+          <h3 class="step-title">Paso 6: Resultado PAD</h3>
+          <p class="field-hint">Matriz A — columnas F-G: código compuesto CGEO.lineamiento.correlativo (autogenerado) + denominación en pretérito.</p>
+          <div class="form-grid">
+            <div class="field">
+              <label>Código Resultado PAD (autogenerado)</label>
+              <input [value]="codigoResultadoCompuesto" class="form-control codigo-readonly" readonly>
+            </div>
+            <div class="field">
+              <label>¿Cuenta con financiamiento?</label>
+              <select [(ngModel)]="form.resultado.cuenta_con_financiamiento" class="form-control">
+                <option [ngValue]="true">SÍ</option>
+                <option [ngValue]="false">NO</option>
+              </select>
+            </div>
+            <div class="field-full">
+              <label>Denominación del Resultado PAD (pretérito)</label>
+              <textarea [(ngModel)]="form.resultado.denominacion" class="form-control" rows="2"
+                        placeholder="Ej: Se ha incrementado la cobertura del servicio de energía eléctrica..."></textarea>
+            </div>
+            <div class="field">
+              <label>Territorialización</label>
+              <input [(ngModel)]="form.resultado.territorializacion" class="form-control"
+                     placeholder="Ej: COMUNIDAD 1, DISTRITO 4,5">
+            </div>
+            <div class="field">
+              <label>Responsable (entidad)</label>
+              <input [(ngModel)]="form.resultado.responsable" class="form-control"
+                     placeholder="Ej: Gobierno Autónomo Municipal de ...">
+            </div>
+          </div>
+        </div>
+
+        <!-- ======= PASO 7: Producto PAD ======= -->
+        <div *ngIf="pasoActual === 7">
+          <h3 class="step-title">Paso 7: Producto PAD</h3>
+          <p class="field-hint">Matriz A — columnas H-K y U: código compuesto CGEO.lineamiento.resultado.correlativo (autogenerado) + territorialización + responsable + financiamiento.</p>
+          <div class="form-grid">
+            <div class="field">
+              <label>Código Producto PAD (autogenerado)</label>
+              <input [value]="codigoProductoCompuesto" class="form-control codigo-readonly" readonly>
+            </div>
+            <div class="field">
+              <label>¿Cuenta con financiamiento?</label>
+              <select [(ngModel)]="form.producto.cuenta_con_financiamiento" class="form-control">
+                <option [ngValue]="true">SÍ</option>
+                <option [ngValue]="false">NO</option>
+              </select>
+            </div>
+            <div class="field-full">
+              <label>Denominación del Producto PAD</label>
+              <textarea [(ngModel)]="form.producto.denominacion" class="form-control" rows="2"
+                        placeholder="Bien, servicio o intervención (proyecto/programa)"></textarea>
+            </div>
+            <div class="field">
+              <label>Territorialización</label>
+              <input [(ngModel)]="form.producto.territorializacion" class="form-control"
+                     placeholder="Ej: COMUNIDAD 1, DISTRITO 4,5">
+            </div>
+            <div class="field">
+              <label>Responsable (entidad)</label>
+              <input [(ngModel)]="form.producto.responsable" class="form-control"
+                     placeholder="Ej: ENDE Corporación, MDRyT, Programa Mi Riego">
+            </div>
+          </div>
+        </div>
+
+        <!-- ======= PASO 8: Indicador Resultado PAD ======= -->
+        <div *ngIf="pasoActual === 8">
+          <h3 class="step-title">Paso 8: Indicador Resultado PAD</h3>
+          <p class="field-hint">Matriz A — columnas L-T (fila de resultado): indicador, fórmula, unidad, línea base, meta 2030 y programación física 2026-2030.</p>
+          <div class="form-grid">
+            <div class="field-full">
+              <label>Indicador</label>
+              <textarea [(ngModel)]="form.indicador_resultado.indicador" class="form-control" rows="2"
+                        placeholder="Variable de medición del resultado PAD"></textarea>
+            </div>
+            <div class="field-full">
+              <label>Fórmula</label>
+              <input [(ngModel)]="form.indicador_resultado.formula" class="form-control"
+                     placeholder="Ej: TCSEE = (N° de viviendas con energía / total viviendas) * 100">
+            </div>
+            <div class="field">
+              <label>Unidad de Medida</label>
+              <select [(ngModel)]="form.indicador_resultado.unidad_medida" class="form-control">
+                <option value="">Seleccionar...</option>
+                <option *ngFor="let um of catalogoUnidades" [value]="um.denominacion">
+                  {{ um.denominacion }}
+                </option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Línea Base</label>
+              <input type="number" step="0.01" [(ngModel)]="form.indicador_resultado.linea_base"
+                     class="form-control" placeholder="Valor línea base">
+            </div>
+            <div class="field">
+              <label>Meta 2030</label>
+              <input type="number" step="0.01" [(ngModel)]="form.indicador_resultado.meta_2030"
+                     class="form-control" placeholder="Meta al 2030">
+            </div>
+          </div>
+          <h4 class="section-subtitle">Programación Física 2026-2030</h4>
+          <div class="quinquenio-grid">
+            <div class="field" *ngFor="let year of quinquenio">
+              <label>{{ year }}</label>
+              <input type="number" step="0.01"
+                     [(ngModel)]="form.pf_resultado[year]"
+                     class="form-control" [placeholder]="'Meta ' + year">
+            </div>
+          </div>
+        </div>
+
+        <!-- ======= PASO 9: Indicador Producto PAD ======= -->
+        <div *ngIf="pasoActual === 9">
+          <h3 class="step-title">Paso 9: Indicador Producto PAD</h3>
+          <p class="field-hint">Matriz A — columnas L-T (fila de producto): indicador, fórmula, unidad, línea base, meta 2030 y programación física 2026-2030.</p>
+          <div class="form-grid">
+            <div class="field-full">
+              <label>Indicador</label>
+              <textarea [(ngModel)]="form.indicador_producto.indicador" class="form-control" rows="2"
+                        placeholder="Variable de medición del producto PAD"></textarea>
+            </div>
+            <div class="field-full">
+              <label>Fórmula</label>
+              <input [(ngModel)]="form.indicador_producto.formula" class="form-control"
+                     placeholder="Ej: NV = N° de viviendas conectadas">
+            </div>
+            <div class="field">
+              <label>Unidad de Medida</label>
+              <select [(ngModel)]="form.indicador_producto.unidad_medida" class="form-control">
+                <option value="">Seleccionar...</option>
+                <option *ngFor="let um of catalogoUnidades" [value]="um.denominacion">
+                  {{ um.denominacion }}
+                </option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Línea Base</label>
+              <input type="number" step="0.01" [(ngModel)]="form.indicador_producto.linea_base"
+                     class="form-control" placeholder="Valor línea base">
+            </div>
+            <div class="field">
+              <label>Meta 2030</label>
+              <input type="number" step="0.01" [(ngModel)]="form.indicador_producto.meta_2030"
+                     class="form-control" placeholder="Meta al 2030">
+            </div>
+          </div>
+          <h4 class="section-subtitle">Programación Física 2026-2030</h4>
+          <div class="quinquenio-grid">
+            <div class="field" *ngFor="let year of quinquenio">
+              <label>{{ year }}</label>
+              <input type="number" step="0.01"
+                     [(ngModel)]="form.pf_producto[year]"
+                     class="form-control" [placeholder]="'Meta ' + year">
+            </div>
+          </div>
+        </div>
+
+        <!-- ======= PASO 10: Programación Financiera ======= -->
+        <div *ngIf="pasoActual === 10">
+          <h3 class="step-title">Paso 10: Programación Financiera</h3>
+          <p class="field-hint">
+            Matriz A — columnas V-AA / Matriz B AB-AG: presupuesto total PAD (referencial) y anual 2026-2030,
+            en bolivianos SIN decimales. El desglose corriente/inversión corresponde al SIGEP/POA, no a las matrices PAD.
+          </p>
+          <div class="form-grid">
+            <div class="field">
+              <label>Presupuesto Total PAD (Bs.)</label>
+              <input type="number" step="1" min="0" [(ngModel)]="form.presupuesto_total"
+                     class="form-control" placeholder="Ej: 34000000">
+            </div>
+          </div>
+          <h4 class="section-subtitle">Presupuesto Anual 2026-2030 (Bs.)</h4>
+          <div class="quinquenio-grid">
+            <div class="field" *ngFor="let year of quinquenio">
+              <label>{{ year }}</label>
+              <input type="number" step="1" min="0"
+                     [(ngModel)]="form.presupuesto_anual[year]"
+                     class="form-control" [placeholder]="'Bs. ' + year">
+            </div>
+          </div>
+        </div>
+
+        <!-- ======= PASO 11: Articulación PEI ======= -->
+        <div *ngIf="pasoActual === 11">
+          <h3 class="step-title">Paso 11: Articulación PEI</h3>
+          <p class="field-hint">Nivel institucional: la Matriz B articula el PAD con el PEI (resultado + producto + contribución + ponderación).</p>
           <div class="form-grid">
             <div class="field">
               <label>Código Entidad</label>
               <input [(ngModel)]="form.codigo_entidad" class="form-control" placeholder="Código de la entidad">
+            </div>
+            <div class="field">
+              <label>Entidad</label>
+              <input [(ngModel)]="form.entidad" class="form-control" placeholder="Nombre de la entidad">
             </div>
             <h4 class="section-subtitle">Resultado PEI</h4>
             <div class="field">
@@ -170,7 +387,8 @@ import { Router } from '@angular/router';
             </div>
             <div class="field-full">
               <label>Denominación Resultado PEI</label>
-              <textarea [(ngModel)]="form.denominacion_resultado_pei" class="form-control" rows="2" placeholder="Descripción del resultado PEI"></textarea>
+              <textarea [(ngModel)]="form.denominacion_resultado_pei" class="form-control" rows="2"
+                        placeholder="Descripción del resultado PEI"></textarea>
             </div>
             <h4 class="section-subtitle">Producto PEI</h4>
             <div class="field">
@@ -179,15 +397,10 @@ import { Router } from '@angular/router';
             </div>
             <div class="field-full">
               <label>Denominación Producto PEI</label>
-              <textarea [(ngModel)]="form.denominacion_producto_pei" class="form-control" rows="2" placeholder="Descripción del producto PEI"></textarea>
+              <textarea [(ngModel)]="form.denominacion_producto_pei" class="form-control" rows="2"
+                        placeholder="Descripción del producto PEI"></textarea>
             </div>
-          </div>
-        </div>
-
-        <!-- ======= PASO 6: Articulación ======= -->
-        <div *ngIf="pasoActual === 6">
-          <h3 class="step-title">Paso 6: Articulación PAD → PEI</h3>
-          <div class="form-grid">
+            <h4 class="section-subtitle">Vinculación</h4>
             <div class="field">
               <label>Tipo de Contribución</label>
               <select [(ngModel)]="form.tipo_contribucion" class="form-control">
@@ -204,98 +417,29 @@ import { Router } from '@angular/router';
           </div>
         </div>
 
-        <!-- ======= PASO 7: Indicador ======= -->
-        <div *ngIf="pasoActual === 7">
-          <h3 class="step-title">Paso 7: Indicador de Cadena</h3>
-          <div class="form-grid">
-            <div class="field-full">
-              <label>Indicador</label>
-              <textarea [(ngModel)]="form.indicador" class="form-control" rows="2" placeholder="Nombre del indicador"></textarea>
-            </div>
-            <div class="field-full">
-              <label>Fórmula</label>
-              <input [(ngModel)]="form.formula" class="form-control" placeholder="Ej: (A/B)*100">
-            </div>
-            <div class="field">
-              <label>Unidad de Medida</label>
-              <select [(ngModel)]="form.unidad_medida" class="form-control">
-                <option value="">Seleccionar...</option>
-                <option value="Porcentaje">Porcentaje</option>
-                <option value="Número">Número</option>
-                <option value="Unidad">Unidad</option>
-                <option value="Persona">Persona</option>
-                <option value="Familia">Familia</option>
-                <option value="Hectárea">Hectárea</option>
-                <option value="Metro">Metro</option>
-                <option value="Metro cuadrado">Metro cuadrado</option>
-                <option value="Kilómetro">Kilómetro</option>
-                <option value="Obra">Obra</option>
-                <option value="Proyecto">Proyecto</option>
-              </select>
-            </div>
-            <div class="field">
-              <label>Línea Base</label>
-              <input type="number" step="0.01" [(ngModel)]="form.linea_base" class="form-control" placeholder="Valor línea base">
-            </div>
-            <div class="field">
-              <label>Meta 2030</label>
-              <input type="number" step="0.01" [(ngModel)]="form.meta_2030" class="form-control" placeholder="Meta al 2030">
-            </div>
-            <div class="field">
-              <label>Fuente del Indicador</label>
-              <input [(ngModel)]="form.fuente_indicador" class="form-control" placeholder="Fuente">
-            </div>
-          </div>
-        </div>
-
-        <!-- ======= PASO 8: Programación Física ======= -->
-        <div *ngIf="pasoActual === 8">
-          <h3 class="step-title">Paso 8: Programación Física</h3>
-          <p class="field-hint">Metas físicas anuales del quinquenio</p>
-          <div class="quinquenio-grid">
-            <div class="field" *ngFor="let year of quinquenio">
-              <label>{{ year }}</label>
-              <input type="number" step="0.01"
-                     [(ngModel)]="form['pf_' + year]"
-                     class="form-control"
-                     [placeholder]="'Meta ' + year">
-            </div>
-          </div>
-        </div>
-
-        <!-- ======= PASO 9: Presupuesto Quinquenal ======= -->
-        <div *ngIf="pasoActual === 9">
-          <h3 class="step-title">Paso 9: Presupuesto Quinquenal</h3>
-          <div class="presupuesto-grid">
-            <div class="budget-section">
-              <h4>Inversión</h4>
-              <div class="field" *ngFor="let year of aniosPresupuesto">
-                <label>Inversión {{ year }}</label>
-                <input type="number" step="0.01" [(ngModel)]="form['inversion_' + year]" class="form-control" placeholder="Bs.">
-              </div>
-            </div>
-            <div class="budget-section">
-              <h4>Corriente</h4>
-              <div class="field" *ngFor="let year of aniosPresupuesto">
-                <label>Corriente {{ year }}</label>
-                <input type="number" step="0.01" [(ngModel)]="form['corriente_' + year]" class="form-control" placeholder="Bs.">
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ======= PASO 10: Guardar todo ======= -->
-        <div *ngIf="pasoActual === 10">
-          <h3 class="step-title">Paso 10: Revisión y Guardado</h3>
+        <!-- ======= PASO 12: Revisión y Guardado ======= -->
+        <div *ngIf="pasoActual === 12">
+          <h3 class="step-title">Paso 12: Revisión y Guardado</h3>
           <div class="resumen-card">
-            <p>Revise los datos ingresados antes de guardar. Todos los registros se crearán en una sola operación.</p>
+            <p>Revise los datos antes de guardar. Todos los registros se crearán en una sola operación.</p>
             <div class="resumen-grid">
-              <div class="resumen-item"><strong>Eje PGDESA:</strong> {{ form.eje_pgdesa || '—' }}</div>
-              <div class="resumen-item"><strong>Comp. PDESA:</strong> {{ form.componente_pdesa || '—' }}</div>
-              <div class="resumen-item"><strong>Objetivo Impacto:</strong> {{ form.objetivo_impacto || '—' }}</div>
-              <div class="resumen-item"><strong>Efecto:</strong> {{ form.efecto || '—' }}</div>
-              <div class="resumen-item"><strong>Resultado PAD:</strong> {{ form.codigo_resultado_pad }} — {{ form.denominacion_resultado_pad || '—' }}</div>
-              <div class="resumen-item"><strong>Producto PAD:</strong> {{ form.codigo_producto_pad }} — {{ form.denominacion_producto_pad || '—' }}</div>
+              <div class="resumen-item"><strong>Eje PGDESA:</strong> {{ form.eje ? form.eje.codigo + ' - ' + form.eje.denominacion : '—' }}</div>
+              <div class="resumen-item"><strong>Componente PDESA:</strong> {{ form.componente ? form.componente.codigo + ' - ' + form.componente.denominacion : '—' }}</div>
+              <div class="resumen-item"><strong>ODS:</strong> {{ form.ods ? 'ODS ' + form.ods.codigo : '—' }}</div>
+              <div class="resumen-item"><strong>NDC:</strong> {{ form.ndc ? form.ndc.codigo : '—' }}</div>
+              <div class="resumen-item"><strong>NDT:</strong> {{ form.ndt ? form.ndt.codigo : '—' }}</div>
+              <div class="resumen-item"><strong>30/30:</strong> {{ form.kmgbf ? form.kmgbf.codigo : '—' }}</div>
+              <div class="resumen-item"><strong>Sector:</strong> {{ form.sector ? form.sector.codigo + ' - ' + form.sector.denominacion : '—' }}</div>
+              <div class="resumen-item"><strong>Resultado Sectorial:</strong> {{ form.resultado_sectorial ? form.resultado_sectorial.codigo + ' - ' + form.resultado_sectorial.denominacion : '—' }}</div>
+              <div class="resumen-item"><strong>CGEO:</strong> {{ form.cgeo ? form.cgeo.codigo + ' - ' + form.cgeo.denominacion : '—' }}</div>
+              <div class="resumen-item"><strong>ETA:</strong> {{ form.eta || '—' }}</div>
+              <div class="resumen-item"><strong>Política:</strong> {{ form.politica || '—' }}</div>
+              <div class="resumen-item"><strong>Lineamiento PAD:</strong> {{ form.lineamiento ? form.lineamiento.codigo + ' - ' + form.lineamiento.denominacion : '—' }}</div>
+              <div class="resumen-item"><strong>Resultado PAD:</strong> {{ codigoResultadoCompuesto }} — {{ form.resultado.denominacion || '—' }}</div>
+              <div class="resumen-item"><strong>Producto PAD:</strong> {{ codigoProductoCompuesto }} — {{ form.producto.denominacion || '—' }}</div>
+              <div class="resumen-item"><strong>Indicador Resultado:</strong> {{ form.indicador_resultado.indicador || '—' }}</div>
+              <div class="resumen-item"><strong>Indicador Producto:</strong> {{ form.indicador_producto.indicador || '—' }}</div>
+              <div class="resumen-item"><strong>Presupuesto Total:</strong> {{ form.presupuesto_total ? form.presupuesto_total + ' Bs.' : '—' }}</div>
               <div class="resumen-item"><strong>Resultado PEI:</strong> {{ form.codigo_resultado_pei }} — {{ form.denominacion_resultado_pei || '—' }}</div>
               <div class="resumen-item"><strong>Producto PEI:</strong> {{ form.codigo_producto_pei }} — {{ form.denominacion_producto_pei || '—' }}</div>
               <div class="resumen-item"><strong>Tipo Contribución:</strong> {{ form.tipo_contribucion || '—' }}</div>
@@ -309,11 +453,11 @@ import { Router } from '@angular/router';
           <button class="btn btn-outline" (click)="pasoAnterior()" [disabled]="pasoActual === 1">
             ← Anterior
           </button>
-          <span class="step-counter">Paso {{ pasoActual }} de 10</span>
-          <button class="btn btn-primary" (click)="pasoSiguiente()" *ngIf="pasoActual < 10">
+          <span class="step-counter">Paso {{ pasoActual }} de 12</span>
+          <button class="btn btn-primary" (click)="pasoSiguiente()" *ngIf="pasoActual < 12">
             Siguiente →
           </button>
-          <button class="btn btn-primary btn-guardar" (click)="guardarTodo()" *ngIf="pasoActual === 10" [disabled]="guardando">
+          <button class="btn btn-primary btn-guardar" (click)="guardarTodo()" *ngIf="pasoActual === 12" [disabled]="guardando">
             {{ guardando ? 'Guardando...' : '💾 Guardar Articulación Completa' }}
           </button>
         </div>
@@ -345,13 +489,9 @@ import { Router } from '@angular/router';
     .field-hint { font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.75rem; }
     .field { min-width: 0; }
 
-    .checkbox-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.375rem; background: var(--bg); padding: 0.75rem; border-radius: 6px; max-height: 200px; overflow-y: auto; }
-    .checkbox-item { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8125rem; cursor: pointer; }
-    .checkbox-item input[type="checkbox"] { accent-color: var(--primary); }
+    .codigo-readonly { background: var(--bg); font-weight: 700; color: var(--primary-dark); font-family: monospace; }
 
     .quinquenio-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.75rem; }
-    .presupuesto-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
-    .budget-section h4 { font-size: 0.875rem; color: var(--primary); margin-bottom: 0.75rem; }
 
     .resumen-card { background: var(--bg); padding: 1rem; border-radius: 8px; margin-bottom: 1rem; }
     .resumen-card p { font-size: 0.8125rem; color: var(--text-secondary); margin-bottom: 0.75rem; }
@@ -370,70 +510,231 @@ import { Router } from '@angular/router';
 
     @media (max-width: 768px) {
       .form-grid { grid-template-columns: 1fr; }
-      .presupuesto-grid { grid-template-columns: 1fr; }
       .stepper { gap: 0; }
       .step-label { display: none; }
     }
   `],
 })
 export class ArticulacionFormM1Component implements OnInit {
-  pasos = ['Planif. Nacional', 'Acuerdos Intl.', 'Planif. Sectorial', 'PAD', 'PEI', 'Articulación', 'Indicador', 'Prog. Física', 'Presupuesto', 'Guardar'];
+  pasos = [
+    'Planif. Nacional', 'Acuerdos Intl.', 'Planif. Sectorial', 'Contexto Territorial',
+    'Lineamiento PAD', 'Resultado PAD', 'Producto PAD', 'Indicador Resultado',
+    'Indicador Producto', 'Programación Fin.', 'Articulación PEI', 'Revisión / Guardar',
+  ];
   pasoActual = 1;
   guardando = false;
   mensajeExito = '';
   mensajeError = '';
   quinquenio = [2026, 2027, 2028, 2029, 2030];
-  aniosPresupuesto = [2026, 2027, 2028, 2029, 2030, 2031];
 
   catalogoODS: any[] = [];
+  catalogoEjes: any[] = [];
+  catalogoComponentes: any[] = [];
+  catalogoLineamientos: any[] = [];
+  catalogoSectores: any[] = [];
+  catalogoUnidades: any[] = [];
+  catalogoNDC: any[] = [];
+  catalogoNDT: any[] = [];
+  catalogo3030: any[] = [];
+  catalogoEntidadesTerritoriales: any[] = [];
+  catalogoResultadosSectoriales: any[] = [];
+  cargandoCatalogos = false;
+
+  /** Registros existentes para calcular correlativos de códigos compuestos. */
+  existentesResultados: any[] = [];
+  existentesProductos: any[] = [];
+  existentesResultadosPEI: any[] = [];
+  existentesProductosPEI: any[] = [];
+
+  /** Filtros en cascada: eje → componente → lineamiento */
+  get componentesFiltrados(): any[] {
+    if (!this.form.eje) return [];
+    return this.catalogoComponentes.filter(c => c.eje_codigo === this.form.eje.codigo);
+  }
+  get lineamientosFiltrados(): any[] {
+    if (!this.form.componente) return [];
+    return this.catalogoLineamientos.filter(l => l.componente_codigo === this.form.componente.codigo);
+  }
+  /** Resultados sectoriales del PDS, filtrados por sector; si no hay relación, se muestran libres. */
+  get resultadosSectorialesFiltrados(): any[] {
+    if (!this.form.sector) return this.catalogoResultadosSectoriales;
+    const filtrados = this.catalogoResultadosSectoriales.filter(
+      r => r.sector_codigo === this.form.sector.codigo,
+    );
+    return filtrados.length ? filtrados : this.catalogoResultadosSectoriales;
+  }
+
+  /** Código compuesto del resultado: CGEO.lineamiento.correlativo (ej: 1102.1.1). */
+  get codigoResultadoCompuesto(): string {
+    if (!this.form.cgeo || !this.form.lineamiento) return '';
+    return `${this.form.cgeo.codigo}.${this.form.lineamiento.codigo}.${this.correlativoResultado()}`;
+  }
+  /** Código compuesto del producto: CGEO.lineamiento.resultado.correlativo (ej: 1102.1.1.1). */
+  get codigoProductoCompuesto(): string {
+    const base = this.codigoResultadoCompuesto;
+    return base ? `${base}.${this.correlativoProducto()}` : '';
+  }
 
   form: any = {
-    eje_pgdesa: '',
-    componente_pdesa: '',
+    eje: null,
     objetivo_impacto: '',
-    efecto: '',
-    ods_seleccionados: [] as number[],
-    ndc: '',
-    ndt: '',
-    meta_3030: '',
-    sector: '',
-    codigo_resultado_pds: '',
-    nombre_resultado_pds: '',
-    codigo_geografico: '',
+    componente: null,
+    objetivo_efecto: '',
+    ods: null,
+    ndc: null,
+    ndt: null,
+    kmgbf: null,
+    sector: null,
+    resultado_sectorial: null,
+    cgeo: null,
     eta: '',
-    codigo_resultado_pad: '',
-    denominacion_resultado_pad: '',
-    codigo_producto_pad: '',
-    denominacion_producto_pad: '',
+    politica: '',
+    lineamiento: null,
+    resultado: { denominacion: '', territorializacion: '', responsable: '', cuenta_con_financiamiento: false },
+    producto: { denominacion: '', territorializacion: '', responsable: '', cuenta_con_financiamiento: false },
+    indicador_resultado: { indicador: '', formula: '', unidad_medida: '', linea_base: null, meta_2030: null },
+    indicador_producto: { indicador: '', formula: '', unidad_medida: '', linea_base: null, meta_2030: null },
+    pf_resultado: { '2026': null, '2027': null, '2028': null, '2029': null, '2030': null },
+    pf_producto: { '2026': null, '2027': null, '2028': null, '2029': null, '2030': null },
+    presupuesto_total: null,
+    presupuesto_anual: { '2026': null, '2027': null, '2028': null, '2029': null, '2030': null },
     codigo_entidad: '',
+    entidad: '',
     codigo_resultado_pei: '',
     denominacion_resultado_pei: '',
     codigo_producto_pei: '',
     denominacion_producto_pei: '',
     tipo_contribucion: '',
     ponderacion: null,
-    indicador: '',
-    formula: '',
-    unidad_medida: '',
-    linea_base: null,
-    meta_2030: null,
-    fuente_indicador: '',
-    pf_2026: null, pf_2027: null, pf_2028: null, pf_2029: null, pf_2030: null,
-    inversion_2026: null, inversion_2027: null, inversion_2028: null,
-    inversion_2029: null, inversion_2030: null, inversion_2031: null,
-    corriente_2026: null, corriente_2027: null, corriente_2028: null,
-    corriente_2029: null, corriente_2030: null, corriente_2031: null,
   };
 
-  constructor(private api: ApiService, private router: Router) {}
+  constructor(private api: ApiService, private router: Router, private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void {
     this.cargarODS();
+    this.cargarCatalogos();
+  }
+
+  private cargarCatalogos(): void {
+    this.cargandoCatalogos = true;
+    this.api.get<any>('/articulacion/matrices/catalogos_articulacion/', { gestion: 2026 }).subscribe({
+      next: (r) => {
+        this.catalogoEjes = r.ejes || [];
+        this.catalogoComponentes = r.componentes || [];
+        this.catalogoLineamientos = r.lineamientos || [];
+        this.catalogoSectores = r.sectores || [];
+        this.catalogoUnidades = r.unidades_medida || [];
+        this.catalogoEntidadesTerritoriales = r.entidades_territoriales || [];
+        this.catalogoResultadosSectoriales = r.resultados_sectoriales || [];
+        this.cargandoCatalogos = false;
+        this.cdr.detectChanges();
+      },
+      error: () => { this.cargandoCatalogos = false; this.cdr.detectChanges(); },
+    });
+    // NDC/NDT/KMGBF desde el catálogo maestro (MetaAcuerdoInternacional)
+    this.api.get<any>('/articulacion/metas-acuerdo/', { tipo_acuerdo: 'NDC' }).subscribe({
+      next: (r) => { this.catalogoNDC = r.results || r || []; this.cdr.detectChanges(); },
+      error: () => { this.catalogoNDC = []; },
+    });
+    this.api.get<any>('/articulacion/metas-acuerdo/', { tipo_acuerdo: 'NDT' }).subscribe({
+      next: (r) => { this.catalogoNDT = r.results || r || []; this.cdr.detectChanges(); },
+      error: () => { this.catalogoNDT = []; },
+    });
+    this.api.get<any>('/articulacion/metas-acuerdo/', { tipo_acuerdo: 'KMGBF' }).subscribe({
+      next: (r) => { this.catalogo3030 = r.results || r || []; this.cdr.detectChanges(); },
+      error: () => { this.catalogo3030 = []; },
+    });
+    // Registros existentes para correlativos de códigos compuestos y códigos PEI
+    this.api.get<any>('/articulacion/resultados-pad/').subscribe({
+      next: (r) => {
+        this.existentesResultados = r.results || r || [];
+        this.prefijarCodigosPEI();
+        this.cdr.detectChanges();
+      },
+      error: () => { this.existentesResultados = []; },
+    });
+    this.api.get<any>('/articulacion/productos-pad/').subscribe({
+      next: (r) => { this.existentesProductos = r.results || r || []; this.cdr.detectChanges(); },
+      error: () => { this.existentesProductos = []; },
+    });
+    this.api.get<any>('/articulacion/resultados-pei/').subscribe({
+      next: (r) => {
+        this.existentesResultadosPEI = r.results || r || [];
+        this.prefijarCodigosPEI();
+        this.cdr.detectChanges();
+      },
+      error: () => { this.existentesResultadosPEI = []; },
+    });
+    this.api.get<any>('/articulacion/productos-pei/').subscribe({
+      next: (r) => {
+        this.existentesProductosPEI = r.results || r || [];
+        this.prefijarCodigosPEI();
+        this.cdr.detectChanges();
+      },
+      error: () => { this.existentesProductosPEI = []; },
+    });
+  }
+
+  /** Prefija códigos PEI sugeridos (editables) a partir de los existentes. */
+  private prefijarCodigosPEI(): void {
+    if (!this.form.codigo_resultado_pei) {
+      this.form.codigo_resultado_pei = `RPEI-${String(this.existentesResultadosPEI.length + 1).padStart(2, '0')}`;
+    }
+    if (!this.form.codigo_producto_pei) {
+      this.form.codigo_producto_pei = `PPEI-${String(this.existentesProductosPEI.length + 1).padStart(2, '0')}`;
+    }
+  }
+
+  /** Correlativo del resultado dentro del lineamiento (por catálogo y gestión). */
+  correlativoResultado(): number {
+    if (!this.form.lineamiento) return 1;
+    const lid = this.form.lineamiento.id;
+    return this.existentesResultados.filter(
+      r => r.lineamiento_pad_catalogo === lid && r.vigencia_desde === 2026,
+    ).length + 1;
+  }
+
+  /** Correlativo del producto dentro del resultado: resultado recién creado → 1. */
+  correlativoProducto(): number {
+    if (!this.form.cgeo || !this.form.lineamiento) return 1;
+    return 1;
+  }
+
+  /** Cascada: al cambiar el eje se limpia componente y lineamiento */
+  onEjeChange(): void {
+    this.form.componente = null;
+    this.form.lineamiento = null;
+    this.cdr.detectChanges();
+  }
+
+  /** Cascada: al cambiar el componente se limpia el lineamiento */
+  onComponenteChange(): void {
+    this.form.lineamiento = null;
+    this.cdr.detectChanges();
+  }
+
+  /** Al cambiar el lineamiento se refresca el código compuesto del resultado */
+  onLineamientoChange(): void {
+    this.cdr.detectChanges();
+  }
+
+  /** Al elegir el CGEO se pre-llena la ETA con la denominación del territorio */
+  onCgeoChange(): void {
+    if (this.form.cgeo) {
+      this.form.eta = this.form.cgeo.denominacion;
+    }
+    this.cdr.detectChanges();
+  }
+
+  /** Al cambiar el sector se limpia el resultado sectorial seleccionado */
+  onSectorChange(): void {
+    this.form.resultado_sectorial = null;
+    this.cdr.detectChanges();
   }
 
   private cargarODS(): void {
     this.api.get<any>('/articulacion/acuerdos/', { tipo_acuerdo: 'ODS' }).subscribe({
-      next: (r) => { this.catalogoODS = r.results || r || []; },
+      next: (r) => { this.catalogoODS = r.results || r || []; this.cdr.detectChanges(); },
       error: () => {
         // Catálogo hardcodeado si falla API
         this.catalogoODS = [
@@ -459,17 +760,8 @@ export class ArticulacionFormM1Component implements OnInit {
     });
   }
 
-  toggleODS(odsId: number): void {
-    const idx = this.form.ods_seleccionados.indexOf(odsId);
-    if (idx >= 0) {
-      this.form.ods_seleccionados.splice(idx, 1);
-    } else {
-      this.form.ods_seleccionados.push(odsId);
-    }
-  }
-
   irAPaso(paso: number): void {
-    if (paso >= 1 && paso <= 10) {
+    if (paso >= 1 && paso <= 12) {
       this.pasoActual = paso;
       this.mensajeError = '';
       this.mensajeExito = '';
@@ -493,28 +785,73 @@ export class ArticulacionFormM1Component implements OnInit {
 
   private validarPasoActual(): boolean {
     this.mensajeError = '';
-    // Validaciones básicas por paso
     if (this.pasoActual === 4) {
-      if (!this.form.codigo_resultado_pad || !this.form.denominacion_resultado_pad) {
-        this.mensajeError = 'Debe completar los datos del Resultado PAD.';
-        return false;
-      }
-      if (!this.form.codigo_producto_pad || !this.form.denominacion_producto_pad) {
-        this.mensajeError = 'Debe completar los datos del Producto PAD.';
+      if (!this.form.cgeo) {
+        this.mensajeError = 'Debe seleccionar el código geográfico (CGEO).';
         return false;
       }
     }
     if (this.pasoActual === 5) {
-      if (!this.form.codigo_resultado_pei || !this.form.denominacion_resultado_pei) {
-        this.mensajeError = 'Debe completar los datos del Resultado PEI.';
+      if (!this.form.lineamiento) {
+        this.mensajeError = 'Debe seleccionar el lineamiento estratégico PAD.';
         return false;
       }
-      if (!this.form.codigo_producto_pei || !this.form.denominacion_producto_pei) {
-        this.mensajeError = 'Debe completar los datos del Producto PEI.';
+    }
+    if (this.pasoActual === 6) {
+      if (!this.form.resultado.denominacion) {
+        this.mensajeError = 'Debe completar la denominación del Resultado PAD.';
+        return false;
+      }
+    }
+    if (this.pasoActual === 7) {
+      if (!this.form.producto.denominacion) {
+        this.mensajeError = 'Debe completar la denominación del Producto PAD.';
+        return false;
+      }
+    }
+    if (this.pasoActual === 8) {
+      if (!this.form.indicador_resultado.indicador || !this.form.indicador_resultado.unidad_medida) {
+        this.mensajeError = 'Debe completar indicador y unidad de medida del Resultado PAD.';
+        return false;
+      }
+    }
+    if (this.pasoActual === 9) {
+      if (!this.form.indicador_producto.indicador || !this.form.indicador_producto.unidad_medida) {
+        this.mensajeError = 'Debe completar indicador y unidad de medida del Producto PAD.';
+        return false;
+      }
+    }
+    if (this.pasoActual === 11) {
+      if (!this.form.denominacion_resultado_pei || !this.form.denominacion_producto_pei) {
+        this.mensajeError = 'Debe completar las denominaciones del Resultado y Producto PEI.';
         return false;
       }
     }
     return true;
+  }
+
+  private programaFisica(nivel: 'resultado' | 'producto'): Record<string, number> {
+    const pf = this.form[`pf_${nivel}`] || {};
+    const salida: Record<string, number> = {};
+    for (const year of this.quinquenio) {
+      const v = pf[year];
+      if (v !== null && v !== undefined && v !== '') {
+        salida[String(year)] = Number(v);
+      }
+    }
+    return salida;
+  }
+
+  private presupuestoAnual(): Record<string, number> {
+    const pa = this.form.presupuesto_anual || {};
+    const salida: Record<string, number> = {};
+    for (const year of this.quinquenio) {
+      const v = pa[year];
+      if (v !== null && v !== undefined && v !== '') {
+        salida[String(year)] = Number(v);
+      }
+    }
+    return salida;
   }
 
   guardarTodo(): void {
@@ -522,89 +859,92 @@ export class ArticulacionFormM1Component implements OnInit {
     this.mensajeError = '';
     this.mensajeExito = '';
 
-    // 1. Crear Resultado PAD
-    this.api.post<any>('/articulacion/resultados-pad/', {
-      codigo_resultado: this.form.codigo_resultado_pad,
-      denominacion: this.form.denominacion_resultado_pad,
-      codigo_geografico: this.form.codigo_geografico,
+    const gestion = 2026;
+    const idCadena = `M1${Date.now()}${Math.floor(Math.random() * 90 + 10)}`;
+
+    // 1. Crear Resultado PAD con todos los campos de la Matriz A/B
+    const payloadResultado: any = {
+      id_cadena: idCadena,
+      codigo_resultado: this.codigoResultadoCompuesto,
+      denominacion: this.form.resultado.denominacion,
+      lineamiento_pad: this.form.lineamiento ? this.form.lineamiento.codigo : '',
+      politica: this.form.politica,
+      territorializacion: this.form.resultado.territorializacion,
+      responsable_pad: this.form.resultado.responsable,
+      cuenta_con_financiamiento: !!this.form.resultado.cuenta_con_financiamiento,
+      vigencia_desde: gestion,
+      vigencia_hasta: 2030,
+      cod_geografico: this.form.cgeo ? this.form.cgeo.codigo : '',
       eta: this.form.eta,
-      sector: this.form.sector,
-      codigo_resultado_pds: this.form.codigo_resultado_pds,
-      nombre_resultado_pds: this.form.nombre_resultado_pds,
-      eje_pgdesa: this.form.eje_pgdesa,
-      componente_pdesa: this.form.componente_pdesa,
+      resultado_sectorial_catalogo: this.form.resultado_sectorial ? this.form.resultado_sectorial.id : null,
+      entidad_territorial_cgeo: this.form.cgeo ? this.form.cgeo.id : null,
+      lineamiento_pad_catalogo: this.form.lineamiento ? this.form.lineamiento.id : null,
+      acuerdo_ods: this.form.ods ? [this.form.ods.id] : [],
+      acuerdo_ndc: this.form.ndc ? [this.form.ndc.id] : [],
+      acuerdo_ndt: this.form.ndt ? [this.form.ndt.id] : [],
+      acuerdo_kmgbf: this.form.kmgbf ? [this.form.kmgbf.id] : [],
+      cod_eje_pgdesa: this.form.eje ? this.form.eje.codigo : '',
       objetivo_impacto: this.form.objetivo_impacto,
-      efecto: this.form.efecto,
-      ndc: this.form.ndc,
-      ndt: this.form.ndt,
-      meta_3030: this.form.meta_3030,
-    }).subscribe({
+      cod_componente_pdesa: this.form.componente ? this.form.componente.codigo : '',
+      objetivo_efecto: this.form.objetivo_efecto,
+      cod_sector: this.form.sector ? this.form.sector.codigo : '',
+      sector: this.form.sector ? this.form.sector.denominacion : '',
+      cod_resultado_pds: this.form.resultado_sectorial ? this.form.resultado_sectorial.codigo : '',
+      resultado_pds: this.form.resultado_sectorial ? this.form.resultado_sectorial.denominacion : '',
+      estado: 'REFERENCIAL',
+    };
+
+    this.api.post<any>('/articulacion/resultados-pad/', payloadResultado).subscribe({
       next: (resPad) => {
         const resultadoPadId = resPad.id || resPad;
+        const correlativoProductoReal = this.existentesProductos.filter(
+          p => p.resultado_pad === resultadoPadId,
+        ).length + 1;
 
         // 2. Crear Producto PAD vinculado
         this.api.post<any>('/articulacion/productos-pad/', {
-          codigo_producto: this.form.codigo_producto_pad,
-          denominacion: this.form.denominacion_producto_pad,
+          codigo_producto: `${this.codigoResultadoCompuesto}.${correlativoProductoReal}`,
+          denominacion: this.form.producto.denominacion,
           resultado_pad: resultadoPadId,
+          territorializacion: this.form.producto.territorializacion,
+          responsable: this.form.producto.responsable,
+          cuenta_con_financiamiento: !!this.form.producto.cuenta_con_financiamiento,
         }).subscribe({
           next: (prodPad) => {
             const productoPadId = prodPad.id || prodPad;
 
-            // 3. Crear Resultado PEI
-            this.api.post<any>('/articulacion/resultados-pei/', {
-              codigo_resultado: this.form.codigo_resultado_pei,
-              denominacion: this.form.denominacion_resultado_pei,
-              codigo_entidad: this.form.codigo_entidad,
-            }).subscribe({
-              next: (resPei) => {
-                const resultadoPeiId = resPei.id || resPei;
-
-                // 4. Crear Producto PEI vinculado
-                this.api.post<any>('/articulacion/productos-pei/', {
-                  codigo_producto: this.form.codigo_producto_pei,
-                  denominacion: this.form.denominacion_producto_pei,
-                  resultado_pei: resultadoPeiId,
-                }).subscribe({
-                  next: (prodPei) => {
-                    const productoPeiId = prodPei.id || prodPei;
-
-                    // 5. Crear Articulación PAD→PEI
-                    this.api.post<any>('/articulacion/articulaciones-pad-pei/', {
-                      producto_pad: productoPadId,
-                      producto_pei: productoPeiId,
-                      tipo_contribucion: this.form.tipo_contribucion,
-                      ponderacion: this.form.ponderacion,
-                      estado: 'REFERENCIAL',
-                    }).subscribe({
-                      next: (art) => {
-                        const articulacionId = art.id || art;
-
-                        // 6. Crear Indicador
-                        this.api.post<any>('/articulacion/indicadores/', {
-                          indicador: this.form.indicador,
-                          formula: this.form.formula,
-                          unidad_medida: this.form.unidad_medida,
-                          linea_base: this.form.linea_base,
-                          meta_2030: this.form.meta_2030,
-                          fuente: this.form.fuente_indicador,
-                          articulacion_pad_pei: articulacionId,
-                        }).subscribe({
-                          next: () => {
-                            this.mensajeExito = '✅ Articulación PAD→PEI creada exitosamente. Redirigiendo...';
-                            this.guardando = false;
-                            setTimeout(() => this.router.navigate(['/articulacion/pad-pei']), 2000);
-                          },
-                          error: (err) => { this.onError(err, 'Error al crear el indicador'); },
-                        });
-                      },
-                      error: (err) => { this.onError(err, 'Error al crear la articulación'); },
-                    });
-                  },
-                  error: (err) => { this.onError(err, 'Error al crear el producto PEI'); },
+            // 3. Indicador a nivel de RESULTADO PAD
+            const payloadIndicadorResultado: any = {
+              nivel_indicador: 'RESULTADO_PAD',
+              resultado_pad: resultadoPadId,
+              indicador: this.form.indicador_resultado.indicador,
+              formula: this.form.indicador_resultado.formula,
+              unidad_medida: this.form.indicador_resultado.unidad_medida,
+              linea_base: this.form.indicador_resultado.linea_base,
+              meta_2030: this.form.indicador_resultado.meta_2030,
+              programacion_fisica: this.programaFisica('resultado'),
+            };
+            this.api.post<any>('/articulacion/indicadores/', payloadIndicadorResultado).subscribe({
+              next: () => {
+                // 4. Indicador a nivel de PRODUCTO PAD (+ programación financiera)
+                const payloadIndicadorProducto: any = {
+                  nivel_indicador: 'PRODUCTO_PAD',
+                  producto_pad: productoPadId,
+                  indicador: this.form.indicador_producto.indicador,
+                  formula: this.form.indicador_producto.formula,
+                  unidad_medida: this.form.indicador_producto.unidad_medida,
+                  linea_base: this.form.indicador_producto.linea_base,
+                  meta_2030: this.form.indicador_producto.meta_2030,
+                  programacion_fisica: this.programaFisica('producto'),
+                  presupuesto_total: this.form.presupuesto_total,
+                  presupuesto_anual: this.presupuestoAnual(),
+                };
+                this.api.post<any>('/articulacion/indicadores/', payloadIndicadorProducto).subscribe({
+                  next: () => { this.crearBloquePEI(productoPadId); },
+                  error: (err) => { this.onError(err, 'Error al crear el indicador del producto'); },
                 });
               },
-              error: (err) => { this.onError(err, 'Error al crear el resultado PEI'); },
+              error: (err) => { this.onError(err, 'Error al crear el indicador del resultado'); },
             });
           },
           error: (err) => { this.onError(err, 'Error al crear el producto PAD'); },
@@ -614,9 +954,57 @@ export class ArticulacionFormM1Component implements OnInit {
     });
   }
 
+  /** Crea Resultado PEI → Producto PEI → Articulación PAD-PEI. */
+  private crearBloquePEI(productoPadId: string): void {
+    // 5. Crear Resultado PEI
+    this.api.post<any>('/articulacion/resultados-pei/', {
+      codigo_resultado: this.form.codigo_resultado_pei,
+      denominacion: this.form.denominacion_resultado_pei,
+      cod_entidad: this.form.codigo_entidad,
+      entidad: this.form.entidad || this.form.codigo_entidad,
+      vigencia_desde: 2026,
+      vigencia_hasta: 2030,
+    }).subscribe({
+      next: (resPei) => {
+        const resultadoPeiId = resPei.id || resPei;
+
+        // 6. Crear Producto PEI vinculado
+        this.api.post<any>('/articulacion/productos-pei/', {
+          codigo_producto: this.form.codigo_producto_pei,
+          denominacion: this.form.denominacion_producto_pei,
+          resultado_pei: resultadoPeiId,
+        }).subscribe({
+          next: (prodPei) => {
+            const productoPeiId = prodPei.id || prodPei;
+
+            // 7. Crear Articulación PAD→PEI
+            this.api.post<any>('/articulacion/articulaciones-pad-pei/', {
+              producto_pad: productoPadId,
+              producto_pei: productoPeiId,
+              tipo_contribucion: this.form.tipo_contribucion,
+              ponderacion: this.form.ponderacion,
+              estado: 'REFERENCIAL',
+            }).subscribe({
+              next: () => {
+                this.mensajeExito = '✅ Articulación PAD→PEI creada exitosamente. Redirigiendo...';
+                this.guardando = false;
+                this.cdr.detectChanges();
+                setTimeout(() => this.router.navigate(['/articulacion/pad-pei']), 2000);
+              },
+              error: (err) => { this.onError(err, 'Error al crear la articulación'); },
+            });
+          },
+          error: (err) => { this.onError(err, 'Error al crear el producto PEI'); },
+        });
+      },
+      error: (err) => { this.onError(err, 'Error al crear el resultado PEI'); },
+    });
+  }
+
   private onError(err: any, msg: string): void {
     console.error(msg, err);
     this.mensajeError = `❌ ${msg}. Verifique los datos e intente nuevamente.`;
     this.guardando = false;
+    this.cdr.detectChanges();
   }
 }

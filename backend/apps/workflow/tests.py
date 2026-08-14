@@ -25,14 +25,8 @@ from apps.planificacion.models import (
     Plan, NodoPlanificacion, AccionMedianoPlazo, AccionCortoPlazo,
 )
 from apps.techos.models import TechoPresupuestario, DistribucionTecho, MovimientoTecho
-from apps.poau.models import POAU, POAUActividad, EjecucionFisica, EjecucionFinanciera
 from apps.workflow.models import (
     EnvioFormulacion, Revision, Observacion, Aprobacion,
-)
-from apps.modificaciones.models import SolicitudModificacion, CambioModificacion
-from apps.indicadores.models import Indicador, MetaProgramada
-from apps.seguimiento.models import (
-    ReporteSeguimiento, EntradaSeguimiento, Alerta,
 )
 from apps.acciones_correctivas.models import AccionCorrectiva
 
@@ -155,18 +149,6 @@ class WorkflowBaseTestCase(TestCase):
             unidad_responsable=self.unidad, gestion=2026,
             fecha_inicio=date(2026, 1, 1),
             fecha_fin=date(2026, 12, 31),
-        )
-        self.poau = POAU.objects.create(
-            unidad=self.unidad, gestion=2026,
-            codigo='POAU-2026-001', nombre='POA Unidad Test',
-            estado='borrador', responsable=self.user_formulador,
-        )
-        self.actividad_poau = POAUActividad.objects.create(
-            poau=self.poau, codigo='ACT-01', nombre='Actividad POAU',
-            presupuesto_anual=Decimal('50000.00'),
-            meta_fisica_anual=Decimal('100.0000'),
-            meta_q1=Decimal('25.0000'), meta_q2=Decimal('25.0000'),
-            meta_q3=Decimal('25.0000'), meta_q4=Decimal('25.0000'),
         )
 
 
@@ -432,160 +414,6 @@ class AprobacionWorkflowTest(WorkflowBaseTestCase):
         )
 
 
-class POAUWorkflowTest(WorkflowBaseTestCase):
-    """Tests de transiciones de estado del POAU."""
-
-    def test_poau_estado_inicial_borrador(self):
-        self.assertEqual(self.poau.estado, 'borrador')
-
-    def test_poau_transicion_borrador_a_enviado(self):
-        self.poau.estado = 'enviado'
-        self.poau.save()
-        self.poau.refresh_from_db()
-        self.assertEqual(self.poau.estado, 'enviado')
-
-    def test_poau_transicion_enviado_a_aprobado(self):
-        self.poau.estado = 'enviado'
-        self.poau.save()
-        self.poau.estado = 'aprobado'
-        self.poau.save()
-        self.poau.refresh_from_db()
-        self.assertEqual(self.poau.estado, 'aprobado')
-
-    def test_poau_transicion_enviado_a_rechazado(self):
-        self.poau.estado = 'enviado'
-        self.poau.save()
-        self.poau.estado = 'rechazado'
-        self.poau.save()
-        self.poau.refresh_from_db()
-        self.assertEqual(self.poau.estado, 'rechazado')
-
-    def test_poau_rechazado_puede_volver_borrador(self):
-        self.poau.estado = 'enviado'
-        self.poau.save()
-        self.poau.estado = 'rechazado'
-        self.poau.save()
-        self.poau.estado = 'borrador'
-        self.poau.save()
-        self.poau.refresh_from_db()
-        self.assertEqual(self.poau.estado, 'borrador')
-
-    def test_poau_no_puede_ir_directo_a_aprobado(self):
-        self.poau.estado = 'borrador'
-        self.poau.save()
-        self.poau.refresh_from_db()
-        self.assertEqual(self.poau.estado, 'borrador')
-
-
-class EjecucionWorkflowTest(WorkflowBaseTestCase):
-    """Tests de ejecución física y financiera."""
-
-    def test_ejecucion_fisica_creacion(self):
-        ef = EjecucionFisica.objects.create(
-            actividad=self.actividad_poau, periodo='2026-Q1',
-            tipo_periodo='trimestral', programado=Decimal('25.0000'),
-            ejecutado=Decimal('20.0000'),
-        )
-        self.assertEqual(ef.programado, Decimal('25.0000'))
-        self.assertEqual(ef.ejecutado, Decimal('20.0000'))
-
-    def test_ejecucion_financiera_creacion(self):
-        ef = EjecucionFinanciera.objects.create(
-            actividad=self.actividad_poau, periodo='2026-Q1',
-            tipo_periodo='trimestral', programado=Decimal('12500.00'),
-            ejecutado=Decimal('10000.00'),
-        )
-        self.assertEqual(ef.programado, Decimal('12500.00'))
-
-    def test_avance_fisico_calculo(self):
-        EjecucionFisica.objects.create(
-            actividad=self.actividad_poau, periodo='2026-01',
-            tipo_periodo='mensual', programado=Decimal('10.0000'),
-            ejecutado=Decimal('8.0000'),
-        )
-        from django.db.models import Sum
-        from django.db.models.functions import Coalesce
-        from django.db.models import DecimalField
-        agg = EjecucionFisica.objects.filter(
-            actividad=self.actividad_poau
-        ).aggregate(
-            prog=Coalesce(Sum('programado'), 0, output_field=DecimalField(max_digits=20, decimal_places=4)),
-            ejec=Coalesce(Sum('ejecutado'), 0, output_field=DecimalField(max_digits=20, decimal_places=4)),
-        )
-        avance = float(agg['ejec']) / float(agg['prog']) * 100
-        self.assertAlmostEqual(avance, 80.0, places=1)
-
-    def test_avance_financiero_calculo(self):
-        EjecucionFinanciera.objects.create(
-            actividad=self.actividad_poau, periodo='2026-01',
-            tipo_periodo='mensual', programado=Decimal('50000.00'),
-            ejecutado=Decimal('25000.00'),
-        )
-        from django.db.models import Sum
-        from django.db.models.functions import Coalesce
-        from django.db.models import DecimalField
-        agg = EjecucionFinanciera.objects.filter(
-            actividad=self.actividad_poau
-        ).aggregate(
-            prog=Coalesce(Sum('programado'), 0, output_field=DecimalField(max_digits=20, decimal_places=2)),
-            ejec=Coalesce(Sum('ejecutado'), 0, output_field=DecimalField(max_digits=20, decimal_places=2)),
-        )
-        avance = float(agg['ejec']) / float(agg['prog']) * 100
-        self.assertAlmostEqual(avance, 50.0, places=1)
-
-    def test_semaforo_verde(self):
-        pct = 85
-        self.assertGreaterEqual(pct, 80)
-
-    def test_semaforo_amarillo(self):
-        pct = 60
-        self.assertGreaterEqual(pct, 50)
-        self.assertLess(pct, 80)
-
-    def test_semaforo_rojo(self):
-        pct = 30
-        self.assertLess(pct, 50)
-
-
-class IndicadorCalculoTest(WorkflowBaseTestCase):
-    """Tests de cálculo de indicadores y metas."""
-
-    def test_indicador_creacion(self):
-        ind = Indicador.objects.create(
-            codigo='IND-001', nombre='Indicador de prueba',
-            tipo_comportamiento='acumulable',
-            meta_anual=Decimal('100.0000'),
-        )
-        self.assertEqual(ind.meta_anual, Decimal('100.0000'))
-
-    def test_meta_programada_trimestres(self):
-        ind = Indicador.objects.create(
-            codigo='IND-002', nombre='Indicador Q',
-            tipo_comportamiento='acumulable',
-            meta_anual=Decimal('100.0000'),
-        )
-        meta = MetaProgramada.objects.create(
-            indicador=ind, gestion=2026, meta_anual=Decimal('100.0000'),
-            trimestre1=Decimal('20.0000'), trimestre2=Decimal('25.0000'),
-            trimestre3=Decimal('30.0000'), trimestre4=Decimal('25.0000'),
-        )
-        suma_q = meta.trimestre1 + meta.trimestre2 + meta.trimestre3 + meta.trimestre4
-        self.assertEqual(suma_q, meta.meta_anual)
-
-    def test_avance_porcentaje_indicador(self):
-        ind = Indicador.objects.create(
-            codigo='IND-003', nombre='Indicador avance',
-            tipo_comportamiento='acumulable',
-            meta_anual=Decimal('200.0000'),
-        )
-        MetaProgramada.objects.create(
-            indicador=ind, gestion=2026, meta_anual=Decimal('200.0000'),
-        )
-        ejecutado = Decimal('150.0000')
-        avance = (ejecutado / ind.meta_anual) * 100
-        self.assertEqual(avance, Decimal('75.0000'))
-
-
 class DateRangeValidationTest(WorkflowBaseTestCase):
     """Tests de validación de rangos de fecha."""
 
@@ -609,70 +437,6 @@ class DateRangeValidationTest(WorkflowBaseTestCase):
             gestion=2026,
         )
         self.assertGreater(obs.fecha_limite, timezone.now())
-
-
-class SolicitudModificacionWorkflowTest(WorkflowBaseTestCase):
-    """Tests de transiciones de solicitud de modificación."""
-
-    def test_solicitud_creacion_borrador(self):
-        sol = SolicitudModificacion.objects.create(
-            tipo='meta', gestion_fiscal=2026,
-            entidad_afectada_tipo='poau.POAUActividad',
-            entidad_afectada_id=self.actividad_poau.id,
-            motivo='Cambio de meta solicitado',
-            estado='borrador',
-        )
-        self.assertEqual(sol.estado, 'borrador')
-
-    def test_solicitud_transicion_borrador_a_revision(self):
-        sol = SolicitudModificacion.objects.create(
-            tipo='operacion', gestion_fiscal=2026,
-            entidad_afectada_tipo='poau.POAUActividad',
-            entidad_afectada_id=self.actividad_poau.id,
-            motivo='Cambio de operación', estado='borrador',
-        )
-        sol.estado = 'en_revision'
-        sol.save()
-        sol.refresh_from_db()
-        self.assertEqual(sol.estado, 'en_revision')
-
-    def test_solicitud_transicion_revision_a_aprobada(self):
-        sol = SolicitudModificacion.objects.create(
-            tipo='reprogramacion', gestion_fiscal=2026,
-            entidad_afectada_tipo='poau.POAUActividad',
-            entidad_afectada_id=self.actividad_poau.id,
-            motivo='Reprogramación anual', estado='en_revision',
-        )
-        sol.estado = 'aprobada'
-        sol.save()
-        sol.refresh_from_db()
-        self.assertEqual(sol.estado, 'aprobada')
-
-    def test_solicitud_transicion_revision_a_rechazada(self):
-        sol = SolicitudModificacion.objects.create(
-            tipo='incremento', gestion_fiscal=2026,
-            entidad_afectada_tipo='presupuesto.LineaPresupuestaria',
-            entidad_afectada_id=self.linea.id,
-            motivo='Incremento presupuestario', estado='en_revision',
-        )
-        sol.estado = 'rechazada'
-        sol.observaciones = 'No cumple requisitos'
-        sol.save()
-        sol.refresh_from_db()
-        self.assertEqual(sol.estado, 'rechazada')
-
-    def test_cambio_modificacion_asociado(self):
-        sol = SolicitudModificacion.objects.create(
-            tipo='meta', gestion_fiscal=2026,
-            entidad_afectada_tipo='poau.POAUActividad',
-            entidad_afectada_id=self.actividad_poau.id,
-            motivo='Cambio de meta', estado='borrador',
-        )
-        CambioModificacion.objects.create(
-            solicitud=sol, campo='meta_fisica_anual',
-            valor_anterior='100', valor_propuesto='150',
-        )
-        self.assertEqual(sol.cambios.count(), 1)
 
 
 class PresupuestoCeilingValidationTest(WorkflowBaseTestCase):
@@ -705,29 +469,6 @@ class PresupuestoCeilingValidationTest(WorkflowBaseTestCase):
         )
         self.assertGreater(mv.amount, Decimal('0'))
 
-    def test_poau_actividad_suma_trimestres(self):
-        act = POAUActividad.objects.create(
-            poau=self.poau, codigo='ACT-SUM',
-            nombre='Actividad Suma',
-            meta_fisica_anual=Decimal('100.0000'),
-            meta_q1=Decimal('25.0000'), meta_q2=Decimal('25.0000'),
-            meta_q3=Decimal('25.0000'), meta_q4=Decimal('25.0000'),
-        )
-        suma = act.meta_q1 + act.meta_q2 + act.meta_q3 + act.meta_q4
-        self.assertEqual(suma, act.meta_fisica_anual)
-
-    def test_poau_actividad_suma_trimestres_invalida(self):
-        from django.core.exceptions import ValidationError
-        act = POAUActividad(
-            poau=self.poau, codigo='ACT-BAD',
-            nombre='Actividad Inválida',
-            meta_fisica_anual=Decimal('100.0000'),
-            meta_q1=Decimal('30.0000'), meta_q2=Decimal('30.0000'),
-            meta_q3=Decimal('30.0000'), meta_q4=Decimal('30.0000'),
-        )
-        with self.assertRaises(ValidationError):
-            act.full_clean()
-
 
 class PEIPADPOAChainValidationTest(WorkflowBaseTestCase):
     """Tests de validación de la cadena PEI-PAD-POA."""
@@ -740,12 +481,6 @@ class PEIPADPOAChainValidationTest(WorkflowBaseTestCase):
 
     def test_nodo_vinculado_a_plan(self):
         self.assertEqual(self.nodo_amp.plan, self.plan_pei)
-
-    def test_poau_vinculado_a_unidad(self):
-        self.assertEqual(self.poau.unidad, self.unidad)
-
-    def test_poau_actividad_vinculada_a_poau(self):
-        self.assertEqual(self.actividad_poau.poau, self.poau)
 
 
 class APIClientWorkflowTest(APITestCase):

@@ -48,44 +48,7 @@ class AccionCorrectivaViewSetTests(TestCase):
             fecha_vigencia_desde=date(2026, 1, 1),
         )
 
-        from apps.seguimiento.models import (
-            ReporteSeguimiento, EntradaSeguimiento,
-        )
-        from apps.poau.models import POAU, POAUActividad
-
-        self.poau = POAU.objects.create(
-            unidad=self.unidad,
-            gestion=2026,
-            codigo='POAU-AC',
-            nombre='POAU Acciones Correctivas',
-        )
-        self.actividad = POAUActividad.objects.create(
-            poau=self.poau,
-            codigo='ACT-AC-001',
-            nombre='Actividad acciones correctivas',
-        )
-        self.reporte = ReporteSeguimiento.objects.create(
-            gestion=2026,
-            periodo='2026-Q1',
-            unidad_organizacional=self.unidad,
-        )
-        self.entrada = EntradaSeguimiento.objects.create(
-            reporte=self.reporte,
-            actividad=self.actividad,
-            porcentaje_avance_fisico=Decimal('30.00'),
-        )
-
-        from apps.seguimiento.models import Alerta
-        self.alerta = Alerta.objects.create(
-            entrada=self.entrada,
-            tipo='ejecucion_fisica_baja',
-            severidad='moderada',
-            mensaje='Avance físico por debajo del umbral',
-        )
-
         self.accion = AccionCorrectiva.objects.create(
-            alerta=self.alerta,
-            entry=self.entrada,
             description='Corregir el avance físico de la actividad',
             cause='Retraso en la adquisición de materiales',
             responsible=self.user,
@@ -98,8 +61,6 @@ class AccionCorrectivaViewSetTests(TestCase):
         )
 
         self.accion_data = {
-            'alerta': str(self.alerta.id),
-            'entry': str(self.entrada.id),
             'description': 'Implementar medidas correctivas adicionales',
             'cause': 'Incumplimiento parcial del plan',
             'responsible': str(self.user.id),
@@ -174,8 +135,6 @@ class AccionCorrectivaViewSetTests(TestCase):
         self.assertTrue(self.accion.esta_vencida)
 
         accion_futura = AccionCorrectiva.objects.create(
-            alerta=self.alerta,
-            entry=self.entrada,
             description='Acción que no vence',
             cause='Sin causa',
             responsible=self.user,
@@ -189,8 +148,6 @@ class AccionCorrectivaViewSetTests(TestCase):
 
     def test_obtener_acciones_por_cumplir(self):
         accion_por_cumplir = AccionCorrectiva.objects.create(
-            alerta=self.alerta,
-            entry=self.entrada,
             description='Acción por cumplir pronto',
             cause='Causa',
             responsible=self.user,
@@ -291,10 +248,6 @@ class AccionCorrectivaModelTests(TestCase):
             password='Test1234!',
         )
         from apps.organizacion.models import TipoUnidad, UnidadOrganizacional
-        from apps.seguimiento.models import (
-            ReporteSeguimiento, EntradaSeguimiento, Alerta,
-        )
-        from apps.poau.models import POAU, POAUActividad
 
         tipo = TipoUnidad.objects.create(
             codigo='AC-M', nombre='AC Modelo', nivel=1,
@@ -303,32 +256,9 @@ class AccionCorrectivaModelTests(TestCase):
             codigo='U-AC-M', nombre='Unidad AC Modelo', tipo=tipo, gestion=2026,
             fecha_vigencia_desde=date(2026, 1, 1),
         )
-        poau = POAU.objects.create(
-            unidad=self.unidad, gestion=2026, codigo='POAU-AC-M',
-            nombre='POAU AC Modelo',
-        )
-        actividad = POAUActividad.objects.create(
-            poau=poau, codigo='ACT-AC-M-001', nombre='Actividad AC modelo',
-        )
-        reporte = ReporteSeguimiento.objects.create(
-            gestion=2026, periodo='2026-Q1',
-            unidad_organizacional=self.unidad,
-        )
-        self.entrada = EntradaSeguimiento.objects.create(
-            reporte=reporte, actividad=actividad,
-            porcentaje_avance_fisico=Decimal('25.00'),
-        )
-        self.alerta = Alerta.objects.create(
-            entrada=self.entrada,
-            tipo='ejecucion_fisica_baja',
-            severidad='grave',
-            mensaje='Avance muy bajo',
-        )
 
     def test_accion_correctiva_str(self):
         accion = AccionCorrectiva.objects.create(
-            alerta=self.alerta,
-            entry=self.entrada,
             description='Corregir desviación en la ejecución del plan operativo',
             cause='Falta de recursos',
             responsible=self.user,
@@ -343,8 +273,6 @@ class AccionCorrectivaModelTests(TestCase):
 
     def test_esta_vencida_propiedad(self):
         accion = AccionCorrectiva.objects.create(
-            alerta=self.alerta,
-            entry=self.entrada,
             description='Acción vencida',
             cause='Causa',
             responsible=self.user,
@@ -358,8 +286,6 @@ class AccionCorrectivaModelTests(TestCase):
 
     def test_porcentaje_cumplimiento(self):
         accion = AccionCorrectiva.objects.create(
-            alerta=self.alerta,
-            entry=self.entrada,
             description='Acción con compromisos',
             cause='Causa',
             responsible=self.user,
@@ -390,8 +316,6 @@ class AccionCorrectivaModelTests(TestCase):
 
     def test_porcentaje_cumplimiento_sin_compromisos(self):
         accion = AccionCorrectiva.objects.create(
-            alerta=self.alerta,
-            entry=self.entrada,
             description='Sin compromisos',
             cause='Causa',
             responsible=self.user,
@@ -411,10 +335,6 @@ class CompromisoAccionCorrectivaModelTests(TestCase):
             password='Test1234!',
         )
         from apps.organizacion.models import TipoUnidad, UnidadOrganizacional
-        from apps.seguimiento.models import (
-            ReporteSeguimiento, EntradaSeguimiento, Alerta,
-        )
-        from apps.poau.models import POAU, POAUActividad
 
         tipo = TipoUnidad.objects.create(
             codigo='COMP-M', nombre='Compromiso Modelo', nivel=1,
@@ -423,29 +343,7 @@ class CompromisoAccionCorrectivaModelTests(TestCase):
             codigo='U-COMP-M', nombre='Unidad Compromiso', tipo=tipo,
             gestion=2026, fecha_vigencia_desde=date(2026, 1, 1),
         )
-        poau = POAU.objects.create(
-            unidad=self.unidad, gestion=2026, codigo='POAU-COMP-M',
-            nombre='POAU Compromiso',
-        )
-        actividad = POAUActividad.objects.create(
-            poau=poau, codigo='ACT-COMP-M-001',
-            nombre='Actividad compromiso',
-        )
-        reporte = ReporteSeguimiento.objects.create(
-            gestion=2026, periodo='2026-Q1',
-            unidad_organizacional=self.unidad,
-        )
-        entrada = EntradaSeguimiento.objects.create(
-            reporte=reporte, actividad=actividad,
-            porcentaje_avance_fisico=Decimal('20.00'),
-        )
-        self.alerta = Alerta.objects.create(
-            entrada=entrada, tipo='sin_evidencia', severidad='leve',
-            mensaje='Sin evidencia',
-        )
         self.accion = AccionCorrectiva.objects.create(
-            alerta=self.alerta,
-            entry=entrada,
             description='Acción para compromisos',
             cause='Causa',
             responsible=self.user,

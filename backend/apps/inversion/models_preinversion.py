@@ -246,15 +246,11 @@ class CondicionITCP(UUIDModel, TimeStampedModel):
     """Condición previa verificable del ITCP (RM 115 §ITCP)."""
 
     CATEGORIA_CHOICES = [
-        ('justificacion', 'Justificación y alineamiento'),
-        ('idea', 'Idea del proyecto'),
-        ('compromiso_social', 'Compromiso social'),
         ('derecho_propietario', 'Derecho propietario'),
-        ('terceros', 'Derechos de vía y terceros'),
-        ('ambiente', 'Impactos ambientales'),
-        ('riesgo', 'Riesgos y cambio climático'),
-        ('otros', 'Otros aspectos'),
-        ('conclusiones', 'Conclusiones y recomendaciones'),
+        ('uso_suelo', 'Compatibilidad de uso de suelo'),
+        ('terceros', 'Derecho de vía / afectaciones'),
+        ('riesgo', 'Riesgos no mitigables'),
+        ('competencia_institucional', 'Competencia institucional'),
     ]
 
     proyecto = models.ForeignKey(
@@ -283,6 +279,10 @@ class CondicionITCP(UUIDModel, TimeStampedModel):
     fuente = models.CharField(max_length=255, blank=True, default='')
     fecha_fuente = models.DateField(null=True, blank=True)
     referencia_fuente = models.CharField(max_length=500, blank=True, default='')
+    archivo = models.FileField(
+        upload_to='preinversion/condiciones/%Y/%m/', null=True, blank=True,
+    )
+    nombre_archivo = models.CharField(max_length=255, blank=True, default='')
 
     class Meta:
         verbose_name = 'Condición ITCP'

@@ -36,15 +36,11 @@ REGLA_CLASIFICACION = {
 }
 
 CONDICIONES_ITCP = [
-    ('justificacion', 'Justificación y alineamiento normativo', True),
-    ('idea', 'Idea, objetivos, beneficiarios, alternativas y localización', True),
-    ('compromiso_social', 'Compromiso social documentado', True),
-    ('derecho_propietario', 'Estado legal del derecho propietario', True),
-    ('terceros', 'Derechos de vía y afectación a terceros', True),
-    ('ambiente', 'Posibles impactos ambientales', True),
-    ('riesgo', 'Riesgos de desastre y adaptación al cambio climático', True),
-    ('otros', 'Otros aspectos según complejidad', False),
-    ('conclusiones', 'Conclusiones y recomendaciones', True),
+    ('derecho_propietario', 'Derecho propietario', True),
+    ('uso_suelo', 'Compatibilidad de uso de suelo', True),
+    ('terceros', 'Derecho de vía / afectaciones', True),
+    ('riesgo', 'Riesgos no mitigables', True),
+    ('competencia_institucional', 'Competencia institucional', True),
 ]
 
 PESOS_MADUREZ = {
@@ -85,6 +81,23 @@ def inicializar_itcp(proyecto, usuario=None):
                     'critica': critica, 'orden': orden, 'created_by': usuario,
                 },
             )
+    else:
+        # Sincronizar el checklist: eliminar condiciones que ya no forman parte
+        # del catálogo vigente (p. ej. tras cambios de negocio en RM 115).
+        catalogadas = {categoria for categoria, _, _ in CONDICIONES_ITCP}
+        itcp.condiciones.exclude(categoria__in=catalogadas).delete()
+        for orden, (categoria, titulo, critica) in enumerate(CONDICIONES_ITCP, start=1):
+            condicion, _ = CondicionITCP.objects.get_or_create(
+                itcp=itcp, categoria=categoria,
+                defaults={
+                    'proyecto': proyecto, 'titulo': titulo,
+                    'critica': critica, 'orden': orden, 'created_by': usuario,
+                },
+            )
+            condicion.titulo = titulo
+            condicion.critica = critica
+            condicion.orden = orden
+            condicion.save(update_fields=['titulo', 'critica', 'orden'])
     if proyecto.estado_preinversion in [
         EstadosExpedientePreinversion.REGISTRADA,
         EstadosExpedientePreinversion.ADMITIDA,

@@ -58,9 +58,6 @@ class AccionCorrectivaSerializer(serializers.ModelSerializer):
     verified_by_email = serializers.CharField(
         source='verified_by.email', read_only=True, default=None,
     )
-    alerta_descripcion = serializers.CharField(
-        source='alerta.descripcion', read_only=True, default=None,
-    )
     esta_vencida = serializers.BooleanField(read_only=True)
     porcentaje_cumplimiento = serializers.FloatField(read_only=True)
 

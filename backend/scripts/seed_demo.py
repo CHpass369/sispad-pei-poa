@@ -1,7 +1,7 @@
 """
 SISPAD-PEI-POA — Script de datos demo completos.
-Cadena completa: PGDESA -> PDESA -> PAD -> PEI -> POA -> POAU
-con indicadores, presupuesto, seguimiento y evaluacion.
+Cadena completa: PGDESA -> PDESA -> PAD -> PEI -> POA
+con presupuesto y techos presupuestarios.
 
 Ejecutar:
   docker compose exec backend python manage.py shell < scripts/seed_demo.py
@@ -521,98 +521,7 @@ with transaction.atomic():
         )
 
     # -----------------------------------------------------------------
-    # 8. INDICADORES Y OPERACIONES
-    # -----------------------------------------------------------------
-    print("\n--- INDICADORES Y OPERACIONES ---")
-    from apps.indicadores.models import (
-        Indicador, MetaProgramada, Operacion, Tarea, Producto,
-        MedioVerificacion, Supuesto,
-    )
-
-    ind_data = [
-        ('IND-001', 'km vias pavimentadas', 'km', 'acumulable', 2.5, 6.0),
-        ('IND-002', 'Puentes rehabilitados', 'unidades', 'acumulable', 1, 2),
-        ('IND-003', 'Personas con agua potable', 'personas', 'acumulable', 15000, 25000),
-        ('IND-004', 'km alcantarillado', 'km', 'acumulable', 3.0, 6.0),
-        ('IND-005', 'Mercados rehabilitados', 'unidades', 'acumulable', 2, 4),
-        ('IND-006', 'Productores capacitados', 'personas', 'acumulable', 200, 400),
-    ]
-    indicadores = []
-    for i, (cod, nombre, um, comportamiento, lb, meta) in enumerate(ind_data):
-        ind = g(Indicador, codigo=cod, nombre=nombre,
-                formula=f'({nombre} / Meta) x 100',
-                unidad_medida=gb(UnidadMedida, defaults={'denominacion': um, 'gestion': 2026}, codigo=um[:3].upper()),
-                tipo_comportamiento=comportamiento,
-                linea_base=Decimal(str(lb)),
-                anio_linea_base=2025,
-                meta_anual=Decimal(str(meta)),
-                medio_verificacion='Informes tecnicos y actas de recepcion',
-                frecuencia_medicion='Trimestral',
-                responsable=u_plan)
-        indicadores.append(ind)
-
-        MetaProgramada.objects.get_or_create(
-            indicador=ind, gestion=2026, version=1,
-            defaults={
-                'meta_anual': Decimal(str(meta)),
-                'trimestre1': Decimal(str(meta * 0.2)),
-                'trimestre2': Decimal(str(meta * 0.25)),
-                'trimestre3': Decimal(str(meta * 0.3)),
-                'trimestre4': Decimal(str(meta * 0.25)),
-            }
-        )
-
-        MedioVerificacion.objects.get_or_create(
-            indicador=ind, nombre=f'MV-{cod}',
-            defaults={'descripcion': f'Medio de verificacion para {nombre}', 'soporte_esperado': 'Fotos, informes, actas'}
-        )
-
-    # Operaciones y tareas
-    op_data = [
-        ('OP-001', 'Operacion de pavimentacion', to_obra, acps[0]),
-        ('OP-002', 'Operacion de puentes', to_obra, acps[2]),
-        ('OP-003', 'Operacion agua potable', to_obra, acps[1]),
-        ('OP-004', 'Operacion alcantarillado', to_obra, acps[5]),
-        ('OP-005', 'Operacion mercados', to_mantenimiento, acps[3]),
-        ('OP-006', 'Operacion productores', to_capacitacion, acps[4]),
-    ]
-    ops = []
-    for cod, nombre, tipo, acp in op_data:
-        op = g(Operacion, accion_corto_plazo=acp, codigo=cod, nombre=nombre,
-               tipo=tipo, fecha_inicio=date(2026, 1, 15), fecha_fin=date(2026, 11, 30))
-        ops.append(op)
-        for j in range(1, 3):
-            g(Tarea, operacion=op, codigo=f'T-{cod[-3:]}-{j}',
-              nombre=f'Tarea {j} de {nombre}')
-
-    # Productos
-    prod_data = [
-        ('PRD-001', 'Vias pavimentadas y seguras', acps[0]),
-        ('PRD-002', 'Puentes rehabilitados', acps[2]),
-        ('PRD-003', 'Red de agua potable instalada', acps[1]),
-        ('PRD-004', 'Red de alcantarillado operativa', acps[5]),
-        ('PRD-005', 'Mercados modernos y funcionales', acps[3]),
-        ('PRD-006', 'Productores capacitados en produccion', acps[4]),
-    ]
-    for cod, nombre, acp in prod_data:
-        g(Producto, accion_corto_plazo=acp, codigo=cod, nombre=nombre,
-          tipo='terminal', estado='acabado')
-
-    # Supuestos
-    sup_data = [
-        ('Disponibilidad de materiales de construccion', 'Incremento de precios de materiales'),
-        ('Estabilidad climatica favorables', 'Fenomenos meteorologicos extremos'),
-        ('Aporte oportuno del IDH', 'Retraso en transferencias del IDH'),
-        ('Capacidad operativa de la empresa contratista', 'Falta de empresas calificadas'),
-        ('Participacion activa de productores', 'Desinteres de los beneficiarios'),
-        ('Cumplimiento de normativa ambiental', 'Restricciones ambientales'),
-    ]
-    for i, (desc, riesgo) in enumerate(sup_data):
-        g(Supuesto, accion_corto_plazo=acps[i], descripcion=desc,
-          riesgo_externo=riesgo, probabilidad='Media')
-
-    # -----------------------------------------------------------------
-    # 9. ESTRUCTURA PRESUPUESTARIA
+    # 8. ESTRUCTURA PRESUPUESTARIA
     # -----------------------------------------------------------------
     print("\n--- ESTRUCTURA PRESUPUESTARIA ---")
     from apps.presupuesto.models import (
@@ -690,71 +599,11 @@ with transaction.atomic():
                programa=prog, proyecto=pry, actividad=act,
                finalidad_funcion=ff_func_07 if prog == prog_prod else ff_func_06,
                fuente=ff, organismo=of_gob, objeto_gasto=og,
-               importe=Decimal(str(monto)),
-               operacion=ops[lp_data.index((prog, pry, act, og, ff, monto))])
+               importe=Decimal(str(monto)))
         lineas.append(lp)
 
     # -----------------------------------------------------------------
-    # 12. POAU - PLAN OPERATIVO ANUAL POR UNIDAD
-    # -----------------------------------------------------------------
-    print("\n--- POAU ---")
-    from apps.poau.models import POAU, POAUActividad, EjecucionFisica, EjecucionFinanciera
-
-    poau_data = [
-        ('POAU-UPL-2026', 'POAU Unidad de Planificacion Estrategica 2026',
-         uo_upl, resultados[0], 'aprobado', u_tecnico),
-        ('POAU-UIP-2026', 'POAU Unidad de Inversion Publica 2026',
-         uo_uip, resultados[2], 'enviado', u_jefe_obras),
-        ('POAU-UMANT-2026', 'POAU Unidad de Mantenimiento 2026',
-         uo_umant, resultados[4], 'borrador', u_tecnico),
-    ]
-    all_actividades = []
-    for codigo, nombre, unidad, res, estado, resp in poau_data:
-        poau = g(POAU, codigo=codigo, nombre=nombre, unidad=unidad,
-                 producto_territorial=res.productos.first(),
-                 gestion=2026, estado=estado, responsable=resp)
-
-        # 3 actividades por POAU
-        act_data = [
-            (f'ACT-{codigo[-4:]}-01', f'Actividad 1 de {unidad.sigla}', Decimal('120'), Decimal('500000'), og_211),
-            (f'ACT-{codigo[-4:]}-02', f'Actividad 2 de {unidad.sigla}', Decimal('80'), Decimal('300000'), og_132),
-            (f'ACT-{codigo[-4:]}-03', f'Actividad 3 de {unidad.sigla}', Decimal('40'), Decimal('200000'), og_122),
-        ]
-        for act_cod, act_nom, meta, pres, og in act_data:
-            act = g(POAUActividad, poau=poau, codigo=act_cod, nombre=act_nom,
-                    objeto_gasto=og,
-                    meta_fisica_anual=meta, presupuesto_anual=pres,
-                    meta_q1=(meta * Decimal('0.2')).quantize(Decimal('0.0001')),
-                    meta_q2=(meta * Decimal('0.25')).quantize(Decimal('0.0001')),
-                    meta_q3=(meta * Decimal('0.3')).quantize(Decimal('0.0001')),
-                    meta_q4=(meta * Decimal('0.25')).quantize(Decimal('0.0001')),
-                    accion_corto_plazo=acps[0])
-            all_actividades.append(act)
-
-            # Ejecucion fisica trimestral
-            for q, pct in [('2026-Q1', Decimal('0.9')), ('2026-Q2', Decimal('0.7')),
-                           ('2026-Q3', Decimal('0.3')), ('2026-Q4', Decimal('0'))]:
-                prog_val = (meta * {'2026-Q1': Decimal('0.25'), '2026-Q2': Decimal('0.25'),
-                                    '2026-Q3': Decimal('0.25'), '2026-Q4': Decimal('0.25')}[q]).quantize(Decimal('0.0001'))
-                ejec_val = (prog_val * pct).quantize(Decimal('0.0001'))
-                EjecucionFisica.objects.get_or_create(
-                    actividad=act, periodo=q,
-                    defaults={'tipo_periodo': 'trimestral', 'programado': prog_val, 'ejecutado': ejec_val}
-                )
-
-            # Ejecucion financiera trimestral
-            for q, pct in [('2026-Q1', Decimal('0.85')), ('2026-Q2', Decimal('0.65')),
-                           ('2026-Q3', Decimal('0.25')), ('2026-Q4', Decimal('0'))]:
-                prog_val = pres * {'2026-Q1': Decimal('0.25'), '2026-Q2': Decimal('0.25'),
-                                   '2026-Q3': Decimal('0.25'), '2026-Q4': Decimal('0.25')}[q]
-                ejec_val = (prog_val * pct).quantize(Decimal('0.01'))
-                EjecucionFinanciera.objects.get_or_create(
-                    actividad=act, periodo=q,
-                    defaults={'tipo_periodo': 'trimestral', 'programado': prog_val, 'ejecutado': ejec_val}
-                )
-
-    # -----------------------------------------------------------------
-    # 13. RESUMEN FINAL
+    # 9. RESUMEN FINAL
     # -----------------------------------------------------------------
     print("\n" + "=" * 70)
     print("DATOS DEMO COMPLETADOS EXITOSAMENTE")
@@ -769,15 +618,9 @@ with transaction.atomic():
     print(f"  ACP:                {AccionCortoPlazo.objects.count()}")
     print(f"  PAD Resultados:     {ResultadoTerritorial.objects.count()}")
     print(f"  PAD Productos:      {ProductoTerritorial.objects.count()}")
-    print(f"  Indicadores:        {Indicador.objects.count()}")
-    print(f"  Operaciones:        {Operacion.objects.count()}")
     print(f"  Programas:          {ProgramaPresupuestario.objects.count()}")
     print(f"  Lineas presup.:     {LineaPresupuestaria.objects.count()}")
     print(f"  Techos:             {TechoPresupuestario.objects.count()}")
-    print(f"  POAUs:              {POAU.objects.count()}")
-    print(f"  Actividades POAU:   {POAUActividad.objects.count()}")
-    print(f"  Ejecuciones fis.:   {EjecucionFisica.objects.count()}")
-    print(f"  Ejecuciones fin.:   {EjecucionFinanciera.objects.count()}")
     techo_total = sum(t.monto_total for t in TechoPresupuestario.objects.filter(gestion=2026))
     print(f"  Techo total:        Bs {techo_total:,.2f}")
     print("\n  USUARIOS (credenciales configuradas mediante variables de entorno):")
@@ -794,6 +637,6 @@ with transaction.atomic():
     for email, account in demo_accounts:
         print(f"    {email} / {DEMO_PASSWORD_ENV[account]}")
     print("=" * 70)
-    print("Cadena PGDESA -> PDESA -> PTDI -> PEI -> POA -> POAU completa.")
+    print("Cadena PGDESA -> PDESA -> PTDI -> PEI -> POA completa.")
     print("GAM Sacaba — Sistema Integrado de Planificacion.")
     print("=" * 70)

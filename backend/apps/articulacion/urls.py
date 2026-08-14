@@ -1,12 +1,12 @@
 from rest_framework.routers import DefaultRouter
 from .views import (
-    CodigoNivelViewSet, AcuerdoInternacionalViewSet, NormativaViewSet,
+    CodigoNivelViewSet, AcuerdoInternacionalViewSet, MetaAcuerdoInternacionalViewSet, NormativaViewSet,
     LineamientoPADViewSet, ResultadoPADViewSet, ProductoPADViewSet,
     ResultadoPEIViewSet, ProductoPEIViewSet, ArticulacionPADPEIViewSet,
     IndicadorCadenaViewSet, AccionPOAViewSet, OperacionPOAUViewSet,
     ActividadPOAUViewSet, ActividadNormativaViewSet, TareaPOAUViewSet,
     TareaNormativaViewSet, SeguimientoPresupuestoViewSet,
-    AsignacionObjetoGastoViewSet,
+    AsignacionObjetoGastoViewSet, BorradorMatrizPADViewSet,
 )
 from .views_matrices import MatrizViewSet
 
@@ -26,9 +26,11 @@ router.register(r'normativas-tarea', TareaNormativaViewSet)
 router.register(r'seguimientos', SeguimientoPresupuestoViewSet)
 router.register(r'asignaciones-gasto', AsignacionObjetoGastoViewSet)
 router.register(r'acuerdos', AcuerdoInternacionalViewSet)
+router.register(r'metas-acuerdo', MetaAcuerdoInternacionalViewSet)
 router.register(r'normativas', NormativaViewSet)
 router.register(r'codigos-nivel', CodigoNivelViewSet)
 router.register(r'lineamientos-pad', LineamientoPADViewSet)
+router.register(r'borradores-matriz-pad', BorradorMatrizPADViewSet)
 router.register(r'matrices', MatrizViewSet, basename='matrices')
 
 urlpatterns = router.urls

@@ -13,7 +13,6 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('catalogos', '0001_initial'),
-        ('indicadores', '0002_initial'),
         ('organizacion', '0001_initial'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
@@ -103,7 +102,6 @@ class Migration(migrations.Migration):
                 ('finalidad_funcion', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='lineas', to='catalogos.finalidadfuncion')),
                 ('fuente', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='lineas', to='catalogos.fuentefinanciamiento')),
                 ('objeto_gasto', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='lineas', to='catalogos.objetogasto')),
-                ('operacion', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='lineas_presupuestarias', to='indicadores.operacion')),
                 ('organismo', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.PROTECT, related_name='lineas', to='catalogos.organismofinanciador')),
                 ('ue', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='lineas', to='organizacion.unidadejecutora')),
                 ('updated_by', models.ForeignKey(blank=True, editable=False, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='+', to=settings.AUTH_USER_MODEL)),

@@ -281,12 +281,6 @@ class Command(BaseCommand):
         if 'ACP-AMP' in wb.sheetnames:
             self._importar_acp_amp(wb['ACP-AMP'])
 
-        # Hoja Datos154-SMISSMPDT: Datos de seguimiento
-        for sheet_name in wb.sheetnames:
-            if sheet_name.startswith('Datos'):
-                self._importar_datos_seguimiento(wb[sheet_name], sheet_name)
-                break  # Solo una hoja de datos
-
         wb.close()
 
     def _importar_acp_amp(self, ws):
@@ -357,40 +351,3 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.WARNING(f'  Error AMP {amp_cod}: {e}'))
 
         self.stdout.write(f'  AMP: {count_amp}, ACP: {count_acp}')
-
-    def _importar_datos_seguimiento(self, ws, sheet_name):
-        """Importa indicadores y metas de las hojas de seguimiento."""
-        from apps.indicadores.models import Indicador, MetaProgramada
-        from apps.planificacion.models import AccionCortoPlazo
-
-        count_inds = 0
-        headers = [str(c)[:50] if c else '' for c in list(ws.iter_rows(min_row=1, max_row=1, values_only=True))[0]]
-
-        # Encontrar columnas de interés
-        col_idx = {h: i for i, h in enumerate(headers) if h}
-
-        for row in ws.iter_rows(min_row=2, values_only=True):
-            if not any(row):
-                continue
-
-            indicador_nom = str(row[col_idx.get('INDICADOR', 18)]).strip() if col_idx.get('INDICADOR', 18) < len(row) and row[col_idx.get('INDICADOR', 18)] else ''
-            formula = str(row[col_idx.get('Fórmula', 19)]).strip() if col_idx.get('Fórmula', 19) < len(row) and row[col_idx.get('Fórmula', 19)] else ''
-            lb = str(row[col_idx.get('Línea Base 2020', 20)]).strip() if col_idx.get('Línea Base 2020', 20) < len(row) and row[col_idx.get('Línea Base 2020', 20)] else ''
-
-            if not indicador_nom:
-                continue
-
-            try:
-                Indicador.objects.get_or_create(
-                    codigo=f'IND-{sheet_name}-{count_inds + 1}',
-                    defaults={
-                        'nombre': indicador_nom[:500],
-                        'formula': formula[:500],
-                        'linea_base': Decimal(str(lb)) if lb else None,
-                    }
-                )
-                count_inds += 1
-            except Exception as e:
-                self.stdout.write(self.style.WARNING(f'  Error indicador: {e}'))
-
-        self.stdout.write(f'  Indicadores: {count_inds}')

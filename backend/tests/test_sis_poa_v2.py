@@ -19,13 +19,12 @@ from apps.planificacion.models_v2 import (
     VersionInstrumento,
     VersionMetodologia,
 )
-from apps.poau.migration_v2 import (
-    comparar_duplicados_poa,
+from apps.sis_poa.migration_v2 import (
     importar_poa_v2,
     resumen_presupuesto,
     validar_techo,
 )
-from apps.poau.models_v2 import (
+from apps.sis_poa.models import (
     AccionCortoPlazo,
     Actividad,
     Operacion,
@@ -265,51 +264,6 @@ def test_validar_techo_excede(poa_legacy, version_pei, fuente):
     resultado = validar_techo(poa)
     assert resultado['excede'] is True
     assert float(resultado['techo']) == 100000
-
-
-def test_comparar_duplicados_poa(poa_legacy):
-    from datetime import date as _date
-    from apps.indicadores.models import Operacion as OpInd, Tarea as TareaInd
-    from apps.organizacion.models import TipoUnidad, UnidadOrganizacional
-    from apps.planificacion.models import (
-        AccionCortoPlazo as AccionLegacy,
-        AccionMedianoPlazo,
-        NodoPlanificacion,
-        Plan,
-    )
-
-    plan = Plan.objects.create(
-        codigo='PEI-LEG', nombre='PEI', tipo='pei',
-        gestion_inicio=2021, gestion_fin=2025,
-        fecha_vigencia_desde=_date(2021, 1, 1),
-    )
-    nodo = NodoPlanificacion.objects.create(
-        plan=plan, nivel='accion_mediano', codigo='AMP-1', gestion=2025,
-        nombre='AMP',
-    )
-    amp = AccionMedianoPlazo.objects.create(
-        codigo='AMP-1', nombre='AMP', nodo_planificacion=nodo,
-        gestion_inicio=2021, gestion_fin=2025,
-    )
-    tipo, _ = TipoUnidad.objects.get_or_create(
-        codigo='SEC-X', defaults={'nombre': 'Secretaría', 'nivel': 1},
-    )
-    unidad, _ = UnidadOrganizacional.objects.get_or_create(
-        codigo='SEC-X-2027', gestion=2027,
-        defaults={
-            'nombre': 'Secretaría X', 'tipo': tipo,
-            'fecha_vigencia_desde': _date(2027, 1, 1),
-        },
-    )
-    accion = AccionLegacy.objects.create(
-        codigo='ACP-01', nombre='Acción 1', accion_mediano_plazo=amp,
-        unidad_responsable=unidad, gestion=2027,
-    )
-    op_ind = OpInd.objects.create(codigo='OP-01', nombre='Operación 1', accion_corto_plazo=accion)
-    TareaInd.objects.create(codigo='TAR-01', nombre='Tarea 1', operacion=op_ind)
-    reporte = comparar_duplicados_poa()
-    assert reporte['operaciones']['coinciden_codigo_y_nombre'] == 1
-    assert reporte['tareas']['coinciden_codigo_y_nombre'] == 1
 
 
 # ---------------------------------------------------------------------------

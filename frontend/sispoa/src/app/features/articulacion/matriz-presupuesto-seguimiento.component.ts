@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { ApiService } from '../../core/services/api.service';
 import {
   ARTICULATION_MANAGEMENT,
@@ -36,6 +36,7 @@ import {
             <label>Estado</label>
             <select [(ngModel)]="filtroEstado" class="form-control" (change)="aplicarFiltros()">
               <option value="">Todos</option>
+              <option value="PROVISIONAL">Provisional</option>
               <option value="REFERENCIAL">Referencial</option>
               <option value="EJECUTADO">Ejecutado</option>
             </select>
@@ -182,7 +183,7 @@ export class MatrizPresupuestoSeguimientoComponent implements OnInit {
   filtroGestion = '';
   filtroEstado = '';
 
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void {
     this.cargarDatos();
@@ -202,6 +203,7 @@ export class MatrizPresupuestoSeguimientoComponent implements OnInit {
         )].sort();
         this.aplicarFiltros();
         this.cargando = false;
+        this.cdr.detectChanges();
       },
       error: () => { this.cargando = false; },
     });

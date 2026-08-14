@@ -26,25 +26,19 @@ LOCAL_APPS = [
     'apps.catalogos',
     'apps.normativa',
     'apps.planificacion',
-    'apps.indicadores',
-    'apps.recursos',
     'apps.techos',
     'apps.presupuesto',
     'apps.inversion',
-    'apps.territorio',
     'apps.pad',
     'apps.workflow',
     'apps.documentos',
     'apps.reportes',
     'apps.auditoria',
-    'apps.poau',
-    'apps.evaluacion',
-    'apps.modificaciones',
     'apps.notificaciones',
-    'apps.seguimiento',
     'apps.acciones_correctivas',
     'apps.articulacion',
     'apps.codificacion',
+    'apps.sis_poa',
 ]
 
 THIRD_PARTY_APPS = [
@@ -212,13 +206,7 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
 
 # Tareas programadas (celery beat) — WP-12
-CELERY_BEAT_SCHEDULE = {
-    'exportar-poa-completo-diario': {
-        'task': 'apps.reportes.tasks.exportar_poa_completo_async',
-        'schedule': crontab(hour=1, minute=0),
-        'args': (datetime.now().year,),
-    },
-}
+CELERY_BEAT_SCHEDULE = {}
 
 # Logging (WP-12): consola estructurada + archivo rotativo
 (BASE_DIR / 'logs').mkdir(parents=True, exist_ok=True)

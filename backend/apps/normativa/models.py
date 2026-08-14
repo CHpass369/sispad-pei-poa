@@ -42,6 +42,13 @@ class ReglaPresupuestariaLegal(TimeStampedModel, ActivableModel):
         PROHIBICION = 'prohibicion', 'Prohibición'
         CONSISTENCIA = 'consistencia', 'Consistencia'
         DOCUMENTACION = 'documentacion', 'Documentación'
+        PORCENTAJE = 'porcentaje', 'Porcentaje'
+        IMPUTACION = 'imputacion', 'Imputación'
+        PROGRAMA = 'programa', 'Programa'
+        FUENTE = 'fuente', 'Fuente'
+        PERSONAL = 'personal', 'Personal'
+        DESTINO = 'destino', 'Destino'
+        CODIGO = 'codigo', 'Código'
 
     class Severidad(models.TextChoices):
         INFORMATIVA = 'informativa', 'Informativa'

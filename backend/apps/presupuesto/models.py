@@ -417,10 +417,6 @@ class LineaPresupuestaria(TimeStampedModel):
     importe = models.DecimalField(max_digits=20, decimal_places=2, validators=[MinValueValidator(0)])
     importe_plurianual = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True, validators=[MinValueValidator(0)])
     importe_gestion_anterior = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True, validators=[MinValueValidator(0)])
-    operacion = models.ForeignKey(
-        'indicadores.Operacion', on_delete=models.SET_NULL,
-        null=True, blank=True, related_name='lineas_presupuestarias'
-    )
     version = models.PositiveIntegerField(default=1)
     activo = models.BooleanField(default=True)
 

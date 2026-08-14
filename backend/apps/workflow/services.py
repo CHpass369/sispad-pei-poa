@@ -77,25 +77,6 @@ def subsanar(observacion_id, usuario, respuesta, evidencia=''):
     return {'exito': True, 'mensaje': 'Observacion subsanada.'}
 
 
-def consolidar_poa(gestion, version, usuario):
-    from apps.poau.models import POAU
-    poaus = POAU.objects.filter(gestion=gestion, estado='aprobado')
-    total = poaus.count()
-    aprobacion = Aprobacion.objects.create(
-        gestion=gestion,
-        tipo='consolidacion',
-        aprobado_por=usuario,
-        estado='aprobado',
-        version=version,
-        comentario='Consolidacion institucional del POA',
-    )
-    return {
-        'exito': True,
-        'total_poaus': total,
-        'aprobacion_id': str(aprobacion.id),
-    }
-
-
 def verificar_permisos_estado(usuario, estado_actual, accion):
     from apps.core.permissions import TRANSICIONES_WORKFLOW, _user_has_role
     transiciones = TRANSICIONES_WORKFLOW.get(estado_actual, {})

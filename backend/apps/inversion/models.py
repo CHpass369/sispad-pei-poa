@@ -89,7 +89,6 @@ from apps.inversion.models_v2 import (  # noqa: F401,E402
     DocumentoTecnico,
     CostoProyecto,
     VinculoProyectoActividad,
-    ProyectoTerritorio,
     FasesProyecto,
     EstadosProyecto,
 )

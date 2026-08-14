@@ -45,44 +45,63 @@ import { CondicionITCP, ITCP, PreinversionService } from './preinversion.service
       </div>
     </div>
 
-    <div class="card" *ngIf="condiciones.length && !cargando">
-      <h3>Matriz de condiciones previas</h3>
+    <div class="card" *ngIf="itcp && !cargando">
+      <h3>Checklist de condiciones previas</h3>
       <div class="semafaro">
         <span class="chip verde">{{ resueltas }} resueltas</span>
         <span class="chip rojo">{{ pendientes }} pendientes</span>
         <span class="chip gris">{{ criticas }} críticas</span>
       </div>
-      <table class="data-table">
-        <thead>
-          <tr><th>Categoría</th><th>Condición</th><th>Estado</th><th>Hallazgo / Plan de acción</th><th>Crítica</th><th></th></tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let c of condiciones" [class.no-aplica]="c.estado === 'no_aplica'">
-            <td>{{ service.condicionCategoria(c.categoria) }}</td>
-            <td>
-              <strong>{{ c.titulo }}</strong>
-              <textarea *ngIf="editando === c.id" [(ngModel)]="c.hallazgo" name="h" rows="2" class="input" placeholder="Hallazgo"></textarea>
-              <textarea *ngIf="editando === c.id" [(ngModel)]="c.plan_accion" name="pa" rows="2" class="input" placeholder="Plan de acción"></textarea>
-              <textarea *ngIf="editando === c.id && c.estado === 'no_aplica'" [(ngModel)]="c.justificacion_no_aplica" name="jna" rows="2" class="input" placeholder="Justificación de no aplica"></textarea>
-            </td>
-            <td>
-              <select [(ngModel)]="c.estado" name="est" class="input" (change)="guardarCondicion(c)">
-                <option *ngFor="let e of service.estadosCondicion" [value]="e">{{ etiquetaEstado(e) }}</option>
-              </select>
-            </td>
-            <td>
-              <span *ngIf="editando !== c.id" class="texto">{{ c.hallazgo || '—' }}</span>
-            </td>
-            <td>{{ c.critica ? '🔴' : '—' }}</td>
-            <td>
-              <button class="btn btn-sm" (click)="toggleEditar(c)" [disabled]="!puedeEditar">
-                {{ editando === c.id ? 'Cerrar' : '✎' }}
-              </button>
-              <button class="btn btn-sm" *ngIf="editando === c.id" (click)="guardarCondicion(c)" [disabled]="!puedeEditar">Guardar</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <p class="text-secondary">
+        Marque cada condición cumplida y adjunte el documento de respaldo.
+      </p>
+      <div class="condiciones-checklist">
+        <div
+          class="condicion"
+          *ngFor="let c of condiciones"
+          [class.recuadro-critica]="c.critica && !condicionCumplida(c)"
+        >
+          <label class="check-row">
+            <input
+              type="checkbox"
+              [checked]="condicionCumplida(c)"
+              (change)="toggleCondicion(c, $event)"
+              [disabled]="!puedeEditar"
+            />
+            <div class="check-info">
+              <div class="condicion-titulo">
+                <span class="icono-condicion">🔒</span>
+                {{ c.titulo }}
+                <span class="critica" *ngIf="c.critica" title="Condición crítica">🔴</span>
+              </div>
+              <div class="condicion-cat">{{ service.condicionCategoria(c.categoria) }}</div>
+            </div>
+          </label>
+
+          <div class="condicion-adjunto" *ngIf="condicionCumplida(c)">
+            <input
+              type="file"
+              class="form-control"
+              (change)="subirDocumento(c, $event)"
+              [disabled]="!puedeEditar || guardandoArchivo"
+              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+            />
+            <span *ngIf="c.nombre_archivo" class="archivo-subido">
+              ✔ {{ c.nombre_archivo }}
+              <a *ngIf="c.archivo_url" [href]="c.archivo_url" target="_blank">Ver</a>
+            </span>
+            <textarea
+              *ngIf="c.estado !== 'cumple' && c.estado !== 'aprobada'"
+              [(ngModel)]="c.hallazgo"
+              name="h{{ c.id }}"
+              rows="2"
+              class="form-control"
+              placeholder="Hallazgo / evidencia"
+              (change)="guardarCondicion(c)"
+            ></textarea>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="card" *ngIf="itcp && !cargando">
@@ -115,6 +134,20 @@ import { CondicionITCP, ITCP, PreinversionService } from './preinversion.service
     .data-table th, .data-table td { padding: 0.5rem 0.625rem; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
     .no-aplica td { opacity: 0.6; }
     .texto { white-space: pre-wrap; }
+    .condiciones-checklist { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 0.75rem; }
+    .condicion { border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem; }
+    .recuadro-critica { border-color: #EF9A9A; background: #FFF8F8; }
+    .check-row { display: flex; align-items: flex-start; gap: 0.625rem; cursor: pointer; }
+    .check-row input[type="checkbox"] { margin-top: 0.25rem; width: 1.1rem; height: 1.1rem; accent-color: var(--primary); }
+    .check-info { display: flex; flex-direction: column; gap: 0.125rem; }
+    .condicion-titulo { font-size: 0.8125rem; font-weight: 600; }
+    .icono-condicion { margin-right: 0.25rem; }
+    .condicion-cat { font-size: 0.6875rem; color: var(--text-secondary); }
+    .critica { font-size: 0.875rem; }
+    .condicion-adjunto { display: flex; flex-direction: column; gap: 0.375rem; padding-left: 1.75rem; }
+    .condicion-adjunto input[type="file"] { font-size: 0.75rem; padding: 0.375rem; border: 1px solid var(--border); border-radius: 4px; }
+    .archivo-subido { font-size: 0.75rem; color: #2E7D32; display: inline-flex; gap: 0.5rem; align-items: center; }
+    .archivo-subido a { color: #1565C0; }
     .badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.6875rem; font-weight: 600; background: #E3F2FD; color: #1565C0; }
     .estado { background: #F3E5F5; color: #6A1B9A; }
     .acciones { display: flex; gap: 0.5rem; flex-wrap: wrap; }
@@ -133,11 +166,11 @@ export class PreinversionItcpComponent implements OnInit {
   proyectoId = '';
   itcp: ITCP | null = null;
   condiciones: CondicionITCP[] = [];
-  editando: string | null = null;
   errores: string[] = [];
   cargando = true;
   error = '';
   mensaje = '';
+  guardandoArchivo = false;
 
   constructor(
     private route: ActivatedRoute,
@@ -171,8 +204,24 @@ export class PreinversionItcpComponent implements OnInit {
       next: (data) => {
         const itcp = data.results[0];
         if (!itcp) {
-          this.error = 'Este proyecto no tiene ITCP. Inicialícelo desde el expediente.';
-          this.cargando = false;
+          this.service.inicializarItcp(this.proyectoId).subscribe({
+            next: () => {
+              this.service.listarItcps({ proyecto: this.proyectoId }).subscribe({
+                next: (d2) => {
+                  const nuevo = d2.results[0];
+                  if (!nuevo) {
+                    this.error = 'No se pudo crear el ITCP';
+                    this.cargando = false;
+                    return;
+                  }
+                  this.itcp = nuevo;
+                  this.cargarCondiciones(nuevo.id);
+                },
+                error: () => { this.error = 'Error al inicializar el ITCP'; this.cargando = false; },
+              });
+            },
+            error: () => { this.error = 'Error al inicializar el ITCP'; this.cargando = false; },
+          });
           return;
         }
         this.itcp = itcp;
@@ -201,8 +250,37 @@ export class PreinversionItcpComponent implements OnInit {
     return mapa[estado] ?? estado;
   }
 
-  toggleEditar(c: CondicionITCP): void {
-    this.editando = this.editando === c.id ? null : c.id;
+  condicionCumplida(c: CondicionITCP): boolean {
+    return ['cumple', 'aprobada'].includes(c.estado) || !!c.archivo;
+  }
+
+  toggleCondicion(c: CondicionITCP, event: Event): void {
+    const marcada = (event.target as HTMLInputElement).checked;
+    c.estado = marcada ? 'cumple' : 'pendiente';
+    this.guardarCondicion(c);
+  }
+
+  subirDocumento(c: CondicionITCP, event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const archivo = input.files?.[0];
+    if (!archivo) return;
+    this.guardandoArchivo = true;
+    this.error = '';
+    this.service.subirArchivoCondicion(c.id, archivo).subscribe({
+      next: (actualizada) => {
+        Object.assign(c, actualizada);
+        if (c.estado !== 'cumple' && c.estado !== 'aprobada') {
+          c.estado = 'cumple';
+          this.guardarCondicion(c);
+        }
+        this.mensaje = `Documento de "${c.titulo}" subido`;
+        this.guardandoArchivo = false;
+      },
+      error: () => {
+        this.error = 'Error al subir el documento';
+        this.guardandoArchivo = false;
+      },
+    });
   }
 
   guardarCondicion(c: CondicionITCP): void {
@@ -217,7 +295,7 @@ export class PreinversionItcpComponent implements OnInit {
       plan_accion: c.plan_accion,
       justificacion_no_aplica: c.justificacion_no_aplica,
     }).subscribe({
-      next: () => { this.mensaje = 'Condición guardada'; this.editando = null; },
+      next: () => { this.mensaje = 'Condición guardada'; },
       error: () => this.error = 'Error al guardar la condición',
     });
   }
