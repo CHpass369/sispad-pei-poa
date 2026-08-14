@@ -15,6 +15,15 @@ class GestionFiscal(models.Model):
         CERRADA = 'cerrada', 'Cerrada'
         ARCHIVADA = 'archivada', 'Archivada'
 
+        # Estados del ciclo presupuestario SIS-POA (Fase 1). Conviven con los
+        # estados legacy sin cambiar su semántica (mapeo: preparacion≈CONFIGURACION,
+        # abierta≈HABILITADA, formulacion≈EN_FORMULACION, cerrada≈CERRADA).
+        CONFIGURACION = 'CONFIGURACION', 'Configuración'
+        HABILITADA = 'HABILITADA', 'Habilitada'
+        EN_FORMULACION = 'EN_FORMULACION', 'En formulación'
+        VIGENTE = 'VIGENTE', 'Vigente'
+        CICLO_CERRADA = 'CERRADA', 'Ciclo cerrado'
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     anio = models.PositiveIntegerField(unique=True, verbose_name='Gestión fiscal')
     estado = models.CharField(max_length=20, choices=Estado, default=Estado.PREPARACION)

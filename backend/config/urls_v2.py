@@ -13,6 +13,7 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from apps.accounts.views_v2 import MeViewSet
+from apps.budget.urls import budget_router
 from apps.evaluacion.views_v2 import (
     EvaluacionV2ViewSet,
     LeccionV2ViewSet,
@@ -140,6 +141,7 @@ urlpatterns = [
     path('platform/', include(platform_router.urls)),
     path('sis-pe/', include(sis_pe_router.urls)),
     path('sis-poa/', include(sis_poa_router.urls)),
+    path('sis-poa/budget/', include(budget_router.urls)),
     path('sis-pro/', include(sis_pro_router.urls)),
     path('', include(me_router.urls)),
 ]

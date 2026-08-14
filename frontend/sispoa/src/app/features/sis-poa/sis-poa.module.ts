@@ -42,6 +42,10 @@ const routes: Routes = [
     canActivate: [CapabilityGuard],
     data: { capacidades: ['sis_poa.formulate'] },
   },
+  {
+    path: 'budget',
+    loadChildren: () => import('./budget/budget.module').then(m => m.BudgetModule),
+  },
   // Módulos del plan maestro (§18.1 SIS-POA) en desarrollo
   ...modulosPendientes(
     [

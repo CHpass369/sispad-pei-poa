@@ -48,6 +48,7 @@ LOCAL_APPS = [
     'apps.acciones_correctivas',
     'apps.articulacion',
     'apps.codificacion',
+    'apps.budget',
 ]
 
 THIRD_PARTY_APPS = [
