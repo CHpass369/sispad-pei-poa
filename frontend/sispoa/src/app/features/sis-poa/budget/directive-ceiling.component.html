@@ -1,0 +1,255 @@
+<div class="page-header">
+  <h2>Techo Directivo</h2>
+  <p class="text-secondary">Ciclo presupuestario: composición por fuente, gastos obligatorios, fijación inmutable y ajustes por versión</p>
+</div>
+
+<div class="alert alert-error" *ngIf="error">{{ error }}</div>
+<div class="alert alert-success" *ngIf="mensaje">{{ mensaje }}</div>
+
+<form *ngIf="puedeGestionar" (ngSubmit)="crear()" class="card form-inline">
+  <div class="campo">
+    <label>Gestión fiscal</label>
+    <select [(ngModel)]="gestionNueva" name="gestion" class="input">
+      <option [ngValue]="null">— Seleccionar gestión —</option>
+      <option *ngFor="let gestion of gestiones" [ngValue]="gestion.id">
+        Gestión {{ gestion.anio }} ({{ gestion.estado_display }})
+      </option>
+    </select>
+  </div>
+  <div class="campo">
+    <button type="submit" class="btn btn-primary">+ Nuevo techo</button>
+  </div>
+</form>
+
+<div *ngIf="cargando" class="loading">Cargando techos directivos...</div>
+
+<div *ngIf="!cargando && techos.length === 0" class="empty">
+  Sin techos directivos registrados
+</div>
+
+<div *ngIf="!cargando && techos.length > 0" class="form-inline" style="margin-bottom: 1rem;">
+  <div class="campo" *ngFor="let techo of techos">
+    <div
+      class="techo-card"
+      [class.seleccionada]="techo.id === seleccionadoId"
+      (click)="seleccionar(techo)"
+    >
+      <div><strong>Gestión {{ techo.gestion_anio }}</strong></div>
+      <div class="text-secondary" style="margin-top: 0.25rem;">
+        <span class="badge" [class]="badgeClass(techo.estado)">{{ techo.estado_display }}</span>
+        <span *ngIf="techo.version_actual"> · v{{ techo.version_actual }}</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div *ngIf="seleccion && composicion">
+  <div class="acciones">
+    <button
+      *ngIf="puedeAprobar && esEstado('BORRADOR', 'OBSERVADO')"
+      class="btn btn-primary btn-sm"
+      (click)="enviar()"
+    >Enviar a revisión</button>
+    <button
+      *ngIf="puedeAprobar && esEstado('EN_REVISION')"
+      class="btn btn-primary btn-sm"
+      (click)="aprobar()"
+    >Aprobar</button>
+    <button
+      *ngIf="puedeAprobar && esEstado('EN_REVISION')"
+      class="btn btn-sm"
+      (click)="observar()"
+    >Observar</button>
+    <button
+      *ngIf="puedeAprobar && esEstado('APROBADO')"
+      class="btn btn-success btn-sm"
+      (click)="fijar()"
+    >Fijar techo</button>
+  </div>
+
+  <div class="composicion-grid">
+    <div class="comp-card">
+      <div class="etiqueta">SIGEP</div>
+      <div class="monto">{{ composicion.sigep | moneda }}</div>
+    </div>
+    <div class="comp-card">
+      <div class="etiqueta">Recursos propios municipales</div>
+      <div class="monto">{{ composicion.municipales | moneda }}</div>
+    </div>
+    <div class="comp-card">
+      <div class="etiqueta">Otros / Saldos</div>
+      <div class="monto">{{ composicion.otros | moneda }}</div>
+    </div>
+    <div class="comp-card">
+      <div class="etiqueta">Gastos obligatorios</div>
+      <div class="monto">{{ composicion.gastos_obligatorios | moneda }}</div>
+    </div>
+    <div class="comp-card">
+      <div class="etiqueta">Reservas</div>
+      <div class="monto">{{ composicion.reservas | moneda }}</div>
+    </div>
+    <div class="comp-card">
+      <div class="etiqueta">Techo bruto</div>
+      <div class="monto">{{ composicion.techo_bruto | moneda }}</div>
+    </div>
+    <div class="comp-card destacada">
+      <div class="etiqueta">Techo distribuible</div>
+      <div class="monto">{{ composicion.techo_distribuible | moneda }}</div>
+    </div>
+  </div>
+
+  <div class="seccion">
+    <h3>Recursos del techo por origen</h3>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Origen</th>
+          <th>Concepto</th>
+          <th>Fuente</th>
+          <th class="monto-celda">Monto</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let recurso of recursos">
+          <td>{{ recurso.origen_display }}</td>
+          <td>{{ recurso.concepto || '—' }}</td>
+          <td>
+            {{ recurso.fuente_detalle ? recurso.fuente_detalle.codigo + ' ' + recurso.fuente_detalle.denominacion : 'Sin fuente' }}
+          </td>
+          <td class="monto-celda">{{ recurso.monto | moneda }}</td>
+          <td>
+            <button
+              *ngIf="puedeGestionar && versionEditable"
+              class="btn btn-sm btn-danger"
+              (click)="eliminarRecurso(recurso)"
+            >Eliminar</button>
+          </td>
+        </tr>
+        <tr *ngIf="recursos.length === 0">
+          <td colspan="5" class="empty">Sin recursos registrados</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <form *ngIf="puedeGestionar && versionEditable" (ngSubmit)="registrarRecurso()" class="card form-inline" style="margin-top: 0.75rem;">
+      <div class="campo">
+        <label>Origen</label>
+        <select [(ngModel)]="formRecurso.origen" name="origen" class="input">
+          <option *ngFor="let origen of origenes" [ngValue]="origen.codigo">{{ origen.nombre }}</option>
+        </select>
+      </div>
+      <div class="campo">
+        <label>Concepto</label>
+        <input [(ngModel)]="formRecurso.concepto" name="concepto" class="input" placeholder="Ej: Coparticipación tributaria" />
+      </div>
+      <div class="campo">
+        <label>Monto (Bs)</label>
+        <input [(ngModel)]="formRecurso.monto" name="monto" type="number" min="0" step="0.01" class="input" placeholder="0,00" />
+      </div>
+      <div class="campo">
+        <button type="submit" class="btn btn-primary btn-sm">+ Registrar recurso</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="seccion">
+    <h3>Gastos obligatorios (descuentan del techo distribuible)</h3>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Programa</th>
+          <th>Actividad</th>
+          <th>Denominación</th>
+          <th class="monto-celda">Monto</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let gasto of gastos">
+          <td>{{ gasto.programa || '—' }}</td>
+          <td>{{ gasto.actividad || '—' }}</td>
+          <td>{{ gasto.denominacion || '—' }}</td>
+          <td class="monto-celda">{{ gasto.monto | moneda }}</td>
+          <td>
+            <button
+              *ngIf="puedeGestionar && versionEditable"
+              class="btn btn-sm btn-danger"
+              (click)="eliminarGasto(gasto)"
+            >Eliminar</button>
+          </td>
+        </tr>
+        <tr *ngIf="gastos.length === 0">
+          <td colspan="5" class="empty">Sin gastos obligatorios registrados</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <form *ngIf="puedeGestionar && versionEditable" (ngSubmit)="registrarGasto()" class="card form-inline" style="margin-top: 0.75rem;">
+      <div class="campo">
+        <label>Programa</label>
+        <input [(ngModel)]="formGasto.programa" name="programa" class="input" placeholder="000" />
+      </div>
+      <div class="campo">
+        <label>Actividad</label>
+        <input [(ngModel)]="formGasto.actividad" name="actividad" class="input" placeholder="0000" />
+      </div>
+      <div class="campo">
+        <label>Denominación</label>
+        <input [(ngModel)]="formGasto.denominacion" name="denominacion" class="input" placeholder="Ej: Servicio de la deuda" />
+      </div>
+      <div class="campo">
+        <label>Monto (Bs)</label>
+        <input [(ngModel)]="formGasto.monto" name="monto" type="number" min="0" step="0.01" class="input" placeholder="0,00" />
+      </div>
+      <div class="campo">
+        <button type="submit" class="btn btn-primary btn-sm">+ Registrar gasto</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="seccion">
+    <h3>Documentos de respaldo (SIGEP, notas MEF, resoluciones)</h3>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Tipo</th>
+          <th>Nombre</th>
+          <th>Fecha</th>
+          <th>SHA-256</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let documento of documentos">
+          <td>{{ documento.tipo_display }}</td>
+          <td>{{ documento.nombre }}</td>
+          <td>{{ (documento.fecha_documento | date: 'dd/MM/yyyy') || '—' }}</td>
+          <td style="font-family: monospace; font-size: 0.6875rem;">{{ documento.sha256.slice(0, 16) }}…</td>
+        </tr>
+        <tr *ngIf="documentos.length === 0">
+          <td colspan="4" class="empty">Sin documentos</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <form *ngIf="puedeGestionar" (ngSubmit)="subirDocumento()" class="card form-inline" style="margin-top: 0.75rem;">
+      <div class="campo">
+        <label>Tipo</label>
+        <select [(ngModel)]="formDocumento.tipo" name="tipo" class="input">
+          <option *ngFor="let tipo of tiposDocumento" [ngValue]="tipo.codigo">{{ tipo.nombre }}</option>
+        </select>
+      </div>
+      <div class="campo">
+        <label>Archivo (máx 20 MB)</label>
+        <input type="file" class="input" (change)="onArchivoSeleccionado($event)" accept=".pdf,.png,.jpg,.jpeg,.xlsx,.xls,.csv,.doc,.docx,.txt" />
+      </div>
+      <div class="campo">
+        <label>Fecha del documento</label>
+        <input [(ngModel)]="formDocumento.fecha" name="fecha" type="date" class="input" />
+      </div>
+      <div class="campo">
+        <button type="submit" class="btn btn-primary btn-sm">Subir documento</button>
+      </div>
+    </form>
+  </div>
+</div>

@@ -4,7 +4,9 @@ import { FormsModule } from '@angular/forms';
 import { RouterModule, Routes } from '@angular/router';
 import { CapabilityGuard } from '../../../core/guards/capability.guard';
 import { BudgetService } from './budget.service';
+import { DirectiveCeilingComponent } from './directive-ceiling.component';
 import { FiscalYearComponent } from './fiscal-year.component';
+import { MonedaPipe } from './moneda.pipe';
 
 const routes: Routes = [
   { path: '', redirectTo: 'gestion-fiscal', pathMatch: 'full' },
@@ -14,10 +16,16 @@ const routes: Routes = [
     canActivate: [CapabilityGuard],
     data: { capacidades: ['sis_poa.formulate'] },
   },
+  {
+    path: 'techo-directivo',
+    component: DirectiveCeilingComponent,
+    canActivate: [CapabilityGuard],
+    data: { capacidades: ['sis_poa.budget.manage', 'sis_poa.formulate'] },
+  },
 ];
 
 @NgModule({
-  declarations: [FiscalYearComponent],
+  declarations: [FiscalYearComponent, DirectiveCeilingComponent, MonedaPipe],
   imports: [CommonModule, FormsModule, RouterModule.forChild(routes)],
   providers: [BudgetService],
 })

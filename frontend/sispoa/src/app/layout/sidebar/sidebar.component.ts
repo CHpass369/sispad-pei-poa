@@ -175,6 +175,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         { route: '/sis-poa/techos', label: 'Techos', icon: '⊡', capacidades: ['sis_poa.formulate'] },
         { route: '/sis-poa/presupuesto', label: 'Presupuesto', icon: '⊞', capacidades: ['sis_poa.formulate'] },
         { route: '/sis-poa/budget/gestion-fiscal', label: 'Gestión Fiscal', icon: '🗓️', capacidades: ['sis_poa.formulate'] },
+        { route: '/sis-poa/budget/techo-directivo', label: 'Techo Directivo', icon: '⊡', capacidades: ['sis_poa.formulate'] },
         { route: '/planificacion/formulacion', label: 'Formulación POA', icon: '✎', roles: ['superadmin', 'tecnico_admin', 'planificador'], legacy: true },
         { route: '/seguimiento', label: 'Seguimiento', icon: '◷', roles: ['superadmin', 'tecnico_admin', 'jefe_ue', 'director', 'tecnico'], legacy: true },
         { route: '/modificaciones', label: 'Modificaciones', icon: '✎', roles: ['superadmin', 'tecnico_admin'], legacy: true },

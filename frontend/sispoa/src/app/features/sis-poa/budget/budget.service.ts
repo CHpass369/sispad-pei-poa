@@ -25,6 +25,142 @@ export interface FiscalYearInput {
   heredar_de?: number | null;
 }
 
+export interface DetalleCatalogo {
+  codigo: string;
+  denominacion: string;
+}
+
+export interface DetalleUnidad {
+  codigo: string;
+  nombre: string;
+}
+
+/** Composición del techo directivo (§22). Montos en string (convención API). */
+export interface Composition {
+  gestion: number;
+  version: number | null;
+  estado: string | null;
+  sigep: string;
+  municipales: string;
+  saldos: string;
+  otros: string;
+  gastos_obligatorios: string;
+  reservas: string;
+  techo_bruto: string;
+  techo_distribuible: string;
+  por_fuente: { fuente: string; denominacion: string; monto: string }[];
+}
+
+export interface CeilingResource {
+  id: number;
+  version: number;
+  origen: string;
+  origen_display: string;
+  rubro: string | null;
+  rubro_detalle: DetalleCatalogo | null;
+  fuente: string | null;
+  fuente_detalle: DetalleCatalogo | null;
+  organismo: string | null;
+  organismo_detalle: DetalleCatalogo | null;
+  entidad_otorgante: string | null;
+  entidad_detalle: DetalleCatalogo | null;
+  concepto: string;
+  monto: string;
+  documento: number | null;
+  documento_nombre: string | null;
+}
+
+export interface CeilingResourceInput {
+  version: number;
+  origen: string;
+  rubro?: string | null;
+  fuente?: string | null;
+  organismo?: string | null;
+  concepto?: string;
+  monto: string | number;
+}
+
+export interface MandatoryExpense {
+  id: number;
+  version: number;
+  da: string | null;
+  da_detalle: DetalleUnidad | null;
+  ue: string | null;
+  ue_detalle: DetalleUnidad | null;
+  programa: string;
+  actividad: string;
+  denominacion: string;
+  fuente: string | null;
+  fuente_detalle: DetalleCatalogo | null;
+  organismo: string | null;
+  organismo_detalle: DetalleCatalogo | null;
+  objeto_gasto: string | null;
+  objeto_gasto_detalle: DetalleCatalogo | null;
+  entidad_transferencia: string;
+  monto: string;
+  documento: number | null;
+  documento_nombre: string | null;
+}
+
+export interface MandatoryExpenseInput {
+  version: number;
+  programa?: string;
+  actividad?: string;
+  denominacion?: string;
+  fuente?: string | null;
+  organismo?: string | null;
+  objeto_gasto?: string | null;
+  monto: string | number;
+}
+
+export interface DirectiveCeilingVersion {
+  id: number;
+  numero: number;
+  estado: string;
+  estado_display: string;
+  hash: string;
+  fecha_fijacion: string | null;
+  fijado_por: number | null;
+  fijado_por_email: string | null;
+  observaciones: string;
+  inmutable: boolean;
+  recursos: CeilingResource[];
+  gastos_obligatorios: MandatoryExpense[];
+}
+
+export interface DirectiveCeiling {
+  id: number;
+  gestion: string;
+  gestion_anio: number;
+  estado: string;
+  estado_display: string;
+  version_actual: number;
+  version: DirectiveCeilingVersion | null;
+  composicion: Composition | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DirectiveCeilingInput {
+  gestion: string;
+}
+
+export interface BudgetDocument {
+  id: number;
+  gestion: string;
+  gestion_anio: number;
+  tipo: string;
+  tipo_display: string;
+  nombre: string;
+  mime_type: string;
+  size: number;
+  sha256: string;
+  fecha_documento: string | null;
+  storage_path: string;
+  metadata_json: Record<string, unknown>;
+  created_at: string;
+}
+
 interface Paginado<T> {
   count: number;
   results: T[];
@@ -47,6 +183,8 @@ export class BudgetService {
     return p;
   }
 
+  // -- Gestión fiscal (Fase 1) ----------------------------------------------
+
   listar(params?: { anio?: number; estado?: string }): Observable<Paginado<FiscalYear>> {
     return this.http.get<Paginado<FiscalYear>>(`${this.base}/fiscal-years/`, {
       params: this.params(params),
@@ -63,5 +201,97 @@ export class BudgetService {
 
   cerrar(id: string): Observable<FiscalYear> {
     return this.http.post<FiscalYear>(`${this.base}/fiscal-years/${id}/close/`, {});
+  }
+
+  // -- Techo directivo (Fase 2) ----------------------------------------------
+
+  listarTechos(params?: { estado?: string }): Observable<Paginado<DirectiveCeiling>> {
+    return this.http.get<Paginado<DirectiveCeiling>>(
+      `${this.base}/directive-ceilings/`,
+      { params: this.params(params) },
+    );
+  }
+
+  crearTecho(data: DirectiveCeilingInput): Observable<DirectiveCeiling> {
+    return this.http.post<DirectiveCeiling>(`${this.base}/directive-ceilings/`, data);
+  }
+
+  obtenerTecho(id: number): Observable<DirectiveCeiling> {
+    return this.http.get<DirectiveCeiling>(`${this.base}/directive-ceilings/${id}/`);
+  }
+
+  composicionTecho(id: number): Observable<Composition> {
+    return this.http.get<Composition>(
+      `${this.base}/directive-ceilings/${id}/composition/`,
+    );
+  }
+
+  enviarRevision(id: number): Observable<DirectiveCeiling> {
+    return this.http.post<DirectiveCeiling>(
+      `${this.base}/directive-ceilings/${id}/submit/`, {},
+    );
+  }
+
+  observarTecho(id: number, observaciones: string): Observable<DirectiveCeiling> {
+    return this.http.post<DirectiveCeiling>(
+      `${this.base}/directive-ceilings/${id}/observe/`, { observaciones },
+    );
+  }
+
+  aprobarTecho(id: number): Observable<DirectiveCeiling> {
+    return this.http.post<DirectiveCeiling>(
+      `${this.base}/directive-ceilings/${id}/approve/`, {},
+    );
+  }
+
+  fijarTecho(id: number, observaciones = ''): Observable<DirectiveCeiling> {
+    return this.http.post<DirectiveCeiling>(
+      `${this.base}/directive-ceilings/${id}/freeze/`, { observaciones },
+    );
+  }
+
+  // -- Recursos (Fase 2) -----------------------------------------------------
+
+  listarRecursos(params?: { version?: number; origen?: string }): Observable<Paginado<CeilingResource>> {
+    return this.http.get<Paginado<CeilingResource>>(`${this.base}/resources/`, {
+      params: this.params(params),
+    });
+  }
+
+  crearRecurso(data: CeilingResourceInput): Observable<CeilingResource> {
+    return this.http.post<CeilingResource>(`${this.base}/resources/`, data);
+  }
+
+  eliminarRecurso(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.base}/resources/${id}/`);
+  }
+
+  // -- Gastos obligatorios (Fase 2) ------------------------------------------
+
+  listarGastos(params?: { version?: number }): Observable<Paginado<MandatoryExpense>> {
+    return this.http.get<Paginado<MandatoryExpense>>(
+      `${this.base}/mandatory-expenses/`,
+      { params: this.params(params) },
+    );
+  }
+
+  crearGasto(data: MandatoryExpenseInput): Observable<MandatoryExpense> {
+    return this.http.post<MandatoryExpense>(`${this.base}/mandatory-expenses/`, data);
+  }
+
+  eliminarGasto(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.base}/mandatory-expenses/${id}/`);
+  }
+
+  // -- Documentos (Fase 2) ---------------------------------------------------
+
+  listarDocumentos(gestion: string): Observable<Paginado<BudgetDocument>> {
+    return this.http.get<Paginado<BudgetDocument>>(`${this.base}/documents/`, {
+      params: this.params({ gestion }),
+    });
+  }
+
+  subirDocumento(formData: FormData): Observable<BudgetDocument> {
+    return this.http.post<BudgetDocument>(`${this.base}/documents/`, formData);
   }
 }
