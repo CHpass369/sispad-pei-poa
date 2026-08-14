@@ -50,3 +50,6 @@ htmlcov/
 
 # Artefactos externos
 *.zip
+
+# CodeGraph index
+.codegraph/
