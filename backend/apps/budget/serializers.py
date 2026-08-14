@@ -16,13 +16,17 @@ from rest_framework import serializers
 from apps.gestion.models import GestionFiscal
 
 from .models import (
+    Allocation,
+    AllocationSource,
     BudgetDocument,
     CeilingResource,
     DirectiveCeiling,
     DirectiveCeilingVersion,
+    DistributionVersion,
     EstadosTecho,
     MandatoryExpense,
     ProgrammaticCategory,
+    Reserve,
 )
 from .services import (
     composicion_techo,
@@ -390,3 +394,197 @@ class ProgrammaticCategorySerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         return self._manejar_clean(super().update, instance, validated_data)
+
+
+# ---------------------------------------------------------------------------
+# Fase 4 - Distribución presupuestaria (versiones, aperturas y reservas)
+# ---------------------------------------------------------------------------
+class DistributionVersionSerializer(serializers.ModelSerializer):
+    """Versión de distribución; estados reutilizan `EstadosTecho`."""
+
+    gestion_anio = serializers.IntegerField(source='gestion.anio', read_only=True)
+    estado_display = serializers.CharField(source='get_estado_display', read_only=True)
+    fijado_por_email = serializers.SerializerMethodField()
+
+    class Meta:
+        model = DistributionVersion
+        fields = [
+            'id', 'gestion', 'gestion_anio', 'numero', 'estado',
+            'estado_display', 'hash', 'fecha_fijacion', 'fijado_por',
+            'fijado_por_email', 'observaciones', 'inmutable',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = [
+            'id', 'estado', 'estado_display', 'hash', 'fecha_fijacion',
+            'fijado_por', 'inmutable', 'created_at', 'updated_at',
+        ]
+
+    def get_fijado_por_email(self, obj) -> str | None:
+        return obj.fijado_por.email if obj.fijado_por else None
+
+    def validate(self, attrs):
+        gestion = attrs.get('gestion')
+        numero = attrs.get('numero')
+        if gestion is not None and numero is not None:
+            if DistributionVersion.objects.filter(
+                gestion=gestion, numero=numero,
+            ).exists():
+                raise serializers.ValidationError({
+                    'numero': f'La versión {numero} ya existe para la gestión.',
+                })
+        return attrs
+
+
+class AllocationSourceSerializer(serializers.ModelSerializer):
+    """Asignación por FF/OF (lectura, anidada en la apertura)."""
+
+    fuente_detalle = serializers.SerializerMethodField()
+    organismo_detalle = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AllocationSource
+        fields = [
+            'id', 'fuente', 'fuente_detalle', 'organismo',
+            'organismo_detalle', 'monto', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def get_fuente_detalle(self, obj) -> dict | None:
+        return _detalle_catalogo(obj.fuente)
+
+    def get_organismo_detalle(self, obj) -> dict | None:
+        return _detalle_catalogo(obj.organismo)
+
+
+class AllocationFuenteInput(serializers.Serializer):
+    """Fila de fuente del payload de create/update de una apertura."""
+
+    fuente = serializers.UUIDField()
+    organismo = serializers.UUIDField(required=False, allow_null=True, default=None)
+    monto = serializers.DecimalField(
+        max_digits=18, decimal_places=2, min_value=Decimal('0.01'),
+    )
+
+
+class AllocationSerializer(serializers.ModelSerializer):
+    """Apertura programática con sus fuentes anidadas.
+
+    Escritura: `fuentes` acepta [{fuente, organismo, monto}]; el viewset
+    delega la creación/actualización al servicio (validación de
+    disponibilidad y transacción). El estado lo gestionan los servicios.
+    """
+
+    fuentes = AllocationSourceSerializer(many=True, read_only=True)
+    estado_display = serializers.CharField(source='get_estado_display', read_only=True)
+    tipo_apertura_display = serializers.CharField(
+        source='get_tipo_apertura_display', read_only=True,
+    )
+    gestion_anio = serializers.IntegerField(source='gestion.anio', read_only=True)
+    total = serializers.SerializerMethodField()
+    categoria_detalle = serializers.SerializerMethodField()
+    da_detalle = serializers.SerializerMethodField()
+    ue_detalle = serializers.SerializerMethodField()
+    distrito_detalle = serializers.SerializerMethodField()
+    unidad_detalle = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Allocation
+        fields = [
+            'id', 'gestion', 'gestion_anio', 'version', 'orden',
+            'unidad_organizacional', 'unidad_detalle', 'distrito',
+            'distrito_detalle', 'da', 'da_detalle', 'ue', 'ue_detalle',
+            'categoria', 'categoria_detalle', 'proyecto_codigo',
+            'codigo_sisin', 'actividad_codigo', 'denominacion',
+            'tipo_apertura', 'tipo_apertura_display', 'estado',
+            'estado_display', 'fuentes', 'total', 'created_at', 'updated_at',
+        ]
+        read_only_fields = [
+            'id', 'version', 'estado', 'estado_display', 'created_at',
+            'updated_at',
+        ]
+
+    def get_total(self, obj) -> str:
+        return str(obj.total)
+
+    def get_categoria_detalle(self, obj) -> dict | None:
+        c = obj.categoria
+        if c is None:
+            return None
+        partes = []
+        nodo = c
+        while nodo:
+            partes.append(nodo.codigo)
+            nodo = nodo.parent
+        return {
+            'id': str(c.id),
+            'codigo': c.codigo,
+            'codigo_compuesto': '.'.join(reversed(partes)),
+            'denominacion': c.denominacion,
+        }
+
+    def get_da_detalle(self, obj) -> dict | None:
+        return _detalle_unidad(obj.da)
+
+    def get_ue_detalle(self, obj) -> dict | None:
+        return _detalle_unidad(obj.ue)
+
+    def get_distrito_detalle(self, obj) -> dict | None:
+        d = obj.distrito
+        if d is None:
+            return None
+        return {'codigo': d.codigo, 'nombre': d.nombre}
+
+    def get_unidad_detalle(self, obj) -> dict | None:
+        u = obj.unidad_organizacional
+        if u is None:
+            return None
+        return {'codigo': u.codigo, 'nombre': u.nombre}
+
+    def to_internal_value(self, data):
+        data = dict(data)
+        fuentes_raw = data.pop('fuentes', None)
+        validated = super().to_internal_value(data)
+        if fuentes_raw is not None:
+            if not isinstance(fuentes_raw, (list, tuple)):
+                raise serializers.ValidationError({
+                    'fuentes': 'Debe ser una lista de {fuente, organismo, monto}.',
+                })
+            entradas = []
+            for i, fila in enumerate(fuentes_raw):
+                serializador = AllocationFuenteInput(data=fila)
+                if not serializador.is_valid():
+                    raise serializers.ValidationError({
+                        'fuentes': {i: serializador.errors},
+                    })
+                entradas.append(serializador.validated_data)
+            validated['fuentes'] = entradas
+        return validated
+
+
+class ReserveSerializer(serializers.ModelSerializer):
+    """Reserva presupuestaria sobre una fuente."""
+
+    gestion_anio = serializers.IntegerField(source='gestion.anio', read_only=True)
+    tipo_display = serializers.CharField(source='get_tipo_display', read_only=True)
+    estado_display = serializers.CharField(source='get_estado_display', read_only=True)
+    fuente_detalle = serializers.SerializerMethodField()
+    organismo_detalle = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Reserve
+        fields = [
+            'id', 'gestion', 'gestion_anio', 'version', 'fuente',
+            'fuente_detalle', 'organismo', 'organismo_detalle', 'tipo',
+            'tipo_display', 'monto', 'motivo', 'estado', 'estado_display',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = [
+            'id', 'version', 'estado', 'estado_display', 'created_at',
+            'updated_at',
+        ]
+
+    def get_fuente_detalle(self, obj) -> dict | None:
+        return _detalle_catalogo(obj.fuente)
+
+    def get_organismo_detalle(self, obj) -> dict | None:
+        return _detalle_catalogo(obj.organismo)

@@ -1,0 +1,272 @@
+<div class="page-header">
+  <h2>Distribución Presupuestaria</h2>
+  <div class="acciones">
+    <select class="input" [ngModel]="gestionSeleccionada" (ngModelChange)="seleccionarGestion($event)"
+            style="width:auto">
+      <option *ngFor="let g of gestiones" [ngValue]="g.id">{{ g.anio }} — {{ g.estado_display }}</option>
+    </select>
+    <div class="tooltip-wrap">
+      <button class="btn btn-sm" disabled title="Disponible en la Fase 5">Importar GASTOS</button>
+      <span class="tooltip-text">Fase 5 — Importador Excel</span>
+    </div>
+    <button class="btn btn-primary" (click)="mostrarFormulario ? cerrarFormulario() : abrirFormulario()">
+      {{ mostrarFormulario ? 'Cancelar' : '+ Nueva apertura' }}
+    </button>
+  </div>
+</div>
+
+<div class="alert-error" *ngIf="error">{{ error }}</div>
+<div class="alert-success" *ngIf="mensaje">{{ mensaje }}</div>
+
+<!-- Dashboard: cards -->
+<div class="cards-grid">
+  <div class="card-resumen destacada">
+    <div class="etiqueta">Techo distribuible</div>
+    <div class="valor">{{ resumen ? (resumen.techo_distribuible | moneda) : 'Bs 0,00' }}</div>
+  </div>
+  <div class="card-resumen">
+    <div class="etiqueta">Distribuido</div>
+    <div class="valor">{{ resumen ? (resumen.distribuido | moneda) : 'Bs 0,00' }}</div>
+  </div>
+  <div class="card-resumen">
+    <div class="etiqueta">Reservado</div>
+    <div class="valor">{{ resumen ? (resumen.reservado | moneda) : 'Bs 0,00' }}</div>
+  </div>
+  <div class="card-resumen resalta">
+    <div class="etiqueta">Disponible</div>
+    <div class="valor">{{ resumen ? (resumen.disponible | moneda) : 'Bs 0,00' }}</div>
+  </div>
+  <div class="card-resumen">
+    <div class="etiqueta">% distribuido</div>
+    <div class="valor">{{ resumen ? (resumen.porcentaje | number: '1.0-2') : '0' }}%</div>
+  </div>
+  <div class="card-resumen">
+    <div class="etiqueta">Aperturas</div>
+    <div class="valor">{{ resumen ? resumen.aperturas_count : 0 }}</div>
+  </div>
+</div>
+
+<!-- Tabla por fuente -->
+<div class="seccion">
+  <h3>Disponibilidad por fuente de financiamiento</h3>
+  <div class="loading" *ngIf="cargando">Cargando…</div>
+  <table class="data-table" *ngIf="!cargando && resumen && resumen.por_fuente.length > 0">
+    <thead>
+      <tr>
+        <th>Fuente</th>
+        <th class="monto-celda">Techo</th>
+        <th class="monto-celda">Distribuido</th>
+        <th class="monto-celda">Reservado</th>
+        <th class="monto-celda">Disponible</th>
+        <th class="monto-celda">%</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let f of resumen.por_fuente">
+        <td>{{ f.denominacion }}</td>
+        <td class="monto-celda">{{ f.techo | moneda }}</td>
+        <td class="monto-celda">{{ f.distribuido | moneda }}</td>
+        <td class="monto-celda">{{ f.reservado | moneda }}</td>
+        <td class="monto-celda">{{ f.disponible | moneda }}</td>
+        <td class="monto-celda">{{ f.porcentaje | number: '1.0-2' }}%</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="empty" *ngIf="!cargando && resumen && resumen.por_fuente.length === 0">
+    Sin techo fijado: la distribución está bloqueada.
+  </div>
+</div>
+
+<!-- Formulario nueva apertura -->
+<div class="seccion" *ngIf="mostrarFormulario">
+  <h3>{{ editando ? 'Editar apertura' : 'Nueva apertura' }}</h3>
+  <div class="form-grid">
+    <div class="campo">
+      <label>Denominación *</label>
+      <input class="input" [(ngModel)]="nueva.denominacion" placeholder="Denominación de la apertura" />
+    </div>
+    <div class="campo">
+      <label>Categoría programática</label>
+      <select class="input" [(ngModel)]="nueva.categoria">
+        <option [ngValue]="null">— sin categoría —</option>
+        <option *ngFor="let c of categorias" [ngValue]="c.id">{{ c.codigo_compuesto }} — {{ c.denominacion }}</option>
+      </select>
+    </div>
+    <div class="campo">
+      <label>Distrito</label>
+      <select class="input" [(ngModel)]="nueva.distrito">
+        <option [ngValue]="null">— sin distrito —</option>
+        <option *ngFor="let d of opciones?.distritos" [ngValue]="d.codigo">{{ d.codigo }} — {{ d.nombre }}</option>
+      </select>
+    </div>
+    <div class="campo">
+      <label>Dirección administrativa</label>
+      <select class="input" [(ngModel)]="nueva.da">
+        <option [ngValue]="null">— sin DA —</option>
+        <option *ngFor="let d of opciones?.direcciones" [ngValue]="d.codigo">{{ d.codigo }} — {{ d.nombre }}</option>
+      </select>
+    </div>
+    <div class="campo">
+      <label>Unidad ejecutora</label>
+      <select class="input" [(ngModel)]="nueva.ue">
+        <option [ngValue]="null">— sin UE —</option>
+        <option *ngFor="let u of opciones?.unidades_ejecutoras" [ngValue]="u.codigo">{{ u.codigo }} — {{ u.nombre }}</option>
+      </select>
+    </div>
+    <div class="campo">
+      <label>Unidad organizacional</label>
+      <select class="input" [(ngModel)]="nueva.unidad_organizacional">
+        <option [ngValue]="null">— sin unidad —</option>
+        <option *ngFor="let u of opciones?.unidades_organizacionales" [ngValue]="u.codigo">{{ u.codigo }} — {{ u.nombre }}</option>
+      </select>
+    </div>
+    <div class="campo">
+      <label>Código SISIN</label>
+      <input class="input" [(ngModel)]="nueva.codigo_sisin" placeholder="12345678" />
+    </div>
+    <div class="campo">
+      <label>Proyecto</label>
+      <input class="input" [(ngModel)]="nueva.proyecto_codigo" placeholder="Código de proyecto" />
+    </div>
+    <div class="campo">
+      <label>Actividad</label>
+      <input class="input" [(ngModel)]="nueva.actividad_codigo" placeholder="Código de actividad" />
+    </div>
+  </div>
+
+  <div class="fuentes-filas">
+    <label style="font-size: 0.75rem; font-weight: 600;">Fuentes de financiamiento *</label>
+    <div class="fila-fuente" *ngFor="let f of filasFuentes; let i = index">
+      <select class="input" [(ngModel)]="f.fuente" style="min-width: 220px;">
+        <option value="">— fuente —</option>
+        <option *ngFor="let fuente of opciones?.fuentes" [ngValue]="fuente.id">{{ fuente.codigo }} — {{ fuente.denominacion }}</option>
+      </select>
+      <select class="input" [(ngModel)]="f.organismo" style="min-width: 200px;">
+        <option value="">— organismo —</option>
+        <option *ngFor="let o of opciones?.organismos" [ngValue]="o.id">{{ o.codigo }} — {{ o.denominacion }}</option>
+      </select>
+      <input class="input" type="number" min="0" step="0.01" [(ngModel)]="f.monto" placeholder="Monto (Bs)" />
+      <button class="btn btn-sm btn-danger" (click)="quitarFilaFuente(i)" *ngIf="filasFuentes.length > 1">✕</button>
+      <button class="btn btn-sm" (click)="agregarFilaFuente()">+ Fila</button>
+    </div>
+    <div class="monto-celda" style="text-align: left; font-weight: 600; margin-top: 0.5rem;">
+      Total: {{ totalFormulario() | moneda }}
+    </div>
+  </div>
+
+  <div class="acciones" style="margin-top: 1rem;">
+    <button class="btn btn-primary" (click)="guardar()" [disabled]="guardando">
+      {{ guardando ? 'Guardando…' : (editando ? 'Guardar cambios' : 'Crear apertura') }}
+    </button>
+    <button class="btn btn-sm" (click)="cerrarFormulario()">Cancelar</button>
+  </div>
+</div>
+
+<!-- Tabla de aperturas -->
+<div class="seccion">
+  <h3>Aperturas programáticas ({{ aperturas.length }})</h3>
+  <div class="loading" *ngIf="cargando">Cargando…</div>
+  <div class="empty" *ngIf="!cargando && aperturas.length === 0">Sin aperturas para esta gestión.</div>
+  <table class="data-table" *ngIf="!cargando && aperturas.length > 0">
+    <thead>
+      <tr>
+        <th>N°</th>
+        <th>DA</th>
+        <th>UE</th>
+        <th>Programa</th>
+        <th>SISIN</th>
+        <th>Actividad</th>
+        <th>Denominación</th>
+        <th class="monto-celda">Total</th>
+        <th>Estado</th>
+        <th>Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let a of aperturas; let i = index">
+        <td>{{ a.orden > 0 ? a.orden : i + 1 }}</td>
+        <td>{{ a.da_detalle?.codigo ?? '—' }}</td>
+        <td>{{ a.ue_detalle?.codigo ?? '—' }}</td>
+        <td>{{ a.categoria_detalle?.codigo_compuesto ?? a.categoria_detalle?.codigo ?? '—' }}</td>
+        <td>{{ a.codigo_sisin || '—' }}</td>
+        <td>{{ a.actividad_codigo || '—' }}</td>
+        <td>{{ a.denominacion }}</td>
+        <td class="monto-celda">{{ a.total | moneda }}</td>
+        <td><span class="badge" [ngClass]="badgeClass(a.estado)">{{ a.estado }}</span></td>
+        <td>
+          <div class="acciones">
+            <button class="btn btn-sm" (click)="editar(a)" [disabled]="a.estado === 'CERRADA'" title="Editar">✎</button>
+            <button class="btn btn-sm" (click)="cerrar(a)" [disabled]="a.estado === 'CERRADA'" title="Cerrar">⛔</button>
+            <button class="btn btn-sm btn-danger" (click)="eliminar(a)" [disabled]="a.estado === 'CERRADA'" title="Eliminar">🗑</button>
+          </div>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Reservas -->
+<div class="seccion">
+  <h3>Reservas</h3>
+  <div class="form-grid" style="max-width: 900px;">
+    <div class="campo">
+      <label>Fuente</label>
+      <select class="input" [(ngModel)]="formReserva.fuente">
+        <option [ngValue]="null">— fuente —</option>
+        <option *ngFor="let fuente of opciones?.fuentes" [ngValue]="fuente.id">{{ fuente.codigo }} — {{ fuente.denominacion }}</option>
+      </select>
+    </div>
+    <div class="campo">
+      <label>Organismo</label>
+      <select class="input" [(ngModel)]="formReserva.organismo">
+        <option [ngValue]="null">— organismo —</option>
+        <option *ngFor="let o of opciones?.organismos" [ngValue]="o.id">{{ o.codigo }} — {{ o.denominacion }}</option>
+      </select>
+    </div>
+    <div class="campo">
+      <label>Tipo</label>
+      <select class="input" [(ngModel)]="formReserva.tipo">
+        <option value="OTRA">Otra</option>
+        <option value="DISTRIBUCION">Distribución</option>
+        <option value="DISTRITAL">Distrital</option>
+      </select>
+    </div>
+    <div class="campo">
+      <label>Monto (Bs) *</label>
+      <input class="input" type="number" min="0" step="0.01" [(ngModel)]="formReserva.monto" />
+    </div>
+    <div class="campo">
+      <label>Motivo</label>
+      <input class="input" [(ngModel)]="formReserva.motivo" />
+    </div>
+    <div class="campo">
+      <label>&nbsp;</label>
+      <button class="btn btn-primary" (click)="guardarReserva()" [disabled]="guardando">Crear reserva</button>
+    </div>
+  </div>
+
+  <table class="data-table" style="margin-top: 1rem;" *ngIf="reservas.length > 0">
+    <thead>
+      <tr>
+        <th>Fuente</th>
+        <th>Tipo</th>
+        <th class="monto-celda">Monto</th>
+        <th>Motivo</th>
+        <th>Estado</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let r of reservas">
+        <td>{{ r.fuente_detalle?.denominacion ?? '—' }}</td>
+        <td>{{ r.tipo_display }}</td>
+        <td class="monto-celda">{{ r.monto | moneda }}</td>
+        <td>{{ r.motivo || '—' }}</td>
+        <td><span class="badge" [ngClass]="r.estado === 'ACTIVA' ? 'badge-warning' : 'badge-success'">{{ r.estado }}</span></td>
+        <td>
+          <button class="btn btn-sm" *ngIf="r.estado === 'ACTIVA'" (click)="liberar(r)">Liberar</button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>

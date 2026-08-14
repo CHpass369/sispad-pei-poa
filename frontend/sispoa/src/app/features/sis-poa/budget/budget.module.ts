@@ -5,6 +5,7 @@ import { RouterModule, Routes } from '@angular/router';
 import { CapabilityGuard } from '../../../core/guards/capability.guard';
 import { BudgetService } from './budget.service';
 import { DirectiveCeilingComponent } from './directive-ceiling.component';
+import { DistributionComponent } from './distribution.component';
 import { FiscalYearComponent } from './fiscal-year.component';
 import { MonedaPipe } from './moneda.pipe';
 import { ProgrammaticCategoriesComponent } from './programmatic-categories.component';
@@ -29,6 +30,12 @@ const routes: Routes = [
     canActivate: [CapabilityGuard],
     data: { capacidades: ['sis_poa.budget.manage', 'sis_poa.formulate'] },
   },
+  {
+    path: 'distribucion',
+    component: DistributionComponent,
+    canActivate: [CapabilityGuard],
+    data: { capacidades: ['sis_poa.budget.manage', 'sis_poa.formulate'] },
+  },
 ];
 
 @NgModule({
@@ -36,6 +43,7 @@ const routes: Routes = [
     FiscalYearComponent,
     DirectiveCeilingComponent,
     ProgrammaticCategoriesComponent,
+    DistributionComponent,
     MonedaPipe,
   ],
   imports: [CommonModule, FormsModule, RouterModule.forChild(routes)],

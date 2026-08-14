@@ -770,3 +770,285 @@ class CatalogOptionsTests(TestCase):
                     'distritos', 'direcciones', 'unidades_ejecutoras',
                     'unidades_organizacionales']:
             self.assertIn(key, resp.data)
+
+
+# ===========================================================================
+# Fase 4 - Distribución presupuestaria
+# ===========================================================================
+from .models import (  # noqa: E402
+    Allocation,
+    AllocationSource,
+    DistributionVersion,
+    Reserve,
+)
+from .services import (  # noqa: E402
+    disponible_por_fuente,
+    distribuido_por_fuente,
+    reservado_por_fuente,
+    techo_distribuible_por_fuente,
+)
+
+
+class DistribucionBase(TechoDirectivoBase):
+    """Base de distribución: techo fijado de 1500.00 sobre la fuente 11."""
+
+    def setUp(self):
+        super().setUp()
+        self.crear_recurso(origen='SIGEP', monto='1500.00', concepto='CT',
+                           fuente=self.fuente, organismo=self.organismo)
+        self.fijar_version()
+        self.techo_fijado = self.version
+
+    def crear_apertura(self, monto='1000.00', denominacion='Apertura demo',
+                       codigo_sisin='12345678', gestion=None, **extra):
+        data = {
+            'gestion': str((gestion or self.gestion).id),
+            'denominacion': denominacion,
+            'codigo_sisin': codigo_sisin,
+            'fuentes': [{
+                'fuente': str(self.fuente.id),
+                'organismo': str(self.organismo.id),
+                'monto': monto,
+            }],
+            **extra,
+        }
+        return self.client.post(
+            f'{BUDGET_URL}allocations/', data, format='json',
+        )
+
+    def crear_reserva_api(self, monto='200.00', motivo='Contingencia'):
+        return self.client.post(
+            f'{BUDGET_URL}reserves/',
+            {'gestion': str(self.gestion.id), 'fuente': str(self.fuente.id),
+             'organismo': str(self.organismo.id), 'tipo': 'OTRA',
+             'motivo': motivo, 'monto': monto},
+            format='json',
+        )
+
+
+class DistribucionAperturaTests(DistribucionBase):
+    def test_crear_apertura_con_fuente_decrece_saldo(self):
+        resp = self.crear_apertura(monto='1000.00')
+        self.assertEqual(resp.status_code, 201, resp.data)
+        self.assertEqual(resp.data['total'], '1000.00')
+        self.assertEqual(resp.data['estado'], 'ACTIVA')
+        self.assertEqual(len(resp.data['fuentes']), 1)
+        self.assertEqual(resp.data['fuentes'][0]['monto'], '1000.00')
+
+        distribuido = distribuido_por_fuente(self.gestion)
+        self.assertEqual(distribuido[self.fuente.id], Decimal('1000.00'))
+        disponible = disponible_por_fuente(self.gestion)
+        self.assertEqual(disponible[self.fuente.id], Decimal('500.00'))
+
+        version = DistributionVersion.objects.get(gestion=self.gestion)
+        self.assertEqual(version.numero, 1)
+        evento = EventoAuditoria.objects.filter(
+            entidad='Allocation', gestion=2030,
+        )
+        self.assertTrue(evento.exists())
+
+    def test_exceso_de_fuente_devuelve_budget_exceeded(self):
+        resp = self.crear_apertura(monto='1600.00')
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertEqual(resp.data['code'], 'BUDGET_EXCEEDED')
+        self.assertEqual(resp.data['details']['requested'], '1600.00')
+        self.assertEqual(resp.data['details']['available'], '1500.00')
+        self.assertEqual(resp.data['details']['difference'], '100.00')
+        self.assertEqual(
+            Allocation.objects.filter(gestion=self.gestion).count(), 0
+        )
+
+    def test_distribucion_bloqueada_sin_techo_fijado(self):
+        gestion = crear_gestion(2034, estado='HABILITADA')
+        self.assertEqual(disponible_por_fuente(gestion), {})
+        resp = self.crear_apertura(gestion=gestion)
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertFalse(
+            Allocation.objects.filter(gestion=gestion).exists()
+        )
+
+    def test_concurrencia_secuencial_dos_requests_exceden(self):
+        resp1 = self.crear_apertura(monto='1000.00', denominacion='Primera')
+        self.assertEqual(resp1.status_code, 201, resp1.data)
+        resp2 = self.crear_apertura(monto='1000.00', denominacion='Segunda')
+        self.assertEqual(resp2.status_code, 400, resp2.data)
+        self.assertEqual(resp2.data['code'], 'BUDGET_EXCEEDED')
+        self.assertEqual(
+            Allocation.objects.filter(gestion=self.gestion).count(), 1
+        )
+
+    def test_eliminar_apertura_borrador_ok(self):
+        from .services import version_distribucion_activa
+        allocation = Allocation.objects.create(
+            gestion=self.gestion,
+            version=version_distribucion_activa(self.gestion),
+            denominacion='Borrador importado (Fase 5)',
+            estado='BORRADOR',
+            created_by=self.admin, updated_by=self.admin,
+        )
+        AllocationSource.objects.create(
+            allocation=allocation, fuente=self.fuente, monto=Decimal('50.00'),
+            created_by=self.admin, updated_by=self.admin,
+        )
+        resp = self.client.delete(
+            f'{BUDGET_URL}allocations/{allocation.id}/'
+        )
+        self.assertEqual(resp.status_code, 204, resp.data)
+        self.assertFalse(Allocation.objects.filter(pk=allocation.pk).exists())
+
+    def test_cerrar_apertura_y_no_puede_editarse(self):
+        resp = self.crear_apertura(monto='500.00', denominacion='A cerrar')
+        self.assertEqual(resp.status_code, 201, resp.data)
+        allocation_id = resp.data['id']
+
+        resp = self.client.post(
+            f'{BUDGET_URL}allocations/{allocation_id}/cerrar/', {},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(resp.data['estado'], 'CERRADA')
+
+        resp = self.client.patch(
+            f'{BUDGET_URL}allocations/{allocation_id}/',
+            {'denominacion': 'Intento de cambio'}, format='json',
+        )
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertEqual(
+            Allocation.objects.get(pk=allocation_id).denominacion, 'A cerrar'
+        )
+
+        resp = self.client.delete(f'{BUDGET_URL}allocations/{allocation_id}/')
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertTrue(Allocation.objects.filter(pk=allocation_id).exists())
+
+    def test_actualizar_apertura_reemplaza_fuentes(self):
+        resp = self.crear_apertura(monto='500.00', denominacion='Original')
+        self.assertEqual(resp.status_code, 201, resp.data)
+        allocation_id = resp.data['id']
+        resp = self.client.patch(
+            f'{BUDGET_URL}allocations/{allocation_id}/',
+            {'denominacion': 'Modificada',
+             'fuentes': [{'fuente': str(self.fuente.id),
+                          'organismo': str(self.organismo.id),
+                          'monto': '700.00'}]},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(resp.data['total'], '700.00')
+        self.assertEqual(resp.data['denominacion'], 'Modificada')
+        allocation = Allocation.objects.get(pk=allocation_id)
+        self.assertEqual(allocation.fuentes.count(), 1)
+        self.assertEqual(allocation.fuentes.first().monto, Decimal('700.00'))
+
+    def test_actualizar_apertura_que_excede_rechazada(self):
+        self.crear_apertura(monto='1200.00', denominacion='Ocupa saldo')
+        resp = self.crear_apertura(monto='200.00', denominacion='Segunda')
+        self.assertEqual(resp.status_code, 201, resp.data)
+        allocation_id = resp.data['id']
+        resp = self.client.patch(
+            f'{BUDGET_URL}allocations/{allocation_id}/',
+            {'fuentes': [{'fuente': str(self.fuente.id),
+                          'organismo': str(self.organismo.id),
+                          'monto': '400.00'}]},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertEqual(resp.data['code'], 'BUDGET_EXCEEDED')
+        self.assertEqual(resp.data['details']['available'], '300.00')
+
+
+class DistribucionReservaTests(DistribucionBase):
+    def test_reserva_decrece_disponible_y_liberar_lo_devuelve(self):
+        resp = self.crear_reserva_api(monto='200.00')
+        self.assertEqual(resp.status_code, 201, resp.data)
+        self.assertEqual(resp.data['estado'], 'ACTIVA')
+        self.assertEqual(
+            reservado_por_fuente(self.gestion)[self.fuente.id],
+            Decimal('200.00'),
+        )
+        self.assertEqual(
+            disponible_por_fuente(self.gestion)[self.fuente.id],
+            Decimal('1300.00'),
+        )
+
+        reserva_id = resp.data['id']
+        resp = self.client.post(
+            f'{BUDGET_URL}reserves/{reserva_id}/liberar/', {}, format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(resp.data['estado'], 'LIBERADA')
+        self.assertEqual(reservado_por_fuente(self.gestion), {})
+        self.assertEqual(
+            disponible_por_fuente(self.gestion)[self.fuente.id],
+            Decimal('1500.00'),
+        )
+
+    def test_reserva_excede_disponible_rechazada(self):
+        self.crear_apertura(monto='1200.00', denominacion='Ocupa saldo')
+        resp = self.crear_reserva_api(monto='400.00')
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertEqual(resp.data['code'], 'BUDGET_EXCEEDED')
+        self.assertEqual(resp.data['details']['available'], '300.00')
+        self.assertEqual(
+            Reserve.objects.filter(gestion=self.gestion).count(), 0
+        )
+
+
+class DistribucionDashboardTests(DistribucionBase):
+    def test_dashboard_consistente(self):
+        self.crear_apertura(monto='1000.00', denominacion='Apertura A')
+        self.crear_reserva_api(monto='200.00')
+        resp = self.client.get(
+            f'{BUDGET_URL}distributions/dashboard/',
+            {'gestion': str(self.gestion.id)},
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        data = resp.data
+
+        techo = Decimal(data['techo_distribuible'])
+        distribuido = Decimal(data['distribuido'])
+        reservado = Decimal(data['reservado'])
+        disponible = Decimal(data['disponible'])
+        self.assertEqual(techo, Decimal('1500.00'))
+        self.assertEqual(distribuido, Decimal('1000.00'))
+        self.assertEqual(reservado, Decimal('200.00'))
+        self.assertEqual(disponible, Decimal('300.00'))
+        self.assertEqual(techo, distribuido + reservado + disponible)
+        self.assertEqual(data['porcentaje'], 66.67)
+        self.assertEqual(data['aperturas_count'], 1)
+
+        por_fuente = data['por_fuente'][0]
+        self.assertEqual(por_fuente['fuente_id'], str(self.fuente.id))
+        self.assertEqual(por_fuente['techo'], '1500.00')
+        self.assertEqual(por_fuente['distribuido'], '1000.00')
+        self.assertEqual(por_fuente['reservado'], '200.00')
+        self.assertEqual(por_fuente['disponible'], '300.00')
+        self.assertEqual(por_fuente['porcentaje'], 66.67)
+
+    def test_dashboard_sin_datos_devuelve_ceros(self):
+        resp = self.client.get(
+            f'{BUDGET_URL}distributions/dashboard/',
+            {'gestion': str(self.gestion.id)},
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(resp.data['techo_distribuible'], '1500.00')
+        self.assertEqual(resp.data['distribuido'], '0.00')
+        self.assertEqual(resp.data['reservado'], '0.00')
+        self.assertEqual(resp.data['disponible'], '1500.00')
+        self.assertEqual(resp.data['porcentaje'], 0.0)
+        self.assertEqual(resp.data['aperturas_count'], 0)
+
+    def test_versions_endpoint_lista_por_gestion(self):
+        self.crear_apertura(monto='100.00', denominacion='Genera versión 1')
+        resp = self.client.get(
+            f'{BUDGET_URL}distributions/versions/',
+            {'gestion': str(self.gestion.id)},
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(len(resp.data), 1)
+        self.assertEqual(resp.data[0]['numero'], 1)
+        self.assertEqual(resp.data[0]['estado'], 'BORRADOR')
+
+    def test_techo_distribuible_por_fuente_desde_techo_fijado(self):
+        techo = techo_distribuible_por_fuente(self.gestion)
+        self.assertEqual(techo[self.fuente.id], Decimal('1500.00'))

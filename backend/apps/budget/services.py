@@ -25,11 +25,18 @@ from apps.auditoria.services import registrar_evento
 from apps.gestion.models import CicloFormulacion, EtapaFormulacion, GestionFiscal
 
 from .models import (
+    Allocation,
+    AllocationSource,
     CeilingResource,
     DirectiveCeiling,
     DirectiveCeilingVersion,
+    DistributionVersion,
+    EstadoApertura,
+    EstadoReserva,
     EstadosTecho,
     MandatoryExpense,
+    Reserve,
+    TipoReserva,
 )
 
 # Estados del ciclo presupuestario (nuevos códigos).
@@ -513,3 +520,570 @@ def ajuste_de_techo(ceiling, usuario):
         gestion=ceiling.gestion.anio,
     )
     return nueva
+
+
+# ===========================================================================
+# Fase 4 — Distribución presupuestaria
+# ===========================================================================
+
+class ErrorDisponibilidad(ValidationError):
+    """Saldo insuficiente por fuente: ValidationError con código
+    BUDGET_EXCEEDED y `details` estructurados (requested/available/
+    difference) para la respuesta 400 de la API."""
+
+    def __init__(self, fuente_id, requested, available):
+        self.details = {
+            'fuente': str(fuente_id),
+            'requested': str(requested),
+            'available': str(available),
+            'difference': str(requested - available),
+        }
+        super().__init__(
+            f'El monto solicitado supera el saldo disponible de la fuente '
+            f'({requested} > {available}).',
+            code='BUDGET_EXCEEDED',
+        )
+
+
+def validar_gestion_para_distribucion(gestion):
+    """Valida que la gestión esté habilitada para operar la distribución."""
+    if not gestion_habilitada(gestion):
+        raise ValidationError(
+            f'La gestión {gestion.anio} no está habilitada para la '
+            f'distribución presupuestaria '
+            f'(estado actual: {gestion.get_estado_display()}).'
+        )
+    return True
+
+
+def _version_techo_fijada(gestion):
+    """Última versión FIJADA del techo directivo de la gestión; None si no hay."""
+    ceiling = DirectiveCeiling.objects.filter(gestion=gestion).first()
+    if ceiling is None:
+        return None
+    return (
+        DirectiveCeilingVersion.objects
+        .filter(ceiling=ceiling, estado=EstadosTecho.FIJADO)
+        .order_by('-numero')
+        .first()
+    )
+
+
+def techo_distribuible_por_fuente(gestion):
+    """Techo distribuible por fuente de financiamiento: {fuente_id: monto}.
+
+    Se calcula desde la última versión FIJADA del techo directivo:
+    techo[f] = Σ recursos[f] − Σ gastos obligatorios[f] (gastos atribuidos a
+    esa fuente). Los recursos/gastos sin fuente no son distribuibles en esta
+    fase. Sin techo fijado devuelve {} y las operaciones de distribución se
+    BLOQUEAN. Montos Decimal, nunca float.
+    """
+    version = _version_techo_fijada(gestion)
+    if version is None:
+        return {}
+    montos = {}
+    for r in version.recursos.exclude(fuente_id__isnull=True):
+        montos[r.fuente_id] = montos.get(r.fuente_id, Decimal('0.00')) + r.monto
+    for g in version.gastos_obligatorios.exclude(fuente_id__isnull=True):
+        montos[g.fuente_id] = montos.get(g.fuente_id, Decimal('0.00')) - g.monto
+    return montos
+
+
+def _distribuido_por_fuente(gestion, excluir_allocation_id=None):
+    """Σ AllocationSource por fuente (excluye aperturas CERRADAS)."""
+    qs = (
+        AllocationSource.objects
+        .filter(allocation__gestion=gestion)
+        .exclude(allocation__estado=EstadoApertura.CERRADA)
+        .exclude(fuente_id__isnull=True)
+    )
+    if excluir_allocation_id is not None:
+        qs = qs.exclude(allocation_id=excluir_allocation_id)
+    return {
+        fila['fuente_id']: fila['total']
+        for fila in qs.values('fuente_id').annotate(total=models.Sum('monto'))
+    }
+
+
+def distribuido_por_fuente(gestion):
+    """{fuente_id: monto} distribuido por aperturas (sin CERRADAS)."""
+    return _distribuido_por_fuente(gestion)
+
+
+def reservado_por_fuente(gestion):
+    """{fuente_id: monto} reservado (reservas ACTIVAS)."""
+    qs = (
+        Reserve.objects
+        .filter(gestion=gestion, estado=EstadoReserva.ACTIVA)
+        .exclude(fuente_id__isnull=True)
+    )
+    return {
+        fila['fuente_id']: fila['total']
+        for fila in qs.values('fuente_id').annotate(total=models.Sum('monto'))
+    }
+
+
+def _disponible_por_fuente(gestion, excluir_allocation_id=None):
+    """techo − distribuido − reservado por fuente (solo fuentes del techo).
+
+    Sin techo fijado devuelve {} (distribución bloqueada).
+    """
+    techo = techo_distribuible_por_fuente(gestion)
+    if not techo:
+        return {}
+    distribuido = _distribuido_por_fuente(gestion, excluir_allocation_id)
+    reservado = reservado_por_fuente(gestion)
+    return {
+        fid: (
+            techo.get(fid, Decimal('0.00'))
+            - distribuido.get(fid, Decimal('0.00'))
+            - reservado.get(fid, Decimal('0.00'))
+        )
+        for fid in techo
+    }
+
+
+def disponible_por_fuente(gestion):
+    """{fuente_id: monto} disponible para distribuir/reservar."""
+    return _disponible_por_fuente(gestion)
+
+
+@transaction.atomic
+def version_distribucion_activa(gestion):
+    """Versión vigente de la distribución: la no fijada de mayor número.
+
+    Si no existe (primer uso) crea la versión 1 en BORRADOR. La fijación
+    completa llega en la Fase 7.
+    """
+    activa = (
+        DistributionVersion.objects
+        .filter(gestion=gestion, inmutable=False)
+        .order_by('-numero')
+        .first()
+    )
+    if activa is not None:
+        return activa
+    return DistributionVersion.objects.create(gestion=gestion, numero=1)
+
+
+def _bloquear_fuentes(gestion, fuente_ids):
+    """select_for_update sobre las filas de recurso de las fuentes.
+
+    Las filas del techo FIJADO son inmutables; el lock serializa las
+    validaciones de disponibilidad concurrentes sobre la misma fuente
+    (el segundo request re-lee los agregados ya commiteados).
+    """
+    if not fuente_ids:
+        return
+    version = _version_techo_fijada(gestion)
+    if version is None:
+        return
+    filas = (
+        version.recursos
+        .filter(fuente_id__in=fuente_ids)
+        .order_by('fuente_id', 'id')
+        .select_for_update()
+    )
+    list(filas)
+
+
+def _validar_fuentes_ingresadas(fuentes):
+    """Valida la lista [{fuente, organismo, monto}] y resuelve los UUID."""
+    if not isinstance(fuentes, (list, tuple)) or not fuentes:
+        raise ValidationError(
+            'Debe indicar al menos una fuente de financiamiento '
+            '({fuente, organismo, monto}).'
+        )
+    from apps.catalogos.models import (
+        FuenteFinanciamiento,
+        OrganismoFinanciador,
+    )
+    validas = []
+    for fila in fuentes:
+        monto = fila.get('monto')
+        if monto is None or monto <= 0:
+            raise ValidationError(
+                'El monto de cada fuente debe ser mayor que 0.'
+            )
+        fuente_id = fila.get('fuente')
+        if not fuente_id:
+            raise ValidationError(
+                'Cada asignación debe indicar una fuente de financiamiento.'
+            )
+        organismo_id = fila.get('organismo')
+        validas.append((fuente_id, organismo_id, monto))
+    fuente_ids = {f for f, _, _ in validas}
+    existentes = set(
+        FuenteFinanciamiento.objects
+        .filter(id__in=fuente_ids).values_list('id', flat=True)
+    )
+    faltantes = fuente_ids - existentes
+    if faltantes:
+        raise ValidationError(
+            f'Fuente(s) de financiamiento inexistente(s): {faltantes}'
+        )
+    organismo_ids = {o for _, o, _ in validas if o}
+    if organismo_ids:
+        existentes_o = set(
+            OrganismoFinanciador.objects
+            .filter(id__in=organismo_ids).values_list('id', flat=True)
+        )
+        faltantes_o = organismo_ids - existentes_o
+        if faltantes_o:
+            raise ValidationError(
+                f'Organismo(s) financiador(es) inexistente(s): {faltantes_o}'
+            )
+    return validas
+
+
+@transaction.atomic
+def crear_allocation(gestion, usuario, datos):
+    """Crea una apertura programática con sus fuentes en UNA transacción.
+
+    Valida gestión habilitada y disponibilidad por fuente contra el techo
+    fijado (BUDGET_EXCEEDED con requested/available/difference); la versión
+    activa de distribución se crea si no existe. Registra auditoría.
+    """
+    validar_gestion_para_distribucion(gestion)
+    techo = techo_distribuible_por_fuente(gestion)
+    if not techo:
+        raise ValidationError(
+            f'La gestión {gestion.anio} no tiene un techo directivo fijado; '
+            'la distribución está bloqueada.'
+        )
+    version = version_distribucion_activa(gestion)
+
+    fuentes = datos.pop('fuentes', None)
+    validas = _validar_fuentes_ingresadas(fuentes)
+    _bloquear_fuentes(gestion, {f for f, _, _ in validas})
+    disponible = _disponible_por_fuente(gestion)
+    for fuente_id, _, monto in validas:
+        saldo = disponible.get(fuente_id, Decimal('0.00'))
+        if monto > saldo:
+            raise ErrorDisponibilidad(fuente_id, monto, saldo)
+
+    allocation = Allocation.objects.create(
+        gestion=gestion,
+        version=version,
+        estado=EstadoApertura.ACTIVA,
+        created_by=usuario,
+        updated_by=usuario,
+        **datos,
+    )
+    for fuente_id, organismo_id, monto in validas:
+        AllocationSource.objects.create(
+            allocation=allocation,
+            fuente_id=fuente_id,
+            organismo_id=organismo_id,
+            monto=monto,
+            created_by=usuario,
+            updated_by=usuario,
+        )
+    registrar_evento(
+        usuario,
+        EventoAuditoria.Accion.CREAR,
+        'Allocation',
+        allocation.id,
+        resumen=(
+            f'Apertura "{allocation.denominacion}" creada '
+            f'(gestión {gestion.anio}, versión de distribución v{version.numero})'
+        ),
+        datos_posteriores={
+            'denominacion': allocation.denominacion,
+            'total': str(allocation.total),
+            'fuentes': [
+                {'fuente': str(f), 'organismo': str(o), 'monto': str(m)}
+                for f, o, m in validas
+            ],
+        },
+        gestion=gestion.anio,
+    )
+    return allocation
+
+
+@transaction.atomic
+def actualizar_allocation(allocation, usuario, datos):
+    """Actualiza una apertura (datos + reemplazo de fuentes) en transacción.
+
+    Bloqueada si la apertura está CERRADA o su versión de distribución es
+    inmutable. La disponibilidad se valida excluyendo los montos actuales de
+    la propia apertura (permite subas/rebajas). Registra auditoría.
+    """
+    validar_gestion_para_distribucion(allocation.gestion)
+    if allocation.estado == EstadoApertura.CERRADA:
+        raise ValidationError(
+            'No se puede modificar una apertura cerrada.'
+        )
+    version = allocation.version
+    if version is not None and version.inmutable:
+        raise ValidationError(
+            'La versión de distribución está fijada (inmutable); '
+            'no se puede modificar la apertura.'
+        )
+
+    estado_previo = {
+        'denominacion': allocation.denominacion,
+        'estado': allocation.estado,
+        'fuentes': [
+            {'fuente': str(s.fuente_id or ''), 'monto': str(s.monto)}
+            for s in allocation.fuentes.all()
+        ],
+    }
+
+    fuentes = datos.pop('fuentes', None)
+    validas = None
+    if fuentes is not None:
+        validas = _validar_fuentes_ingresadas(fuentes)
+        _bloquear_fuentes(allocation.gestion, {f for f, _, _ in validas})
+        disponible = _disponible_por_fuente(
+            allocation.gestion, excluir_allocation_id=allocation.id,
+        )
+        for fuente_id, _, monto in validas:
+            saldo = disponible.get(fuente_id, Decimal('0.00'))
+            if monto > saldo:
+                raise ErrorDisponibilidad(fuente_id, monto, saldo)
+
+    campos = (
+        'unidad_organizacional', 'distrito', 'da', 'ue', 'categoria',
+        'proyecto_codigo', 'codigo_sisin', 'actividad_codigo',
+        'denominacion', 'tipo_apertura', 'orden',
+    )
+    for campo in campos:
+        if campo in datos:
+            setattr(allocation, campo, datos[campo])
+    allocation.updated_by = usuario
+    allocation.save()
+
+    if validas is not None:
+        allocation.fuentes.all().delete()
+        for fuente_id, organismo_id, monto in validas:
+            AllocationSource.objects.create(
+                allocation=allocation,
+                fuente_id=fuente_id,
+                organismo_id=organismo_id,
+                monto=monto,
+                created_by=usuario,
+                updated_by=usuario,
+            )
+
+    registrar_evento(
+        usuario,
+        EventoAuditoria.Accion.MODIFICAR,
+        'Allocation',
+        allocation.id,
+        resumen=f'Apertura "{allocation.denominacion}" modificada '
+                f'(gestión {allocation.gestion.anio})',
+        datos_previos=estado_previo,
+        datos_posteriores={
+            'denominacion': allocation.denominacion,
+            'fuentes': [
+                {'fuente': str(s.fuente_id or ''), 'monto': str(s.monto)}
+                for s in allocation.fuentes.all()
+            ],
+        },
+        gestion=allocation.gestion.anio,
+    )
+    return allocation
+
+
+@transaction.atomic
+def eliminar_allocation(allocation, usuario):
+    """Elimina una apertura; solo BORRADOR/ACTIVA (no cerradas)."""
+    if allocation.estado == EstadoApertura.CERRADA:
+        raise ValidationError('No se puede eliminar una apertura cerrada.')
+    gestion_anio = allocation.gestion.anio
+    denominacion = allocation.denominacion
+    allocation.delete()
+    registrar_evento(
+        usuario,
+        EventoAuditoria.Accion.ANULAR,
+        'Allocation',
+        allocation.id,
+        resumen=f'Apertura "{denominacion}" eliminada (gestión {gestion_anio})',
+        gestion=gestion_anio,
+    )
+
+
+@transaction.atomic
+def cerrar_allocation(allocation, usuario):
+    """Cierra una apertura (estado CERRADA) si no excede el disponible.
+
+    Revalida cada fuente contra el disponible excluyendo la propia apertura
+    (guard de consistencia "solo si no excede"). Una apertura cerrada no
+    puede editarse ni eliminarse. Registra auditoría.
+    """
+    if allocation.estado == EstadoApertura.CERRADA:
+        raise ValidationError('La apertura ya está cerrada.')
+    validar_gestion_para_distribucion(allocation.gestion)
+    _bloquear_fuentes(
+        allocation.gestion,
+        {s.fuente_id for s in allocation.fuentes.all() if s.fuente_id},
+    )
+    disponible = _disponible_por_fuente(
+        allocation.gestion, excluir_allocation_id=allocation.id,
+    )
+    for fuente in allocation.fuentes.all():
+        if fuente.fuente_id is None:
+            continue
+        saldo = disponible.get(fuente.fuente_id, Decimal('0.00'))
+        if fuente.monto > saldo:
+            raise ErrorDisponibilidad(fuente.fuente_id, fuente.monto, saldo)
+
+    allocation.estado = EstadoApertura.CERRADA
+    allocation.updated_by = usuario
+    allocation.save(update_fields=['estado', 'updated_by', 'updated_at'])
+    registrar_evento(
+        usuario,
+        EventoAuditoria.Accion.CERRAR,
+        'Allocation',
+        allocation.id,
+        resumen=f'Apertura "{allocation.denominacion}" cerrada '
+                f'(gestión {allocation.gestion.anio})',
+        datos_posteriores={'estado': EstadoApertura.CERRADA},
+        gestion=allocation.gestion.anio,
+    )
+    return allocation
+
+
+@transaction.atomic
+def crear_reserva(gestion, usuario, datos):
+    """Crea una reserva ACTIVA sobre una fuente (decrece el disponible)."""
+    validar_gestion_para_distribucion(gestion)
+    techo = techo_distribuible_por_fuente(gestion)
+    if not techo:
+        raise ValidationError(
+            f'La gestión {gestion.anio} no tiene un techo directivo fijado; '
+            'la distribución está bloqueada.'
+        )
+    version = version_distribucion_activa(gestion)
+
+    fuente = datos.get('fuente')
+    fuente_id = getattr(fuente, 'id', fuente)
+    monto = datos.get('monto')
+    if not fuente_id:
+        raise ValidationError('Debe indicar la fuente de financiamiento.')
+    if monto is None or monto <= 0:
+        raise ValidationError('El monto de la reserva debe ser mayor que 0.')
+
+    organismo = datos.get('organismo')
+    organismo_id = getattr(organismo, 'id', organismo) if organismo else None
+
+    _bloquear_fuentes(gestion, {fuente_id})
+    disponible = _disponible_por_fuente(gestion)
+    saldo = disponible.get(fuente_id, Decimal('0.00'))
+    if monto > saldo:
+        raise ErrorDisponibilidad(fuente_id, monto, saldo)
+
+    reserva = Reserve.objects.create(
+        gestion=gestion,
+        version=version,
+        fuente_id=fuente_id,
+        organismo_id=organismo_id,
+        tipo=datos.get('tipo') or TipoReserva.OTRA,
+        motivo=datos.get('motivo', ''),
+        monto=monto,
+        estado=EstadoReserva.ACTIVA,
+        created_by=usuario,
+        updated_by=usuario,
+    )
+    registrar_evento(
+        usuario,
+        EventoAuditoria.Accion.CREAR,
+        'Reserve',
+        reserva.id,
+        resumen=f'Reserva {reserva.get_tipo_display()} de {monto} creada '
+                f'(gestión {gestion.anio})',
+        datos_posteriores={'monto': str(monto), 'tipo': reserva.tipo},
+        gestion=gestion.anio,
+    )
+    return reserva
+
+
+@transaction.atomic
+def liberar_reserva(reserva, usuario):
+    """Libera una reserva ACTIVA (estado LIBERADA); devuelve el disponible."""
+    if reserva.estado == EstadoReserva.LIBERADA:
+        raise ValidationError('La reserva ya está liberada.')
+    reserva.estado = EstadoReserva.LIBERADA
+    reserva.updated_by = usuario
+    reserva.save(update_fields=['estado', 'updated_by', 'updated_at'])
+    registrar_evento(
+        usuario,
+        EventoAuditoria.Accion.MODIFICAR,
+        'Reserve',
+        reserva.id,
+        resumen=f'Reserva de {reserva.monto} liberada '
+                f'(gestión {reserva.gestion.anio})',
+        datos_previos={'estado': EstadoReserva.ACTIVA},
+        datos_posteriores={'estado': EstadoReserva.LIBERADA},
+        gestion=reserva.gestion.anio,
+    )
+    return reserva
+
+
+def resumen_distribucion(gestion):
+    """Resumen del dashboard de distribución (§48): cards + tabla por fuente.
+
+    Totales = agregaciones, nunca filas en BD. Los montos son Decimal
+    (el borde API los serializa a str); `porcentaje` es float (0-100).
+    Consistencia: techo = distribuido + reservado + disponible exacto.
+    """
+    from apps.catalogos.models import FuenteFinanciamiento
+
+    techo = techo_distribuible_por_fuente(gestion)
+    distribuido = distribuido_por_fuente(gestion)
+    reservado = reservado_por_fuente(gestion)
+    disponible = _disponible_por_fuente(gestion)
+
+    fuente_ids = set(techo) | set(distribuido) | set(reservado)
+    fuentes = {
+        f.id: f
+        for f in FuenteFinanciamiento.objects.filter(id__in=fuente_ids)
+    } if fuente_ids else {}
+
+    por_fuente = []
+    total_techo = Decimal('0.00')
+    total_distribuido = Decimal('0.00')
+    total_reservado = Decimal('0.00')
+    total_disponible = Decimal('0.00')
+    for fid in sorted(
+        fuente_ids,
+        key=lambda x: (fuentes[x].codigo if x in fuentes else ''),
+    ):
+        t = techo.get(fid, Decimal('0.00'))
+        d = distribuido.get(fid, Decimal('0.00'))
+        r = reservado.get(fid, Decimal('0.00'))
+        disp = disponible.get(fid, Decimal('0.00'))
+        total_techo += t
+        total_distribuido += d
+        total_reservado += r
+        total_disponible += disp
+        por_fuente.append({
+            'fuente_id': str(fid),
+            'denominacion': fuentes[fid].denominacion if fid in fuentes else '-',
+            'techo': t,
+            'distribuido': d,
+            'reservado': r,
+            'disponible': disp,
+            'porcentaje': round(float(d / t * 100), 2) if t else 0.0,
+        })
+
+    porcentaje = (
+        round(float(total_distribuido / total_techo * 100), 2)
+        if total_techo else 0.0
+    )
+    return {
+        'gestion': gestion.anio,
+        'techo_distribuible': total_techo,
+        'distribuido': total_distribuido,
+        'reservado': total_reservado,
+        'disponible': total_disponible,
+        'porcentaje': porcentaje,
+        'aperturas_count': (
+            Allocation.objects
+            .filter(gestion=gestion)
+            .exclude(estado=EstadoApertura.CERRADA)
+            .count()
+        ),
+        'por_fuente': por_fuente,
+    }

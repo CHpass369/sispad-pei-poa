@@ -37,31 +37,45 @@ from apps.accounts.permissions import TieneCapacidad
 from apps.gestion.models import GestionFiscal
 
 from .models import (
+    Allocation,
     BudgetDocument,
     CeilingResource,
     DirectiveCeiling,
     DirectiveCeilingVersion,
+    DistributionVersion,
     MandatoryExpense,
     ProgrammaticCategory,
+    Reserve,
 )
 from .serializers import (
+    AllocationSerializer,
     BudgetDocumentSerializer,
     CeilingResourceSerializer,
     DirectiveCeilingSerializer,
+    DistributionVersionSerializer,
     FiscalYearSerializer,
     MandatoryExpenseSerializer,
     ProgrammaticCategorySerializer,
+    ReserveSerializer,
     _serializar_montos,
 )
 from .services import (
+    ErrorDisponibilidad,
     aprobar,
+    actualizar_allocation,
+    cerrar_allocation,
     cerrar_gestion,
     composicion_techo,
+    crear_allocation,
+    crear_reserva,
+    eliminar_allocation,
     enviar_a_revision,
     fijar_techo,
     gestion_habilitada,
     habilitar_gestion,
+    liberar_reserva,
     observar,
+    resumen_distribucion,
 )
 
 CAPACIDAD_GESTION = 'sis_poa.budget.manage'
@@ -388,3 +402,211 @@ class CatalogOptionsView(APIView):
                 UnidadOrganizacional.objects.all(), nombre='nombre'),
         }
         return Response(data)
+
+
+# ---------------------------------------------------------------------------
+# Fase 4 - Distribución presupuestaria (versiones, aperturas, reservas)
+# ---------------------------------------------------------------------------
+
+def _respuesta_exceso(exc):
+    """400 BUDGET_EXCEEDED: {error: {detail}, code, details}."""
+    return Response(
+        {
+            'error': {'detail': exc.messages},
+            'code': exc.code,
+            'details': exc.details,
+        },
+        status=400,
+    )
+
+
+class DistributionVersionViewSet(viewsets.ModelViewSet):
+    """Versiones de distribución (CRUD liviano + listado por gestión)."""
+
+    queryset = DistributionVersion.objects.select_related(
+        'gestion', 'fijado_por',
+    ).all()
+    serializer_class = DistributionVersionSerializer
+    filterset_fields = ['gestion', 'estado', 'inmutable']
+    search_fields = ['gestion__anio']
+
+    def get_permissions(self):
+        if self.action in ('create', 'update', 'partial_update', 'destroy'):
+            return [TieneCapacidad(CAPACIDAD_GESTION)]
+        return super().get_permissions()
+
+    def perform_create(self, serializer):
+        request = self.context.get('request')
+        usuario = request.user if request and request.user.is_authenticated else None
+        serializer.save(created_by=usuario, updated_by=usuario)
+
+    def destroy(self, request, *args, **kwargs):
+        version = self.get_object()
+        if version.inmutable:
+            return Response(ERROR_409_INMUTABLE, status=409)
+        return super().destroy(request, *args, **kwargs)
+
+    @action(detail=False, methods=['get'], url_path='versions')
+    def versions(self, request):
+        """Lista las versiones de distribución por gestión (?gestion=)."""
+        gestion = request.query_params.get('gestion')
+        if not gestion:
+            return Response(
+                {'error': {'detail': ['El parámetro ?gestion= es obligatorio.']}},
+                status=400,
+            )
+        qs = self.get_queryset().filter(gestion_id=gestion).order_by('-numero')
+        return Response(self.get_serializer(qs, many=True).data)
+
+
+class AllocationViewSet(viewsets.ModelViewSet):
+    """Aperturas programáticas: CRUD con fuentes anidadas + cerrar.
+
+    create/update aceptan `fuentes`: [{fuente, organismo, monto}]. Errores
+    de disponibilidad → 400 {error: {detail}, code: 'BUDGET_EXCEEDED',
+    details: {requested, available, difference}}.
+    """
+
+    queryset = Allocation.objects.select_related(
+        'gestion', 'version', 'unidad_organizacional', 'distrito',
+        'da', 'ue', 'categoria',
+    ).prefetch_related('fuentes__fuente', 'fuentes__organismo').all()
+    serializer_class = AllocationSerializer
+    filterset_fields = ['gestion', 'version', 'distrito', 'categoria', 'estado']
+    search_fields = ['denominacion', 'codigo_sisin', 'proyecto_codigo',
+                     'actividad_codigo']
+
+    def get_permissions(self):
+        if self.action in ('create', 'update', 'partial_update', 'destroy',
+                           'cerrar'):
+            return [TieneCapacidad(CAPACIDAD_GESTION)]
+        return super().get_permissions()
+
+    def _validar_y_servicio(self, request, serializer, allocation=None):
+        """Valida el serializer y ejecuta el servicio de dominio mapeando
+        errores: BUDGET_EXCEEDED → 400 con code/details; resto → 400 genérico."""
+        gestion = serializer.validated_data.get('gestion')
+        if gestion is None and allocation is not None:
+            gestion = allocation.gestion
+        if gestion is None:
+            return Response(
+                {'error': {'detail': ['La gestión es obligatoria.']}},
+                status=400,
+            )
+        datos = {
+            k: v for k, v in serializer.validated_data.items() if k != 'gestion'
+        }
+        try:
+            if allocation is None:
+                resultado = crear_allocation(gestion, request.user, datos)
+            else:
+                resultado = actualizar_allocation(
+                    allocation, request.user, datos,
+                )
+        except ErrorDisponibilidad as exc:
+            return _respuesta_exceso(exc)
+        except DjangoValidationError as exc:
+            return _respuesta_error(exc)
+        return Response(
+            self.get_serializer(resultado).data,
+            status=201 if allocation is None else 200,
+        )
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return self._validar_y_servicio(request, serializer)
+
+    def update(self, request, *args, **kwargs):
+        allocation = self.get_object()
+        partial = kwargs.get('partial', False)
+        serializer = self.get_serializer(
+            allocation, data=request.data, partial=partial,
+        )
+        serializer.is_valid(raise_exception=True)
+        return self._validar_y_servicio(request, serializer, allocation)
+
+    def destroy(self, request, *args, **kwargs):
+        allocation = self.get_object()
+        try:
+            eliminar_allocation(allocation, request.user)
+        except DjangoValidationError as exc:
+            return _respuesta_error(exc)
+        return Response(status=204)
+
+    @action(detail=True, methods=['post'], url_path='cerrar')
+    def cerrar(self, request, pk=None):
+        """Cierra la apertura (solo si no excede el disponible)."""
+        allocation = self.get_object()
+        try:
+            cerrar_allocation(allocation, request.user)
+        except ErrorDisponibilidad as exc:
+            return _respuesta_exceso(exc)
+        except DjangoValidationError as exc:
+            return _respuesta_error(exc)
+        return Response(self.get_serializer(allocation).data)
+
+
+class ReserveViewSet(viewsets.ModelViewSet):
+    """Reservas presupuestarias: CRUD + acción liberar."""
+
+    queryset = Reserve.objects.select_related(
+        'gestion', 'version', 'fuente', 'organismo',
+    ).all()
+    serializer_class = ReserveSerializer
+    filterset_fields = ['gestion', 'version', 'estado', 'tipo', 'fuente']
+    search_fields = ['motivo']
+
+    def get_permissions(self):
+        if self.action in ('create', 'update', 'partial_update', 'destroy',
+                           'liberar'):
+            return [TieneCapacidad(CAPACIDAD_GESTION)]
+        return super().get_permissions()
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        gestion = serializer.validated_data.get('gestion')
+        if gestion is None:
+            return Response(
+                {'error': {'detail': ['La gestión es obligatoria.']}},
+                status=400,
+            )
+        datos = {
+            k: v for k, v in serializer.validated_data.items() if k != 'gestion'
+        }
+        try:
+            reserva = crear_reserva(gestion, request.user, datos)
+        except ErrorDisponibilidad as exc:
+            return _respuesta_exceso(exc)
+        except DjangoValidationError as exc:
+            return _respuesta_error(exc)
+        return Response(self.get_serializer(reserva).data, status=201)
+
+    @action(detail=True, methods=['post'], url_path='liberar')
+    def liberar(self, request, pk=None):
+        """Libera la reserva (devuelve el disponible a la fuente)."""
+        reserva = self.get_object()
+        try:
+            liberar_reserva(reserva, request.user)
+        except DjangoValidationError as exc:
+            return _respuesta_error(exc)
+        return Response(self.get_serializer(reserva).data)
+
+
+@extend_schema(
+    responses={200: OpenApiTypes.OBJECT},
+    description='Resumen de la distribución (§48): cards + tabla por fuente.',
+)
+class DistributionDashboardView(APIView):
+    """GET /distributions/dashboard/?gestion= → resumen_distribucion."""
+
+    def get(self, request):
+        gestion = request.query_params.get('gestion')
+        if not gestion:
+            return Response(
+                {'error': {'detail': ['El parámetro ?gestion= es obligatorio.']}},
+                status=400,
+            )
+        gestion_obj = get_object_or_404(GestionFiscal, pk=gestion)
+        return Response(_serializar_montos(resumen_distribucion(gestion_obj)))

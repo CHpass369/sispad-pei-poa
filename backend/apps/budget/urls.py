@@ -6,14 +6,18 @@ from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from .views import (
+    AllocationViewSet,
     BudgetDocumentViewSet,
     CatalogOptionsView,
     CeilingResourceViewSet,
     CompositionView,
     DirectiveCeilingViewSet,
+    DistributionDashboardView,
+    DistributionVersionViewSet,
     FiscalYearViewSet,
     MandatoryExpenseViewSet,
     ProgrammaticCategoryViewSet,
+    ReserveViewSet,
 )
 
 budget_router = DefaultRouter()
@@ -32,6 +36,12 @@ budget_router.register(
     'programmatic-categories', ProgrammaticCategoryViewSet,
     basename='v2-programmatic-categories',
 )
+budget_router.register(
+    'distributions', DistributionVersionViewSet,
+    basename='v2-budget-distributions',
+)
+budget_router.register('allocations', AllocationViewSet, basename='v2-budget-allocations')
+budget_router.register('reserves', ReserveViewSet, basename='v2-budget-reserves')
 
 urlpatterns = [
     path(
@@ -40,5 +50,10 @@ urlpatterns = [
         name='v2-directive-ceiling-composition',
     ),
     path('catalogs/', CatalogOptionsView.as_view(), name='v2-budget-catalogs'),
+    path(
+        'distributions/dashboard/',
+        DistributionDashboardView.as_view(),
+        name='v2-budget-distribution-dashboard',
+    ),
     *budget_router.urls,
 ]

@@ -78,6 +78,146 @@ export interface CatalogoOpciones {
   unidades_organizacionales: DetalleUnidad[];
 }
 
+// -- Distribución presupuestaria (Fase 4) -----------------------------------
+
+export interface DistributionVersion {
+  id: number;
+  gestion: string;
+  gestion_anio: number;
+  numero: number;
+  estado: string;
+  estado_display: string;
+  hash: string;
+  fecha_fijacion: string | null;
+  fijado_por: number | null;
+  fijado_por_email: string | null;
+  observaciones: string;
+  inmutable: boolean;
+}
+
+export interface AllocationSource {
+  id: number;
+  fuente: string | null;
+  fuente_detalle: DetalleCatalogo | null;
+  organismo: string | null;
+  organismo_detalle: DetalleCatalogo | null;
+  monto: string;
+}
+
+export interface AllocationSourceInput {
+  fuente: string;
+  organismo?: string | null;
+  monto: number | string;
+}
+
+export interface DetalleDistrito {
+  codigo: string;
+  nombre: string;
+}
+
+export interface DetalleCategoria {
+  id: string;
+  codigo: string;
+  codigo_compuesto: string;
+  denominacion: string;
+}
+
+export interface Allocation {
+  id: number;
+  gestion: string;
+  gestion_anio: number;
+  version: number | null;
+  orden: number;
+  unidad_organizacional: string | null;
+  unidad_detalle: DetalleUnidad | null;
+  distrito: string | null;
+  distrito_detalle: DetalleDistrito | null;
+  da: string | null;
+  da_detalle: DetalleUnidad | null;
+  ue: string | null;
+  ue_detalle: DetalleUnidad | null;
+  categoria: number | null;
+  categoria_detalle: DetalleCategoria | null;
+  proyecto_codigo: string;
+  codigo_sisin: string;
+  actividad_codigo: string;
+  denominacion: string;
+  tipo_apertura: string;
+  estado: string;
+  estado_display: string;
+  fuentes: AllocationSource[];
+  total: string;
+}
+
+export interface AllocationInput {
+  gestion: string;
+  denominacion: string;
+  categoria?: number | null;
+  distrito?: string | null;
+  da?: string | null;
+  ue?: string | null;
+  unidad_organizacional?: string | null;
+  proyecto_codigo?: string;
+  codigo_sisin?: string;
+  actividad_codigo?: string;
+  orden?: number;
+  fuentes?: AllocationSourceInput[];
+}
+
+export interface Reserve {
+  id: number;
+  gestion: string;
+  gestion_anio: number;
+  version: number | null;
+  fuente: string | null;
+  fuente_detalle: DetalleCatalogo | null;
+  organismo: string | null;
+  organismo_detalle: DetalleCatalogo | null;
+  tipo: string;
+  tipo_display: string;
+  monto: string;
+  motivo: string;
+  estado: string;
+  estado_display: string;
+}
+
+export interface ReserveInput {
+  gestion: string;
+  fuente: string;
+  organismo?: string | null;
+  tipo?: string;
+  monto: number | string;
+  motivo?: string;
+}
+
+export interface DistribucionPorFuente {
+  fuente_id: string;
+  denominacion: string;
+  techo: string;
+  distribuido: string;
+  reservado: string;
+  disponible: string;
+  porcentaje: number;
+}
+
+export interface DistributionSummary {
+  gestion: number;
+  techo_distribuible: string;
+  distribuido: string;
+  reservado: string;
+  disponible: string;
+  porcentaje: number;
+  aperturas_count: number;
+  por_fuente: DistribucionPorFuente[];
+}
+
+/** Error de la API V2: {error: {detail}, code?, details?}. */
+export interface ApiErrorResponse {
+  error?: { detail?: string | string[] } | Record<string, unknown>;
+  code?: string;
+  details?: { requested?: string; available?: string; difference?: string };
+}
+
 
 /** Composición del techo directivo (§22). Montos en string (convención API). */
 export interface Composition {
@@ -368,5 +508,64 @@ export class BudgetService {
     return this.http.get<CatalogoOpciones>(`${this.base}/catalogs/`, {
       params: this.params(params),
     });
+  }
+
+  // -- Distribución presupuestaria (Fase 4) ---------------------------------
+
+  resumenDistribucion(gestion: string): Observable<DistributionSummary> {
+    return this.http.get<DistributionSummary>(
+      `${this.base}/distributions/dashboard/`,
+      { params: this.params({ gestion }) },
+    );
+  }
+
+  listarVersionesDistribucion(gestion: string): Observable<DistributionVersion[]> {
+    return this.http.get<DistributionVersion[]>(
+      `${this.base}/distributions/versions/`,
+      { params: this.params({ gestion }) },
+    );
+  }
+
+  listarAperturas(params?: {
+    gestion?: string;
+    version?: number;
+    distrito?: string;
+    categoria?: number;
+    estado?: string;
+    search?: string;
+  }): Observable<Paginado<Allocation>> {
+    return this.http.get<Paginado<Allocation>>(`${this.base}/allocations/`, {
+      params: this.params(params),
+    });
+  }
+
+  crearApertura(data: AllocationInput): Observable<Allocation> {
+    return this.http.post<Allocation>(`${this.base}/allocations/`, data);
+  }
+
+  actualizarApertura(id: number, data: Partial<AllocationInput>): Observable<Allocation> {
+    return this.http.patch<Allocation>(`${this.base}/allocations/${id}/`, data);
+  }
+
+  eliminarApertura(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.base}/allocations/${id}/`);
+  }
+
+  cerrarApertura(id: number): Observable<Allocation> {
+    return this.http.post<Allocation>(`${this.base}/allocations/${id}/cerrar/`, {});
+  }
+
+  listarReservas(params?: { gestion?: string; estado?: string }): Observable<Paginado<Reserve>> {
+    return this.http.get<Paginado<Reserve>>(`${this.base}/reserves/`, {
+      params: this.params(params),
+    });
+  }
+
+  crearReserva(data: ReserveInput): Observable<Reserve> {
+    return this.http.post<Reserve>(`${this.base}/reserves/`, data);
+  }
+
+  liberarReserva(id: number): Observable<Reserve> {
+    return this.http.post<Reserve>(`${this.base}/reserves/${id}/liberar/`, {});
   }
 }

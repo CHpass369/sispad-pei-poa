@@ -424,6 +424,352 @@ class BudgetDocument(TimeStampedModel):
             self.size = self.archivo.size
         super().save(*args, **kwargs)
 
+
+# ---------------------------------------------------------------------------
+# Fase 4 - Distribución presupuestaria: versiones de distribución, aperturas
+# programáticas con asignaciones normalizadas por FF/OF y reservas.
+# ---------------------------------------------------------------------------
+class TipoApertura:
+    """Tipo de apertura. DETAIL es el único tipo por ahora; el importador de
+    la Fase 5 agrega PROGRAM_HEADER/ACTIVITY_HEADER etc."""
+    DETAIL = 'DETAIL'
+
+    CHOICES = [
+        (DETAIL, 'Detalle'),
+    ]
+
+
+class EstadoApertura:
+    BORRADOR = 'BORRADOR'
+    ACTIVA = 'ACTIVA'
+    CERRADA = 'CERRADA'
+
+    CHOICES = [
+        (BORRADOR, 'Borrador'),
+        (ACTIVA, 'Activa'),
+        (CERRADA, 'Cerrada'),
+    ]
+
+
+class TipoReserva:
+    """Tipo de reserva. DISTRITAL: reserva para el reparto territorial
+    (Fase 6). DISTRIBUCION: reserva global de la distribución. OTRA: otras."""
+    DISTRITAL = 'DISTRITAL'
+    DISTRIBUCION = 'DISTRIBUCION'
+    OTRA = 'OTRA'
+
+    CHOICES = [
+        (DISTRITAL, 'Distrital'),
+        (DISTRIBUCION, 'Distribución'),
+        (OTRA, 'Otra'),
+    ]
+
+
+class EstadoReserva:
+    ACTIVA = 'ACTIVA'
+    LIBERADA = 'LIBERADA'
+
+    CHOICES = [
+        (ACTIVA, 'Activa'),
+        (LIBERADA, 'Liberada'),
+    ]
+
+
+class DistributionVersion(TimeStampedModel):
+    """Versión de la distribución presupuestaria de una gestión.
+
+    Replica el patrón de `DirectiveCeilingVersion`/`VersionInstrumento`:
+    la versión transita por los estados `EstadosTecho` (BORRADOR →
+    EN_REVISION → APROBADO → FIJADO, con OBSERVADO) y al fijarse queda
+    inmutable con checksum SHA-256. La distribución activa es la versión
+    no fijada de mayor número; si no existe se crea la versión 1 al primer
+    uso. La fijación completa (validación Σfuente = techo − reservas) llega
+    en la Fase 7; aquí ya existe el contenedor para no remodelar.
+    """
+
+    gestion = models.ForeignKey(
+        'gestion.GestionFiscal', on_delete=models.CASCADE,
+        related_name='versiones_distribucion',
+        help_text='Gestión fiscal de la distribución.',
+    )
+    numero = models.PositiveIntegerField(help_text='Número de versión.')
+    estado = models.CharField(
+        max_length=20, choices=EstadosTecho.CHOICES,
+        default=EstadosTecho.BORRADOR,
+    )
+    hash = models.CharField(
+        max_length=64, blank=True, default='',
+        help_text='SHA-256 de los datos semánticos; se llena al fijar (Fase 7).',
+    )
+    fecha_fijacion = models.DateTimeField(null=True, blank=True)
+    fijado_por = models.ForeignKey(
+        'accounts.Usuario', null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='distribuciones_fijadas',
+    )
+    observaciones = models.TextField(blank=True, default='')
+    inmutable = models.BooleanField(default=False)
+
+    class Meta:
+        verbose_name = 'Versión de distribución'
+        verbose_name_plural = 'Versiones de distribución'
+        ordering = ['gestion', 'numero']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['gestion', 'numero'],
+                name='uniq_distribution_version_numero',
+            ),
+        ]
+
+    def __str__(self):
+        return f'Distribución {self.gestion.anio} v{self.numero} ({self.estado})'
+
+    # -- Checksum (patrón VersionInstrumento) ------------------------------
+
+    def _datos_checksum(self):
+        """Datos semánticos de la versión, deterministas y ordenados."""
+        aperturas = [
+            (
+                a.denominacion,
+                a.estado,
+                a.tipo_apertura,
+                str(a.orden),
+                a.codigo_sisin,
+                sorted([
+                    (
+                        str(s.fuente_id or ''),
+                        str(s.organismo_id or ''),
+                        str(s.monto),
+                    )
+                    for s in a.fuentes.all()
+                ]),
+            )
+            for a in self.aperturas.order_by('id')
+        ]
+        reservas = [
+            (
+                str(r.fuente_id or ''),
+                str(r.organismo_id or ''),
+                r.tipo,
+                r.estado,
+                str(r.monto),
+            )
+            for r in self.reservas.order_by('id')
+        ]
+        return {'aperturas': aperturas, 'reservas': reservas}
+
+    def calcular_hash(self):
+        """SHA-256 de los datos semánticos de la versión."""
+        payload = self._datos_checksum()
+        return hashlib.sha256(
+            json.dumps(payload, ensure_ascii=False, sort_keys=True)
+            .encode('utf-8')
+        ).hexdigest()
+
+    def verificar_hash(self):
+        return bool(self.hash) and self.hash == self.calcular_hash()
+
+    # -- Fijación (inmutabilidad; Fase 7) -----------------------------------
+
+    def fijar(self, usuario, observaciones=''):
+        """Fija la versión: estado FIJADO, inmutable, checksum, fecha y autor."""
+        self.estado = EstadosTecho.FIJADO
+        self.inmutable = True
+        self.hash = self.calcular_hash()
+        self.fecha_fijacion = timezone.now()
+        self.fijado_por = usuario
+        self.observaciones = observaciones or self.observaciones
+        self.save(update_fields=[
+            'estado', 'inmutable', 'hash', 'fecha_fijacion',
+            'fijado_por', 'observaciones', 'updated_at',
+        ])
+
+    # -- Protección ----------------------------------------------------------
+
+    def save(self, *args, **kwargs):
+        if self.pk and not kwargs.get('force_insert'):
+            original = DistributionVersion.objects.get(pk=self.pk)
+            if original.inmutable:
+                raise ValidationError(
+                    'No se puede modificar una versión de distribución '
+                    'fijada (inmutable).'
+                )
+        super().save(*args, **kwargs)
+
+
+class Allocation(TimeStampedModel):
+    """Apertura programática de la distribución (por gestión).
+
+    Referencia la categoría programática del ciclo (`budget.ProgrammaticCategory`)
+    y las dimensiones organizacionales/territoriales. Los montos viven
+    normalizados por FF/OF en `AllocationSource` — nunca columnas monto_ct/
+    monto_re. Los códigos SISIN/proyecto/actividad son VARCHAR (ceros
+    iniciales preservados).
+    """
+
+    gestion = models.ForeignKey(
+        'gestion.GestionFiscal', on_delete=models.CASCADE,
+        related_name='aperturas_presupuestarias',
+    )
+    version = models.ForeignKey(
+        DistributionVersion, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='aperturas',
+        help_text='Versión de distribución activa al momento de la apertura.',
+    )
+    unidad_organizacional = models.ForeignKey(
+        'organizacion.UnidadOrganizacional', null=True, blank=True,
+        on_delete=models.PROTECT, related_name='aperturas_presupuestarias',
+    )
+    distrito = models.ForeignKey(
+        'territorio.Distrito', null=True, blank=True,
+        on_delete=models.PROTECT, related_name='aperturas_presupuestarias',
+    )
+    da = models.ForeignKey(
+        'organizacion.DireccionAdministrativa', null=True, blank=True,
+        on_delete=models.PROTECT, related_name='aperturas_presupuestarias',
+    )
+    ue = models.ForeignKey(
+        'organizacion.UnidadEjecutora', null=True, blank=True,
+        on_delete=models.PROTECT, related_name='aperturas_presupuestarias',
+    )
+    categoria = models.ForeignKey(
+        'budget.ProgrammaticCategory', null=True, blank=True,
+        on_delete=models.PROTECT, related_name='aperturas',
+        help_text='Categoría programática del ciclo.',
+    )
+    proyecto_codigo = models.CharField(max_length=20, blank=True, default='')
+    codigo_sisin = models.CharField(
+        max_length=20, blank=True, default='',
+        help_text='Código SISIN (VARCHAR, ceros iniciales preservados).',
+    )
+    actividad_codigo = models.CharField(max_length=20, blank=True, default='')
+    denominacion = models.CharField(max_length=300)
+    tipo_apertura = models.CharField(
+        max_length=20, choices=TipoApertura.CHOICES,
+        default=TipoApertura.DETAIL,
+    )
+    estado = models.CharField(
+        max_length=20, choices=EstadoApertura.CHOICES,
+        default=EstadoApertura.ACTIVA,
+    )
+    orden = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        verbose_name = 'Apertura programática'
+        verbose_name_plural = 'Aperturas programáticas'
+        ordering = ['gestion', 'orden', 'id']
+        indexes = [
+            models.Index(fields=['gestion', 'version']),
+            models.Index(fields=['gestion', 'categoria']),
+            models.Index(fields=['gestion', 'distrito']),
+        ]
+
+    def __str__(self):
+        return f'{self.codigo_sisin or "-"} - {self.denominacion}'
+
+    @property
+    def total(self):
+        """Total de la apertura = suma de sus fuentes (agregación, nunca fila)."""
+        total = self.fuentes.aggregate(models.Sum('monto'))['monto__sum']
+        return total if total is not None else 0
+
+
+class AllocationSource(TimeStampedModel):
+    """Asignación normalizada de una apertura por FF/OF (nunca columnas).
+
+    `UniqueConstraint(nulls_distinct=False)` garantiza una fila por
+    (allocation, fuente, organismo) incluso cuando alguno es NULL.
+    """
+
+    allocation = models.ForeignKey(
+        Allocation, on_delete=models.CASCADE, related_name='fuentes',
+    )
+    fuente = models.ForeignKey(
+        'catalogos.FuenteFinanciamiento', null=True, blank=True,
+        on_delete=models.PROTECT, related_name='allocation_sources',
+    )
+    organismo = models.ForeignKey(
+        'catalogos.OrganismoFinanciador', null=True, blank=True,
+        on_delete=models.PROTECT, related_name='allocation_sources',
+    )
+    monto = models.DecimalField(
+        max_digits=18, decimal_places=2, verbose_name='Monto (Bs)'
+    )
+
+    class Meta:
+        verbose_name = 'Asignación de apertura'
+        verbose_name_plural = 'Asignaciones de apertura'
+        ordering = ['allocation', 'fuente', 'organismo']
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(monto__gte=0),
+                name='check_allocationsource_monto_positivo',
+            ),
+            models.UniqueConstraint(
+                fields=['allocation', 'fuente', 'organismo'],
+                name='uniq_allocation_fuente_organismo',
+                nulls_distinct=False,
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.fuente.codigo if self.fuente_id else "-"}: {self.monto}'
+
+
+class Reserve(TimeStampedModel):
+    """Reserva presupuestaria sobre una fuente (decrece el disponible).
+
+    Las reservas ACTIVAS restan del disponible por fuente; liberarlas lo
+    devuelve. `CheckConstraint` garantiza monto >= 0 en base de datos.
+    """
+
+    gestion = models.ForeignKey(
+        'gestion.GestionFiscal', on_delete=models.CASCADE,
+        related_name='reservas_presupuestarias',
+    )
+    version = models.ForeignKey(
+        DistributionVersion, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='reservas',
+    )
+    fuente = models.ForeignKey(
+        'catalogos.FuenteFinanciamiento', null=True, blank=True,
+        on_delete=models.PROTECT, related_name='reservas_por_fuente',
+    )
+    organismo = models.ForeignKey(
+        'catalogos.OrganismoFinanciador', null=True, blank=True,
+        on_delete=models.PROTECT, related_name='reservas_por_organismo',
+    )
+    tipo = models.CharField(
+        max_length=20, choices=TipoReserva.CHOICES,
+        default=TipoReserva.OTRA,
+    )
+    monto = models.DecimalField(
+        max_digits=18, decimal_places=2, verbose_name='Monto (Bs)'
+    )
+    motivo = models.TextField(blank=True, default='')
+    estado = models.CharField(
+        max_length=20, choices=EstadoReserva.CHOICES,
+        default=EstadoReserva.ACTIVA,
+    )
+
+    class Meta:
+        verbose_name = 'Reserva presupuestaria'
+        verbose_name_plural = 'Reservas presupuestarias'
+        ordering = ['gestion', '-created_at']
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(monto__gte=0),
+                name='check_reserve_monto_positivo',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['gestion', 'estado']),
+            models.Index(fields=['gestion', 'version']),
+        ]
+
+    def __str__(self):
+        return f'Reserva {self.get_tipo_display()} {self.monto}'
+
+
 # ---------------------------------------------------------------------------
 # Fase 3 - CategorAas programAticas del ciclo (jeraquAa PROGRAMA/SUBPROGRAMA/
 # PROYECTO/ACTIVIDAD por gestiA3n). CAtAlogo propio del ciclo presupuestario;
