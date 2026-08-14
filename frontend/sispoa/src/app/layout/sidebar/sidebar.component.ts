@@ -4,6 +4,7 @@ import { Subject, filter, takeUntil } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
 import { PermissionsService } from '../../core/services/permissions.service';
 import { CapabilitiesService } from '../../core/services/capabilities.service';
+import { LEGACY_MENU_VISIBLE } from '../../core/config/cutover.config';
 
 interface NavItem {
   route: string;
@@ -287,6 +288,11 @@ export class SidebarComponent implements OnInit, OnDestroy {
 
   private filtrarItems(items: NavItem[]): NavItem[] {
     return items.filter(item => {
+      // Cutover V2 (ADR-004 / WP-14): los módulos legacy se ocultan según la
+      // palanca LEGACY_MENU_VISIBLE (ver core/config/cutover.config.ts).
+      if (item.legacy && LEGACY_MENU_VISIBLE[item.route] === false) {
+        return false;
+      }
       if (item.capacidades?.length) {
         return this.permissions.hasAnyCapability(item.capacidades);
       }
