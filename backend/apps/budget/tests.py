@@ -2280,3 +2280,547 @@ class FijacionPermisosTests(FijacionDistribucionBase):
         )
         self.assertEqual(resp.status_code, 200, resp.data)
         self.assertIn('valida', resp.data)
+
+
+# ===========================================================================
+# Fase 8 - Control presupuestario central (BudgetControlService + API +
+# concurrencia real con locks sobre el techo fijado)
+# ===========================================================================
+import threading  # noqa: E402
+import time  # noqa: E402
+from concurrent.futures import ThreadPoolExecutor  # noqa: E402
+
+from django.db import connection, transaction  # noqa: E402
+from django.test import TransactionTestCase  # noqa: E402
+
+from .control import BudgetControlService  # noqa: E402
+from .services import (  # noqa: E402
+    ErrorDisponibilidad,
+    aprobar,
+    enviar_a_revision,
+    fijar_techo,
+    version_distribucion_activa,
+)
+
+CONTROL_URL = BUDGET_URL + 'control/'
+
+
+class ControlSummaryTests(DistribucionBase):
+    """get_summary: resumen consolidado con invariante exacta por fuente."""
+
+    def test_summary_consistente_exacto_por_fuente(self):
+        self.crear_apertura(monto='1000.00', denominacion='Apertura A')
+        self.crear_reserva_api(monto='200.00')
+        resumen = BudgetControlService.get_summary(self.gestion)
+
+        self.assertEqual(resumen['techo_bruto'], Decimal('1500.00'))
+        self.assertEqual(resumen['techo_distribuible'], Decimal('1500.00'))
+        self.assertEqual(resumen['distribuido'], Decimal('1000.00'))
+        self.assertEqual(resumen['reservado'], Decimal('200.00'))
+        self.assertEqual(resumen['disponible'], Decimal('300.00'))
+        self.assertEqual(resumen['porcentaje'], 66.67)
+        self.assertEqual(len(resumen['por_fuente']), 1)
+
+        fila = resumen['por_fuente'][0]
+        self.assertEqual(fila['fuente'], str(self.fuente.id))
+        self.assertEqual(fila['denominacion'], 'Tesoro General')
+        self.assertEqual(fila['techo'], Decimal('1500.00'))
+        self.assertEqual(fila['distribuido'], Decimal('1000.00'))
+        self.assertEqual(fila['reservado'], Decimal('200.00'))
+        self.assertEqual(fila['disponible'], Decimal('300.00'))
+        # Invariante exacta por fuente: techo = distribuido + reservado +
+        # disponible (sin redondeos).
+        self.assertEqual(
+            fila['techo'],
+            fila['distribuido'] + fila['reservado'] + fila['disponible'],
+        )
+        # Y la invariante global también.
+        self.assertEqual(
+            resumen['techo_distribuible'],
+            resumen['distribuido'] + resumen['reservado']
+            + resumen['disponible'],
+        )
+        # Coherencia con los agregados del servicio.
+        techo = BudgetControlService.get_distributable_ceiling(self.gestion)
+        self.assertEqual(techo[self.fuente.id], fila['techo'])
+
+    def test_summary_sin_techo_devuelve_ceros(self):
+        gestion = crear_gestion(2041, estado='HABILITADA')
+        resumen = BudgetControlService.get_summary(gestion)
+        self.assertEqual(resumen['gestion'], 2041)
+        self.assertEqual(resumen['techo_bruto'], Decimal('0.00'))
+        self.assertEqual(resumen['techo_distribuible'], Decimal('0.00'))
+        self.assertEqual(resumen['distribuido'], Decimal('0.00'))
+        self.assertEqual(resumen['reservado'], Decimal('0.00'))
+        self.assertEqual(resumen['disponible'], Decimal('0.00'))
+        self.assertEqual(resumen['porcentaje'], 0.0)
+        self.assertEqual(resumen['por_fuente'], [])
+
+    def test_getters_de_saldos_coinciden_con_services(self):
+        self.crear_apertura(monto='1000.00', denominacion='Apertura A')
+        self.crear_reserva_api(monto='200.00')
+        self.assertEqual(
+            BudgetControlService.get_directive_ceiling(self.gestion)[
+                'techo_bruto'
+            ],
+            Decimal('1500.00'),
+        )
+        self.assertEqual(
+            BudgetControlService.get_distributable_ceiling(self.gestion),
+            techo_distribuible_por_fuente(self.gestion),
+        )
+        self.assertEqual(
+            BudgetControlService.get_distributed(self.gestion),
+            distribuido_por_fuente(self.gestion),
+        )
+        self.assertEqual(
+            BudgetControlService.get_reserved(self.gestion),
+            reservado_por_fuente(self.gestion),
+        )
+        self.assertEqual(
+            BudgetControlService.get_available_for_distribution(self.gestion),
+            disponible_por_fuente(self.gestion),
+        )
+
+    def test_getters_de_apertura(self):
+        resp = self.crear_apertura(monto='1000.00', denominacion='Apertura A')
+        allocation = Allocation.objects.get(pk=resp.data['id'])
+        self.assertEqual(
+            BudgetControlService.get_allocation_ceiling(allocation),
+            Decimal('1000.00'),
+        )
+        # Fase 8: sin programación por objetos del gasto → disponible =
+        # techo de la apertura.
+        self.assertEqual(
+            BudgetControlService.get_allocated_to_expense_objects(allocation),
+            Decimal('0.00'),
+        )
+        self.assertEqual(
+            BudgetControlService.get_allocation_available(allocation),
+            Decimal('1000.00'),
+        )
+
+    def test_validate_distribution_reutiliza_servicio(self):
+        self.crear_apertura(monto='1000.00')
+        self.crear_reserva_api(monto='500.00')
+        resultado = BudgetControlService.validate_distribution(self.gestion)
+        self.assertTrue(resultado['valida'])
+        self.assertEqual(
+            resultado,
+            validar_distribucion_completa(self.gestion),
+        )
+
+    def test_validate_expense_object_valida_apertura_activa(self):
+        resp = self.crear_apertura(monto='100.00', denominacion='Apertura A')
+        allocation = Allocation.objects.get(pk=resp.data['id'])
+        self.assertEqual(
+            BudgetControlService.validate_expense_object(
+                allocation, self.fuente, Decimal('50.00'),
+            ),
+            {'valido': True},
+        )
+        allocation.estado = 'BORRADOR'
+        allocation.save()
+        with self.assertRaises(ValidationError):
+            BudgetControlService.validate_expense_object(
+                allocation, self.fuente, Decimal('50.00'),
+            )
+
+    def test_validate_expense_object_con_allocation_inexistente(self):
+        with self.assertRaises(ValidationError):
+            BudgetControlService.validate_expense_object(
+                999999, self.fuente, Decimal('50.00'),
+            )
+
+
+class ControlReservaTests(DistribucionBase):
+    """reserve/release vía BudgetControlService (refactor de services)."""
+
+    def test_reserve_respeta_disponibilidad(self):
+        reserva = BudgetControlService.reserve(
+            self.gestion, self.fuente, self.organismo,
+            Decimal('200.00'), motivo='Control Fase 8', usuario=self.admin,
+        )
+        self.assertEqual(reserva.estado, 'ACTIVA')
+        self.assertEqual(reserva.monto, Decimal('200.00'))
+        disponible = BudgetControlService.get_available_for_distribution(
+            self.gestion,
+        )
+        self.assertEqual(disponible[self.fuente.id], Decimal('1300.00'))
+        evento = EventoAuditoria.objects.filter(
+            entidad='Reserve', entidad_id=str(reserva.id),
+        ).first()
+        self.assertIsNotNone(evento)
+        self.assertEqual(evento.accion, 'crear')
+
+    def test_reserve_excede_disponible_lanza_budget_exceeded(self):
+        with self.assertRaises(ErrorDisponibilidad) as ctx:
+            BudgetControlService.reserve(
+                self.gestion, self.fuente, self.organismo,
+                Decimal('1600.00'), motivo='Exceso', usuario=self.admin,
+            )
+        self.assertEqual(ctx.exception.code, 'BUDGET_EXCEEDED')
+        self.assertEqual(ctx.exception.details['available'], '1500.00')
+        self.assertEqual(
+            Reserve.objects.filter(gestion=self.gestion).count(), 0,
+        )
+
+    def test_release_devuelve_el_disponible(self):
+        reserva = BudgetControlService.reserve(
+            self.gestion, self.fuente, self.organismo,
+            Decimal('200.00'), motivo='A liberar', usuario=self.admin,
+        )
+        BudgetControlService.release(reserva, self.admin)
+        reserva.refresh_from_db()
+        self.assertEqual(reserva.estado, 'LIBERADA')
+        self.assertEqual(
+            BudgetControlService.get_available_for_distribution(self.gestion)[
+                self.fuente.id
+            ],
+            Decimal('1500.00'),
+        )
+
+    def test_release_doble_rechazado(self):
+        reserva = BudgetControlService.reserve(
+            self.gestion, self.fuente, self.organismo,
+            Decimal('200.00'), motivo='A liberar', usuario=self.admin,
+        )
+        BudgetControlService.release(reserva, self.admin)
+        with self.assertRaises(ValidationError):
+            BudgetControlService.release(reserva, self.admin)
+
+
+class ControlMovimientoTests(DistribucionBase):
+    """apply_movement: validación de saldo del origen (Fase 10 lo mueve)."""
+
+    def _escenario(self):
+        resp = self.crear_apertura(monto='100.00', denominacion='Origen')
+        origen = Allocation.objects.get(pk=resp.data['id'])
+        destino = Allocation.objects.create(
+            gestion=self.gestion,
+            version=origen.version,
+            denominacion='Destino',
+            estado='ACTIVA',
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+        return origen, destino
+
+    def test_apply_movement_valida_saldo_suficiente(self):
+        origen, destino = self._escenario()
+        resultado = BudgetControlService.apply_movement(
+            origen, destino, self.fuente, self.organismo,
+            Decimal('80.00'), motivo='Reformulación (validación)',
+            usuario=self.admin,
+        )
+        self.assertTrue(resultado['valido'])
+        self.assertFalse(resultado['movido'])
+        # Fase 8: no mueve nada.
+        self.assertEqual(origen.fuentes.count(), 1)
+        self.assertEqual(destino.fuentes.count(), 0)
+
+    def test_apply_movement_con_exceso_lanza_budget_exceeded(self):
+        origen, destino = self._escenario()
+        with self.assertRaises(ErrorDisponibilidad) as ctx:
+            BudgetControlService.apply_movement(
+                origen, destino, self.fuente, self.organismo,
+                Decimal('120.00'), motivo='Exceso', usuario=self.admin,
+            )
+        self.assertEqual(ctx.exception.code, 'BUDGET_EXCEEDED')
+        self.assertEqual(ctx.exception.details['available'], '100.00')
+        self.assertEqual(
+            Allocation.objects.get(pk=origen.pk).fuentes.count(), 1,
+        )
+
+    def test_apply_movement_con_origen_inexistente_rechazado(self):
+        origen, destino = self._escenario()
+        origen.delete()
+        with self.assertRaises(ValidationError):
+            BudgetControlService.apply_movement(
+                origen, destino, self.fuente, self.organismo,
+                Decimal('10.00'), motivo='Inexistente', usuario=self.admin,
+            )
+
+
+class ControlConcurrenciaTests(TransactionTestCase):
+    """Demuestra el lock: dos consumos concurrentes NUNCA exceden el saldo.
+
+    Corre contra PostgreSQL (el test DB usa PostGIS local); cada hilo abre
+    su propia conexión real. `TransactionTestCase` deja las transacciones
+    por hilo independientes (los datos del setUp quedan commiteados y los
+    hilos hacen `transaction.atomic` sobre ellos).
+
+    Hallazgo documentado (Fase 8): con barrera y arranque simultáneo el
+    GANADOR del lock es no determinista (50 u 80); lo que SÍ es
+    determinista es la INVARIANTE de seguridad: exactamente UNA reserva
+    queda creada y el saldo final nunca refleja los dos consumos (nunca
+    130). Por eso este test afirma la invariante (y el rango de disponibles
+    posibles), no un ganador particular; `test_lock_serializa_el_consumo`
+    fuerza el interleaving para demostrar la serialización de forma
+    determinista (gana la reserva que tomó el lock primero).
+    """
+
+    def setUp(self):
+        self.admin = Usuario.objects.create_superuser(
+            email='admin@control.test', password='test2026'
+        )
+        self.gestion = crear_gestion(2040, estado='HABILITADA')
+        self.fuente = FuenteFinanciamiento.objects.create(
+            codigo='11', denominacion='Tesoro General', gestion=2040,
+            fecha_vigencia_desde=timezone.now().date(),
+        )
+        self.organismo = OrganismoFinanciador.objects.create(
+            codigo='111', denominacion='Tesoro General de la Nación',
+            gestion=2040, fecha_vigencia_desde=timezone.now().date(),
+        )
+        ceiling = DirectiveCeiling.objects.create(gestion=self.gestion)
+        version = DirectiveCeilingVersion.objects.create(
+            ceiling=ceiling, numero=1,
+        )
+        CeilingResource.objects.create(
+            version=version, origen='SIGEP', monto='100.00', concepto='CT',
+            fuente=self.fuente, organismo=self.organismo,
+            created_by=self.admin, updated_by=self.admin,
+        )
+        enviar_a_revision(version, self.admin)
+        aprobar(version, self.admin)
+        fijar_techo(version, self.admin)
+        # Versión activa de distribución v1 (la crean las reservas si no).
+        version_distribucion_activa(self.gestion)
+
+    def _intentar_reservar(self, monto):
+        """Reserva vía servicio; devuelve ('ok', reserva) o ('exceeded', exc)."""
+        try:
+            reserva = BudgetControlService.reserve(
+                self.gestion, self.fuente, self.organismo,
+                monto, motivo=f'Concurrente {monto}', usuario=self.admin,
+            )
+            return ('ok', reserva)
+        except ErrorDisponibilidad as exc:
+            return ('exceeded', exc)
+        except ValidationError as exc:
+            return ('error', exc)
+
+    def _disponible(self):
+        return BudgetControlService.get_available_for_distribution(
+            self.gestion,
+        )[self.fuente.id]
+
+    def _en_hilo(self, fn):
+        """Ejecuta fn en el hilo y cierra su conexión al terminar.
+
+        Sin esto, las conexiones de los hilos quedan abiertas contra la BD
+        de test e impiden dropearla al finalizar la suite (PostgreSQL lo
+        rechaza mientras haya sesiones activas).
+        """
+        def _wrapper(*args, **kwargs):
+            try:
+                return fn(*args, **kwargs)
+            finally:
+                try:
+                    connection.close()
+                except Exception:
+                    pass
+        return _wrapper
+
+    def test_doble_reserva_concurrente_nunca_excede_saldo(self):
+        barrera = threading.Barrier(2)
+
+        def worker(monto):
+            barrera.wait()
+            return self._intentar_reservar(monto)
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            fut_80 = pool.submit(
+                self._en_hilo(worker), Decimal('80.00'),
+            )
+            fut_50 = pool.submit(
+                self._en_hilo(worker), Decimal('50.00'),
+            )
+            r_80 = fut_80.result(timeout=60)
+            r_50 = fut_50.result(timeout=60)
+
+        resultados = [r_80, r_50]
+        exitos = [r for r in resultados if r[0] == 'ok']
+        fallas = [r for r in resultados if r[0] == 'exceeded']
+        self.assertEqual(len(exitos), 1, resultados)
+        self.assertEqual(len(fallas), 1, resultados)
+        self.assertEqual(fallas[0][1].code, 'BUDGET_EXCEEDED')
+
+        reservada = exitos[0][1].monto
+        self.assertIn(reservada, {Decimal('80.00'), Decimal('50.00')})
+        activas = Reserve.objects.filter(
+            gestion=self.gestion, estado='ACTIVA',
+        )
+        self.assertEqual(activas.count(), 1)
+        self.assertEqual(activas.first().monto, reservada)
+
+        # NUNCA 130: el disponible final refleja UN solo consumo.
+        disponible = self._disponible()
+        self.assertIn(
+            disponible, {Decimal('20.00'), Decimal('50.00')}, disponible,
+        )
+        self.assertEqual(disponible, Decimal('100.00') - reservada)
+        self.assertNotEqual(disponible, Decimal('-30.00'))
+
+    def test_lock_serializa_el_consumo_de_forma_determinista(self):
+        """A toma el lock y reserva 80 sin commitear; B espera el lock y
+        re-lee el saldo YA commiteado de A → B falla (available 20)."""
+        lock_held = threading.Event()
+        proceed = threading.Event()
+
+        def worker_a():
+            with transaction.atomic():
+                BudgetControlService._bloquear_fuentes(
+                    self.gestion, {self.fuente.id},
+                )
+                reserva = BudgetControlService.reserve(
+                    self.gestion, self.fuente, self.organismo,
+                    Decimal('80.00'), motivo='A (con lock)',
+                    usuario=self.admin,
+                )
+                lock_held.set()
+                if not proceed.wait(30):
+                    raise TimeoutError('A esperó demasiado el avance.')
+                return reserva
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            fut_a = pool.submit(self._en_hilo(worker_a))
+            self.assertTrue(
+                lock_held.wait(30), 'A no tomó el lock a tiempo.',
+            )
+            fut_b = pool.submit(
+                self._en_hilo(self._intentar_reservar), Decimal('50.00'),
+            )
+            time.sleep(0.5)  # B ya está bloqueado en el lock del techo.
+            proceed.set()
+            resultado_b = fut_b.result(timeout=60)
+            fut_a.result(timeout=60)
+
+        self.assertEqual(resultado_b[0], 'exceeded')
+        self.assertEqual(resultado_b[1].code, 'BUDGET_EXCEEDED')
+        self.assertEqual(resultado_b[1].details['available'], '20.00')
+        self.assertEqual(
+            Reserve.objects.filter(gestion=self.gestion, estado='ACTIVA')
+            .count(), 1,
+        )
+        self.assertEqual(self._disponible(), Decimal('20.00'))
+
+    def test_secuencial_dos_reservas_exceden(self):
+        """Equivalente secuencial (determinista): 80 ok, luego 50 excede."""
+        r_1 = self._intentar_reservar(Decimal('80.00'))
+        self.assertEqual(r_1[0], 'ok')
+        r_2 = self._intentar_reservar(Decimal('50.00'))
+        self.assertEqual(r_2[0], 'exceeded')
+        self.assertEqual(r_2[1].code, 'BUDGET_EXCEEDED')
+        self.assertEqual(r_2[1].details['available'], '20.00')
+        self.assertEqual(
+            Reserve.objects.filter(gestion=self.gestion, estado='ACTIVA')
+            .count(), 1,
+        )
+        self.assertEqual(self._disponible(), Decimal('20.00'))
+
+
+class ControlApiTests(DistribucionBase):
+    """Endpoints GET /control/summary/ y POST /control/validate/."""
+
+    def test_summary_endpoint_devuelve_resumen(self):
+        self.crear_apertura(monto='1000.00', denominacion='Apertura A')
+        self.crear_reserva_api(monto='200.00')
+        resp = self.client.get(
+            f'{CONTROL_URL}summary/', {'gestion': str(self.gestion.id)},
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(resp.data['techo_bruto'], '1500.00')
+        self.assertEqual(resp.data['techo_distribuible'], '1500.00')
+        self.assertEqual(resp.data['distribuido'], '1000.00')
+        self.assertEqual(resp.data['reservado'], '200.00')
+        self.assertEqual(resp.data['disponible'], '300.00')
+        self.assertEqual(resp.data['por_fuente'][0]['fuente'],
+                         str(self.fuente.id))
+        self.assertEqual(resp.data['por_fuente'][0]['disponible'], '300.00')
+
+    def test_summary_requiere_gestion(self):
+        resp = self.client.get(f'{CONTROL_URL}summary/')
+        self.assertEqual(resp.status_code, 400, resp.data)
+
+    def test_summary_sin_autenticacion_rechazado(self):
+        client = APIClient()
+        resp = client.get(
+            f'{CONTROL_URL}summary/', {'gestion': str(self.gestion.id)},
+        )
+        self.assertEqual(resp.status_code, 401)
+
+    def test_validate_distribution_valida(self):
+        self.crear_apertura(monto='1000.00')
+        self.crear_reserva_api(monto='500.00')
+        resp = self.client.post(
+            f'{CONTROL_URL}validate/',
+            {'tipo': 'distribution', 'gestion': str(self.gestion.id)},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertTrue(resp.data['valido'])
+        self.assertEqual(resp.data['errores'][0]['diferencia'], '0.00')
+
+    def test_validate_distribution_con_diferencia(self):
+        self.crear_apertura(monto='1000.00')
+        self.crear_reserva_api(monto='200.00')
+        resp = self.client.post(
+            f'{CONTROL_URL}validate/',
+            {'tipo': 'distribution', 'gestion': str(self.gestion.id)},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertFalse(resp.data['valido'])
+        self.assertEqual(resp.data['errores'][0]['diferencia'], '300.00')
+
+    def test_validate_expense_object_valida_apertura_activa(self):
+        resp = self.crear_apertura(monto='100.00', denominacion='Apertura A')
+        resp = self.client.post(
+            f'{CONTROL_URL}validate/',
+            {'tipo': 'expense-object', 'allocation': resp.data['id'],
+             'fuente': str(self.fuente.id), 'monto': '50.00'},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertTrue(resp.data['valido'])
+        self.assertEqual(resp.data['errores'], [])
+
+    def test_validate_expense_object_con_apertura_inexistente(self):
+        resp = self.client.post(
+            f'{CONTROL_URL}validate/',
+            {'tipo': 'expense-object', 'allocation': 999999,
+             'fuente': str(self.fuente.id), 'monto': '50.00'},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertFalse(resp.data['valido'])
+        self.assertIn('no existe', resp.data['errores'][0])
+
+    def test_validate_allocation_devuelve_saldos(self):
+        resp = self.crear_apertura(monto='100.00', denominacion='Apertura A')
+        resp = self.client.post(
+            f'{CONTROL_URL}validate/',
+            {'tipo': 'allocation', 'allocation': resp.data['id']},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertTrue(resp.data['valido'])
+        self.assertEqual(resp.data['techo'], '100.00')
+        self.assertEqual(resp.data['programado'], '0.00')
+        self.assertEqual(resp.data['disponible'], '100.00')
+
+    def test_validate_sin_tipo_rechazado(self):
+        resp = self.client.post(
+            f'{CONTROL_URL}validate/', {}, format='json',
+        )
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertIn('tipo', str(resp.data))
+
+    def test_validate_sin_autenticacion_rechazado(self):
+        client = APIClient()
+        resp = client.post(
+            f'{CONTROL_URL}validate/', {'tipo': 'distribution'}, format='json',
+        )
+        self.assertEqual(resp.status_code, 401)

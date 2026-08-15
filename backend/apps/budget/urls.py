@@ -7,6 +7,7 @@ from rest_framework.routers import DefaultRouter
 
 from .views import (
     AllocationViewSet,
+    BudgetControlView,
     BudgetDocumentViewSet,
     BudgetImportViewSet,
     CatalogOptionsView,
@@ -61,6 +62,16 @@ urlpatterns = [
         'distributions/dashboard/',
         DistributionDashboardView.as_view(),
         name='v2-budget-distribution-dashboard',
+    ),
+    path(
+        'control/summary/',
+        BudgetControlView.as_view(),
+        name='v2-budget-control-summary',
+    ),
+    path(
+        'control/validate/',
+        BudgetControlView.as_view(),
+        name='v2-budget-control-validate',
     ),
     *budget_router.urls,
 ]

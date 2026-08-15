@@ -701,6 +701,120 @@ class DistributionDashboardView(APIView):
 
 
 # ---------------------------------------------------------------------------
+# Fase 8 - Control presupuestario central (BudgetControlService + endpoint)
+# ---------------------------------------------------------------------------
+from .control import BudgetControlService  # noqa: E402
+
+
+@extend_schema(
+    responses={200: OpenApiTypes.OBJECT},
+    description='Control presupuestario central (Fase 8): '
+                'GET → resumen consolidado por fuente; '
+                'POST → validación pedida (distribution | expense-object | '
+                'allocation) con {valido, errores}.',
+)
+class BudgetControlView(APIView):
+    """Control presupuestario central (`BudgetControlService`, Fase 8).
+
+    GET  /control/summary/?gestion= → get_summary (techo_bruto,
+    techo_distribuible, distribuido, reservado, disponible, porcentaje,
+    por_fuente).
+    POST /control/validate/         → body {tipo, ...}: ejecuta la
+    validación pedida y devuelve {valido, errores}:
+        - distribution:   {gestion} → validate_distribution (diferencias).
+        - expense-object: {allocation, fuente, monto} → Fase 8 valida que
+          la apertura exista y esté ACTIVA.
+        - allocation:     {allocation} → exista y ACTIVA + {techo,
+          programado, disponible} de la apertura.
+    Permisos: IsAuthenticated (default global; lectura para cualquier
+    usuario autenticado, como los demás endpoints de consulta).
+    """
+
+    def _gestion_obligatoria(self, request):
+        gestion = request.query_params.get('gestion')
+        if not gestion:
+            return None, Response(
+                {'error': {'detail': ['El parámetro ?gestion= es obligatorio.']}},
+                status=400,
+            )
+        return get_object_or_404(GestionFiscal, pk=gestion), None
+
+    def _allocation_desde(self, request):
+        allocation = request.data.get('allocation')
+        if not allocation:
+            raise DjangoValidationError(
+                'Debe indicar la apertura (allocation).'
+            )
+        return Allocation.objects.filter(pk=allocation).first()
+
+    def get(self, request):
+        gestion, error = self._gestion_obligatoria(request)
+        if error:
+            return error
+        return Response(
+            _serializar_montos(BudgetControlService.get_summary(gestion))
+        )
+
+    def post(self, request):
+        tipo = request.data.get('tipo')
+        if tipo not in ('distribution', 'expense-object', 'allocation'):
+            return Response(
+                {'error': {'detail': [
+                    'tipo debe ser distribution, expense-object o allocation.',
+                ]}},
+                status=400,
+            )
+        try:
+            if tipo == 'distribution':
+                gestion = request.data.get('gestion')
+                if not gestion:
+                    raise DjangoValidationError(
+                        'Debe indicar la gestión (gestion).'
+                    )
+                gestion_obj = get_object_or_404(GestionFiscal, pk=gestion)
+                resultado = BudgetControlService.validate_distribution(
+                    gestion_obj,
+                )
+                return Response({
+                    'valido': resultado['valida'],
+                    'errores': _serializar_montos(resultado['diferencias']),
+                })
+            if tipo == 'expense-object':
+                allocation = self._allocation_desde(request)
+                BudgetControlService.validate_expense_object(
+                    allocation,
+                    request.data.get('fuente'),
+                    request.data.get('monto'),
+                )
+                return Response({'valido': True, 'errores': []})
+            if tipo == 'allocation':
+                allocation = self._allocation_desde(request)
+                BudgetControlService.validate_expense_object(
+                    allocation, None, None,
+                )
+                return Response({
+                    'valido': True,
+                    'errores': [],
+                    'techo': str(
+                        BudgetControlService.get_allocation_ceiling(allocation)
+                    ),
+                    'programado': str(
+                        BudgetControlService
+                        .get_allocated_to_expense_objects(allocation)
+                    ),
+                    'disponible': str(
+                        BudgetControlService.get_allocation_available(allocation)
+                    ),
+                })
+        except DjangoValidationError as exc:
+            return Response(
+                {'valido': False, 'errores': exc.messages},
+                status=400,
+            )
+        return Response({'valido': False, 'errores': ['Validación no soportada.']})
+
+
+# ---------------------------------------------------------------------------
 # Fase 5 - Importador Excel (staging + validación + aplicación)
 # ---------------------------------------------------------------------------
 from .importer import (  # noqa: E402

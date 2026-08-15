@@ -8,6 +8,13 @@ Fase 2 (techo directivo): composición, ciclo de estados de la versión
 (BORRADOR → EN_REVISION → APROBADO → FIJADO, con OBSERVADO), fijación inmutable
 con checksum SHA-256 (§24-25) y ajustes por versión nueva (§25).
 
+Fase 8 (control presupuestario): el CONTROL CENTRAL vive en `control.py`
+(`BudgetControlService`): reglas monetarias transaccionales con
+`select_for_update` sobre las filas del techo fijado, saldos por fuente y
+`reserve`/`release`/`apply_movement`. Las funciones históricas de este módulo
+(`crear_allocation`, `crear_reserva`, `liberar_reserva`, `_bloquear_fuentes`)
+delegan en él sin cambiar firmas ni comportamiento.
+
 Estados del ciclo usados (nuevos códigos de `GestionFiscal.Estado`):
     CONFIGURACION → HABILITADA → EN_FORMULACION → VIGENTE → CERRADA
 Los estados legacy se reconocen en los helpers para no romper la UI V1
@@ -684,22 +691,14 @@ def version_distribucion_activa(gestion):
 def _bloquear_fuentes(gestion, fuente_ids):
     """select_for_update sobre las filas de recurso de las fuentes.
 
-    Las filas del techo FIJADO son inmutables; el lock serializa las
-    validaciones de disponibilidad concurrentes sobre la misma fuente
-    (el segundo request re-lee los agregados ya commiteados).
+    Implementación central en `control.BudgetControlService._bloquear_fuentes`
+    (Fase 8): el control financiero vive en `control.py`. Las filas del techo
+    FIJADO son inmutables; el lock serializa las validaciones de
+    disponibilidad concurrentes sobre la misma fuente (el segundo request
+    re-lee los agregados ya commiteados).
     """
-    if not fuente_ids:
-        return
-    version = _version_techo_fijada(gestion)
-    if version is None:
-        return
-    filas = (
-        version.recursos
-        .filter(fuente_id__in=fuente_ids)
-        .order_by('fuente_id', 'id')
-        .select_for_update()
-    )
-    list(filas)
+    from .control import BudgetControlService
+    BudgetControlService._bloquear_fuentes(gestion, fuente_ids)
 
 
 def _validar_fuentes_ingresadas(fuentes):
@@ -757,7 +756,9 @@ def crear_allocation(gestion, usuario, datos):
 
     Valida gestión habilitada y disponibilidad por fuente contra el techo
     fijado (BUDGET_EXCEEDED con requested/available/difference); la versión
-    activa de distribución se crea si no existe. Registra auditoría.
+    activa de distribución se crea si no existe. La disponibilidad se
+    consulta en `BudgetControlService.get_available_for_distribution`
+    (control.py, Fase 8). Registra auditoría.
     """
     validar_gestion_para_distribucion(gestion)
     techo = techo_distribuible_por_fuente(gestion)
@@ -771,7 +772,8 @@ def crear_allocation(gestion, usuario, datos):
     fuentes = datos.pop('fuentes', None)
     validas = _validar_fuentes_ingresadas(fuentes)
     _bloquear_fuentes(gestion, {f for f, _, _ in validas})
-    disponible = _disponible_por_fuente(gestion)
+    from .control import BudgetControlService
+    disponible = BudgetControlService.get_available_for_distribution(gestion)
     for fuente_id, _, monto in validas:
         saldo = disponible.get(fuente_id, Decimal('0.00'))
         if monto > saldo:
@@ -971,61 +973,21 @@ def cerrar_allocation(allocation, usuario):
 
 @transaction.atomic
 def crear_reserva(gestion, usuario, datos):
-    """Crea una reserva ACTIVA sobre una fuente (decrece el disponible)."""
-    validar_gestion_para_distribucion(gestion)
-    techo = techo_distribuible_por_fuente(gestion)
-    if not techo:
-        raise ValidationError(
-            f'La gestión {gestion.anio} no tiene un techo directivo fijado; '
-            'la distribución está bloqueada.'
-        )
-    version = version_distribucion_activa(gestion)
-    if version.inmutable:
-        raise ValidationError(
-            'La versión de distribución está fijada (inmutable); '
-            'no se pueden crear reservas.'
-        )
+    """Crea una reserva ACTIVA sobre una fuente (decrece el disponible).
 
-    fuente = datos.get('fuente')
-    fuente_id = getattr(fuente, 'id', fuente)
-    monto = datos.get('monto')
-    if not fuente_id:
-        raise ValidationError('Debe indicar la fuente de financiamiento.')
-    if monto is None or monto <= 0:
-        raise ValidationError('El monto de la reserva debe ser mayor que 0.')
-
-    organismo = datos.get('organismo')
-    organismo_id = getattr(organismo, 'id', organismo) if organismo else None
-
-    _bloquear_fuentes(gestion, {fuente_id})
-    disponible = _disponible_por_fuente(gestion)
-    saldo = disponible.get(fuente_id, Decimal('0.00'))
-    if monto > saldo:
-        raise ErrorDisponibilidad(fuente_id, monto, saldo)
-
-    reserva = Reserve.objects.create(
-        gestion=gestion,
-        version=version,
-        fuente_id=fuente_id,
-        organismo_id=organismo_id,
-        tipo=datos.get('tipo') or TipoReserva.OTRA,
+    Fase 8: delega en `BudgetControlService.reserve` (control.py), el núcleo
+    financiero transaccional (lock sobre el techo fijado + BUDGET_EXCEEDED).
+    """
+    from .control import BudgetControlService
+    return BudgetControlService.reserve(
+        gestion,
+        fuente=datos.get('fuente'),
+        organismo=datos.get('organismo'),
+        monto=datos.get('monto'),
         motivo=datos.get('motivo', ''),
-        monto=monto,
-        estado=EstadoReserva.ACTIVA,
-        created_by=usuario,
-        updated_by=usuario,
+        usuario=usuario,
+        tipo=datos.get('tipo') or TipoReserva.OTRA,
     )
-    registrar_evento(
-        usuario,
-        EventoAuditoria.Accion.CREAR,
-        'Reserve',
-        reserva.id,
-        resumen=f'Reserva {reserva.get_tipo_display()} de {monto} creada '
-                f'(gestión {gestion.anio})',
-        datos_posteriores={'monto': str(monto), 'tipo': reserva.tipo},
-        gestion=gestion.anio,
-    )
-    return reserva
 
 
 @transaction.atomic
@@ -1034,29 +996,10 @@ def liberar_reserva(reserva, usuario):
 
     Guard de inmutabilidad (Fase 7): una reserva de una versión de
     distribución fijada no puede liberarse (cambiaría el estado congelado).
+    Fase 8: delega en `BudgetControlService.release` (control.py).
     """
-    if reserva.estado == EstadoReserva.LIBERADA:
-        raise ValidationError('La reserva ya está liberada.')
-    if reserva.version is not None and reserva.version.inmutable:
-        raise ValidationError(
-            'La reserva pertenece a una versión de distribución fijada '
-            '(inmutable); no se puede liberar.'
-        )
-    reserva.estado = EstadoReserva.LIBERADA
-    reserva.updated_by = usuario
-    reserva.save(update_fields=['estado', 'updated_by', 'updated_at'])
-    registrar_evento(
-        usuario,
-        EventoAuditoria.Accion.MODIFICAR,
-        'Reserve',
-        reserva.id,
-        resumen=f'Reserva de {reserva.monto} liberada '
-                f'(gestión {reserva.gestion.anio})',
-        datos_previos={'estado': EstadoReserva.ACTIVA},
-        datos_posteriores={'estado': EstadoReserva.LIBERADA},
-        gestion=reserva.gestion.anio,
-    )
-    return reserva
+    from .control import BudgetControlService
+    return BudgetControlService.release(reserva, usuario)
 
 
 def resumen_distribucion(gestion):
