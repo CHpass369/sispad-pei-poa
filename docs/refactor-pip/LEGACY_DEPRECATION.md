@@ -63,3 +63,32 @@
 | 3 | Datos protegidos | 5, 15 (decisión explícita en fase de datos) |
 | 4 | Sesión y despliegue | 6, 9 |
 | 5 | Infraestructura | 7, 8, 10, 11, 12, 13, 18 |
+
+---
+
+## 6. Estado de la deprecación (FASE 10 — Legacy / deprecación)
+
+Actualizado en la FASE 10 del refactor. Este bloque solo marca y documenta;
+no retira ninguna compatibilidad (regla general §1).
+
+### 6.1 Marcado en esta fase
+
+| Ítem | Estado |
+|---|---|
+| API V1 (`/api/v1/`) | **Marcada**: toda respuesta con path `api/v1/*` lleva `Deprecation: true`, `Sunset: Sun, 01 Jan 2027 00:00:00 GMT` y `Link: <.../LEGACY_DEPRECATION.md>; rel="deprecation"` (RFC 8594). Implementado como middleware `apps.core.middleware.DeprecationV1Middleware` (registrado en `MIDDLEWARE` de `config/settings.py` y `config/settings_test_sqlite.py`; `settings_production.py` lo hereda). Las fechas y el enlace son configurables vía `API_V1_SUNSET` / `API_V1_DEPRECATION_LINK`. **No** aplica a `/api/v2/` ni a `/health/`. |
+| Apps `techos` y `presupuesto` | Ya marcadas `(legacy)` en su `verbose_name` (FASE 4); sin cambios en esta fase. |
+| Fix `VinculoViewSet` (BUG preexistente) | `config/urls_v2.py` importaba `VinculoViewSet` sin alias para dos routers: el segundo import (planificación) pisaba al de inversión, y `sis-pro/vinculos/` servía datos de SIS-PE. Corregido con alias `VinculoEstrategicoViewSet` (SIS-PE) y `VinculoProyectoViewSet` (SIS-PRO). |
+
+### 6.2 Pendiente (NO se toca por riesgo de datos/sesión)
+
+| Referencia | Motivo de no tocar | Plazo |
+|---|---|---|
+| `tokenKey: 'sispoa_token'` (localStorage JWT) | Renombrar cierra sesión global; requiere migración de sesión con doble lectura (estrategia Alias, §2 punto 6) | Junto a la fase de identidad visible; ventana de doble lectura |
+| `PerfilImportacion.SISPOA_GASTOS_HISTORICO/ACTUAL` | Renombrar rompe histórico persistido y tests; estrategia KEEP con coexistencia (§2 punto 5) | Decisión en fase de datos; sin fecha de retiro |
+| BD `gams_sis_poa` (y usuario/rol `sispoa`) | Renombrar = dump/restore + roles + backups viejos; fase de infraestructura (§2 puntos 7-8) | Plan maestro fase 12 |
+| DNS, buckets MinIO, servicios docker, realm Keycloak, usuario Linux | Infraestructura con ventana planificada (§2 puntos 9-13) | Fases de despliegue/infraestructura |
+
+### 6.3 Plazo
+
+- **Sunset sugerido API V1: 2027-01-01** (`API_V1_SUNSET` en `config/settings.py`), 1-2 ciclos de gestión tras el cutover completo de cada dominio (§2 punto 1).
+- El retiro (404/eliminación) solo tras la ventana de observación, con monitoreo de consumidores y respaldo `-Fc` verificado (§4).

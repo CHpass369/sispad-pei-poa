@@ -87,6 +87,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
+    'apps.core.middleware.DeprecationV1Middleware',
 ]
 
 ROOT_URLCONF = 'config.urls_test_sqlite'

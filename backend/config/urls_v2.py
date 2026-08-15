@@ -69,7 +69,7 @@ from apps.inversion.views_v2 import (
     CostoViewSet,
     DocumentoViewSet,
     ProyectoViewSet,
-    VinculoViewSet,
+    VinculoViewSet as VinculoProyectoViewSet,
 )
 from apps.inversion.views_preinversion import (
     AlternativaProyectoViewSet,
@@ -103,7 +103,7 @@ from apps.planificacion.views_v2 import (
     NodoViewSet,
     TipoInstrumentoViewSet,
     VersionViewSet,
-    VinculoViewSet,
+    VinculoViewSet as VinculoEstrategicoViewSet,
 )
 from apps.poau.views_v2 import (
     AccionViewSet,
@@ -133,7 +133,7 @@ auditoria_router = DefaultRouter()
 sis_pe_router.register('instrumentos', InstrumentoViewSet, basename='v2-instrumentos')
 sis_pe_router.register('versiones', VersionViewSet, basename='v2-versiones')
 sis_pe_router.register('nodos', NodoViewSet, basename='v2-nodos')
-sis_pe_router.register('vinculos', VinculoViewSet, basename='v2-vinculos')
+sis_pe_router.register('vinculos', VinculoEstrategicoViewSet, basename='v2-vinculos')
 sis_pe_router.register('tipos-instrumento', TipoInstrumentoViewSet, basename='v2-tipos-instrumento')
 sis_pe_router.register('metodologias', MetodologiaViewSet, basename='v2-metodologias')
 sis_pe_router.register('evaluaciones', EvaluacionV2ViewSet, basename='v2-evaluaciones')
@@ -153,7 +153,7 @@ sis_pro_router.register('proyectos-preinversion', ProyectoPreinversionViewSet, b
 sis_pro_router.register('condiciones', CondicionViewSet, basename='v2-condiciones')
 sis_pro_router.register('documentos', DocumentoViewSet, basename='v2-documentos-proyecto')
 sis_pro_router.register('costos', CostoViewSet, basename='v2-costos-proyecto')
-sis_pro_router.register('vinculos', VinculoViewSet, basename='v2-vinculos-proyecto')
+sis_pro_router.register('vinculos', VinculoProyectoViewSet, basename='v2-vinculos-proyecto')
 
 # --- Preinversión (SISPRE / RM 115) ---------------------------------------
 sis_pro_router.register('itcps', ITCPViewSet, basename='v2-itcps')

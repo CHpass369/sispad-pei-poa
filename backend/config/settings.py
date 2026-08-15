@@ -81,6 +81,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'apps.core.middleware.DeprecationV1Middleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -185,6 +186,10 @@ REST_FRAMEWORK = {
         'login': '5/minute',
     },
 }
+
+# Deprecación API V1 (RFC 8594) — ver docs/refactor-pip/LEGACY_DEPRECATION.md
+API_V1_SUNSET = 'Sun, 01 Jan 2027 00:00:00 GMT'
+API_V1_DEPRECATION_LINK = '/docs/refactor-pip/LEGACY_DEPRECATION.md'
 
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(hours=4),
