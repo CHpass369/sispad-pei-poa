@@ -183,7 +183,11 @@
       </tr>
     </thead>
     <tbody>
-      <tr *ngFor="let a of aperturas; let i = index">
+      <tr *ngFor="let a of aperturas; let i = index"
+          class="fila-seleccionable"
+          [class.fila-seleccionada]="aperturaSeleccionada?.id === a.id"
+          (click)="seleccionarApertura(a)"
+          title="Clic para ver los objetos del gasto de esta apertura">
         <td>{{ a.orden > 0 ? a.orden : i + 1 }}</td>
         <td>{{ a.da_detalle?.codigo ?? '—' }}</td>
         <td>{{ a.ue_detalle?.codigo ?? '—' }}</td>
@@ -194,7 +198,7 @@
         <td class="monto-celda">{{ a.total | moneda }}</td>
         <td><span class="badge" [ngClass]="badgeClass(a.estado)">{{ a.estado }}</span></td>
         <td>
-          <div class="acciones">
+          <div class="acciones" (click)="$event.stopPropagation()">
             <button class="btn btn-sm" (click)="editar(a)" [disabled]="a.estado === 'CERRADA'" title="Editar">✎</button>
             <button class="btn btn-sm" (click)="cerrar(a)" [disabled]="a.estado === 'CERRADA'" title="Cerrar">⛔</button>
             <button class="btn btn-sm btn-danger" (click)="eliminar(a)" [disabled]="a.estado === 'CERRADA'" title="Eliminar">🗑</button>
@@ -203,6 +207,76 @@
       </tr>
     </tbody>
   </table>
+</div>
+
+<!-- Objetos del gasto por apertura (Fase 9) -->
+<div class="seccion" *ngIf="aperturaSeleccionada">
+  <h3>Objetos del gasto — {{ aperturaSeleccionada.denominacion }}</h3>
+
+  <div class="cards-grid" *ngIf="resumenApertura" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
+    <div class="card-resumen destacada">
+      <div class="etiqueta">Techo de la apertura</div>
+      <div class="valor">{{ resumenApertura.techo | moneda }}</div>
+    </div>
+    <div class="card-resumen">
+      <div class="etiqueta">Programado</div>
+      <div class="valor">{{ resumenApertura.programado | moneda }}</div>
+    </div>
+    <div class="card-resumen resalta">
+      <div class="etiqueta">Disponible</div>
+      <div class="valor">{{ resumenApertura.disponible | moneda }}</div>
+    </div>
+  </div>
+
+  <div class="alert-error" *ngIf="errorObjetos">{{ errorObjetos }}</div>
+
+  <table class="data-table" *ngIf="objetosGasto.length > 0">
+    <thead>
+      <tr>
+        <th>Código</th>
+        <th>Denominación</th>
+        <th class="monto-celda">Monto</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let o of objetosGasto">
+        <td>{{ o.objeto_gasto_detalle?.codigo ?? '—' }}</td>
+        <td>{{ o.objeto_gasto_detalle?.denominacion ?? '—' }}</td>
+        <td class="monto-celda">{{ o.monto | moneda }}</td>
+        <td>
+          <div class="acciones">
+            <button class="btn btn-sm" (click)="editarObjeto(o)" title="Editar monto">✎</button>
+            <button class="btn btn-sm btn-danger" (click)="eliminarObjeto(o)" title="Eliminar">🗑</button>
+          </div>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="empty" *ngIf="objetosGasto.length === 0">Sin objetos del gasto programados en esta apertura.</div>
+
+  <div class="form-grid" style="max-width: 720px; margin-top: 0.75rem;">
+    <div class="campo">
+      <label>Objeto del gasto</label>
+      <select class="input" [(ngModel)]="formObjeto.objeto_gasto" [disabled]="!!editandoObjeto">
+        <option [ngValue]="null">— objeto del gasto —</option>
+        <option *ngFor="let og of opciones?.objetos_gasto" [ngValue]="og.id">{{ og.codigo }} — {{ og.nombre ?? og.denominacion }}</option>
+      </select>
+    </div>
+    <div class="campo">
+      <label>Monto (Bs) *</label>
+      <input class="input" type="number" min="0" step="0.01" [(ngModel)]="formObjeto.monto" />
+    </div>
+    <div class="campo">
+      <label>&nbsp;</label>
+      <div class="acciones">
+        <button class="btn btn-primary" (click)="guardarObjeto()" [disabled]="guardandoObjeto">
+          {{ guardandoObjeto ? 'Guardando…' : (editandoObjeto ? 'Guardar monto' : 'Programar') }}
+        </button>
+        <button class="btn btn-sm" *ngIf="editandoObjeto" (click)="cancelarEdicionObjeto()">Cancelar</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Reservas -->

@@ -27,11 +27,13 @@ Convenciones:
       `transaction.atomic` y lockean las filas del techo fijado.
 
 Fases futuras (NO ampliar alcance acá):
-    - Fase 9: `get_allocated_to_expense_objects`/`get_allocation_available`/
-      `validate_expense_object` se completan con la programación por objetos
-      del gasto.
     - Fase 10: `apply_movement` implementa el movimiento atómico de
       reformulación (hoy solo valida el saldo del origen).
+
+Fase 9 (objetos del gasto): `get_allocated_to_expense_objects`/
+`get_allocation_available`/`validate_expense_object` ya están completos
+sobre `ExpenseObjectAllocation`; la programación la ejecuta
+`services.programar_objeto_gasto` (upsert, BUDGET_EXCEEDED → HTTP 409).
 """
 from decimal import Decimal
 
@@ -45,11 +47,14 @@ from .models import (
     Allocation,
     EstadoApertura,
     EstadoReserva,
+    EstadosTecho,
+    ExpenseObjectAllocation,
     Reserve,
     TipoReserva,
 )
 from .services import (
     ErrorDisponibilidad,
+    ErrorObjetoGastoExcedido,
     _disponible_por_fuente,
     _version_techo_fijada,
     distribuido_por_fuente,
@@ -140,22 +145,21 @@ class BudgetControlService:
 
     @staticmethod
     def get_allocated_to_expense_objects(allocation):
-        """Programado en objetos del gasto de la apertura — Fase 9.
+        """Programado en objetos del gasto de la apertura (§90, Fase 9).
 
-        En esta fase no existe programación por objeto del gasto (Fase 9);
-        devuelve 0 para que `get_allocation_available` coincida con el techo
-        de la apertura. La firma queda preparada: Fase 9 la implementa sobre
-        el modelo de programación de gastos.
+        Σ montos de `ExpenseObjectAllocation` de la apertura; Decimal con
+        0.00 de default si no hay programación.
         """
-        return Decimal('0.00')
+        total = (
+            ExpenseObjectAllocation.objects
+            .filter(allocation=allocation)
+            .aggregate(total=models.Sum('monto'))['total']
+        )
+        return total if total is not None else Decimal('0.00')
 
     @staticmethod
     def get_allocation_available(allocation):
-        """Disponible de la apertura = techo − programado (0 en esta fase).
-
-        Con `get_allocated_to_expense_objects` en 0, devuelve el techo de la
-        apertura; la Fase 9 lo restringe con la programación de gastos.
-        """
+        """Disponible de la apertura = techo − programado (§90-91)."""
         return (
             BudgetControlService.get_allocation_ceiling(allocation)
             - BudgetControlService.get_allocated_to_expense_objects(allocation)
@@ -172,13 +176,17 @@ class BudgetControlService:
         return validar_distribucion_completa(gestion)
 
     @staticmethod
-    def validate_expense_object(allocation, fuente, monto):
-        """Valida una programación por objeto del gasto (preparado Fase 9).
+    def validate_expense_object(allocation, objeto_gasto_id, monto):
+        """Valida una programación por objeto del gasto (§90-91, Fase 9).
 
-        Fase 8: lanza ValidationError si la apertura no existe o no está
-        ACTIVA. En la Fase 9 se agregan: versión de distribución fijada,
-        objeto del gasto vigente y disponibilidad de la apertura
-        (BUDGET_EXCEEDED). Devuelve {'valido': True} cuando pasa.
+        Convención del repo: LANZA ValidationError cuando no pasa (la API
+        mapea la excepción a `{valido: False, errores}` en POST
+        /control/validate/ o a HTTP 409) y devuelve {'valido': True} cuando
+        sí. Valida: apertura existente y ACTIVA; y si viene objeto del gasto
+        + monto (la rama `allocation` del endpoint solo pregunta por la
+        apertura), versión de distribución FIJADA, objeto del gasto
+        existente y monto <= disponible de la apertura (BUDGET_EXCEEDED con
+        details {requested, available, difference}).
         """
         if not isinstance(allocation, Allocation):
             allocation = Allocation.objects.filter(pk=allocation).first()
@@ -189,6 +197,27 @@ class BudgetControlService:
                 f'La apertura está {allocation.get_estado_display()}; '
                 'debe estar ACTIVA para programar.'
             )
+        if objeto_gasto_id is None and monto is None:
+            return {'valido': True}
+        version = allocation.version
+        if version is None or not version.inmutable or \
+                version.estado != EstadosTecho.FIJADO:
+            raise ValidationError(
+                'La distribución debe estar fijada para programar objetos '
+                'del gasto.'
+            )
+        from apps.catalogos.models import ObjetoGasto
+        objeto = ObjetoGasto.objects.filter(
+            pk=getattr(objeto_gasto_id, 'id', objeto_gasto_id),
+        ).first()
+        if objeto is None:
+            raise ValidationError('El objeto del gasto no existe.')
+        monto_dec = (
+            monto if isinstance(monto, Decimal) else Decimal(str(monto))
+        )
+        disponible = BudgetControlService.get_allocation_available(allocation)
+        if monto_dec > disponible:
+            raise ErrorObjetoGastoExcedido(monto_dec, disponible)
         return {'valido': True}
 
     # ------------------------------------------------------------------

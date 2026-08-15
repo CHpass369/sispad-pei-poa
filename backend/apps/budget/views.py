@@ -43,6 +43,7 @@ from .models import (
     DirectiveCeiling,
     DirectiveCeilingVersion,
     DistributionVersion,
+    ExpenseObjectAllocation,
     MandatoryExpense,
     ProgrammaticCategory,
     Reserve,
@@ -55,6 +56,7 @@ from .serializers import (
     CeilingResourceSerializer,
     DirectiveCeilingSerializer,
     DistributionVersionSerializer,
+    ExpenseObjectAllocationSerializer,
     FiscalYearSerializer,
     MandatoryExpenseSerializer,
     ProgrammaticCategorySerializer,
@@ -64,16 +66,19 @@ from .serializers import (
 )
 from .services import (
     ErrorDisponibilidad,
+    ErrorObjetoGastoExcedido,
     ajuste_distribucion,
     aprobar,
     aprobar_distribucion,
     actualizar_allocation,
+    actualizar_objeto_gasto,
     cerrar_allocation,
     cerrar_gestion,
     composicion_techo,
     crear_allocation,
     crear_reserva,
     eliminar_allocation,
+    eliminar_objeto_gasto,
     enviar_a_revision,
     enviar_distribucion_a_revision,
     fijar_distribucion,
@@ -83,6 +88,7 @@ from .services import (
     liberar_reserva,
     observar,
     observar_distribucion,
+    programar_objeto_gasto,
     resumen_distribucion,
     validar_distribucion_completa,
 )
@@ -429,6 +435,18 @@ def _respuesta_exceso(exc):
     )
 
 
+def _respuesta_exceso_409(exc):
+    """409 BUDGET_EXCEEDED (§91): {error: {detail}, code, details}."""
+    return Response(
+        {
+            'error': {'detail': exc.messages},
+            'code': exc.code,
+            'details': exc.details,
+        },
+        status=409,
+    )
+
+
 class DistributionVersionViewSet(viewsets.ModelViewSet):
     """Versiones de distribución: CRUD liviano + ciclo de fijación (Fase 7).
 
@@ -682,6 +700,82 @@ class ReserveViewSet(viewsets.ModelViewSet):
         return Response(self.get_serializer(reserva).data)
 
 
+# ---------------------------------------------------------------------------
+# Fase 9 - Objetos del gasto (programación por apertura, §90-91)
+# ---------------------------------------------------------------------------
+class ExpenseObjectViewSet(viewsets.ModelViewSet):
+    """Objetos del gasto programados por apertura (Fase 9, §90-91).
+
+    create:  {allocation, objeto_gasto, monto} → `programar_objeto_gasto`
+             (UPSERT: si la fila existe la actualiza). Requiere la versión
+             de distribución FIJADA y monto <= disponible de la apertura;
+             si excede → HTTP 409 {error: {detail}, code:
+             'BUDGET_EXCEEDED', details: {requested, available,
+             difference}} (§91).
+    update / partial_update: {monto} → `actualizar_objeto_gasto`
+             (recalcula contra los demás objetos, excluyendo la fila).
+    destroy: `eliminar_objeto_gasto` (libera el disponible).
+
+    Permisos (ADR-003): escritura → `sis_poa.budget.manage`; filtros
+    ?allocation=.
+    """
+
+    queryset = ExpenseObjectAllocation.objects.select_related(
+        'allocation', 'objeto_gasto',
+    ).all()
+    serializer_class = ExpenseObjectAllocationSerializer
+    filterset_fields = ['allocation']
+    search_fields = ['objeto_gasto__codigo', 'objeto_gasto__denominacion']
+
+    def get_permissions(self):
+        if self.action in ('create', 'update', 'partial_update', 'destroy'):
+            return [TieneCapacidad(CAPACIDAD_GESTION)]
+        return super().get_permissions()
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            fila = programar_objeto_gasto(
+                serializer.validated_data['allocation'],
+                serializer.validated_data['objeto_gasto'],
+                serializer.validated_data['monto'],
+                request.user,
+            )
+        except ErrorObjetoGastoExcedido as exc:
+            return _respuesta_exceso_409(exc)
+        except DjangoValidationError as exc:
+            return _respuesta_error(exc)
+        return Response(self.get_serializer(fila).data, status=201)
+
+    def update(self, request, *args, **kwargs):
+        fila = self.get_object()
+        serializer = self.get_serializer(fila, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        monto = serializer.validated_data.get('monto')
+        if monto is None:
+            return Response(
+                {'error': {'detail': ['El monto es obligatorio.']}},
+                status=400,
+            )
+        try:
+            actualizar_objeto_gasto(fila, monto, request.user)
+        except ErrorObjetoGastoExcedido as exc:
+            return _respuesta_exceso_409(exc)
+        except DjangoValidationError as exc:
+            return _respuesta_error(exc)
+        fila.refresh_from_db()
+        return Response(self.get_serializer(fila).data)
+
+    def destroy(self, request, *args, **kwargs):
+        fila = self.get_object()
+        try:
+            eliminar_objeto_gasto(fila, request.user)
+        except DjangoValidationError as exc:
+            return _respuesta_error(exc)
+        return Response(status=204)
+
+
 @extend_schema(
     responses={200: OpenApiTypes.OBJECT},
     description='Resumen de la distribución (§48): cards + tabla por fuente.',
@@ -722,8 +816,9 @@ class BudgetControlView(APIView):
     POST /control/validate/         → body {tipo, ...}: ejecuta la
     validación pedida y devuelve {valido, errores}:
         - distribution:   {gestion} → validate_distribution (diferencias).
-        - expense-object: {allocation, fuente, monto} → Fase 8 valida que
-          la apertura exista y esté ACTIVA.
+        - expense-object: {allocation, objeto_gasto, monto} → Fase 9:
+          apertura ACTIVA + versión de distribución FIJADA + objeto del
+          gasto existente + monto <= disponible (BUDGET_EXCEEDED).
         - allocation:     {allocation} → exista y ACTIVA + {techo,
           programado, disponible} de la apertura.
     Permisos: IsAuthenticated (default global; lectura para cualquier
@@ -783,7 +878,8 @@ class BudgetControlView(APIView):
                 allocation = self._allocation_desde(request)
                 BudgetControlService.validate_expense_object(
                     allocation,
-                    request.data.get('fuente'),
+                    request.data.get('objeto_gasto')
+                    or request.data.get('objeto_gasto_id'),
                     request.data.get('monto'),
                 )
                 return Response({'valido': True, 'errores': []})

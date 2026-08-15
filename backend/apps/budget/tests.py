@@ -19,6 +19,7 @@ from apps.accounts.models import Rol, Usuario
 from apps.auditoria.models import EventoAuditoria
 from apps.catalogos.models import (
     FuenteFinanciamiento,
+    ObjetoGasto,
     OrganismoFinanciador,
     RubroRecurso,
 )
@@ -2413,9 +2414,20 @@ class ControlSummaryTests(DistribucionBase):
     def test_validate_expense_object_valida_apertura_activa(self):
         resp = self.crear_apertura(monto='100.00', denominacion='Apertura A')
         allocation = Allocation.objects.get(pk=resp.data['id'])
+        # Fase 9: requiere versión de distribución FIJADA → completar y
+        # congelar la distribución (apertura 100 + reserva 1400 = techo 1500).
+        self.crear_reserva_api(monto='1400.00')
+        version = version_distribucion_activa(self.gestion)
+        enviar_distribucion_a_revision(version, self.admin)
+        aprobar_distribucion(version, self.admin)
+        fijar_distribucion(version, self.admin)
+        objeto = ObjetoGasto.objects.create(
+            codigo='25220', denominacion='Papelería', gestion=2030,
+            fecha_vigencia_desde=timezone.now().date(),
+        )
         self.assertEqual(
             BudgetControlService.validate_expense_object(
-                allocation, self.fuente, Decimal('50.00'),
+                allocation, objeto, Decimal('50.00'),
             ),
             {'valido': True},
         )
@@ -2423,7 +2435,7 @@ class ControlSummaryTests(DistribucionBase):
         allocation.save()
         with self.assertRaises(ValidationError):
             BudgetControlService.validate_expense_object(
-                allocation, self.fuente, Decimal('50.00'),
+                allocation, objeto, Decimal('50.00'),
             )
 
     def test_validate_expense_object_con_allocation_inexistente(self):
@@ -2777,10 +2789,21 @@ class ControlApiTests(DistribucionBase):
 
     def test_validate_expense_object_valida_apertura_activa(self):
         resp = self.crear_apertura(monto='100.00', denominacion='Apertura A')
+        # Fase 9: requiere versión de distribución FIJADA → completar y
+        # congelar la distribución (apertura 100 + reserva 1400 = techo 1500).
+        self.crear_reserva_api(monto='1400.00')
+        version = version_distribucion_activa(self.gestion)
+        enviar_distribucion_a_revision(version, self.admin)
+        aprobar_distribucion(version, self.admin)
+        fijar_distribucion(version, self.admin)
+        objeto = ObjetoGasto.objects.create(
+            codigo='25220', denominacion='Papelería', gestion=2030,
+            fecha_vigencia_desde=timezone.now().date(),
+        )
         resp = self.client.post(
             f'{CONTROL_URL}validate/',
             {'tipo': 'expense-object', 'allocation': resp.data['id'],
-             'fuente': str(self.fuente.id), 'monto': '50.00'},
+             'objeto_gasto': str(objeto.id), 'monto': '50.00'},
             format='json',
         )
         self.assertEqual(resp.status_code, 200, resp.data)
@@ -2824,3 +2847,305 @@ class ControlApiTests(DistribucionBase):
             f'{CONTROL_URL}validate/', {'tipo': 'distribution'}, format='json',
         )
         self.assertEqual(resp.status_code, 401)
+
+
+# ===========================================================================
+# Fase 9 - Objetos del gasto: programación por apertura (§90-91)
+# ===========================================================================
+from .models import ExpenseObjectAllocation  # noqa: E402
+from .services import (  # noqa: E402
+    ErrorObjetoGastoExcedido,
+    programar_objeto_gasto,
+)
+
+EXPENSE_URL = BUDGET_URL + 'expense-objects/'
+
+
+class ObjetosGastoBase(TestCase):
+    """Base de Fase 9 (§90-91): techo 500.000 y distribución FIJADA.
+
+    Gestión 2045 HABILITADA con techo fijado de 500.000 (fuente 11) y
+    apertura única de 500.000 → distribución v1 completa y congelada
+    (Σfuente = techo − reservas, sin reservas).
+    """
+
+    def setUp(self):
+        self.admin = Usuario.objects.create_superuser(
+            email='admin@objetos.test', password='test2026'
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.admin)
+        self.gestion = crear_gestion(2045, estado='HABILITADA')
+        self.fuente = FuenteFinanciamiento.objects.create(
+            codigo='11', denominacion='Tesoro General', gestion=2045,
+            fecha_vigencia_desde=timezone.now().date(),
+        )
+        self.organismo = OrganismoFinanciador.objects.create(
+            codigo='111', denominacion='Tesoro General de la Nación',
+            gestion=2045, fecha_vigencia_desde=timezone.now().date(),
+        )
+        self.objeto_25220 = ObjetoGasto.objects.create(
+            codigo='25220', denominacion='Papelería y útiles', gestion=2045,
+            fecha_vigencia_desde=timezone.now().date(),
+        )
+        self.objeto_34200 = ObjetoGasto.objects.create(
+            codigo='34200', denominacion='Pasajes al interior', gestion=2045,
+            fecha_vigencia_desde=timezone.now().date(),
+        )
+        self.objeto_43110 = ObjetoGasto.objects.create(
+            codigo='43110', denominacion='Maquinaria y equipo', gestion=2045,
+            fecha_vigencia_desde=timezone.now().date(),
+        )
+        self.objeto_42310 = ObjetoGasto.objects.create(
+            codigo='42310', denominacion='Muebles de oficina', gestion=2045,
+            fecha_vigencia_desde=timezone.now().date(),
+        )
+
+        ceiling = DirectiveCeiling.objects.create(gestion=self.gestion)
+        version = DirectiveCeilingVersion.objects.create(
+            ceiling=ceiling, numero=1,
+        )
+        CeilingResource.objects.create(
+            version=version, origen='SIGEP', monto='500000.00', concepto='CT',
+            fuente=self.fuente, organismo=self.organismo,
+            created_by=self.admin, updated_by=self.admin,
+        )
+        enviar_a_revision(version, self.admin)
+        aprobar(version, self.admin)
+        fijar_techo(version, self.admin)
+
+        resp = self.client.post(
+            f'{BUDGET_URL}allocations/',
+            {'gestion': str(self.gestion.id), 'denominacion': 'Apertura 500K',
+             'codigo_sisin': '12345678',
+             'fuentes': [{'fuente': str(self.fuente.id),
+                          'organismo': str(self.organismo.id),
+                          'monto': '500000.00'}]},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 201, resp.data)
+        self.allocation = Allocation.objects.get(pk=resp.data['id'])
+
+        version_distribucion = version_distribucion_activa(self.gestion)
+        enviar_distribucion_a_revision(version_distribucion, self.admin)
+        aprobar_distribucion(version_distribucion, self.admin)
+        fijar_distribucion(version_distribucion, self.admin)
+
+    def programar_api(self, objeto, monto, allocation=None):
+        return self.client.post(
+            f'{EXPENSE_URL}',
+            {'allocation': str((allocation or self.allocation).id),
+             'objeto_gasto': str(objeto.id), 'monto': monto},
+            format='json',
+        )
+
+
+class ProgramacionObjetosGastoTests(ObjetosGastoBase):
+    """Programación por objeto del gasto: techo/programado/disponible."""
+
+    def test_programar_objetos_suma_programado_y_disponible(self):
+        for objeto, monto in (
+            (self.objeto_25220, '100000.00'),
+            (self.objeto_34200, '180000.00'),
+            (self.objeto_43110, '120000.00'),
+        ):
+            resp = self.programar_api(objeto, monto)
+            self.assertEqual(resp.status_code, 201, resp.data)
+        # Techo 500.000 − programado 400.000 → disponible 100.000.
+        self.assertEqual(
+            BudgetControlService.get_allocated_to_expense_objects(
+                self.allocation
+            ),
+            Decimal('400000.00'),
+        )
+        self.assertEqual(
+            BudgetControlService.get_allocation_available(self.allocation),
+            Decimal('100000.00'),
+        )
+        self.assertEqual(
+            ExpenseObjectAllocation.objects.filter(
+                allocation=self.allocation
+            ).count(),
+            3,
+        )
+        self.assertEqual(
+            EventoAuditoria.objects.filter(
+                entidad='ExpenseObjectAllocation', accion='crear',
+            ).count(),
+            3,
+        )
+
+    def test_exceso_devuelve_409_budget_exceeded(self):
+        self.programar_api(self.objeto_25220, '100000.00')
+        self.programar_api(self.objeto_34200, '180000.00')
+        self.programar_api(self.objeto_43110, '120000.00')
+        # 42310 = 150.000 sobre disponible 100.000 → 409 (§91).
+        resp = self.programar_api(self.objeto_42310, '150000.00')
+        self.assertEqual(resp.status_code, 409, resp.data)
+        self.assertEqual(resp.data['code'], 'BUDGET_EXCEEDED')
+        self.assertEqual(resp.data['details']['requested'], '150000.00')
+        self.assertEqual(resp.data['details']['available'], '100000.00')
+        self.assertEqual(resp.data['details']['difference'], '50000.00')
+        self.assertIn(
+            'supera el disponible de la apertura',
+            resp.data['error']['detail'][0],
+        )
+        self.assertFalse(
+            ExpenseObjectAllocation.objects.filter(
+                objeto_gasto=self.objeto_42310,
+            ).exists()
+        )
+
+    def test_actualizar_objeto_respeta_disponible_de_los_demas(self):
+        self.programar_api(self.objeto_25220, '100000.00')
+        self.programar_api(self.objeto_34200, '180000.00')
+        self.programar_api(self.objeto_43110, '120000.00')
+        fila = ExpenseObjectAllocation.objects.get(
+            allocation=self.allocation, objeto_gasto=self.objeto_25220,
+        )
+        # Subir 25220 de 100.000 a 150.000: los demás suman 300.000 →
+        # disponible 200.000 → OK.
+        resp = self.client.patch(
+            f'{EXPENSE_URL}{fila.id}/', {'monto': '150000.00'}, format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(resp.data['monto'], '150000.00')
+        self.assertEqual(
+            BudgetControlService.get_allocation_available(self.allocation),
+            Decimal('50000.00'),
+        )
+        # Subir a 250.000 excede (300.000 + 250.000 > 500.000) → 409.
+        resp = self.client.patch(
+            f'{EXPENSE_URL}{fila.id}/', {'monto': '250000.00'}, format='json',
+        )
+        self.assertEqual(resp.status_code, 409, resp.data)
+        self.assertEqual(resp.data['details']['available'], '200000.00')
+        fila.refresh_from_db()
+        self.assertEqual(fila.monto, Decimal('150000.00'))
+
+    def test_programar_en_version_no_fijada_rechazado(self):
+        gestion = crear_gestion(2046, estado='HABILITADA')
+        fuente = FuenteFinanciamiento.objects.create(
+            codigo='46', denominacion='Fuente 2046', gestion=2046,
+            fecha_vigencia_desde=timezone.now().date(),
+        )
+        organismo = OrganismoFinanciador.objects.create(
+            codigo='461', denominacion='Origen 2046', gestion=2046,
+            fecha_vigencia_desde=timezone.now().date(),
+        )
+        ceiling = DirectiveCeiling.objects.create(gestion=gestion)
+        version = DirectiveCeilingVersion.objects.create(
+            ceiling=ceiling, numero=1,
+        )
+        CeilingResource.objects.create(
+            version=version, origen='SIGEP', monto='500000.00', concepto='CT',
+            fuente=fuente, organismo=organismo,
+            created_by=self.admin, updated_by=self.admin,
+        )
+        enviar_a_revision(version, self.admin)
+        aprobar(version, self.admin)
+        fijar_techo(version, self.admin)
+        resp = self.client.post(
+            f'{BUDGET_URL}allocations/',
+            {'gestion': str(gestion.id), 'denominacion': 'Apertura 2046',
+             'codigo_sisin': '11111111',
+             'fuentes': [{'fuente': str(fuente.id),
+                          'organismo': str(organismo.id),
+                          'monto': '500000.00'}]},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 201, resp.data)
+        allocation = Allocation.objects.get(pk=resp.data['id'])
+        objeto = ObjetoGasto.objects.create(
+            codigo='25220', denominacion='Papelería', gestion=2046,
+            fecha_vigencia_desde=timezone.now().date(),
+        )
+        resp = self.client.post(
+            f'{EXPENSE_URL}',
+            {'allocation': str(allocation.id), 'objeto_gasto': str(objeto.id),
+             'monto': '100.00'},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertIn('fijada', resp.data['error']['detail'][0])
+        self.assertFalse(
+            ExpenseObjectAllocation.objects.filter(allocation=allocation).exists()
+        )
+
+    def test_eliminar_objeto_libera_disponible(self):
+        self.programar_api(self.objeto_25220, '100000.00')
+        self.programar_api(self.objeto_34200, '180000.00')
+        self.programar_api(self.objeto_43110, '120000.00')
+        fila = ExpenseObjectAllocation.objects.get(
+            allocation=self.allocation, objeto_gasto=self.objeto_25220,
+        )
+        resp = self.client.delete(f'{EXPENSE_URL}{fila.id}/')
+        self.assertEqual(resp.status_code, 204, resp.data)
+        self.assertEqual(
+            BudgetControlService.get_allocated_to_expense_objects(
+                self.allocation
+            ),
+            Decimal('300000.00'),
+        )
+        self.assertEqual(
+            BudgetControlService.get_allocation_available(self.allocation),
+            Decimal('200000.00'),
+        )
+        self.assertEqual(
+            EventoAuditoria.objects.filter(
+                entidad='ExpenseObjectAllocation', accion='anular',
+            ).count(),
+            1,
+        )
+
+    def test_get_allocated_to_expense_objects_suma_correcta(self):
+        self.assertEqual(
+            BudgetControlService.get_allocated_to_expense_objects(
+                self.allocation
+            ),
+            Decimal('0.00'),
+        )
+        for objeto, monto in (
+            (self.objeto_25220, '100000.00'),
+            (self.objeto_34200, '180000.00'),
+            (self.objeto_43110, '120000.00'),
+        ):
+            self.programar_api(objeto, monto)
+        self.assertEqual(
+            BudgetControlService.get_allocated_to_expense_objects(
+                self.allocation
+            ),
+            Decimal('400000.00'),
+        )
+
+    def test_programar_objeto_duplicado_es_upsert(self):
+        resp = self.programar_api(self.objeto_25220, '100000.00')
+        self.assertEqual(resp.status_code, 201, resp.data)
+        resp = self.programar_api(self.objeto_25220, '200000.00')
+        self.assertEqual(resp.status_code, 201, resp.data)
+        self.assertEqual(
+            ExpenseObjectAllocation.objects.filter(
+                allocation=self.allocation, objeto_gasto=self.objeto_25220,
+            ).count(),
+            1,
+        )
+        self.assertEqual(
+            ExpenseObjectAllocation.objects.get(
+                allocation=self.allocation, objeto_gasto=self.objeto_25220,
+            ).monto,
+            Decimal('200000.00'),
+        )
+
+    def test_exceso_por_servicio_lanza_error_objeto_gasto(self):
+        self.programar_api(self.objeto_25220, '100000.00')
+        self.programar_api(self.objeto_34200, '180000.00')
+        self.programar_api(self.objeto_43110, '120000.00')
+        with self.assertRaises(ErrorObjetoGastoExcedido) as ctx:
+            programar_objeto_gasto(
+                self.allocation, self.objeto_42310,
+                Decimal('150000.00'), self.admin,
+            )
+        self.assertEqual(ctx.exception.code, 'BUDGET_EXCEEDED')
+        self.assertEqual(ctx.exception.details['requested'], '150000.00')
+        self.assertEqual(ctx.exception.details['available'], '100000.00')
+        self.assertEqual(ctx.exception.details['difference'], '50000.00')

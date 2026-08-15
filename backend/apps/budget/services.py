@@ -43,6 +43,7 @@ from .models import (
     EstadoApertura,
     EstadoReserva,
     EstadosTecho,
+    ExpenseObjectAllocation,
     MandatoryExpense,
     Reserve,
     TipoReserva,
@@ -549,6 +550,28 @@ class ErrorDisponibilidad(ValidationError):
         }
         super().__init__(
             f'El monto solicitado supera el saldo disponible de la fuente '
+            f'({requested} > {available}).',
+            code='BUDGET_EXCEEDED',
+        )
+
+
+class ErrorObjetoGastoExcedido(ValidationError):
+    """Programación por objeto del gasto que excede el disponible de la
+    apertura (§91): ValidationError con código BUDGET_EXCEEDED y `details`
+    {requested, available, difference} — la API la mapea a HTTP 409.
+
+    A diferencia de `ErrorDisponibilidad` (por fuente), esta excepción NO
+    lleva `fuente`: el exceso es contra el techo de la APERTURA (§90-91).
+    """
+
+    def __init__(self, requested, available):
+        self.details = {
+            'requested': str(requested),
+            'available': str(available),
+            'difference': str(requested - available),
+        }
+        super().__init__(
+            f'El monto solicitado supera el disponible de la apertura '
             f'({requested} > {available}).',
             code='BUDGET_EXCEEDED',
         )
@@ -1344,3 +1367,186 @@ def ajuste_distribucion(version, usuario):
         gestion=version.gestion.anio,
     )
     return nueva
+
+
+# ===========================================================================
+# Fase 9 — Objetos del gasto: programación por apertura (§90-91)
+# ===========================================================================
+
+
+def _validar_allocation_programable(allocation):
+    """Valida que la apertura exista, esté ACTIVA y su versión de
+    distribución esté FIJADA; devuelve la instancia. Lanza ValidationError."""
+    if not isinstance(allocation, Allocation):
+        allocation = Allocation.objects.filter(pk=allocation).first()
+    if allocation is None:
+        raise ValidationError('La apertura no existe.')
+    if allocation.estado != EstadoApertura.ACTIVA:
+        raise ValidationError(
+            f'La apertura está {allocation.get_estado_display()}; '
+            'debe estar ACTIVA para programar.'
+        )
+    version = allocation.version
+    if version is None or not version.inmutable or \
+            version.estado != EstadosTecho.FIJADO:
+        raise ValidationError(
+            'La distribución debe estar fijada para programar objetos '
+            'del gasto.'
+        )
+    return allocation
+
+
+def _disponible_objeto_gasto(allocation, excluir_id=None):
+    """Disponible de la apertura para objetos del gasto (Decimal, 0.00).
+
+    techo de la apertura − Σ montos programados (excluyendo la fila
+    `excluir_id` si se pasa, para actualizaciones de la propia fila).
+    """
+    from .control import BudgetControlService
+    techo = BudgetControlService.get_allocation_ceiling(allocation)
+    programado = (
+        ExpenseObjectAllocation.objects
+        .filter(allocation=allocation)
+        .exclude(pk=excluir_id)
+        .aggregate(total=models.Sum('monto'))['total']
+    )
+    return techo - (programado if programado is not None else Decimal('0.00'))
+
+
+def _resolver_objeto_gasto(objeto_gasto_id):
+    """Resuelve id o instancia de ObjetoGasto; None si no existe."""
+    from apps.catalogos.models import ObjetoGasto
+    if isinstance(objeto_gasto_id, ObjetoGasto):
+        return objeto_gasto_id
+    return ObjetoGasto.objects.filter(pk=objeto_gasto_id).first()
+
+
+@transaction.atomic
+def programar_objeto_gasto(allocation, objeto_gasto_id, monto, usuario):
+    """Programa un objeto del gasto en una apertura (§90-91).
+
+    Validaciones: apertura ACTIVA + versión de distribución FIJADA +
+    objeto del gasto existente + monto >= 0. El disponible es techo −
+    programado (excluyendo la fila si (allocation, objeto_gasto) ya
+    existe: la operación es un UPSERT). Si monto > disponible lanza
+    `ErrorObjetoGastoExcedido` (code BUDGET_EXCEEDED, details
+    {requested, available, difference} → HTTP 409 en la API). Registra
+    auditoría (crear/modificar). Devuelve la fila.
+    """
+    allocation = _validar_allocation_programable(allocation)
+    objeto_gasto = _resolver_objeto_gasto(objeto_gasto_id)
+    if objeto_gasto is None:
+        raise ValidationError('El objeto del gasto no existe.')
+    if monto is None or monto < 0:
+        raise ValidationError('El monto debe ser mayor o igual a 0.')
+
+    fila = ExpenseObjectAllocation.objects.filter(
+        allocation=allocation, objeto_gasto=objeto_gasto,
+    ).first()
+    disponible = _disponible_objeto_gasto(
+        allocation, excluir_id=fila.id if fila else None,
+    )
+    if monto > disponible:
+        raise ErrorObjetoGastoExcedido(monto, disponible)
+
+    if fila is None:
+        fila = ExpenseObjectAllocation.objects.create(
+            allocation=allocation, objeto_gasto=objeto_gasto, monto=monto,
+            created_by=usuario, updated_by=usuario,
+        )
+        accion = EventoAuditoria.Accion.CREAR
+    else:
+        fila.monto = monto
+        fila.updated_by = usuario
+        fila.save(update_fields=['monto', 'updated_by', 'updated_at'])
+        accion = EventoAuditoria.Accion.MODIFICAR
+    registrar_evento(
+        usuario,
+        accion,
+        'ExpenseObjectAllocation',
+        fila.id,
+        resumen=(
+            f'Objeto del gasto {objeto_gasto.codigo} programado por {monto} '
+            f'en la apertura {allocation.denominacion} '
+            f'(gestión {allocation.gestion.anio})'
+        ),
+        datos_posteriores={
+            'allocation': str(allocation.id),
+            'objeto_gasto': objeto_gasto.codigo,
+            'monto': str(monto),
+        },
+        gestion=allocation.gestion.anio,
+    )
+    return fila
+
+
+@transaction.atomic
+def actualizar_objeto_gasto(fila, monto, usuario):
+    """Actualiza el monto de una programación (recalcula contra los demás).
+
+    El disponible se recalcula EXCLUYENDO la fila actual (techo − Σ de los
+    otros objetos); si el monto nuevo excede, lanza
+    `ErrorObjetoGastoExcedido` (→ 409). Requiere apertura ACTIVA y versión
+    de distribución FIJADA. Registra auditoría (modificar).
+    """
+    if not isinstance(fila, ExpenseObjectAllocation):
+        fila = ExpenseObjectAllocation.objects.filter(pk=fila).first()
+    if fila is None:
+        raise ValidationError('La programación no existe.')
+    _validar_allocation_programable(fila.allocation)
+    if monto is None or monto < 0:
+        raise ValidationError('El monto debe ser mayor o igual a 0.')
+
+    disponible = _disponible_objeto_gasto(fila.allocation, excluir_id=fila.id)
+    if monto > disponible:
+        raise ErrorObjetoGastoExcedido(monto, disponible)
+
+    monto_previo = fila.monto
+    fila.monto = monto
+    fila.updated_by = usuario
+    fila.save(update_fields=['monto', 'updated_by', 'updated_at'])
+    registrar_evento(
+        usuario,
+        EventoAuditoria.Accion.MODIFICAR,
+        'ExpenseObjectAllocation',
+        fila.id,
+        resumen=(
+            f'Objeto del gasto {fila.objeto_gasto.codigo} actualizado de '
+            f'{monto_previo} a {monto} (apertura {fila.allocation.denominacion})'
+        ),
+        datos_previos={'monto': str(monto_previo)},
+        datos_posteriores={'monto': str(monto)},
+        gestion=fila.allocation.gestion.anio,
+    )
+    return fila
+
+
+@transaction.atomic
+def eliminar_objeto_gasto(fila, usuario):
+    """Elimina una programación; libera el disponible de la apertura.
+
+    Se puede eliminar libremente en esta fase (sin verificación de
+    excedentes), siempre que la apertura esté ACTIVA y la versión de
+    distribución FIJADA. Registra auditoría (anular).
+    """
+    if not isinstance(fila, ExpenseObjectAllocation):
+        fila = ExpenseObjectAllocation.objects.filter(pk=fila).first()
+    if fila is None:
+        raise ValidationError('La programación no existe.')
+    _validar_allocation_programable(fila.allocation)
+    allocation = fila.allocation
+    codigo = fila.objeto_gasto.codigo
+    monto = fila.monto
+    fila.delete()
+    registrar_evento(
+        usuario,
+        EventoAuditoria.Accion.ANULAR,
+        'ExpenseObjectAllocation',
+        fila.id,
+        resumen=(
+            f'Objeto del gasto {codigo} ({monto}) eliminado de la apertura '
+            f'{allocation.denominacion} (gestión {allocation.gestion.anio})'
+        ),
+        datos_previos={'monto': str(monto)},
+        gestion=allocation.gestion.anio,
+    )

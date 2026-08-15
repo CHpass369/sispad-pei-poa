@@ -16,6 +16,7 @@ from .views import (
     DirectiveCeilingViewSet,
     DistributionDashboardView,
     DistributionVersionViewSet,
+    ExpenseObjectViewSet,
     FiscalYearViewSet,
     MandatoryExpenseViewSet,
     ProgrammaticCategoryViewSet,
@@ -44,6 +45,9 @@ budget_router.register(
     basename='v2-budget-distributions',
 )
 budget_router.register('allocations', AllocationViewSet, basename='v2-budget-allocations')
+budget_router.register(
+    'expense-objects', ExpenseObjectViewSet, basename='v2-expense-objects',
+)
 budget_router.register('reserves', ReserveViewSet, basename='v2-budget-reserves')
 budget_router.register('imports', BudgetImportViewSet, basename='v2-budget-imports')
 budget_router.register(

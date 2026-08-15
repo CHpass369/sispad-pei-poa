@@ -25,6 +25,7 @@ from .models import (
     DirectiveCeilingVersion,
     DistributionVersion,
     EstadosTecho,
+    ExpenseObjectAllocation,
     ImportError,
     MandatoryExpense,
     ProgrammaticCategory,
@@ -563,6 +564,37 @@ class AllocationSerializer(serializers.ModelSerializer):
                 entradas.append(serializador.validated_data)
             validated['fuentes'] = entradas
         return validated
+
+
+# ---------------------------------------------------------------------------
+# Fase 9 - Objetos del gasto (programación por apertura)
+# ---------------------------------------------------------------------------
+class ExpenseObjectAllocationSerializer(serializers.ModelSerializer):
+    """Programación de un objeto del gasto en una apertura (Fase 9).
+
+    Escritura: `allocation` + `objeto_gasto` + `monto`; el viewset delega
+    en `services.programar_objeto_gasto` (upsert, control de disponibilidad
+    contra el techo de la apertura y BUDGET_EXCEEDED → 409).
+    """
+
+    objeto_gasto_detalle = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ExpenseObjectAllocation
+        fields = [
+            'id', 'allocation', 'objeto_gasto', 'objeto_gasto_detalle',
+            'monto', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def get_unique_together_validators(self):
+        """La unicidad (allocation, objeto_gasto) la gestiona el servicio:
+        `programar_objeto_gasto` es un UPSERT (crear con fila existente
+        actualiza en lugar de rechazar). La constraint sigue en la BD."""
+        return []
+
+    def get_objeto_gasto_detalle(self, obj) -> dict | None:
+        return _detalle_catalogo(obj.objeto_gasto)
 
 
 class ReserveSerializer(serializers.ModelSerializer):

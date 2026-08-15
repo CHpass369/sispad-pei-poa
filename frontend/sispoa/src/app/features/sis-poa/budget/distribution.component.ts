@@ -6,9 +6,11 @@ import {
   CatalogoOpciones,
   DistributionSummary,
   DistributionVersion,
+  ExpenseObject,
   FiscalYear,
   ProgrammaticCategory,
   Reserve,
+  ResumenApertura,
   ValidacionDistribucion,
 } from './budget.service';
 
@@ -50,6 +52,9 @@ import {
     .tooltip-wrap { position: relative; display: inline-block; }
     .tooltip-wrap .tooltip-text { visibility: hidden; background: #333; color: #fff; text-align: center; border-radius: 4px; padding: 0.25rem 0.5rem; position: absolute; bottom: 125%; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 0.75rem; z-index: 10; }
     .tooltip-wrap:hover .tooltip-text { visibility: visible; }
+    .fila-seleccionable { cursor: pointer; }
+    .fila-seleccionable:hover { background: #F4F8FD; }
+    .fila-seleccionada { background: #E3F0FD !important; }
   `],
 })
 export class DistributionComponent implements OnInit {
@@ -94,6 +99,15 @@ export class DistributionComponent implements OnInit {
   validacion: ValidacionDistribucion | null = null;
   observacionTexto = '';
 
+  // -- Objetos del gasto por apertura (Fase 9) ------------------------------
+  aperturaSeleccionada: Allocation | null = null;
+  objetosGasto: ExpenseObject[] = [];
+  resumenApertura: ResumenApertura | null = null;
+  formObjeto = { objeto_gasto: null as string | null, monto: null as number | null };
+  editandoObjeto: ExpenseObject | null = null;
+  errorObjetos = '';
+  guardandoObjeto = false;
+
   constructor(private service: BudgetService) {}
 
   ngOnInit(): void {
@@ -123,6 +137,11 @@ export class DistributionComponent implements OnInit {
     this.cargando = true;
     this.error = '';
     this.validacion = null;
+    this.aperturaSeleccionada = null;
+    this.objetosGasto = [];
+    this.resumenApertura = null;
+    this.editandoObjeto = null;
+    this.errorObjetos = '';
     const gestion = this.gestionSeleccionada;
     this.service.resumenDistribucion(gestion).subscribe({
       next: (r) => { this.resumen = r; this.cargando = false; },
@@ -442,5 +461,102 @@ export class DistributionComponent implements OnInit {
       case 'BORRADOR': return 'badge-info';
       default: return 'badge-success';
     }
+  }
+
+  // -- Objetos del gasto por apertura (Fase 9, §90-91) ----------------------
+
+  /** Selecciona/deselecciona una apertura y carga su panel de objetos. */
+  seleccionarApertura(a: Allocation): void {
+    if (this.aperturaSeleccionada?.id === a.id) {
+      this.aperturaSeleccionada = null;
+      this.objetosGasto = [];
+      this.resumenApertura = null;
+      this.editandoObjeto = null;
+      this.errorObjetos = '';
+      return;
+    }
+    this.aperturaSeleccionada = a;
+    this.editandoObjeto = null;
+    this.errorObjetos = '';
+    this.formObjeto = { objeto_gasto: null, monto: null };
+    this.service.listarObjetosGasto({ allocation: a.id }).subscribe({
+      next: (r) => { this.objetosGasto = r.results; },
+      error: () => { this.errorObjetos = 'Error al cargar los objetos del gasto'; },
+    });
+    this.service.resumenApertura(a.id).subscribe({
+      next: (r) => { this.resumenApertura = r; },
+      error: () => { this.errorObjetos = 'Error al cargar el resumen de la apertura'; },
+    });
+  }
+
+  editarObjeto(o: ExpenseObject): void {
+    this.editandoObjeto = o;
+    this.formObjeto = {
+      objeto_gasto: o.objeto_gasto,
+      monto: o.monto ? parseFloat(o.monto) : null,
+    };
+    this.errorObjetos = '';
+  }
+
+  cancelarEdicionObjeto(): void {
+    this.editandoObjeto = null;
+    this.formObjeto = { objeto_gasto: null, monto: null };
+    this.errorObjetos = '';
+  }
+
+  guardarObjeto(): void {
+    if (!this.aperturaSeleccionada) return;
+    const monto = this.formObjeto.monto;
+    if (monto === null || monto <= 0) {
+      this.errorObjetos = 'El monto debe ser mayor a 0';
+      return;
+    }
+    if (!this.editandoObjeto && !this.formObjeto.objeto_gasto) {
+      this.errorObjetos = 'Debe seleccionar un objeto del gasto';
+      return;
+    }
+    this.errorObjetos = '';
+    this.guardandoObjeto = true;
+    const operacion = this.editandoObjeto
+      ? this.service.actualizarObjetoGasto(this.editandoObjeto.id, monto)
+      : this.service.programarObjetoGasto({
+          allocation: this.aperturaSeleccionada.id,
+          objeto_gasto: this.formObjeto.objeto_gasto as string,
+          monto,
+        });
+    operacion.subscribe({
+      next: () => {
+        this.guardandoObjeto = false;
+        this.editandoObjeto = null;
+        this.formObjeto = { objeto_gasto: null, monto: null };
+        this.cargarObjetosYResumen();
+      },
+      error: (err) => {
+        this.guardandoObjeto = false;
+        this.errorObjetos = this.mensajeError(err);
+      },
+    });
+  }
+
+  eliminarObjeto(o: ExpenseObject): void {
+    if (!window.confirm(`¿Eliminar el objeto del gasto ${o.objeto_gasto_detalle?.codigo ?? ''} (${o.monto})?`)) return;
+    this.service.eliminarObjetoGasto(o.id).subscribe({
+      next: () => { this.cargarObjetosYResumen(); },
+      error: (err) => { this.errorObjetos = this.mensajeError(err); },
+    });
+  }
+
+  /** Recarga tabla de objetos + saldos del panel de la apertura. */
+  private cargarObjetosYResumen(): void {
+    if (!this.aperturaSeleccionada) return;
+    this.errorObjetos = '';
+    this.service.listarObjetosGasto({ allocation: this.aperturaSeleccionada.id }).subscribe({
+      next: (r) => { this.objetosGasto = r.results; },
+      error: () => { this.errorObjetos = 'Error al cargar los objetos del gasto'; },
+    });
+    this.service.resumenApertura(this.aperturaSeleccionada.id).subscribe({
+      next: (r) => { this.resumenApertura = r; },
+      error: () => { this.errorObjetos = 'Error al cargar el resumen de la apertura'; },
+    });
   }
 }

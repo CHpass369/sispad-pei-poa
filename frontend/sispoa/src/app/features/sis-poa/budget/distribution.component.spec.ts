@@ -8,7 +8,9 @@ import {
   BudgetService,
   DistributionSummary,
   DistributionVersion,
+  ExpenseObject,
   FiscalYear,
+  ResumenApertura,
   ValidacionDistribucion,
 } from './budget.service';
 import { MonedaPipe } from './moneda.pipe';
@@ -66,6 +68,17 @@ describe('DistributionComponent', () => {
     }],
   };
 
+  const resumenApertura: ResumenApertura = {
+    valido: true, errores: [],
+    techo: '500000.00', programado: '400000.00', disponible: '100000.00',
+  };
+
+  const objetoGasto: ExpenseObject = {
+    id: 1, allocation: 1, objeto_gasto: 'og-25220',
+    objeto_gasto_detalle: { codigo: '25220', denominacion: 'Papelería y útiles' },
+    monto: '100000.00', created_at: '', updated_at: '',
+  };
+
   beforeEach(async () => {
     serviceSpy = jasmine.createSpyObj('BudgetService', [
       'listar', 'resumenDistribucion', 'listarAperturas', 'listarReservas',
@@ -74,6 +87,8 @@ describe('DistributionComponent', () => {
       'cerrarApertura', 'crearReserva', 'liberarReserva',
       'validarDistribucion', 'submitDistribucion', 'observarDistribucion',
       'aprobarDistribucion', 'fijarDistribucion', 'ajusteDistribucion',
+      'listarObjetosGasto', 'programarObjetoGasto', 'actualizarObjetoGasto',
+      'eliminarObjetoGasto', 'resumenApertura',
     ]);
     serviceSpy.listar.and.returnValue(of({ count: 1, results: [gestion] } as never));
     serviceSpy.resumenDistribucion.and.returnValue(of(resumen as never));
@@ -82,10 +97,18 @@ describe('DistributionComponent', () => {
     serviceSpy.listarVersionesDistribucion.and.returnValue(of([] as never));
     serviceSpy.listarCategorias.and.returnValue(of({ count: 0, results: [] } as never));
     serviceSpy.opcionesCatalogo.and.returnValue(of({
-      fuentes: [], organismos: [], rubros: [], objetos_gasto: [],
+      fuentes: [], organismos: [], rubros: [],
+      objetos_gasto: [{ id: 'og-25220', codigo: '25220', nombre: 'Papelería y útiles' }],
       entidades_transferencia: [], distritos: [], direcciones: [],
       unidades_ejecutoras: [], unidades_organizacionales: [],
     } as never));
+    serviceSpy.listarObjetosGasto.and.returnValue(of({ count: 0, results: [] } as never));
+    serviceSpy.programarObjetoGasto.and.returnValue(of(objetoGasto as never));
+    serviceSpy.actualizarObjetoGasto.and.returnValue(of({
+      ...objetoGasto, monto: '150000.00',
+    } as never));
+    serviceSpy.eliminarObjetoGasto.and.returnValue(of(undefined as never));
+    serviceSpy.resumenApertura.and.returnValue(of(resumenApertura as never));
 
     await TestBed.configureTestingModule({
       declarations: [DistributionComponent, MonedaPipe],
@@ -267,5 +290,88 @@ describe('DistributionComponent', () => {
     component.ajustar(v1);
     expect(serviceSpy.ajusteDistribucion).toHaveBeenCalledWith(1);
     expect(component.mensaje).toContain('Versión 2');
+  });
+
+  // -- Objetos del gasto por apertura (Fase 9) -------------------------------
+
+  it('should show the expense objects panel with techo/programado/disponible', () => {
+    component.seleccionarApertura(apertura);
+    fixture.detectChanges();
+    expect(serviceSpy.listarObjetosGasto).toHaveBeenCalledWith({ allocation: 1 });
+    expect(serviceSpy.resumenApertura).toHaveBeenCalledWith(1);
+    expect(component.resumenApertura?.techo).toBe('500000.00');
+    const rendered = fixture.nativeElement as HTMLElement;
+    expect(rendered.textContent).toContain('Objetos del gasto');
+    expect(rendered.textContent).toContain('Techo de la apertura');
+    expect(rendered.textContent).toContain('Bs 500.000,00');
+    expect(rendered.textContent).toContain('Bs 400.000,00');
+    expect(rendered.textContent).toContain('Bs 100.000,00');
+  });
+
+  it('should show programmed objects in the panel', () => {
+    serviceSpy.listarObjetosGasto.and.returnValue(of({
+      count: 1, results: [objetoGasto],
+    } as never));
+    component.seleccionarApertura(apertura);
+    fixture.detectChanges();
+    const rendered = fixture.nativeElement as HTMLElement;
+    expect(component.objetosGasto.length).toBe(1);
+    expect(rendered.textContent).toContain('25220');
+    expect(rendered.textContent).toContain('Papelería y útiles');
+    expect(rendered.textContent).toContain('Bs 100.000,00');
+  });
+
+  it('should program an object calling the service', () => {
+    component.gestionSeleccionada = '2030';
+    component.seleccionarApertura(apertura);
+    component.formObjeto = { objeto_gasto: 'og-25220', monto: 100000 };
+    component.guardarObjeto();
+    expect(serviceSpy.programarObjetoGasto).toHaveBeenCalledWith({
+      allocation: 1, objeto_gasto: 'og-25220', monto: 100000,
+    });
+    expect(component.guardandoObjeto).toBeFalse();
+    expect(component.editandoObjeto).toBeNull();
+  });
+
+  it('should show the 409 BUDGET_EXCEEDED message from the API', () => {
+    serviceSpy.programarObjetoGasto.and.returnValue(throwError(() => ({
+      error: {
+        error: { detail: ['El monto solicitado supera el disponible de la apertura (150000.00 > 100000.00).'] },
+        code: 'BUDGET_EXCEEDED',
+        details: { requested: '150000.00', available: '100000.00', difference: '50000.00' },
+      },
+    })));
+    component.seleccionarApertura(apertura);
+    component.formObjeto = { objeto_gasto: 'og-42310', monto: 150000 };
+    component.guardarObjeto();
+    expect(component.errorObjetos).toContain('supera el disponible de la apertura');
+    fixture.detectChanges();
+    const rendered = fixture.nativeElement as HTMLElement;
+    expect(rendered.textContent).toContain('supera el disponible de la apertura');
+  });
+
+  it('should update an object monto via edit', () => {
+    component.seleccionarApertura(apertura);
+    component.editarObjeto(objetoGasto);
+    component.formObjeto.monto = 150000;
+    component.guardarObjeto();
+    expect(serviceSpy.actualizarObjetoGasto).toHaveBeenCalledWith(1, 150000);
+    expect(component.editandoObjeto).toBeNull();
+  });
+
+  it('should delete an object liberating disponible', () => {
+    spyOn(window, 'confirm').and.returnValue(true);
+    component.seleccionarApertura(apertura);
+    component.eliminarObjeto(objetoGasto);
+    expect(serviceSpy.eliminarObjetoGasto).toHaveBeenCalledWith(1);
+    expect(serviceSpy.resumenApertura).toHaveBeenCalledWith(1);
+  });
+
+  it('should require monto > 0 to program', () => {
+    component.seleccionarApertura(apertura);
+    component.formObjeto = { objeto_gasto: 'og-25220', monto: 0 };
+    component.guardarObjeto();
+    expect(component.errorObjetos).toContain('mayor a 0');
+    expect(serviceSpy.programarObjetoGasto).not.toHaveBeenCalled();
   });
 });

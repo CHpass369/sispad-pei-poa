@@ -1191,6 +1191,56 @@ class TerritorialAllocation(TimeStampedModel):
         return f'{self.distrito}: {self.monto_final}'
 
 
+# ---------------------------------------------------------------------------
+# Fase 9 - Objetos del gasto: programación por apertura (techo/programado/
+# disponible; §90-91). Requiere versión de distribución FIJADA y monto <=
+# disponible de la apertura (BUDGET_EXCEEDED en caso contrario).
+# ---------------------------------------------------------------------------
+class ExpenseObjectAllocation(TimeStampedModel):
+    """Programación de un objeto del gasto en una apertura (Fase 9).
+
+    Cada fila programa un `catalogos.ObjetoGasto` (código 5 dígitos
+    jerárquico, versionado) contra el techo de la apertura (`Allocation`).
+    El control de disponibilidad vive en `BudgetControlService`
+    (control.py) y `services.programar_objeto_gasto`. Una fila por
+    (allocation, objeto_gasto) con monto >= 0 (`CheckConstraint`).
+    """
+
+    allocation = models.ForeignKey(
+        Allocation, on_delete=models.CASCADE, related_name='objetos_gasto',
+        help_text='Apertura programática de la programación.',
+    )
+    objeto_gasto = models.ForeignKey(
+        'catalogos.ObjetoGasto', on_delete=models.PROTECT,
+        related_name='programaciones',
+        help_text='Objeto del gasto del clasificador (5 dígitos).',
+    )
+    monto = models.DecimalField(
+        max_digits=18, decimal_places=2, verbose_name='Monto (Bs)'
+    )
+
+    class Meta:
+        verbose_name = 'Objeto del gasto programado'
+        verbose_name_plural = 'Objetos del gasto programados'
+        ordering = ['allocation', 'id']
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(monto__gte=0),
+                name='check_expenseobjectallocation_monto_positivo',
+            ),
+            models.UniqueConstraint(
+                fields=['allocation', 'objeto_gasto'],
+                name='uniq_allocation_objeto_gasto',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['allocation', 'objeto_gasto']),
+        ]
+
+    def __str__(self):
+        return f'{self.objeto_gasto.codigo}: {self.monto}'
+
+
 class ImportError(TimeStampedModel):
     """Hallazgo de la validación de una importación, con severidad y acción.
 

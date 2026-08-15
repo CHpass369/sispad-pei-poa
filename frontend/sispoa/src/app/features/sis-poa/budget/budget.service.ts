@@ -28,6 +28,8 @@ export interface FiscalYearInput {
 export interface DetalleCatalogo {
   codigo: string;
   denominacion: string;
+  /** Variante del endpoint /catalogs/ (GET /catalogs/ devuelve `nombre`). */
+  nombre?: string;
 }
 
 export interface DetalleUnidad {
@@ -226,6 +228,34 @@ export interface DiferenciaFuente {
 export interface ValidacionDistribucion {
   valida: boolean;
   diferencias: DiferenciaFuente[];
+}
+
+// -- Objetos del gasto (Fase 9) ---------------------------------------------
+
+/** Programación de un objeto del gasto en una apertura (Fase 9, §90-91). */
+export interface ExpenseObject {
+  id: number;
+  allocation: number;
+  objeto_gasto: string;
+  objeto_gasto_detalle: DetalleCatalogo | null;
+  monto: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ExpenseObjectInput {
+  allocation: number | string;
+  objeto_gasto: string;
+  monto: string | number;
+}
+
+/** Saldos de una apertura para la programación (§90): techo/programado/disponible. */
+export interface ResumenApertura {
+  valido: boolean;
+  errores: string[];
+  techo: string;
+  programado: string;
+  disponible: string;
 }
 
 /** Error de la API V2: {error: {detail}, code?, details?}. */
@@ -818,6 +848,40 @@ export class BudgetService {
   liberarTerritorial(id: number): Observable<TerritorialDistribution> {
     return this.http.post<TerritorialDistribution>(
       `${this.base}/territorial-distributions/${id}/liberar/`, {},
+    );
+  }
+
+  // -- Objetos del gasto (Fase 9) -------------------------------------------
+
+  listarObjetosGasto(params?: {
+    allocation?: number | string;
+  }): Observable<Paginado<ExpenseObject>> {
+    return this.http.get<Paginado<ExpenseObject>>(
+      `${this.base}/expense-objects/`,
+      { params: this.params(params) },
+    );
+  }
+
+  programarObjetoGasto(data: ExpenseObjectInput): Observable<ExpenseObject> {
+    return this.http.post<ExpenseObject>(
+      `${this.base}/expense-objects/`, data,
+    );
+  }
+
+  actualizarObjetoGasto(id: number, monto: string | number): Observable<ExpenseObject> {
+    return this.http.patch<ExpenseObject>(
+      `${this.base}/expense-objects/${id}/`, { monto },
+    );
+  }
+
+  eliminarObjetoGasto(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.base}/expense-objects/${id}/`);
+  }
+
+  resumenApertura(allocationId: number | string): Observable<ResumenApertura> {
+    return this.http.post<ResumenApertura>(
+      `${this.base}/control/validate/`,
+      { tipo: 'allocation', allocation: allocationId },
     );
   }
 }
