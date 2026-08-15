@@ -7,7 +7,7 @@ def root_redirect(request):
     frontend_index = settings.BASE_DIR / 'static_assets' / 'index.html'
     if frontend_index.exists():
         return FileResponse(open(frontend_index, 'rb'))
-    return JsonResponse({'sistema': 'SISPOA Sacaba', 'frontend': 'no compilado'})
+    return JsonResponse({'sistema': 'PIP Sacaba', 'frontend': 'no compilado'})
 
 
 def health_check(request):

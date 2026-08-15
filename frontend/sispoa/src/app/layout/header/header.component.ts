@@ -53,6 +53,6 @@ import { AuthService } from '../../core/services/auth.service';
 export class HeaderComponent {
   @Output() toggleSidebar = new EventEmitter<void>();
 
-  pageTitle = 'SISPOA Sacaba';
+  pageTitle = 'PIP Sacaba';
   constructor(public auth: AuthService) {}
 }

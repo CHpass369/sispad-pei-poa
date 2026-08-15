@@ -138,7 +138,7 @@ class PasswordResetRequestView(APIView):
             frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:4200')
             reset_url = f'{frontend_url}/auth/reset-password?token={token}&email={email}'
             send_mail(
-                subject='Restablecimiento de contraseña - SISPOA',
+                subject='Restablecimiento de contraseña - PIP',
                 message=(
                     f'Estimado/a {user.get_full_name() or user.email}:\n\n'
                     f'Recibimos una solicitud para restablecer su contraseña.\n\n'

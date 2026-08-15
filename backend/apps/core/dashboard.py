@@ -1,5 +1,5 @@
 """
-Servicio de dashboard con datos vivos del sistema SISPOA.
+Servicio de dashboard con datos vivos de la plataforma PIP.
 """
 from decimal import Decimal
 from django.db.models import Sum, Count, Value, DecimalField

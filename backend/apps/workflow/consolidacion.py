@@ -677,7 +677,7 @@ def generar_acta_consolidacion(
     lineas_texto: list[str] = []
     lineas_texto.append("=" * 72)
     lineas_texto.append("ACTA DE CONSOLIDACIÓN INSTITUCIONAL DEL POA")
-    lineas_texto.append(f"SISTEMA DE PLANIFICACIÓN OPERATIVA ANUAL — SISPOA SACABA")
+    lineas_texto.append(f"SISTEMA DE PLANIFICACIÓN OPERATIVA ANUAL — SIS-POA SACABA")
     lineas_texto.append("=" * 72)
     lineas_texto.append("")
     lineas_texto.append(f"Gestión:                     {gestion}")

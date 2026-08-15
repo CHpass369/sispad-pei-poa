@@ -12,7 +12,7 @@ import { AuthService } from '../../core/services/auth.service';
       <div class="login-card">
         <div class="login-header">
           <div class="logo-icon">G</div>
-          <h1>SISPOA Sacaba</h1>
+          <h1>PIP Sacaba</h1>
           <p>Sistema de Formulación del POA</p>
         </div>
         <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="login-form">

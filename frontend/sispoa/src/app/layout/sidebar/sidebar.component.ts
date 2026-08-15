@@ -32,7 +32,7 @@ interface NavSection {
         <div class="logo">
           <span class="logo-icon">G</span>
           <div class="logo-text" *ngIf="!collapsed">
-            <strong>SISPOA</strong>
+            <strong>PIP</strong>
             <small>Sacaba</small>
           </div>
         </div>

@@ -1,4 +1,4 @@
-"""Mixins reutilizables para serializers DRF del dominio SISPOA."""
+"""Mixins reutilizables para serializers DRF de la plataforma PIP."""
 from rest_framework import serializers
 
 from apps.core.validators import validar_ejecucion_no_negativa
