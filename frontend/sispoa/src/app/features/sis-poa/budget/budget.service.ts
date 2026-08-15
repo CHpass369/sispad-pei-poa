@@ -350,6 +350,80 @@ interface Paginado<T> {
   results: T[];
 }
 
+// -- Importaciones Excel (Fase 5) -------------------------------------------
+
+export interface ImportMapeo {
+  hoja?: string;
+  columnas?: Record<string, string>;
+  fuentes?: Record<string, string>;
+}
+
+export interface BudgetImport {
+  id: number;
+  gestion: string;
+  gestion_anio: number;
+  perfil: string;
+  perfil_display: string;
+  filename: string;
+  mime_type: string;
+  size: number;
+  sha256: string;
+  hoja_seleccionada: string;
+  mapeo_json: ImportMapeo;
+  estado: string;
+  estado_display: string;
+  tipo_importacion: string;
+  storage_path: string;
+  conteos: Record<string, number>;
+  created_at: string;
+}
+
+export interface ImportMapeoBody {
+  hoja: string;
+  mapeo?: { columnas?: Record<string, string | null>; fuentes?: Record<string, string> };
+}
+
+export interface ImportErrorItem {
+  id: number;
+  detalle: number | null;
+  fila: number;
+  campo: string;
+  valor_original: string;
+  valor_normalizado: string;
+  severidad: string;
+  severidad_display: string;
+  mensaje: string;
+  accion: string;
+  accion_display: string;
+  resuelto: boolean;
+}
+
+export interface ImportResultado {
+  aperturas_creadas: number;
+  total_importado: string;
+}
+
+/** Campos destino del mapeo columna -> campo (con etiqueta en español). */
+export const CAMPOS_IMPORTACION: { valor: string; etiqueta: string }[] = [
+  { valor: 'unidad', etiqueta: 'Unidad ejecutiva' },
+  { valor: 'distrito', etiqueta: 'Distrito' },
+  { valor: 'da', etiqueta: 'Dirección administrativa' },
+  { valor: 'ue', etiqueta: 'Unidad ejecutora' },
+  { valor: 'tipo', etiqueta: 'Tipo (V: P/SP/TS/T)' },
+  { valor: 'programa', etiqueta: 'Programa' },
+  { valor: 'subprograma', etiqueta: 'Subprograma' },
+  { valor: 'sisin', etiqueta: 'Código SISIN' },
+  { valor: 'actividad', etiqueta: 'Actividad' },
+  { valor: 'denominacion', etiqueta: 'Denominación del proyecto' },
+  { valor: 'saldo', etiqueta: 'Saldo gestión anterior' },
+  { valor: 'ct', etiqueta: 'CT (monto)' },
+  { valor: 're', etiqueta: 'RE (monto)' },
+  { valor: 'ore', etiqueta: 'ORE (monto)' },
+  { valor: 'idh', etiqueta: 'IDH (monto)' },
+  { valor: 'tgn', etiqueta: 'TGN (monto)' },
+  { valor: 'total', etiqueta: 'Total presupuesto' },
+];
+
 /** Servicio tipado del ciclo presupuestario SIS-POA (ADR-002): V2 puro. */
 @Injectable({ providedIn: 'root' })
 export class BudgetService {
@@ -567,5 +641,45 @@ export class BudgetService {
 
   liberarReserva(id: number): Observable<Reserve> {
     return this.http.post<Reserve>(`${this.base}/reserves/${id}/liberar/`, {});
+  }
+
+  // -- Importaciones Excel (Fase 5) -----------------------------------------
+
+  subirImportacion(formData: FormData): Observable<BudgetImport> {
+    return this.http.post<BudgetImport>(`${this.base}/imports/`, formData);
+  }
+
+  listarImportaciones(params?: { gestion?: string; estado?: string }): Observable<Paginado<BudgetImport>> {
+    return this.http.get<Paginado<BudgetImport>>(`${this.base}/imports/`, {
+      params: this.params(params),
+    });
+  }
+
+  detalleImportacion(id: number): Observable<BudgetImport> {
+    return this.http.get<BudgetImport>(`${this.base}/imports/${id}/`);
+  }
+
+  hojasImportacion(id: number): Observable<{ hojas: string[] }> {
+    return this.http.get<{ hojas: string[] }>(`${this.base}/imports/${id}/hojas/`);
+  }
+
+  mapearImportacion(id: number, body: ImportMapeoBody): Observable<BudgetImport> {
+    return this.http.post<BudgetImport>(`${this.base}/imports/${id}/map/`, body);
+  }
+
+  validarImportacion(id: number): Observable<BudgetImport> {
+    return this.http.post<BudgetImport>(`${this.base}/imports/${id}/validate/`, {});
+  }
+
+  erroresImportacion(id: number, params?: { severidad?: string }): Observable<ImportErrorItem[]> {
+    return this.http.get<ImportErrorItem[]>(`${this.base}/imports/${id}/errors/`, {
+      params: this.params(params),
+    });
+  }
+
+  aplicarImportacion(id: number): Observable<BudgetImport & { resultado?: ImportResultado }> {
+    return this.http.post<BudgetImport & { resultado?: ImportResultado }>(
+      `${this.base}/imports/${id}/apply/`, {},
+    );
   }
 }

@@ -1052,3 +1052,496 @@ class DistribucionDashboardTests(DistribucionBase):
     def test_techo_distribuible_por_fuente_desde_techo_fijado(self):
         techo = techo_distribuible_por_fuente(self.gestion)
         self.assertEqual(techo[self.fuente.id], Decimal('1500.00'))
+
+
+# ===========================================================================
+# Fase 5 - Importador Excel (staging + normalización + validación + aplicar)
+# ===========================================================================
+import openpyxl  # noqa: E402
+from io import BytesIO  # noqa: E402
+
+from django.core.files.uploadedfile import SimpleUploadedFile  # noqa: E402
+from apps.territorio.models import Distrito  # noqa: E402
+
+from .importer import (  # noqa: E402
+    clasificar_fila,
+    detectar_header,
+    normalizar_codigo,
+    normalizar_monto,
+    validar_importacion,
+)
+from .models import (  # noqa: E402
+    BudgetImport,
+    ImportDetalle,
+    ImportError,
+)
+
+HEADER_GASTOS = [
+    'N°', 'UNIDAD EJECUTIVA', 'DISTRITO URBANO Y RURAL',
+    'DIRECCIÓN ADMINISTRATIVA', 'UNIDAD EJECUTORA', 'V', 'PROG.',
+    'CODIGO SISIN WEB', 'ACT.', 'DENOMINACIÓN DEL PROYECTO',
+    'Saldo gestión anterior', 'CT', 'RE', 'ORE', 'IDH', 'TGN',
+    'Total Presupuesto',
+]
+
+XLSX_MIME = (
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+)
+
+
+def construir_xlsx(filas, hoja='gastos'):
+    """XLSX en memoria (bytes) con openpyxl."""
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = hoja
+    for fila in filas:
+        ws.append(fila)
+    buf = BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+def fila_detalle(v='', prog='097', sisin='12345678', act='01',
+                denom='Apertura demo', distrito='URBANO 1', ct='500.00',
+                re='300.00', ore='', idh='200.00', tgn='100.00',
+                total='1100.00'):
+    return [
+        '1', 'SMFA', distrito, 'DA01', 'UE01', v, prog, sisin, act,
+        denom, '', ct, re, ore, idh, tgn, total,
+    ]
+
+
+class ImportadorBase(TestCase):
+    """Base del importador: gestión habilitada + fuentes + categorías."""
+
+    def setUp(self):
+        self.admin = Usuario.objects.create_superuser(
+            email='admin@import.test', password='test2026'
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.admin)
+        self.gestion = crear_gestion(2030, estado='HABILITADA')
+        for codigo, nombre in (('41', 'Coparticipación tributaria'),
+                               ('20', 'Recursos específicos'),
+                               ('11', 'Tesoro general')):
+            FuenteFinanciamiento.objects.create(
+                codigo=codigo, denominacion=nombre, gestion=2030,
+                fecha_vigencia_desde=timezone.now().date(),
+            )
+        prog = ProgrammaticCategory.objects.create(
+            gestion=self.gestion, codigo='097', denominacion='Programa 097',
+            nivel='PROGRAMA',
+        )
+        ProgrammaticCategory.objects.create(
+            gestion=self.gestion, codigo='010',
+            denominacion='Subprograma 010', nivel='SUBPROGRAMA', parent=prog,
+        )
+        Distrito.objects.create(codigo='D1', nombre='URBANO 1')
+
+    def subir(self, contenido, perfil='SISPOA_GASTOS_HISTORICO'):
+        archivo = SimpleUploadedFile(
+            'gastos.xlsx', contenido, content_type=XLSX_MIME,
+        )
+        return self.client.post(
+            f'{BUDGET_URL}imports/',
+            {'gestion': str(self.gestion.id), 'perfil': perfil,
+             'archivo': archivo},
+            format='multipart',
+        )
+
+    def subir_y_validar(self, filas):
+        resp = self.subir(construir_xlsx(filas))
+        self.assertEqual(resp.status_code, 201, resp.content[:500])
+        importacion = BudgetImport.objects.get(pk=resp.data['id'])
+        resp_val = self.client.post(
+            f"{BUDGET_URL}imports/{importacion.id}/validate/", {}, format='json',
+        )
+        self.assertEqual(resp_val.status_code, 200, resp_val.data)
+        importacion.refresh_from_db()
+        return importacion, resp, resp_val
+
+
+class ImportadorNormalizacionTests(TestCase):
+    def test_monto_con_coma_decimal(self):
+        self.assertEqual(normalizar_monto('1.234.567,89'), Decimal('1234567.89'))
+
+    def test_monto_con_punto_decimal(self):
+        self.assertEqual(normalizar_monto('1,234,567.89'), Decimal('1234567.89'))
+
+    def test_monto_con_prefijo_bs(self):
+        self.assertEqual(normalizar_monto('Bs 1.234'), Decimal('1234.00'))
+
+    def test_monto_parentesis_es_negativo(self):
+        self.assertEqual(normalizar_monto('(123)'), Decimal('-123.00'))
+
+    def test_monto_vacio_es_cero(self):
+        self.assertEqual(normalizar_monto(''), Decimal('0.00'))
+        self.assertEqual(normalizar_monto(None), Decimal('0.00'))
+
+    def test_monto_error_excel_lanza(self):
+        for token in ('#REF!', '#VALUE!', '#DIV/0!', '#N/A'):
+            with self.assertRaises(ValueError):
+                normalizar_monto(token)
+
+    def test_codigo_preserva_ceros(self):
+        self.assertEqual(normalizar_codigo('097'), '097')
+        self.assertEqual(normalizar_codigo('010'), '010')
+        self.assertEqual(normalizar_codigo(97), '97')
+
+    def test_detectar_header_desplazado(self):
+        filas = [
+            ['GOBIERNO AUTÓNOMO MUNICIPAL DE SACABA'],
+            [],
+            [],
+            HEADER_GASTOS,
+            fila_detalle(),
+            fila_detalle(denom='Otra apertura'),
+        ]
+        indice = detectar_header(filas, HEADER_GASTOS)
+        self.assertEqual(indice, 3)
+
+    def test_clasificar_filas(self):
+        from .models import ClasificacionFila
+        self.assertEqual(
+            clasificar_fila({'tipo': 'P'}), ClasificacionFila.PROGRAM_HEADER
+        )
+        self.assertEqual(
+            clasificar_fila({'tipo': 'PROGRAMA'}),
+            ClasificacionFila.PROGRAM_HEADER,
+        )
+        self.assertEqual(
+            clasificar_fila({'tipo': 'SP'}), ClasificacionFila.SUBPROGRAM_HEADER
+        )
+        self.assertEqual(
+            clasificar_fila({'tipo': 'TS'}), ClasificacionFila.SUBTOTAL
+        )
+        self.assertEqual(
+            clasificar_fila({'tipo': 'T'}), ClasificacionFila.TOTAL
+        )
+        self.assertEqual(
+            clasificar_fila({'tipo': ''}), ClasificacionFila.EMPTY
+        )
+        self.assertEqual(
+            clasificar_fila({'tipo': '', 'denominacion': 'X'}),
+            ClasificacionFila.DETAIL,
+        )
+        self.assertEqual(
+            clasificar_fila({'tipo': 'X'}), ClasificacionFila.DETAIL
+        )
+
+
+class ImportadorUploadTests(ImportadorBase):
+    def test_upload_parsea_con_header_desplazado(self):
+        filas = [
+            ['GOBIERNO AUTÓNOMO MUNICIPAL DE SACABA'],
+            ['PRESUPUESTO 2023'],
+            [],
+            HEADER_GASTOS,
+            fila_detalle(),
+        ]
+        resp = self.subir(construir_xlsx(filas))
+        self.assertEqual(resp.status_code, 201, resp.content[:500])
+        data = resp.data
+        self.assertEqual(data['estado'], 'STAGING')
+        self.assertEqual(data['hoja_seleccionada'], 'gastos')
+        self.assertEqual(data['gestion_anio'], 2030)
+        self.assertEqual(len(data['sha256']), 64)
+
+        importacion = BudgetImport.objects.get(pk=data['id'])
+        detalles = importacion.detalles.all()
+        self.assertEqual(detalles.count(), 1)
+        detalle = detalles.first()
+        self.assertEqual(detalle.clasificacion, 'DETAIL')
+        self.assertEqual(detalle.fila, 5)
+        self.assertEqual(detalle.datos_json['denominacion'], 'Apertura demo')
+        self.assertEqual(detalle.datos_json['programa'], '097')
+        self.assertEqual(detalle.datos_json['ct'], '500.00')
+        self.assertEqual(detalle.datos_json['re'], '300.00')
+        self.assertEqual(detalle.datos_json['total'], '1100.00')
+        self.assertIn('columnas', importacion.mapeo_json)
+        self.assertIn('fuentes', importacion.mapeo_json)
+
+    def test_listar_importaciones_por_gestion(self):
+        self.subir(construir_xlsx([HEADER_GASTOS, fila_detalle()]))
+        resp = self.client.get(
+            f'{BUDGET_URL}imports/', {'gestion': str(self.gestion.id)}
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['count'], 1)
+
+    def test_hojas_endpoint(self):
+        resp = self.subir(construir_xlsx([HEADER_GASTOS, fila_detalle()]))
+        importacion_id = resp.data['id']
+        resp = self.client.get(f'{BUDGET_URL}imports/{importacion_id}/hojas/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['hojas'], ['gastos'])
+
+    def test_map_hoja_y_mapeo_personalizado(self):
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = 'gastos'
+        ws.append(['UNIDAD EJECUTIVA', 'V', 'PROG.', 'DENOMINACIÓN DEL PROYECTO',
+                   'CT', 'Total Presupuesto'])
+        ws.append(['SMFA', '', '097', 'Apertura mapeada', '250.00', '250.00'])
+        buf = BytesIO()
+        wb.save(buf)
+        resp = self.subir(buf.getvalue())
+        self.assertEqual(resp.status_code, 201, resp.content[:500])
+        importacion = BudgetImport.objects.get(pk=resp.data['id'])
+        # Re-mapeo: CT ahora se interpreta como IDH (otra fuente).
+        resp_map = self.client.post(
+            f"{BUDGET_URL}imports/{importacion.id}/map/",
+            {'hoja': 'gastos', 'mapeo': {'fuentes': {'ct': '11'}}},
+            format='json',
+        )
+        self.assertEqual(resp_map.status_code, 200, resp_map.data)
+        importacion.refresh_from_db()
+        self.assertEqual(importacion.mapeo_json['fuentes']['ct'], '11')
+        detalle = importacion.detalles.first()
+        self.assertEqual(detalle.datos_json['ct'], '250.00')
+
+    def test_upload_mime_no_permitido_rechazado(self):
+        archivo = SimpleUploadedFile(
+            'datos.txt', b'no es excel', content_type='text/plain',
+        )
+        resp = self.client.post(
+            f'{BUDGET_URL}imports/',
+            {'gestion': str(self.gestion.id), 'perfil': 'SISPOA_GASTOS_HISTORICO',
+             'archivo': archivo},
+            format='multipart',
+        )
+        self.assertEqual(resp.status_code, 400, resp.data)
+
+    def test_usuario_sin_capacidad_import_no_puede_subir(self):
+        rol = Rol.objects.create(codigo='rol_sin_import', nombre='Sin importar')
+        usuario = Usuario.objects.create_user(
+            email='sin@import.test', password='test2026'
+        )
+        usuario.roles.add(rol)
+        client = APIClient()
+        client.force_authenticate(user=usuario)
+        resp = client.post(
+            f'{BUDGET_URL}imports/',
+            {'gestion': str(self.gestion.id), 'perfil': 'SISPOA_GASTOS_HISTORICO',
+             'archivo': SimpleUploadedFile(
+                 'g.xlsx', construir_xlsx([HEADER_GASTOS, fila_detalle()]),
+                 content_type=XLSX_MIME,
+             )},
+            format='multipart',
+        )
+        self.assertEqual(resp.status_code, 403, resp.data)
+
+
+class ImportadorValidacionTests(ImportadorBase):
+    def test_ref_en_monto_genera_critical(self):
+        importacion, _, _ = self.subir_y_validar([
+            HEADER_GASTOS,
+            fila_detalle(ct='#REF!'),
+        ])
+        self.assertEqual(importacion.estado, 'STAGING')
+        criticos = ImportError.objects.filter(
+            importacion=importacion, severidad='CRITICAL',
+        )
+        self.assertTrue(criticos.exists())
+        self.assertIn('#REF!', criticos.first().mensaje)
+        self.assertEqual(criticos.first().campo, 'ct')
+        detalle = importacion.detalles.first()
+        self.assertEqual(detalle.estado, 'ERROR')
+
+    def test_monto_negativo_es_critical(self):
+        importacion, _, _ = self.subir_y_validar([
+            HEADER_GASTOS,
+            fila_detalle(ct='-100.00'),
+        ])
+        self.assertEqual(importacion.estado, 'STAGING')
+        self.assertTrue(ImportError.objects.filter(
+            importacion=importacion, severidad='CRITICAL',
+            mensaje__contains='negativo',
+        ).exists())
+
+    def test_fuente_inexistente_es_critical(self):
+        importacion, _, _ = self.subir_y_validar([
+            HEADER_GASTOS,
+            fila_detalle(),
+        ])
+        # Quitar la fuente 41 del catálogo → CT/IDH quedan inválidas.
+        FuenteFinanciamiento.objects.filter(codigo='41', gestion=2030).delete()
+        importacion.errores.all().delete()
+        validar_importacion(importacion)
+        importacion.refresh_from_db()
+        self.assertEqual(importacion.estado, 'STAGING')
+        criticos = ImportError.objects.filter(
+            importacion=importacion, severidad='CRITICAL',
+        )
+        self.assertTrue(criticos.exists())
+        self.assertIn('no existe', criticos.first().mensaje)
+
+    def test_programa_inexistente_es_critical(self):
+        importacion, _, _ = self.subir_y_validar([
+            HEADER_GASTOS,
+            fila_detalle(prog='999'),
+        ])
+        self.assertEqual(importacion.estado, 'STAGING')
+        self.assertTrue(ImportError.objects.filter(
+            importacion=importacion, severidad='CRITICAL',
+            mensaje__contains='999',
+        ).exists())
+
+    def test_denominacion_vacia_es_error(self):
+        importacion, _, _ = self.subir_y_validar([
+            HEADER_GASTOS,
+            fila_detalle(denom=''),
+        ])
+        self.assertEqual(importacion.estado, 'STAGING')
+        self.assertTrue(ImportError.objects.filter(
+            importacion=importacion, severidad='ERROR',
+            campo='denominacion',
+        ).exists())
+
+    def test_duplicado_es_error(self):
+        importacion, _, _ = self.subir_y_validar([
+            HEADER_GASTOS,
+            fila_detalle(),
+            fila_detalle(),
+        ])
+        self.assertEqual(importacion.estado, 'STAGING')
+        self.assertTrue(ImportError.objects.filter(
+            importacion=importacion, severidad='ERROR',
+            mensaje__contains='duplicada',
+        ).exists())
+
+    def test_todo_valido_pasa_a_validado(self):
+        importacion, _, _ = self.subir_y_validar([
+            HEADER_GASTOS,
+            fila_detalle(),
+            fila_detalle(sisin='87654321', denom='Segunda apertura',
+                         ct='100.00', re='', idh='', tgn='',
+                         total='100.00'),
+        ])
+        self.assertEqual(importacion.estado, 'VALIDADO')
+        self.assertFalse(ImportError.objects.filter(
+            importacion=importacion, severidad__in=('ERROR', 'CRITICAL'),
+        ).exists())
+        for detalle in importacion.detalles.all():
+            self.assertEqual(detalle.estado, 'VALIDO')
+
+    def test_distrito_no_encontrado_es_warning(self):
+        importacion, _, _ = self.subir_y_validar([
+            HEADER_GASTOS,
+            fila_detalle(distrito='ZONA INEXISTENTE'),
+        ])
+        self.assertEqual(importacion.estado, 'VALIDADO')
+        self.assertTrue(ImportError.objects.filter(
+            importacion=importacion, severidad='WARNING',
+            campo='distrito',
+        ).exists())
+
+    def test_errores_endpoint_devuelve_hallazgos(self):
+        importacion, _, _ = self.subir_y_validar([
+            HEADER_GASTOS,
+            fila_detalle(ct='#REF!'),
+        ])
+        resp = self.client.get(f'{BUDGET_URL}imports/{importacion.id}/errors/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.data), 1)
+        self.assertEqual(resp.data[0]['severidad'], 'CRITICAL')
+        self.assertEqual(resp.data[0]['fila'], 2)
+
+
+class ImportadorAplicacionTests(ImportadorBase):
+    def _libro_completo(self):
+        return [
+            HEADER_GASTOS,
+            ['', 'SECRETARÍA', 'URBANO 1', 'DA01', 'UE01', 'P', '097', '', '',
+             'Programa 097', '', '', '', '', '', '', ''],
+            ['', 'SECRETARÍA', 'URBANO 1', 'DA01', 'UE01', 'SP', '010', '', '',
+             'Subprograma 010', '', '', '', '', '', '', ''],
+            ['', 'SECRETARÍA', 'URBANO 1', 'DA01', 'UE01', 'TS', '097', '', '',
+             'Subtotal programa', '', '500.00', '300.00', '', '200.00',
+             '100.00', '1100.00'],
+            ['', 'SECRETARÍA', 'URBANO 1', 'DA01', 'UE01', 'T', '097', '', '',
+             'Total general', '', '500.00', '300.00', '', '200.00',
+             '100.00', '1100.00'],
+            fila_detalle(),
+            fila_detalle(sisin='87654321', denom='Segunda apertura'),
+        ]
+
+    def test_filas_p_sp_ts_t_no_generan_aperturas(self):
+        importacion, _, _ = self.subir_y_validar(self._libro_completo())
+        self.assertEqual(importacion.detalles.count(), 4)  # TS + T + 2 DETAIL
+        self.assertEqual(
+            importacion.detalles.filter(clasificacion='DETAIL').count(), 2
+        )
+        resp = self.client.post(
+            f'{BUDGET_URL}imports/{importacion.id}/apply/', {}, format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(resp.data['resultado']['aperturas_creadas'], 2)
+        from .models import Allocation
+        aperturas = Allocation.objects.filter(gestion=self.gestion)
+        self.assertEqual(aperturas.count(), 2)
+
+    def test_apply_con_critical_devuelve_400(self):
+        importacion, _, _ = self.subir_y_validar([
+            HEADER_GASTOS,
+            fila_detalle(ct='#REF!'),
+        ])
+        resp = self.client.post(
+            f'{BUDGET_URL}imports/{importacion.id}/apply/', {}, format='json',
+        )
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertIn('crítico', str(resp.data))
+        from .models import Allocation
+        self.assertFalse(Allocation.objects.filter(gestion=self.gestion).exists())
+        importacion.refresh_from_db()
+        self.assertEqual(importacion.estado, 'STAGING')
+
+    def test_apply_todo_valido_crea_borradores_y_aplica(self):
+        importacion, _, _ = self.subir_y_validar(self._libro_completo())
+        resp = self.client.post(
+            f'{BUDGET_URL}imports/{importacion.id}/apply/', {}, format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        importacion.refresh_from_db()
+        self.assertEqual(importacion.estado, 'APLICADO')
+
+        from .models import Allocation, AllocationSource
+        aperturas = Allocation.objects.filter(gestion=self.gestion)
+        self.assertEqual(aperturas.count(), 2)
+        self.assertEqual(
+            set(aperturas.values_list('codigo_sisin', flat=True)),
+            {'12345678', '87654321'},
+        )
+        for apertura in aperturas:
+            self.assertEqual(apertura.estado, 'BORRADOR')
+            self.assertEqual(apertura.tipo_apertura, 'DETAIL')
+            self.assertEqual(apertura.categoria.codigo, '097')
+            self.assertIsNotNone(apertura.distrito)
+        fuentes = AllocationSource.objects.filter(
+            allocation__in=aperturas,
+        ).select_related('fuente')
+        por_codigo = {}
+        for fuente in fuentes:
+            por_codigo[fuente.fuente.codigo] = (
+                por_codigo.get(fuente.fuente.codigo, 0) + fuente.monto
+            )
+        self.assertEqual(por_codigo['41'], Decimal('1400.00'))  # (CT 500 + IDH 200) x2
+        self.assertEqual(por_codigo['20'], Decimal('600.00'))   # RE x2
+        self.assertEqual(por_codigo['11'], Decimal('200.00'))   # TGN x2
+
+        evento = EventoAuditoria.objects.filter(
+            entidad='BudgetImport', entidad_id=str(importacion.id),
+        ).order_by('-creado_en').first()
+        self.assertIsNotNone(evento)
+        self.assertEqual(evento.accion, 'crear')
+        self.assertIn('aplicada', evento.resumen.lower())
+
+    def test_apply_doble_rechazado(self):
+        importacion, _, _ = self.subir_y_validar(self._libro_completo())
+        self.client.post(
+            f'{BUDGET_URL}imports/{importacion.id}/apply/', {}, format='json',
+        )
+        resp = self.client.post(
+            f'{BUDGET_URL}imports/{importacion.id}/apply/', {}, format='json',
+        )
+        self.assertEqual(resp.status_code, 400, resp.data)

@@ -863,3 +863,242 @@ class ProgrammaticCategory(TimeStampedModel):
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)
+
+
+# ---------------------------------------------------------------------------
+# Fase 5 - Importador Excel: staging de planillas (GASTOS historico/actual)
+# ---------------------------------------------------------------------------
+class EstadoImportacion:
+    """Estados del staging de una importacion."""
+    STAGING = 'STAGING'
+    VALIDADO = 'VALIDADO'
+    CORREGIDO = 'CORREGIDO'
+    APLICADO = 'APLICADO'
+    RECHAZADO = 'RECHAZADO'
+
+    CHOICES = [
+        (STAGING, 'En staging (sin validar)'),
+        (VALIDADO, 'Validado (listo para aplicar)'),
+        (CORREGIDO, 'Corregido'),
+        (APLICADO, 'Aplicado'),
+        (RECHAZADO, 'Rechazado'),
+    ]
+
+
+class PerfilImportacion:
+    """Perfiles de planilla: definen columnas esperadas y el mapeo por defecto."""
+    SISPOA_GASTOS_HISTORICO = 'SISPOA_GASTOS_HISTORICO'
+    SISPOA_GASTOS_ACTUAL = 'SISPOA_GASTOS_ACTUAL'
+    OTRO = 'OTRO'
+
+    CHOICES = [
+        (SISPOA_GASTOS_HISTORICO, 'GASTOS histórico (estructura oficial)'),
+        (SISPOA_GASTOS_ACTUAL, 'GASTOS actual (planilla vigente)'),
+        (OTRO, 'Otro'),
+    ]
+
+
+class ClasificacionFila:
+    """Clasificacion de filas de la planilla (columna V/tipo)."""
+    PROGRAM_HEADER = 'PROGRAM_HEADER'
+    SUBPROGRAM_HEADER = 'SUBPROGRAM_HEADER'
+    DETAIL = 'DETAIL'
+    SUBTOTAL = 'SUBTOTAL'
+    TOTAL = 'TOTAL'
+    EMPTY = 'EMPTY'
+    UNKNOWN = 'UNKNOWN'
+
+    CHOICES = [
+        (PROGRAM_HEADER, 'Encabezado de programa (P)'),
+        (SUBPROGRAM_HEADER, 'Encabezado de subprograma (SP)'),
+        (DETAIL, 'Fila de detalle'),
+        (SUBTOTAL, 'Subtotal (TS)'),
+        (TOTAL, 'Total (T)'),
+        (EMPTY, 'Fila vacía'),
+        (UNKNOWN, 'No clasificada'),
+    ]
+
+
+class EstadoDetalle:
+    PENDIENTE = 'PENDIENTE'
+    VALIDO = 'VALIDO'
+    ERROR = 'ERROR'
+
+    CHOICES = [
+        (PENDIENTE, 'Pendiente'),
+        (VALIDO, 'Válido'),
+        (ERROR, 'Con errores'),
+    ]
+
+
+class SeveridadError:
+    INFO = 'INFO'
+    WARNING = 'WARNING'
+    ERROR = 'ERROR'
+    CRITICAL = 'CRITICAL'
+
+    CHOICES = [
+        (INFO, 'Info'),
+        (WARNING, 'Advertencia'),
+        (ERROR, 'Error'),
+        (CRITICAL, 'Crítico'),
+    ]
+
+
+class AccionError:
+    """Accion sugerida/ejecutada para resolver el error."""
+    REEMPLAZAR = 'REEMPLAZAR'
+    NORMALIZAR = 'NORMALIZAR'
+    ASIGNAR = 'ASIGNAR'
+    IGNORAR = 'IGNORAR'
+    NINGUNA = 'NINGUNA'
+
+    CHOICES = [
+        (REEMPLAZAR, 'Reemplazar valor'),
+        (NORMALIZAR, 'Normalizar'),
+        (ASIGNAR, 'Asignar'),
+        (IGNORAR, 'Ignorar'),
+        (NINGUNA, 'Ninguna'),
+    ]
+
+
+class BudgetImport(TimeStampedModel):
+    """Importacion de planilla presupuestaria en staging (Fase 5).
+
+    La planilla se sube, se parsea a `ImportDetalle` (datos normalizados) y
+    nunca se aplica directo: primero se valida (`validar_importacion`) y solo
+    con errores resueltos se aplica (`aplicar_importacion`), que crea
+    aperturas BORRADOR. `mapeo_json` guarda el mapeo columna->campo y el
+    mapeo de fuentes por columna de monto (configurable por el usuario).
+    """
+
+    gestion = models.ForeignKey(
+        'gestion.GestionFiscal', on_delete=models.CASCADE,
+        related_name='importaciones_budget',
+        help_text='Gestión fiscal a la que se importan las aperturas.',
+    )
+    perfil = models.CharField(
+        max_length=40, choices=PerfilImportacion.CHOICES,
+        default=PerfilImportacion.SISPOA_GASTOS_ACTUAL,
+    )
+    filename = models.CharField(max_length=300, blank=True, default='')
+    mime_type = models.CharField(max_length=120, blank=True, default='')
+    size = models.BigIntegerField(default=0, verbose_name='Tamaño (bytes)')
+    sha256 = models.CharField(max_length=64, blank=True, default='')
+    hoja_seleccionada = models.CharField(max_length=200, blank=True, default='')
+    mapeo_json = models.JSONField(default=dict, blank=True)
+    estado = models.CharField(
+        max_length=20, choices=EstadoImportacion.CHOICES,
+        default=EstadoImportacion.STAGING,
+    )
+    tipo_importacion = models.CharField(
+        max_length=20, default='GASTOS',
+        help_text='Tipo de contenido de la planilla (GASTOS por ahora).',
+    )
+    archivo = models.FileField(upload_to='budget/imports/')
+    creado_por = models.ForeignKey(
+        'accounts.Usuario', null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='importaciones_budget',
+    )
+
+    class Meta:
+        verbose_name = 'Importación de planilla'
+        verbose_name_plural = 'Importaciones de planilla'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['gestion']),
+        ]
+
+    def __str__(self):
+        return f'Import {self.filename or self.id} ({self.gestion.anio})'
+
+    @property
+    def storage_path(self):
+        return self.archivo.name if self.archivo else ''
+
+    def save(self, *args, **kwargs):
+        if self.archivo and not self.sha256:
+            digest = hashlib.sha256()
+            for chunk in self.archivo.chunks():
+                digest.update(chunk)
+            self.sha256 = digest.hexdigest()
+            self.size = self.archivo.size
+        super().save(*args, **kwargs)
+
+
+class ImportDetalle(TimeStampedModel):
+    """Fila parseada de la planilla (solo candidatas: DETAIL/SUBTOTAL/TOTAL).
+
+    `datos_json` guarda los campos normalizados (unidad, distrito, da, ue,
+    programa, subprograma, sisin, actividad, denominacion, saldo, ct, re,
+    ore, idh, tgn, total) + `_raw` (valores/tipos/formato originales) para
+    re-validar sin releer el archivo.
+    """
+
+    importacion = models.ForeignKey(
+        BudgetImport, on_delete=models.CASCADE, related_name='detalles',
+    )
+    fila = models.PositiveIntegerField(
+        help_text='Número de fila real en la hoja (1-based).'
+    )
+    clasificacion = models.CharField(
+        max_length=20, choices=ClasificacionFila.CHOICES,
+        default=ClasificacionFila.DETAIL,
+    )
+    datos_json = models.JSONField(default=dict, blank=True)
+    estado = models.CharField(
+        max_length=20, choices=EstadoDetalle.CHOICES,
+        default=EstadoDetalle.PENDIENTE,
+    )
+    errores_json = models.JSONField(default=list, blank=True)
+
+    class Meta:
+        verbose_name = 'Detalle de importación'
+        verbose_name_plural = 'Detalles de importación'
+        ordering = ['importacion', 'fila']
+        indexes = [
+            models.Index(fields=['importacion', 'estado']),
+        ]
+
+    def __str__(self):
+        return f'{self.importacion_id} fila {self.fila} ({self.clasificacion})'
+
+
+class ImportError(TimeStampedModel):
+    """Hallazgo de la validación de una importación, con severidad y acción.
+
+    Los CRITICAL sin resolver bloquean la aplicación de la importación.
+    """
+
+    importacion = models.ForeignKey(
+        BudgetImport, on_delete=models.CASCADE, related_name='errores',
+    )
+    detalle = models.ForeignKey(
+        ImportDetalle, null=True, blank=True,
+        on_delete=models.CASCADE, related_name='errores',
+    )
+    fila = models.PositiveIntegerField(default=0)
+    campo = models.CharField(max_length=50, blank=True, default='')
+    valor_original = models.TextField(blank=True, default='')
+    valor_normalizado = models.TextField(blank=True, default='')
+    severidad = models.CharField(
+        max_length=20, choices=SeveridadError.CHOICES,
+        default=SeveridadError.INFO,
+    )
+    mensaje = models.TextField(blank=True, default='')
+    accion = models.CharField(
+        max_length=20, choices=AccionError.CHOICES,
+        default=AccionError.NINGUNA,
+    )
+    resuelto = models.BooleanField(default=False)
+
+    class Meta:
+        verbose_name = 'Error de importación'
+        verbose_name_plural = 'Errores de importación'
+        ordering = ['importacion', 'severidad', 'fila']
+        indexes = [
+            models.Index(fields=['importacion', 'severidad']),
+        ]
+
+    def __str__(self):
+        return f'[{self.severidad}] {self.campo} fila {self.fila}: {self.mensaje}'

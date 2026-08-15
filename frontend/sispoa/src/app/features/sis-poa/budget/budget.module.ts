@@ -7,6 +7,7 @@ import { BudgetService } from './budget.service';
 import { DirectiveCeilingComponent } from './directive-ceiling.component';
 import { DistributionComponent } from './distribution.component';
 import { FiscalYearComponent } from './fiscal-year.component';
+import { ImportsComponent } from './imports.component';
 import { MonedaPipe } from './moneda.pipe';
 import { ProgrammaticCategoriesComponent } from './programmatic-categories.component';
 
@@ -36,6 +37,12 @@ const routes: Routes = [
     canActivate: [CapabilityGuard],
     data: { capacidades: ['sis_poa.budget.manage', 'sis_poa.formulate'] },
   },
+  {
+    path: 'importaciones',
+    component: ImportsComponent,
+    canActivate: [CapabilityGuard],
+    data: { capacidades: ['sis_poa.budget.import'] },
+  },
 ];
 
 @NgModule({
@@ -44,6 +51,7 @@ const routes: Routes = [
     DirectiveCeilingComponent,
     ProgrammaticCategoriesComponent,
     DistributionComponent,
+    ImportsComponent,
     MonedaPipe,
   ],
   imports: [CommonModule, FormsModule, RouterModule.forChild(routes)],

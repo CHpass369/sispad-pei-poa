@@ -610,3 +610,157 @@ class DistributionDashboardView(APIView):
             )
         gestion_obj = get_object_or_404(GestionFiscal, pk=gestion)
         return Response(_serializar_montos(resumen_distribucion(gestion_obj)))
+
+
+# ---------------------------------------------------------------------------
+# Fase 5 - Importador Excel (staging + validación + aplicación)
+# ---------------------------------------------------------------------------
+from .importer import (  # noqa: E402
+    aplicar_importacion,
+    parsear_libro,
+    validar_importacion,
+)
+from .models import BudgetImport, ImportError  # noqa: E402
+from .serializers import (  # noqa: E402
+    BudgetImportSerializer,
+    ImportErrorSerializer,
+)
+
+CAPACIDAD_IMPORTACION = 'sis_poa.budget.import'
+
+
+class BudgetImportViewSet(viewsets.ModelViewSet):
+    """Importaciones de planillas GASTOS (wizard: upload → map → validate → apply).
+
+    Permisos: create/apply/map/validate → `sis_poa.budget.import`; el resto
+    (listar/ver/hojas/errores) usa IsAuthenticated (default global).
+    """
+
+    queryset = BudgetImport.objects.select_related('gestion').all()
+    serializer_class = BudgetImportSerializer
+    http_method_names = ['get', 'post']
+    filterset_fields = ['gestion', 'estado', 'perfil']
+    search_fields = ['filename']
+
+    def get_permissions(self):
+        if self.action in ('create', 'map', 'validate', 'apply'):
+            return [TieneCapacidad(CAPACIDAD_IMPORTACION)]
+        return super().get_permissions()
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        gestion = self.request.query_params.get('gestion')
+        if gestion:
+            qs = qs.filter(gestion_id=gestion)
+        return qs
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        importacion = serializer.save()
+        try:
+            self._parsear(importacion)
+        except DjangoValidationError as exc:
+            return _respuesta_error(exc)
+        except Exception:
+            importacion.estado = 'RECHAZADO'
+            importacion.save(update_fields=['estado', 'updated_at'])
+            return Response(
+                {'error': {'detail': [
+                    'No se pudo leer el archivo como planilla Excel/CSV válida.',
+                ]}},
+                status=400,
+            )
+        return Response(self.get_serializer(importacion).data, status=201)
+
+    @staticmethod
+    def _parsear(importacion):
+        """Carga el libro con openpyxl y construye los ImportDetalle."""
+        import openpyxl
+        ruta = importacion.archivo.path
+        wb = openpyxl.load_workbook(ruta, read_only=True, data_only=True)
+        try:
+            parsear_libro(importacion, wb)
+        finally:
+            wb.close()
+
+    @action(detail=True, methods=['get'], url_path='hojas')
+    def hojas(self, request, pk=None):
+        """Lista las hojas del libro de la importación."""
+        import openpyxl
+        importacion = self.get_object()
+        try:
+            wb = openpyxl.load_workbook(
+                importacion.archivo.path, read_only=True,
+            )
+        except Exception:
+            return Response(
+                {'error': {'detail': ['No se pudo leer el archivo de la importación.']}},
+                status=400,
+            )
+        try:
+            return Response({'hojas': wb.sheetnames})
+        finally:
+            wb.close()
+
+    @action(detail=True, methods=['post'], url_path='map')
+    def map(self, request, pk=None):
+        """Configura hoja + mapeo (columnas y fuentes) y re-parsea."""
+        importacion = self.get_object()
+        hoja = request.data.get('hoja') or importacion.hoja_seleccionada
+        mapeo = request.data.get('mapeo') or {}
+        if not hoja:
+            return Response(
+                {'error': {'detail': ['Debe indicar la hoja a mapear.']}},
+                status=400,
+            )
+        try:
+            import openpyxl
+            wb = openpyxl.load_workbook(
+                importacion.archivo.path, read_only=True, data_only=True,
+            )
+            try:
+                parsear_libro(importacion, wb, hoja=hoja, mapeo=mapeo)
+            finally:
+                wb.close()
+        except DjangoValidationError as exc:
+            return _respuesta_error(exc)
+        return Response(self.get_serializer(importacion).data)
+
+    @action(detail=True, methods=['post'], url_path='validate')
+    def validate(self, request, pk=None):
+        """Ejecuta la validación (severidades) y actualiza el estado."""
+        importacion = self.get_object()
+        validar_importacion(importacion)
+        return Response(self.get_serializer(importacion).data)
+
+    @action(detail=True, methods=['post'], url_path='apply')
+    def apply(self, request, pk=None):
+        """Aplica la importación: crea aperturas BORRADOR (400 si hay CRITICAL)."""
+        importacion = self.get_object()
+        try:
+            resultado = aplicar_importacion(importacion, request.user)
+        except DjangoValidationError as exc:
+            return _respuesta_error(exc)
+        return Response({
+            **self.get_serializer(importacion).data,
+            'resultado': {
+                'aperturas_creadas': resultado['aperturas_creadas'],
+                'total_importado': str(resultado['total_importado']),
+            },
+        })
+
+    @action(detail=True, methods=['get'], url_path='errors')
+    def errors(self, request, pk=None):
+        """Lista los errores/hallazgos de la validación (con severidad)."""
+        importacion = self.get_object()
+        qs = (
+            ImportError.objects
+            .filter(importacion=importacion)
+            .select_related('detalle')
+            .order_by('severidad', 'fila')
+        )
+        severidad = request.query_params.get('severidad')
+        if severidad:
+            qs = qs.filter(severidad=severidad)
+        return Response(ImportErrorSerializer(qs, many=True).data)

@@ -19,11 +19,13 @@ from .models import (
     Allocation,
     AllocationSource,
     BudgetDocument,
+    BudgetImport,
     CeilingResource,
     DirectiveCeiling,
     DirectiveCeilingVersion,
     DistributionVersion,
     EstadosTecho,
+    ImportError,
     MandatoryExpense,
     ProgrammaticCategory,
     Reserve,
@@ -588,3 +590,106 @@ class ReserveSerializer(serializers.ModelSerializer):
 
     def get_organismo_detalle(self, obj) -> dict | None:
         return _detalle_catalogo(obj.organismo)
+
+
+# ---------------------------------------------------------------------------
+# Fase 5 - Importador Excel (staging)
+# ---------------------------------------------------------------------------
+class BudgetImportSerializer(serializers.ModelSerializer):
+    """Importación de planilla; el upload valida mime/tamaño y parsea."""
+
+    TAMANO_MAXIMO_BYTES = 20 * 1024 * 1024  # 20 MB
+    MIMES_PERMITIDOS = {
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-excel',
+        'text/csv',
+        'application/csv',
+        'application/octet-stream',
+    }
+    gestion_anio = serializers.IntegerField(source='gestion.anio', read_only=True)
+    perfil_display = serializers.CharField(
+        source='get_perfil_display', read_only=True,
+    )
+    estado_display = serializers.CharField(
+        source='get_estado_display', read_only=True,
+    )
+    archivo = serializers.FileField(write_only=True, allow_empty_file=False)
+    conteos = serializers.SerializerMethodField()
+
+    class Meta:
+        model = BudgetImport
+        fields = [
+            'id', 'gestion', 'gestion_anio', 'perfil', 'perfil_display',
+            'filename', 'mime_type', 'size', 'sha256', 'hoja_seleccionada',
+            'mapeo_json', 'estado', 'estado_display', 'tipo_importacion',
+            'storage_path', 'conteos', 'archivo', 'created_at', 'updated_at',
+        ]
+        read_only_fields = [
+            'id', 'filename', 'mime_type', 'size', 'sha256',
+            'hoja_seleccionada', 'mapeo_json', 'estado', 'estado_display',
+            'storage_path', 'conteos', 'created_at', 'updated_at',
+        ]
+
+    def get_conteos(self, obj) -> dict:
+        from django.db.models import Count
+        conteos = {s: 0 for s, _ in _SEVERIDADES}
+        for fila in obj.errores.values('severidad').annotate(n=Count('id')):
+            conteos[fila['severidad']] = fila['n']
+        return conteos
+
+    def validate_archivo(self, archivo):
+        if archivo.size > self.TAMANO_MAXIMO_BYTES:
+            raise serializers.ValidationError(
+                'El archivo supera el tamaño máximo de 20 MB.'
+            )
+        mime = getattr(archivo, 'content_type', '') or ''
+        if mime not in self.MIMES_PERMITIDOS:
+            raise serializers.ValidationError(
+                f'Tipo de archivo no permitido ({mime or "desconocido"}). '
+                'Permitidos: Excel (.xlsx/.xls) y CSV.'
+            )
+        return archivo
+
+    def create(self, validated_data):
+        archivo = validated_data.pop('archivo')
+        request = self.context.get('request')
+        usuario = request.user if request and request.user.is_authenticated else None
+        importacion = BudgetImport.objects.create(
+            **validated_data,
+            filename=archivo.name,
+            archivo=archivo,
+            mime_type=archivo.content_type or '',
+            creado_por=usuario,
+            created_by=usuario,
+            updated_by=usuario,
+        )
+        return importacion
+
+
+_SEVERIDADES = (
+    ('INFO', 'Info'),
+    ('WARNING', 'Advertencia'),
+    ('ERROR', 'Error'),
+    ('CRITICAL', 'Crítico'),
+)
+
+
+class ImportErrorSerializer(serializers.ModelSerializer):
+    """Error/hallazgo de la validación de una importación."""
+
+    severidad_display = serializers.CharField(
+        source='get_severidad_display', read_only=True,
+    )
+    accion_display = serializers.CharField(
+        source='get_accion_display', read_only=True,
+    )
+
+    class Meta:
+        model = ImportError
+        fields = [
+            'id', 'detalle', 'fila', 'campo', 'valor_original',
+            'valor_normalizado', 'severidad', 'severidad_display',
+            'mensaje', 'accion', 'accion_display', 'resuelto',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = fields
