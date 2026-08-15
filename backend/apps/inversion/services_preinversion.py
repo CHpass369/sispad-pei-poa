@@ -1,7 +1,7 @@
 """Servicios del dominio de preinversión SIS-PRO (SISPRE / RM 115).
 
 Clasificación de tipología, inicialización de ITCP/TDR/EDTP, validaciones
-de aprobación, cálculo de madurez y paquete de transferencia a SISPOA.
+de aprobación, cálculo de madurez y paquete de transferencia a SIS-POA.
 """
 from decimal import Decimal
 
@@ -179,7 +179,7 @@ def validar_edtp_para_aprobacion(edtp):
 
 
 def calcular_madurez(proyecto):
-    """Puntaje de madurez 0-100 y habilitación para POA (SISPOA)."""
+    """Puntaje de madurez 0-100 y habilitación para POA (SIS-POA)."""
     puntaje = Decimal('0')
     if proyecto.nombre and proyecto.gestion and proyecto.responsable_id:
         puntaje += PESOS_MADUREZ['identidad']
@@ -234,7 +234,7 @@ def calcular_madurez(proyecto):
 
 
 def construir_paquete_transferencia(proyecto):
-    """Paquete de solo lectura para SISPOA (JSON + GeoJSON + documentos)."""
+    """Paquete de solo lectura para SIS-POA (JSON + GeoJSON + documentos)."""
     geometria = None
     if proyecto.geom:
         import json

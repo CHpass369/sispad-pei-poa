@@ -88,7 +88,7 @@ class EstadosExpedientePreinversion:
         (EDTP_APROBADO, 'EDTP aprobado'),
         (VIABLE, 'Viable'),
         (HABILITADO_POA, 'Habilitado para programación'),
-        (ENVIADO_POA, 'Enviado a SISPOA'),
+        (ENVIADO_POA, 'Enviado a SIS-POA'),
         (NO_VIABLE, 'No viable'),
         (ARCHIVADO, 'Archivado'),
     ]

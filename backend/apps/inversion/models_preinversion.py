@@ -4,7 +4,7 @@ Expediente estructurado de preinversión municipal: condiciones previas,
 ITCP, TDR y presupuesto referencial del EDTP, EDTP con secciones dinámicas
 por tipología, estudios técnicos, costos, financiamiento, evaluación,
 documentos versionados, revisiones/observaciones/aprobaciones y patrón
-Outbox para integraciones con SISPOA/SISPRO.
+Outbox para integraciones con SIS-POA/SIS-PRO.
 """
 import hashlib
 import uuid
@@ -185,13 +185,13 @@ class AlternativaProyecto(UUIDModel, TimeStampedModel):
 
 
 class SolicitudReformulacion(UUIDModel, TimeStampedModel):
-    """Solicitud de reformulación originada por SISPOA u otro sistema."""
+    """Solicitud de reformulación originada por SIS-POA u otro sistema."""
 
     proyecto = models.ForeignKey(
         'inversion.Proyecto', on_delete=models.CASCADE,
         related_name='solicitudes_reformulacion',
     )
-    sistema_origen = models.CharField(max_length=50, default='SISPOA')
+    sistema_origen = models.CharField(max_length=50, default='SIS-POA')
     motivo = models.TextField()
     presupuesto_propuesto = models.DecimalField(
         max_digits=18, decimal_places=2, null=True, blank=True,
@@ -789,7 +789,7 @@ class AprobacionPreinversion(UUIDModel, TimeStampedModel):
 # Interoperabilidad
 # ---------------------------------------------------------------------------
 class ReferenciaExterna(UUIDModel, TimeStampedModel):
-    """Códigos externos de SIS PAD-PEI, SISPOA, SISPRO y SISFIN."""
+    """Códigos externos de SIS-PE, SIS-POA, SIS-PRO y SISFIN."""
 
     proyecto = models.ForeignKey(
         'inversion.Proyecto', on_delete=models.CASCADE,

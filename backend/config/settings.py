@@ -33,7 +33,7 @@ LOCAL_APPS = [
     'apps.recursos.apps.RecursosConfig',
     'apps.techos.apps.TechosConfig',
     'apps.presupuesto.apps.PresupuestoConfig',
-    'apps.inversion',
+    'apps.inversion.apps.InversionConfig',
     'apps.territorio',
     'apps.pad.apps.PadConfig',
     'apps.workflow',
