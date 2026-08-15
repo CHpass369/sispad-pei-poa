@@ -90,6 +90,45 @@ SIS-PRO sobre núcleo transversal). Ver `docs/pip_gams/` para arquitectura.
 ## [Unreleased]
 
 ### Added
+- Ciclo presupuestario SIS-POA completo (Fases 1-12, `apps/budget`, commits
+  `0500fbe`…`4f449d9`, ver `docs/sis-poa/presupuesto/`):
+  - Fase 1 Gestión fiscal: estados del ciclo en `GestionFiscal`
+    (CONFIGURACIÓN/HABILITADA/EN_FORMULACIÓN/VIGENTE/CERRADA), enable/close,
+    herencia de configuración (ciclos/etapas), API `fiscal-years`.
+  - Fase 2 Techo directivo: `DirectiveCeiling` + versiones inmutables con
+    checksum SHA-256 (patrón `VersionInstrumento`), recursos por origen
+    (SIGEP/MUNICIPAL/SALDO/OTRO), gastos obligatorios, documentos de
+    respaldo con sha256, fijación §24 y ajuste por versión nueva.
+  - Fase 3 Categorías programáticas jerárquicas (PROGRAMA→ACTIVIDAD, códigos
+    con ceros, árbol, duplicar a gestión) + catálogos corporativos.
+  - Fase 4 Distribución: `DistributionVersion`, `Allocation` con asignaciones
+    normalizadas por FF/OF (`AllocationSource`, nunca columnas), `Reserve`,
+    control Σdistribuido+reservado ≤ techo y dashboard §48.
+  - Fase 5 Importador Excel: staging `BudgetImport/ImportDetalle/ImportError`,
+    perfiles SISPOA_GASTOS_HISTORICO/ACTUAL, detección de header,
+    normalización (ceros iniciales, montos `1.234.567,89`), severidades
+    INFO..CRITICAL, flujo upload→map→validate→apply.
+  - Fase 6 Distribución territorial: reparto por distrito (MANUAL/MONTO_FIJO/
+    PORCENTAJE/POBLACIÓN/FÓRMULA) con ajuste de redondeo exacto,
+    materializado como reservas DISTRITALES.
+  - Fase 7 Fijación de distribución: validación Σfuente = techo − reservas
+    (tolerancia 0.01), checksum SHA-256 e inmutabilidad (409).
+  - Fase 8 Control presupuestario central: `BudgetControlService`
+    transaccional con `select_for_update` sobre el techo fijado
+    (concurrencia §87), reserva/liberación/movimiento y códigos
+    BUDGET_EXCEEDED (400/409).
+  - Fase 9 Objetos del gasto: programación por apertura
+    (techo/programado/disponible), rechazo 409 BUDGET_EXCEEDED.
+  - Fase 10 Reformulaciones: 7 tipos, workflow BORRADOR→…→APLICADA,
+    movimientos atómicos con saldos antes/después y rollback completo.
+  - Fase 11 Auditoría: `EventoAuditoria` transversal en todas las
+    operaciones + consulta `/budget/audit/` (capacidad `audit_read`).
+  - Fase 12 Testing: E2E del flujo completo por API (habilitar → techo
+    SIGEP → fijar → distribuir → fijar → objetos del gasto → reformulación
+    → auditoría); **191 tests backend de budget + 75 specs del módulo**
+    (225 specs frontend totales).
+  - Fase 13 Documentación: 13 docs en `docs/sis-poa/presupuesto/`
+    (arquitectura, base de datos, dominio y API).
 - Backend: evaluacion app (models, services, views, serializers)
 - Backend: modificaciones app (models, services, views, serializers)
 - Backend: notificaciones app (models, services, views, serializers)

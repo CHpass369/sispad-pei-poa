@@ -1,6 +1,6 @@
 # SIS-POA — Ciclo Presupuestario: Plan de Implementación
 
-**Fecha**: 2026-08-14 · **Estado**: FASE 0 completada (auditoría) — plan aprobado para ejecución por fases
+**Fecha**: 2026-08-14 · **Estado**: FASE 0-12 completadas — ciclo implementado y verificado (191 tests backend de budget + 225 specs frontend totales); FASE 13 (documentación) cerrada con esta versión del plan
 **Dominio**: Gestión Fiscal → Techo Directivo → Distribución → Aperturas → Fijación → POA/POAU → Objetos del Gasto → Reformulaciones → Seguimiento
 
 ---
@@ -75,20 +75,20 @@
 
 | Fase | Entregable | Verificación |
 |---|---|---|
-| 0 | Este plan + auditoría | — |
-| 1 | **Gestión Fiscal**: estados de ciclo en `GestionFiscal` (migración), API `fiscal-years` (CRUD + enable/close con validaciones de bloqueo), UI `budget/fiscal-year` + stepper de preparación, tests | pytest + ng test |
-| 2 | **Techo Directivo**: `DirectiveCeiling`+`Version`+`CeilingResource`+`MandatoryExpense`+`TechoDocumento`, API recursos/SIGEP/gastos obligatorios, dashboard de composición, fijación inmutable con checksum, tests | pytest |
-| 3 | **Catálogos del ciclo**: categorías programáticas (árbol + duplicar a gestión), fuentes/organismos desde catálogos corporativos, seeds demo, tests | pytest |
-| 4 | **Distribución**: `Allocation`+`AllocationSource`+`Reserve`, editor de grilla (CRUD + saldos por FF/OF + control ≤ techo distribuible), dashboard, tests | pytest + ng test |
-| 5 | **Importador Excel**: staging + normalización + validación + corrección + perfiles, UI wizard, tests (GASTOS 2023/actual, #REF!, 097, SISIN) | pytest |
-| 6 | **Distribución territorial**: reparto por distrito (manual/monto fijo/porcentaje/población con ajuste de redondeo exacto), reservas, tests | pytest |
-| 7 | **Fijación de distribución**: versión inmutable + checksum + validación Σfuente = techo − reservas, UI, tests | pytest + ng test |
-| 8 | **Control presupuestario**: `BudgetControlService` transaccional con locks, integración con Fase 9, tests de concurrencia | pytest |
-| 9 | **Objetos del gasto**: programación por apertura con techo/programado/disponible, rechazo 409 BUDGET_EXCEEDED, tests | pytest + ng test |
-| 10 | **Reformulaciones**: tipos + workflow de estados + movimientos atómicos con saldos antes/después, inmutabilidad de fijadas, tests | pytest + ng test |
-| 11 | **Auditoría**: integración `EventoAuditoria` en todas las operaciones + UI de consulta, tests | pytest |
-| 12 | **Testing**: E2E del flujo completo (§135), casos de fijación/inmutabilidad/concurrencia/importación | pytest + ng test |
-| 13 | **Documentación**: 13 docs de `docs/sis-poa/presupuesto/` + CHANGELOG | — |
+| 0 | Este plan + auditoría | ✅ `0517cfe` |
+| 1 | **Gestión Fiscal**: estados de ciclo en `GestionFiscal` (migración), API `fiscal-years` (CRUD + enable/close con validaciones de bloqueo), UI `budget/fiscal-year` + stepper de preparación, tests | ✅ `0500fbe` — pytest + ng test |
+| 2 | **Techo Directivo**: `DirectiveCeiling`+`Version`+`CeilingResource`+`MandatoryExpense`+`TechoDocumento` (→ `BudgetDocument`), API recursos/SIGEP/gastos obligatorios, dashboard de composición, fijación inmutable con checksum, tests | ✅ `a5f364b` — pytest |
+| 3 | **Catálogos del ciclo**: categorías programáticas (árbol + duplicar a gestión), fuentes/organismos desde catálogos corporativos, seeds demo, tests | ✅ `efe2777` — pytest |
+| 4 | **Distribución**: `Allocation`+`AllocationSource`+`Reserve`, editor de grilla (CRUD + saldos por FF/OF + control ≤ techo distribuible), dashboard, tests | ✅ `44b90f7` — pytest + ng test |
+| 5 | **Importador Excel**: staging + normalización + validación + corrección + perfiles, UI wizard, tests (GASTOS 2023/actual, #REF!, 097, SISIN) | ✅ `58fa5d4` — pytest |
+| 6 | **Distribución territorial**: reparto por distrito (manual/monto fijo/porcentaje/población con ajuste de redondeo exacto), reservas, tests | ✅ `2a74a9b` — pytest |
+| 7 | **Fijación de distribución**: versión inmutable + checksum + validación Σfuente = techo − reservas, UI, tests | ✅ `f37d525` — pytest + ng test |
+| 8 | **Control presupuestario**: `BudgetControlService` transaccional con locks, integración con Fase 9, tests de concurrencia | ✅ `fb44e91` — pytest |
+| 9 | **Objetos del gasto**: programación por apertura con techo/programado/disponible, rechazo 409 BUDGET_EXCEEDED, tests | ✅ `81d148a` — pytest + ng test |
+| 10 | **Reformulaciones**: tipos + workflow de estados + movimientos atómicos con saldos antes/después, inmutabilidad de fijadas, tests | ✅ `da64eb8` — pytest + ng test |
+| 11 | **Auditoría**: integración `EventoAuditoria` en todas las operaciones + UI de consulta, tests | ✅ `9f8f958` — pytest |
+| 12 | **Testing**: E2E del flujo completo (§135), casos de fijación/inmutabilidad/concurrencia/importación | ✅ `4f449d9` — 191 tests backend de budget + 225 specs frontend |
+| 13 | **Documentación**: 13 docs de `docs/sis-poa/presupuesto/` + CHANGELOG | ✅ docs/sis-poa/presupuesto/*.md (este ciclo) |
 
 **Después de cada fase**: build + lint + tests + migraciones aplicadas + corrección + reporte (archivos creados/modificados, funcionalidad, pendientes) — sin acumular errores (§145).
 
