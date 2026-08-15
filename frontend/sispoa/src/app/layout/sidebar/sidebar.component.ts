@@ -181,6 +181,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         { route: '/sis-poa/budget/distribucion-territorial', label: 'Distribución Territorial', icon: '◈', capacidades: ['sis_poa.budget.manage', 'sis_poa.formulate'] },
         { route: '/sis-poa/budget/importaciones', label: 'Importaciones', icon: '⤒', capacidades: ['sis_poa.budget.import', 'sis_poa.formulate'] },
         { route: '/sis-poa/budget/reformulaciones', label: 'Reformulaciones', icon: '⇄', capacidades: ['sis_poa.budget.reform', 'sis_poa.formulate'] },
+        { route: '/sis-poa/budget/auditoria', label: 'Auditoría', icon: '🔍', capacidades: ['sis_poa.budget.audit_read'] },
         { route: '/planificacion/formulacion', label: 'Formulación POA', icon: '✎', roles: ['superadmin', 'tecnico_admin', 'planificador'], legacy: true },
         { route: '/seguimiento', label: 'Seguimiento', icon: '◷', roles: ['superadmin', 'tecnico_admin', 'jefe_ue', 'director', 'tecnico'], legacy: true },
         { route: '/modificaciones', label: 'Modificaciones', icon: '✎', roles: ['superadmin', 'tecnico_admin'], legacy: true },

@@ -58,6 +58,7 @@ from .services import (
     _bloquear_fuentes,
     _disponible_por_fuente,
     liberar_reserva,
+    registrar_auditoria,
     techo_distribuible_por_fuente,
     validar_gestion_para_distribucion,
 )
@@ -164,12 +165,13 @@ def _aplicar_ajuste_redondeo(asignaciones, crudos, bolsa):
         a.monto_final = a.monto_calculado + a.ajuste
 
 
-def calcular_reparto(distribucion):
+def calcular_reparto(distribucion, usuario=None):
     """Calcula el reparto de la bolsa por distrito (sin crear reservas).
 
     Valida los datos según el método, aplica el ajuste de redondeo, persiste
     los montos y pasa la distribución a CALCULADA. Rechaza distribuciones
-    APLICADAS.
+    APLICADAS. Registra auditoría (modificar) con los montos por distrito
+    antes/después (Fase 11).
     """
     if distribucion.estado == EstadoDistribucionTerritorial.APLICADA:
         raise ValidationError(
@@ -183,6 +185,10 @@ def calcular_reparto(distribucion):
             'Debe cargar al menos un distrito para calcular el reparto.'
         )
 
+    estado_previo = distribucion.estado
+    montos_previos = {
+        str(a.distrito_id): str(a.monto_final) for a in asignaciones
+    }
     crudos = _montos_crudos(distribucion, asignaciones)
     _aplicar_ajuste_redondeo(asignaciones, crudos, distribucion.bolsa_total)
 
@@ -192,6 +198,26 @@ def calcular_reparto(distribucion):
         a.save(update_fields=[
             'monto_calculado', 'ajuste', 'monto_final', 'updated_at',
         ])
+    registrar_auditoria(
+        usuario,
+        'UPDATE',
+        'TerritorialDistribution',
+        distribucion.id,
+        {'estado': estado_previo, 'distritos': montos_previos},
+        {
+            'estado': distribucion.estado,
+            'total': str(distribucion.bolsa_total),
+            'distritos': {
+                str(a.distrito_id): str(a.monto_final) for a in asignaciones
+            },
+        },
+        gestion=distribucion.gestion.anio,
+        motivo=(
+            f'Reparto {distribucion.get_metodo_display()} calculado: '
+            f'{distribucion.bolsa_total} Bs en {len(asignaciones)} distritos '
+            f'(gestión {distribucion.gestion.anio})'
+        ),
+    )
     return distribucion
 
 
@@ -417,4 +443,4 @@ def recalcular_reparto(distribucion, datos_distritos, usuario=None):
         if distrito_id not in entradas:
             asignacion.delete()
 
-    return calcular_reparto(distribucion)
+    return calcular_reparto(distribucion, usuario)

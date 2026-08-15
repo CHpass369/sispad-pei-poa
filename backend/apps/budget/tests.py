@@ -3778,3 +3778,156 @@ class ReformulacionAuditoriaTests(ReformulacionBase):
             format='json',
         )
         self.assertEqual(resp.status_code, 400, resp.data)
+
+
+# ===========================================================================
+# Fase 11 - Auditoría de trazabilidad (EventoAuditoria + GET /budget/audit/)
+# ===========================================================================
+
+AUDIT_URL = BUDGET_URL + 'audit/'
+
+
+class AuditoriaFase11Tests(ReformulacionBase):
+    """Fase 11: todo el ciclo deja EventoAuditoria y el endpoint /audit/
+    lo expone con filtros y capacidad `sis_poa.budget.audit_read`."""
+
+    def _usuario_con_capacidad(self, codigo):
+        from apps.accounts.models import Capacidad
+        rol = Rol.objects.create(codigo=f'rol_{codigo}', nombre='Rol')
+        capacidad, _ = Capacidad.objects.get_or_create(
+            codigo=codigo,
+            defaults={'nombre': codigo, 'sistema': 'sis-poa'},
+        )
+        rol.capacidades.add(capacidad)
+        usuario = Usuario.objects.create_user(
+            email=f'{codigo}@audit.test', password='test2026'
+        )
+        usuario.roles.add(rol)
+        return usuario
+
+    def _cliente_como(self, usuario):
+        client = APIClient()
+        client.force_authenticate(user=usuario)
+        return client
+
+    def test_crear_apertura_registra_evento_allocation_create(self):
+        resp = self.crear_apertura(monto='1000.00', denominacion='Apertura F11')
+        self.assertEqual(resp.status_code, 201, resp.data)
+        allocation = Allocation.objects.get(denominacion='Apertura F11')
+        evento = EventoAuditoria.objects.filter(
+            entidad='Allocation', entidad_id=str(allocation.id),
+        ).order_by('-creado_en').first()
+        self.assertIsNotNone(evento)
+        self.assertEqual(evento.accion, 'crear')
+        self.assertEqual(evento.gestion, 2030)
+        self.assertEqual(evento.usuario, self.admin)
+        self.assertEqual(evento.datos_posteriores['total'], '1000.00')
+
+    def test_fijar_techo_registra_evento_freeze(self):
+        # La base fija el techo en setUp (submit → approve → freeze).
+        evento = EventoAuditoria.objects.filter(
+            entidad='DirectiveCeilingVersion',
+            entidad_id=str(self.version.id),
+            accion='aprobar',
+        ).order_by('-creado_en').first()
+        self.assertIsNotNone(evento)
+        self.assertIn('fijado', evento.resumen.lower())
+        self.assertEqual(evento.gestion, 2030)
+        self.assertEqual(evento.datos_posteriores['estado'], 'FIJADO')
+        self.assertIn('hash', evento.datos_posteriores)
+
+    def test_aplicar_reform_registra_evento_aplicar(self):
+        self.preparar_distribucion_fijada()
+        a = self.apertura('Apertura A')
+        b = self.apertura('Apertura B')
+        resp = self.crear_api(movimientos=[
+            self.movimiento('TRASPASO', origen=a, destino=b, monto='100.00'),
+        ])
+        reform_id = resp.data['id']
+        self.flujo_hasta(reform_id, 'approve')
+        resp = self.client.post(
+            f'{REFORM_URL}{reform_id}/apply/', {}, format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        evento = EventoAuditoria.objects.filter(
+            entidad='Reform', entidad_id=str(reform_id),
+        ).order_by('-creado_en').first()
+        self.assertIsNotNone(evento)
+        self.assertEqual(evento.accion, 'aprobar')
+        self.assertIn('aplicada', evento.resumen.lower())
+        self.assertEqual(evento.datos_posteriores['estado'], 'APLICADA')
+        self.assertEqual(evento.gestion, 2030)
+
+    def test_endpoint_audit_filtra_por_gestion_y_entidad(self):
+        # Eventos de la gestión 2030 (apertura + techo de la base).
+        self.crear_apertura(monto='500.00', denominacion='Auditable')
+        # Eventos de OTRA gestión (2031), que el filtro debe excluir.
+        self.crear_gestion_con_techo(2031, '1000.00')
+
+        auditor = self._usuario_con_capacidad('sis_poa.budget.audit_read')
+        client = self._cliente_como(auditor)
+
+        resp = client.get(f'{AUDIT_URL}', {'gestion': '2030'})
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertIn('count', resp.data)
+        self.assertGreaterEqual(resp.data['count'], 1)
+        for fila in resp.data['results']:
+            self.assertEqual(fila['gestion'], 2030)
+        entidades = {fila['entidad'] for fila in resp.data['results']}
+        self.assertIn('Allocation', entidades)
+
+        # Filtro por slug de entidad del ciclo.
+        resp = client.get(f'{AUDIT_URL}', {'gestion': '2030',
+                                           'entidad': 'allocation'})
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertTrue(
+            all(f['entidad'] == 'Allocation' for f in resp.data['results'])
+        )
+        # El slug de techo directivo resuelve a DirectiveCeilingVersion.
+        resp = client.get(f'{AUDIT_URL}', {'gestion': '2030',
+                                           'entidad': 'directive-ceiling'})
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertTrue(
+            all(f['entidad'] == 'DirectiveCeilingVersion'
+                for f in resp.data['results'])
+        )
+        # Acción semántica CREATE → código del catálogo 'crear'.
+        resp = client.get(f'{AUDIT_URL}', {'gestion': '2030',
+                                           'accion': 'CREATE'})
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertTrue(all(f['accion'] == 'crear' for f in resp.data['results']))
+
+    def test_endpoint_audit_exige_capacidad_audit_read(self):
+        self.crear_apertura(monto='500.00', denominacion='Auditable')
+        sin_permiso = self._usuario_con_capacidad('sis_poa.budget.manage')
+        client = self._cliente_como(sin_permiso)
+        resp = client.get(f'{AUDIT_URL}', {'gestion': '2030'})
+        self.assertEqual(resp.status_code, 403, resp.data)
+
+    def test_helper_registrar_auditoria_mapea_acciones_semanticas(self):
+        from .services import ACCIONES_AUDITORIA, registrar_auditoria
+
+        evento = registrar_auditoria(
+            self.admin, 'FREEZE', 'DirectiveCeilingVersion', 'f11-v1',
+            {'estado': 'APROBADO'}, {'estado': 'FIJADO'},
+            gestion=2030, version=1, motivo='Techo fijado (F11)',
+        )
+        self.assertEqual(evento.accion, 'aprobar')
+        self.assertIn('fijado', evento.resumen.lower())
+        evento = registrar_auditoria(
+            self.admin, 'RELEASE', 'Reserve', 'f11-r1',
+            {'estado': 'ACTIVA'}, {'estado': 'LIBERADA'},
+            gestion=2030, motivo='Reserva liberada (F11)',
+        )
+        self.assertEqual(evento.accion, 'modificar')
+        self.assertEqual(evento.gestion, 2030)
+        with self.assertRaises(ValidationError):
+            registrar_auditoria(
+                self.admin, 'NO_EXISTE', 'Reserve', 'x',
+                None, None, gestion=2030,
+            )
+        # El mapeo cubre todas las acciones semánticas del ciclo.
+        for clave in ('CREATE', 'UPDATE', 'DELETE', 'IMPORT', 'SUBMIT',
+                      'OBSERVE', 'APPROVE', 'FREEZE', 'REFORM', 'RELEASE',
+                      'CLOSE', 'RESTORE', 'CONSOLIDATE'):
+            self.assertIn(clave, ACCIONES_AUDITORIA)

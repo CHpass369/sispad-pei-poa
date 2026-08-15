@@ -351,6 +351,66 @@ export interface ReformInput {
   movimientos: ReformMovementInput[];
 }
 
+// -- Auditoría de trazabilidad (Fase 11) ------------------------------------
+
+/** Evento de auditoría del ciclo (GET /budget/audit/, EventoAuditoria). */
+export interface AuditEvent {
+  id: string;
+  usuario: string | null;
+  usuario_email: string | null;
+  usuario_nombre: string;
+  accion: string;
+  accion_display: string;
+  entidad: string;
+  entidad_display: string;
+  entidad_id: string;
+  version: number | null;
+  resumen: string;
+  datos_previos: Record<string, unknown> | null;
+  datos_posteriores: Record<string, unknown> | null;
+  direccion_ip: string | null;
+  gestion: number | null;
+  creado_en: string;
+}
+
+/** Slugs de entidad del ciclo aceptados por ?entidad= en /budget/audit/. */
+export const ENTIDADES_AUDITORIA: { valor: string; etiqueta: string }[] = [
+  { valor: 'allocation', etiqueta: 'Apertura programática' },
+  { valor: 'reserve', etiqueta: 'Reserva' },
+  { valor: 'directive-ceiling', etiqueta: 'Techo directivo' },
+  { valor: 'distribution', etiqueta: 'Distribución' },
+  { valor: 'expense-object', etiqueta: 'Objeto del gasto' },
+  { valor: 'reform', etiqueta: 'Reformulación' },
+  { valor: 'import', etiqueta: 'Importación' },
+  { valor: 'territorial', etiqueta: 'Distribución territorial' },
+  { valor: 'fiscal-year', etiqueta: 'Gestión fiscal' },
+];
+
+/** Acciones del catálogo EventoAuditoria.Accion (código → etiqueta). */
+export const ACCIONES_AUDITORIA: { valor: string; etiqueta: string }[] = [
+  { valor: 'crear', etiqueta: 'Creación' },
+  { valor: 'modificar', etiqueta: 'Modificación' },
+  { valor: 'anular', etiqueta: 'Anulación' },
+  { valor: 'enviar', etiqueta: 'Envío' },
+  { valor: 'devolver', etiqueta: 'Devolución' },
+  { valor: 'aprobar', etiqueta: 'Aprobación / fijación' },
+  { valor: 'importar', etiqueta: 'Importación' },
+  { valor: 'cerrar', etiqueta: 'Cierre' },
+  { valor: 'restaurar', etiqueta: 'Restauración' },
+  { valor: 'consolidar', etiqueta: 'Consolidación' },
+];
+
+export interface AuditFilter {
+  gestion?: string;
+  entidad?: string;
+  registro_id?: string;
+  usuario?: string;
+  accion?: string;
+  desde?: string;
+  hasta?: string;
+  page?: number;
+}
+
 
 /** Composición del techo directivo (§22). Montos en string (convención API). */
 export interface Composition {
@@ -1009,5 +1069,13 @@ export class BudgetService {
 
   aplicarReform(id: number): Observable<Reform> {
     return this.http.post<Reform>(`${this.base}/reforms/${id}/apply/`, {});
+  }
+
+  // -- Auditoría de trazabilidad (Fase 11) ----------------------------------
+
+  listarAuditoria(params?: AuditFilter): Observable<Paginado<AuditEvent>> {
+    return this.http.get<Paginado<AuditEvent>>(`${this.base}/audit/`, {
+      params: this.params(params as Record<string, string | number | boolean>),
+    });
   }
 }

@@ -192,6 +192,65 @@ def heredar_configuracion(gestion_nueva, gestion_origen):
 
 
 # ===========================================================================
+# Fase 11 — Auditoría transversal: helper con mapeo de acciones al catálogo
+# ===========================================================================
+
+# Mapeo de acciones SEMÁNTICAS del ciclo a los códigos del catálogo
+# `auditoria.EventoAuditoria.Accion`. El catálogo no tiene códigos para
+# "fijar", "liberar" ni "aplicar reformulación": FREEZE/REFORM mapean a
+# `aprobar` y RELEASE a `modificar`, distinguiéndose por el `resumen`
+# (decisión de Fase 11 documentada en `registrar_auditoria`).
+ACCIONES_AUDITORIA = {
+    'CREATE': EventoAuditoria.Accion.CREAR,
+    'UPDATE': EventoAuditoria.Accion.MODIFICAR,
+    'DELETE': EventoAuditoria.Accion.ANULAR,
+    'IMPORT': EventoAuditoria.Accion.IMPORTAR,
+    'SUBMIT': EventoAuditoria.Accion.ENVIAR,
+    'OBSERVE': EventoAuditoria.Accion.DEVOLVER,
+    'APPROVE': EventoAuditoria.Accion.APROBAR,
+    'FREEZE': EventoAuditoria.Accion.APROBAR,
+    'REFORM': EventoAuditoria.Accion.APROBAR,
+    'RELEASE': EventoAuditoria.Accion.MODIFICAR,
+    'RESTORE': EventoAuditoria.Accion.RESTAURAR,
+    'CONSOLIDATE': EventoAuditoria.Accion.CONSOLIDAR,
+    'CLOSE': EventoAuditoria.Accion.CERRAR,
+}
+
+
+def registrar_auditoria(usuario, accion, entidad, registro_id, datos_previos,
+                        datos_nuevos, gestion=None, version=None, motivo=''):
+    """Registra `EventoAuditoria` con acciones semánticas del ciclo (Fase 11).
+
+    Envuelve `auditoria.services.registrar_evento` mapeando la acción
+    semántica (`accion` ∈ `ACCIONES_AUDITORIA`: CREATE/UPDATE/DELETE/IMPORT/
+    SUBMIT/APPROVE/FREEZE/REFORM/CLOSE/…) al catálogo real de
+    `EventoAuditoria.Accion`. `motivo` alimenta el `resumen`; `datos_previos`/
+    `datos_nuevos` llevan los campos afectados (montos como str(Decimal),
+    convención JSON del repo). Devuelve el evento creado.
+
+    Decisiones de mapeo (el catálogo es fijo; no se amplía):
+        FREEZE → aprobar   (no existe "fijar"; el resumen lo distingue)
+        REFORM → aprobar   (aplicar reformulación; no existe "aplicar")
+        RELEASE → modificar (liberar reserva/reparto; no existe "liberar")
+    """
+    if accion not in ACCIONES_AUDITORIA:
+        raise ValidationError(
+            f'Acción de auditoría no mapeada al catálogo: {accion}'
+        )
+    return registrar_evento(
+        usuario,
+        ACCIONES_AUDITORIA[accion],
+        entidad,
+        registro_id,
+        version=version,
+        resumen=motivo,
+        datos_previos=datos_previos,
+        datos_posteriores=datos_nuevos,
+        gestion=gestion,
+    )
+
+
+# ===========================================================================
 # Fase 2 — Techo Directivo
 # ===========================================================================
 

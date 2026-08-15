@@ -7,6 +7,7 @@ from rest_framework.routers import DefaultRouter
 
 from .views import (
     AllocationViewSet,
+    AuditLogView,
     BudgetControlView,
     BudgetDocumentViewSet,
     BudgetImportViewSet,
@@ -79,5 +80,6 @@ urlpatterns = [
         BudgetControlView.as_view(),
         name='v2-budget-control-validate',
     ),
+    path('audit/', AuditLogView.as_view(), name='v2-budget-audit'),
     *budget_router.urls,
 ]

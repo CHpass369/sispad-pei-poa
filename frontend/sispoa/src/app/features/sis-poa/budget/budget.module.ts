@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, Routes } from '@angular/router';
 import { CapabilityGuard } from '../../../core/guards/capability.guard';
+import { AuditComponent } from './audit.component';
 import { BudgetService } from './budget.service';
 import { DirectiveCeilingComponent } from './directive-ceiling.component';
 import { DistributionComponent } from './distribution.component';
@@ -57,6 +58,12 @@ const routes: Routes = [
     canActivate: [CapabilityGuard],
     data: { capacidades: ['sis_poa.budget.reform', 'sis_poa.formulate'] },
   },
+  {
+    path: 'auditoria',
+    component: AuditComponent,
+    canActivate: [CapabilityGuard],
+    data: { capacidades: ['sis_poa.budget.audit_read'] },
+  },
 ];
 
 @NgModule({
@@ -68,6 +75,7 @@ const routes: Routes = [
     ImportsComponent,
     TerritorialComponent,
     ReformsComponent,
+    AuditComponent,
     MonedaPipe,
   ],
   imports: [CommonModule, FormsModule, RouterModule.forChild(routes)],

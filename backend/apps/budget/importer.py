@@ -54,7 +54,7 @@ from .models import (
     PerfilImportacion,
     SeveridadError,
 )
-from .services import version_distribucion_activa
+from .services import registrar_auditoria, version_distribucion_activa
 
 # ---------------------------------------------------------------------------
 # Perfiles
@@ -351,13 +351,14 @@ def _normalizar_campo(campo, valor, numero_formato=''):
     return normalizar_texto(valor)
 
 
-def parsear_libro(importacion, workbook, hoja=None, mapeo=None):
+def parsear_libro(importacion, workbook, hoja=None, mapeo=None, usuario=None):
     """Parsea el libro: detecta header, clasifica filas y crea ImportDetalle.
 
     Solo DETAIL/SUBTOTAL/TOTAL se conservan (los headers P/SP y las filas
     vacías se descartan; SUBTOTAL/TOTAL quedan marcados y no generan
     aperturas). Devuelve la importación actualizada (mapeo_json efectivo,
     hoja_seleccionada). No crea ImportError: eso lo hace `validar_importacion`.
+    Registra auditoría (importar) con el resultado del parseo (Fase 11).
     """
     columnas_efectivas, fuentes_efectivas = _mapeo_efectivo(importacion, mapeo)
     columnas_esperadas = (
@@ -484,6 +485,24 @@ def parsear_libro(importacion, workbook, hoja=None, mapeo=None):
     }
     importacion.hoja_seleccionada = hoja_final
     importacion.save(update_fields=['mapeo_json', 'hoja_seleccionada', 'updated_at'])
+    registrar_auditoria(
+        usuario,
+        'IMPORT',
+        'BudgetImport',
+        importacion.id,
+        {'hoja': None, 'detalles': 0},
+        {
+            'hoja': hoja_final,
+            'detalles': importacion.detalles.count(),
+            'estado': importacion.estado,
+        },
+        gestion=importacion.gestion.anio,
+        motivo=(
+            f'Planilla "{importacion.filename}" parseada: '
+            f'{importacion.detalles.count()} fila(s) en la hoja {hoja_final} '
+            f'(gestión {importacion.gestion.anio})'
+        ),
+    )
     return importacion
 
 
@@ -529,7 +548,7 @@ def _nombres_distritos():
     return {d.nombre.strip().lower(): d for d in Distrito.objects.all()}
 
 
-def validar_importacion(importacion):
+def validar_importacion(importacion, usuario=None):
     """Valida los detalles DETAIL y crea ImportError por hallazgo.
 
     Severidades:
@@ -543,6 +562,7 @@ def validar_importacion(importacion):
 
     La importación pasa a VALIDADO solo sin ERROR/CRITICAL (queda STAGING con
     los hallazgos en caso contrario). Re-ejecutable: borra errores previos.
+    Registra auditoría (modificar) con los conteos por severidad (Fase 11).
     """
     from apps.catalogos.models import FuenteFinanciamiento
 
@@ -717,7 +737,26 @@ def validar_importacion(importacion):
         EstadoImportacion.STAGING if tiene_error else EstadoImportacion.VALIDADO
     )
     importacion.save(update_fields=['estado', 'updated_at'])
-    return _conteos_errores(importacion)
+    conteos = _conteos_errores(importacion)
+    registrar_auditoria(
+        usuario,
+        'UPDATE',
+        'BudgetImport',
+        importacion.id,
+        {'estado': (
+            EstadoImportacion.STAGING
+            if tiene_error else EstadoImportacion.VALIDADO
+        )},
+        {'estado': importacion.estado, 'errores': conteos},
+        gestion=importacion.gestion.anio,
+        motivo=(
+            f'Planilla "{importacion.filename}" validada: '
+            f'{conteos["ERROR"] + conteos["CRITICAL"]} error(es) — '
+            f'estado {importacion.get_estado_display()} '
+            f'(gestión {importacion.gestion.anio})'
+        ),
+    )
+    return conteos
 
 
 def _conteos_errores(importacion):

@@ -30,10 +30,13 @@ from drf_spectacular.utils import OpenApiTypes, extend_schema
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.permissions import TieneCapacidad
+from apps.auditoria.models import EventoAuditoria
+from apps.auditoria.services import registrar_evento
 from apps.gestion.models import GestionFiscal
 
 from .models import (
@@ -53,6 +56,7 @@ from .models import (
 )
 from .serializers import (
     AllocationSerializer,
+    AuditEventSerializer,
     BudgetDocumentSerializer,
     CeilingResourceSerializer,
     DirectiveCeilingSerializer,
@@ -103,6 +107,7 @@ from .services import (
 
 CAPACIDAD_GESTION = 'sis_poa.budget.manage'
 CAPACIDAD_APROBACION = 'sis_poa.budget.approve'
+CAPACIDAD_AUDITORIA = 'sis_poa.budget.audit_read'
 
 ERROR_409_INMUTABLE = {
     'error': {
@@ -677,6 +682,30 @@ class ReserveViewSet(viewsets.ModelViewSet):
             return Response(ERROR_409_INMUTABLE, status=409)
         return super().update(request, *args, **kwargs)
 
+    def destroy(self, request, *args, **kwargs):
+        reserva = self.get_object()
+        if reserva.version is not None and reserva.version.inmutable:
+            return Response(ERROR_409_INMUTABLE, status=409)
+        monto = reserva.monto
+        gestion_anio = reserva.gestion.anio
+        reserva.delete()
+        registrar_evento(
+            request.user,
+            EventoAuditoria.Accion.ANULAR,
+            'Reserve',
+            reserva.id,
+            resumen=(
+                f'Reserva {reserva.get_tipo_display()} de {monto} eliminada '
+                f'(gestión {gestion_anio})'
+            ),
+            datos_previos={
+                'monto': str(monto), 'tipo': reserva.tipo,
+                'estado': reserva.estado,
+            },
+            gestion=gestion_anio,
+        )
+        return Response(status=204)
+
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -965,7 +994,7 @@ class BudgetImportViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         importacion = serializer.save()
         try:
-            self._parsear(importacion)
+            self._parsear(importacion, request.user)
         except DjangoValidationError as exc:
             return _respuesta_error(exc)
         except Exception:
@@ -980,13 +1009,13 @@ class BudgetImportViewSet(viewsets.ModelViewSet):
         return Response(self.get_serializer(importacion).data, status=201)
 
     @staticmethod
-    def _parsear(importacion):
+    def _parsear(importacion, usuario=None):
         """Carga el libro con openpyxl y construye los ImportDetalle."""
         import openpyxl
         ruta = importacion.archivo.path
         wb = openpyxl.load_workbook(ruta, read_only=True, data_only=True)
         try:
-            parsear_libro(importacion, wb)
+            parsear_libro(importacion, wb, usuario=usuario)
         finally:
             wb.close()
 
@@ -1026,7 +1055,10 @@ class BudgetImportViewSet(viewsets.ModelViewSet):
                 importacion.archivo.path, read_only=True, data_only=True,
             )
             try:
-                parsear_libro(importacion, wb, hoja=hoja, mapeo=mapeo)
+                parsear_libro(
+                    importacion, wb, hoja=hoja, mapeo=mapeo,
+                    usuario=request.user,
+                )
             finally:
                 wb.close()
         except DjangoValidationError as exc:
@@ -1037,7 +1069,7 @@ class BudgetImportViewSet(viewsets.ModelViewSet):
     def validate(self, request, pk=None):
         """Ejecuta la validación (severidades) y actualiza el estado."""
         importacion = self.get_object()
-        validar_importacion(importacion)
+        validar_importacion(importacion, request.user)
         return Response(self.get_serializer(importacion).data)
 
     @action(detail=True, methods=['post'], url_path='apply')
@@ -1169,6 +1201,24 @@ class TerritorialDistributionViewSet(viewsets.ModelViewSet):
                     created_by=usuario,
                     updated_by=usuario,
                 )
+        registrar_evento(
+            usuario,
+            EventoAuditoria.Accion.CREAR,
+            'TerritorialDistribution',
+            distribucion.id,
+            resumen=(
+                f'Distribución territorial creada '
+                f'({distribucion.get_metodo_display()}, bolsa '
+                f'{distribucion.bolsa_total}) — gestión {gestion.anio}'
+            ),
+            datos_posteriores={
+                'metodo': distribucion.metodo,
+                'bolsa_total': str(distribucion.bolsa_total),
+                'distritos': len(distritos or []),
+                'estado': distribucion.estado,
+            },
+            gestion=gestion.anio,
+        )
         return Response(
             self.get_serializer(distribucion).data, status=201,
         )
@@ -1199,7 +1249,7 @@ class TerritorialDistributionViewSet(viewsets.ModelViewSet):
                 return _respuesta_error(exc)
             self._descartar_cache_asignaciones(distribucion)
             return Response(self.get_serializer(distribucion).data)
-        return self._ejecutar(calcular_reparto, distribucion)
+        return self._ejecutar(calcular_reparto, distribucion, request.user)
 
     @action(detail=True, methods=['post'], url_path='aplicar')
     def aplicar(self, request, pk=None):
@@ -1290,7 +1340,32 @@ class ReformViewSet(viewsets.ModelViewSet):
                 ]}},
                 status=400,
             )
-        return super().update(request, *args, **kwargs)
+        datos_previos = {
+            'estado': reform.estado,
+            'tipo': reform.tipo,
+            'motivo': reform.motivo,
+        }
+        respuesta = super().update(request, *args, **kwargs)
+        if respuesta.status_code == 200:
+            reform.refresh_from_db()
+            registrar_evento(
+                request.user,
+                EventoAuditoria.Accion.MODIFICAR,
+                'Reform',
+                reform.id,
+                resumen=(
+                    f'Reformulación {reform.get_tipo_display()} modificada '
+                    f'(gestión {reform.gestion.anio})'
+                ),
+                datos_previos=datos_previos,
+                datos_posteriores={
+                    'estado': reform.estado,
+                    'tipo': reform.tipo,
+                    'motivo': reform.motivo,
+                },
+                gestion=reform.gestion.anio,
+            )
+        return respuesta
 
     def destroy(self, request, *args, **kwargs):
         reform = self.get_object()
@@ -1301,7 +1376,22 @@ class ReformViewSet(viewsets.ModelViewSet):
                 ]}},
                 status=400,
             )
-        return super().destroy(request, *args, **kwargs)
+        reform_id = reform.id
+        tipo = reform.tipo
+        gestion_anio = reform.gestion.anio
+        reform.delete()
+        registrar_evento(
+            request.user,
+            EventoAuditoria.Accion.ANULAR,
+            'Reform',
+            reform_id,
+            resumen=(
+                f'Reformulación {tipo} eliminada (gestión {gestion_anio})'
+            ),
+            datos_previos={'estado': 'BORRADOR', 'tipo': tipo},
+            gestion=gestion_anio,
+        )
+        return Response(status=204)
 
     def _ejecutar(self, request, pk, servicio, *args, **kwargs):
         """Ejecuta un servicio de transición/aplicación y serializa."""
@@ -1358,3 +1448,84 @@ class ReformViewSet(viewsets.ModelViewSet):
     def apply(self, request, pk=None):
         """APROBADA → APLICADA: movimientos atómicos con saldos (§97)."""
         return self._ejecutar(request, pk, aplicar_reform)
+
+
+# ---------------------------------------------------------------------------
+# Fase 11 - Auditoría de trazabilidad (consulta de EventoAuditoria del ciclo)
+# ---------------------------------------------------------------------------
+
+# Entidades del ciclo auditables por slug de la API (`?entidad=`) → nombre de
+# modelo con el que `EventoAuditoria.entidad` identifica los registros.
+ENTIDADES_AUDITORIA = {
+    'allocation': 'Allocation',
+    'reserve': 'Reserve',
+    'directive-ceiling': 'DirectiveCeilingVersion',
+    'distribution': 'DistributionVersion',
+    'expense-object': 'ExpenseObjectAllocation',
+    'reform': 'Reform',
+    'import': 'BudgetImport',
+    'territorial': 'TerritorialDistribution',
+    'fiscal-year': 'GestionFiscal',
+}
+
+
+class TieneCapacidadAuditoria(TieneCapacidad):
+    """`TieneCapacidad` sin argumentos para `permission_classes` (DRF
+    instancia las clases): exige `sis_poa.budget.audit_read`."""
+
+    def __init__(self):
+        super().__init__(CAPACIDAD_AUDITORIA)
+
+
+@extend_schema(
+    responses={200: AuditEventSerializer(many=True)},
+    description='Registro de auditoría del ciclo presupuestario (Fase 11): '
+                'filtros ?gestion=&entidad=&registro_id=&usuario=&accion='
+                '&desde=&hasta=, paginado (DRF). Capacidad '
+                'sis_poa.budget.audit_read.',
+)
+class AuditLogView(APIView):
+    """GET /budget/audit/ → EventoAuditoria del ciclo, paginado y filtrable.
+
+    `entidad` acepta los slugs de `ENTIDADES_AUDITORIA` (allocation, reserve,
+    directive-ceiling, distribution, expense-object, reform, import,
+    territorial, fiscal-year) o el nombre de modelo directo; `accion` acepta
+    los códigos del catálogo (crear/modificar/anular/...) o las acciones
+    semánticas de `services.ACCIONES_AUDITORIA` (CREATE/UPDATE/DELETE/...).
+    """
+
+    permission_classes = [TieneCapacidadAuditoria]
+
+    def get(self, request):
+        from .services import ACCIONES_AUDITORIA
+
+        qs = EventoAuditoria.objects.select_related('usuario')
+
+        gestion = request.query_params.get('gestion')
+        if gestion:
+            qs = qs.filter(gestion=gestion)
+        entidad = request.query_params.get('entidad')
+        if entidad:
+            qs = qs.filter(entidad=ENTIDADES_AUDITORIA.get(entidad, entidad))
+        registro_id = request.query_params.get('registro_id')
+        if registro_id:
+            qs = qs.filter(entidad_id=str(registro_id))
+        usuario = request.query_params.get('usuario')
+        if usuario:
+            qs = qs.filter(usuario_id=usuario)
+        accion = request.query_params.get('accion')
+        if accion:
+            qs = qs.filter(accion=ACCIONES_AUDITORIA.get(accion, accion))
+        desde = request.query_params.get('desde')
+        if desde:
+            qs = qs.filter(creado_en__date__gte=desde)
+        hasta = request.query_params.get('hasta')
+        if hasta:
+            qs = qs.filter(creado_en__date__lte=hasta)
+
+        qs = qs.order_by('-creado_en')
+        paginator = PageNumberPagination()
+        pagina = paginator.paginate_queryset(qs, request)
+        return paginator.get_paginated_response(
+            AuditEventSerializer(pagina, many=True).data
+        )

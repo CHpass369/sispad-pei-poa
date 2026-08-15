@@ -13,6 +13,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, models
 from rest_framework import serializers
 
+from apps.auditoria.models import EventoAuditoria
 from apps.gestion.models import GestionFiscal
 
 from .models import (
@@ -984,3 +985,54 @@ class ReformSerializer(serializers.ModelSerializer):
                 entradas.append(serializador.validated_data)
             validated['movimientos'] = entradas
         return validated
+
+
+class AuditEventSerializer(serializers.ModelSerializer):
+    """Evento de auditoría del ciclo presupuestario (Fase 11).
+
+    Serializa `auditoria.EventoAuditoria` para la consulta de trazabilidad
+    (GET /budget/audit/): usuario con email/nombre, acción con su etiqueta
+    del catálogo, entidad con su etiqueta de dominio y los datos previos/
+    posteriores tal cual se registraron (JSON).
+    """
+
+    usuario_email = serializers.EmailField(
+        source='usuario.email', read_only=True, allow_null=True,
+    )
+    usuario_nombre = serializers.SerializerMethodField()
+    accion_display = serializers.CharField(
+        source='get_accion_display', read_only=True,
+    )
+    entidad_display = serializers.SerializerMethodField()
+
+    ENTIDADES_DISPLAY = {
+        'Allocation': 'Apertura programática',
+        'Reserve': 'Reserva',
+        'DirectiveCeilingVersion': 'Techo directivo',
+        'DistributionVersion': 'Distribución',
+        'ExpenseObjectAllocation': 'Objeto del gasto',
+        'Reform': 'Reformulación',
+        'BudgetImport': 'Importación',
+        'TerritorialDistribution': 'Distribución territorial',
+        'GestionFiscal': 'Gestión fiscal',
+    }
+
+    class Meta:
+        model = EventoAuditoria
+        fields = [
+            'id', 'usuario', 'usuario_email', 'usuario_nombre', 'accion',
+            'accion_display', 'entidad', 'entidad_display', 'entidad_id',
+            'version', 'resumen', 'datos_previos', 'datos_posteriores',
+            'direccion_ip', 'gestion', 'creado_en',
+        ]
+
+    def get_usuario_nombre(self, obj) -> str:
+        if obj.usuario is None:
+            return 'Sistema'
+        nombre = (
+            f'{obj.usuario.first_name or ""} {obj.usuario.last_name or ""}'
+        ).strip()
+        return nombre or obj.usuario.email or 'Sistema'
+
+    def get_entidad_display(self, obj) -> str:
+        return self.ENTIDADES_DISPLAY.get(obj.entidad, obj.entidad)
