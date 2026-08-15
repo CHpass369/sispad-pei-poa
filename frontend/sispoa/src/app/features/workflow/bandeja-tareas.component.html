@@ -1,0 +1,120 @@
+<div class="p-6">
+  <h1 class="text-2xl font-semibold text-gray-800 mb-6">Bandeja de tareas</h1>
+
+  <!-- Filtros -->
+  <div class="flex gap-4 mb-6 items-end">
+    <div>
+      <label class="block text-xs font-medium text-gray-600 mb-1">Estado</label>
+      <select
+        [(ngModel)]="filtroEstado"
+        (change)="aplicarFiltros()"
+        class="border rounded px-3 py-1.5 text-sm"
+      >
+        <option value="">Todos</option>
+        <option *ngFor="let key of estadoKeys" [value]="key">{{ estados[key] }}</option>
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-600 mb-1">Buscar</label>
+      <input
+        [(ngModel)]="busqueda"
+        (ngModelChange)="aplicarFiltros()"
+        placeholder="Definición o paso"
+        class="border rounded px-3 py-1.5 text-sm w-64"
+      />
+    </div>
+  </div>
+
+  <!-- Mensajes -->
+  <div *ngIf="mensaje" class="mb-4 p-3 rounded bg-green-50 text-green-700 text-sm">{{ mensaje }}</div>
+  <div *ngIf="error" class="mb-4 p-3 rounded bg-red-50 text-red-700 text-sm">{{ error }}</div>
+
+  <!-- Tabla -->
+  <div *ngIf="cargando" class="text-center py-8 text-gray-500">Cargando...</div>
+  <div *ngIf="!cargando && filtradas.length === 0" class="text-center py-8 text-gray-500">
+    No hay tareas asignadas.
+  </div>
+
+  <div *ngIf="!cargando && filtradas.length > 0" class="overflow-x-auto">
+    <table class="min-w-full bg-white border rounded shadow-sm text-sm">
+      <thead>
+        <tr class="bg-gray-50 border-b text-left text-xs font-semibold text-gray-600 uppercase">
+          <th class="px-4 py-3">Definición</th>
+          <th class="px-4 py-3">Paso</th>
+          <th class="px-4 py-3">Estado</th>
+          <th class="px-4 py-3">Asignado a</th>
+          <th class="px-4 py-3">Creado</th>
+          <th class="px-4 py-3">Acciones</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-200">
+        <ng-container *ngFor="let t of filtradas">
+          <tr
+            class="hover:bg-gray-50 cursor-pointer"
+            (click)="verInstancia(t)"
+          >
+            <td class="px-4 py-3 font-medium">{{ t.definicion }}</td>
+            <td class="px-4 py-3">{{ t.paso_nombre }}</td>
+            <td class="px-4 py-3">
+              <span class="inline-block px-2 py-0.5 rounded text-xs font-semibold {{ obtenerClaseEstado(t.estado) }}">
+                {{ estados[t.estado] || t.estado }}
+              </span>
+            </td>
+            <td class="px-4 py-3">{{ t.asignado_a || '—' }}</td>
+            <td class="px-4 py-3">{{ t.creado_en | date:'dd/MM/yyyy' }}</td>
+            <td class="px-4 py-3" (click)="$event.stopPropagation()">
+              <div class="flex gap-2" *ngIf="tieneAcciones(t)">
+                <button
+                  class="border rounded px-3 py-1 text-xs font-medium hover:bg-gray-50"
+                  (click)="avanzar(t)"
+                >Avanzar</button>
+                <button
+                  class="border rounded px-3 py-1 text-xs font-medium text-green-700 border-green-300 hover:bg-green-50"
+                  (click)="aprobar(t)"
+                >Aprobar</button>
+                <button
+                  class="border rounded px-3 py-1 text-xs font-medium text-yellow-700 border-yellow-300 hover:bg-yellow-50"
+                  (click)="observar(t)"
+                >Observar</button>
+                <button
+                  class="border rounded px-3 py-1 text-xs font-medium text-blue-700 border-blue-300 hover:bg-blue-50"
+                  (click)="delegar(t)"
+                >Delegar</button>
+              </div>
+            </td>
+          </tr>
+          <!-- Detalle de la instancia expandido -->
+          <tr *ngIf="tareaSeleccionadaId === t.id" class="bg-gray-50">
+            <td colspan="6" class="px-4 py-3">
+              <div *ngIf="cargandoInstancia" class="text-sm text-gray-500">Cargando detalle...</div>
+              <div *ngIf="!cargandoInstancia && instanciaSeleccionada" class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div>
+                  <span class="block text-xs font-semibold text-gray-500 uppercase">Definición</span>
+                  {{ instanciaSeleccionada.definicion_codigo }}
+                </div>
+                <div>
+                  <span class="block text-xs font-semibold text-gray-500 uppercase">Estado actual</span>
+                  {{ instanciaSeleccionada.estado_actual }}
+                </div>
+                <div>
+                  <span class="block text-xs font-semibold text-gray-500 uppercase">Entidad</span>
+                  {{ instanciaSeleccionada.entidad_tipo }} ({{ instanciaSeleccionada.entidad_id }})
+                </div>
+                <div>
+                  <span class="block text-xs font-semibold text-gray-500 uppercase">Tarea actual</span>
+                  <ng-container *ngIf="instanciaSeleccionada.tarea_actual; else sinTarea">
+                    {{ instanciaSeleccionada.tarea_actual.paso }}
+                    <span class="ml-1 inline-block px-2 py-0.5 rounded text-xs font-semibold {{ obtenerClaseEstado(instanciaSeleccionada.tarea_actual.estado) }}">
+                      {{ estados[instanciaSeleccionada.tarea_actual.estado] || instanciaSeleccionada.tarea_actual.estado }}
+                    </span>
+                  </ng-container>
+                  <ng-template #sinTarea>—</ng-template>
+                </div>
+              </div>
+            </td>
+          </tr>
+        </ng-container>
+      </tbody>
+    </table>
+  </div>
+</div>
