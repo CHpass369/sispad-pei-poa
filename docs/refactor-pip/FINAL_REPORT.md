@@ -60,23 +60,33 @@ SISPOA a PIP. Cada fase tuvo commits reales, verificaciones (tests, build,
   `modificaciones`, `seguimiento`, etc.) y en `inversion` (8 correcciones, Fase 6).
 - No se aplicó ningún reemplazo global; cada cambio fue semántico y por contexto.
 
-## 5. Qué se migró (nada físico — plan documentado)
+## 5. Qué se migró (EJECUTADO el 2026-08-15)
 
-- **No hubo migración física de datos.** La base `gams_sis_poa` sigue en esquema
-  `public` con su rol `sispoa`.
-- El plan de migración de infraestructura está documentado en
-  `DATA_MIGRATION_PLAN.md`: backup, `CREATE SCHEMA`, `MIGRATE`, `VALIDATE`,
-  `SWITCH`, `DEPRECATE` (9 grupos de migración).
-- La ejecución de esa migración queda para una fase de infraestructura futura,
-  coordinada con el despliegue.
+- **Migración física de esquemas COMPLETADA**: 168 tablas de dominio movidas de
+  `public` a 9 esquemas PIP (`pip_core` 29, `pip_catalogo` 21, `sis_pe` 35,
+  `sis_poa` 39, `sis_pro` 34, `pip_integracion` 4, `pip_auditoria` 1,
+  `pip_geo` 4, `reportes` 1). `search_path` multi-esquema configurado en
+  `settings.py` con `public` primero (PostGIS + migraciones futuras intactas).
+  Backup previo: `backups/gams_sis_poa_pre_refactor_20260815_133116.dump`.
+- **Base de datos renombrada**: `gams_sis_poa` → **`gams_pip`** (ALTER DATABASE,
+  0 conexiones activas; `.env`, docker-compose y settings actualizados).
+- **`tokenKey` migrado**: `sispoa_token` → `pip_token` con migración de sesión
+  en `AuthService` (preserva la sesión del usuario, no la cierra).
+- **Perfiles de importación renombrados**: `SISPOA_GASTOS_*` → `PIP_GASTOS_*`
+  (migración de datos 0011 + AlterField 0012; backend, frontend y tests).
+- Tablas con acción MERGE/SPLIT/DEPRECATE/REMOVE_LATER quedan en `public` como
+  legacy (requieren cutover de datos V2, fases futuras): `presupuesto_*` legacy,
+  `techos_*`, `flujo_*` v1, `articulacion_*` legacy, `indicadores_*`,
+  `evaluacion_*`, `poau_*` legacy, `catalogos_seed_t4_propiedad`.
 
 ## 6. Qué permanece legacy (documentado, NO deprecado)
 
-- `tokenKey 'sispoa_token'` en frontend: renombrarlo cerraría la sesión a todos
-  los usuarios — queda pendiente de coordinación de timing con el despliegue.
-- `PerfilImportacion.SISPOA_GASTOS_HISTORICO` y `SISPOA_GASTOS_ACTUAL`: values
-  persistidos en BD, no se tocan.
-- Base de datos `gams_sis_poa` y rol `sispoa`: fase de infraestructura
+- Apps legacy `presupuesto`/`techos`/`flujo v1`/`articulacion legacy`: conviven
+  en `public` con el cutover V2 (palanca `LEGACY_MENU_VISIBLE`).
+- Tablas MERGE/SPLIT (`poau_poau`, `articulacion_accionpoa`, `indicadores_*`,
+  `evaluacion_*`): requieren decisión de datos antes de migrar.
+- DNS `sispoa.gamsacaba.gob.bo`, bucket `sispoa-docs`, realm Keycloak
+  `sispoa`: fase de despliegue/infraestructura.
   (plan en `DATA_MIGRATION_PLAN.md`).
 - API V1: sigue activa, ahora con headers de deprecación (Sunset 2027-01-01).
 - Apps `techos` y `presupuesto` (legacy v1): conviven con `budget` v2 mediante

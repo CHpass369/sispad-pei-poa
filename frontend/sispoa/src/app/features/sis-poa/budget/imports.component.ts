@@ -64,7 +64,7 @@ export class ImportsComponent implements OnInit {
 
   gestiones: FiscalYear[] = [];
   gestionSeleccionada: string | null = null;
-  perfil = 'SISPOA_GASTOS_HISTORICO';
+  perfil = 'PIP_GASTOS_HISTORICO';
   archivo: File | null = null;
   importacion: BudgetImport | null = null;
   importaciones: BudgetImport[] = [];

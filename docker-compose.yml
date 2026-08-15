@@ -11,7 +11,7 @@ x-django-env: &django-env
   DJANGO_DEBUG: ${DJANGO_DEBUG:-False}
   DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}
   DB_ENGINE: ${DB_ENGINE:-django.contrib.gis.db.backends.postgis}
-  DB_NAME: ${DB_NAME:-gams_sis_poa}
+  DB_NAME: ${DB_NAME:-gams_pip}
   DB_USER: ${DB_USER:-sispoa_user}
   DB_PASSWORD: ${DB_PASSWORD:-changeme-segura}
   DB_HOST: ${DB_HOST:-sispoa-postgres}
@@ -34,7 +34,7 @@ services:
     restart: unless-stopped
     env_file: .env
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-gams_sis_poa}
+      POSTGRES_DB: ${POSTGRES_DB:-gams_pip}
       POSTGRES_USER: ${POSTGRES_USER:-sispoa_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme-segura}
     volumes:
@@ -46,7 +46,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "pg_isready -U ${POSTGRES_USER:-sispoa_user} -d ${POSTGRES_DB:-gams_sis_poa}",
+          "pg_isready -U ${POSTGRES_USER:-sispoa_user} -d ${POSTGRES_DB:-gams_pip}",
         ]
       interval: 10s
       timeout: 5s

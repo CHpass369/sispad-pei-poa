@@ -18,7 +18,7 @@ describe('ImportsComponent', () => {
 
   const importacionBase = {
     id: 1, gestion: '2030', gestion_anio: 2030,
-    perfil: 'SISPOA_GASTOS_HISTORICO', perfil_display: 'GASTOS histórico',
+    perfil: 'PIP_GASTOS_HISTORICO', perfil_display: 'GASTOS histórico',
     filename: 'gastos.xlsx', mime_type: 'application/vnd...', size: 1000,
     sha256: 'a'.repeat(64), hoja_seleccionada: 'gastos',
     mapeo_json: {

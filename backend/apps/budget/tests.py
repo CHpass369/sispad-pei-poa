@@ -1139,7 +1139,7 @@ class ImportadorBase(TestCase):
         )
         Distrito.objects.create(codigo='D1', nombre='URBANO 1')
 
-    def subir(self, contenido, perfil='SISPOA_GASTOS_HISTORICO'):
+    def subir(self, contenido, perfil='PIP_GASTOS_HISTORICO'):
         archivo = SimpleUploadedFile(
             'gastos.xlsx', contenido, content_type=XLSX_MIME,
         )
@@ -1307,7 +1307,7 @@ class ImportadorUploadTests(ImportadorBase):
         )
         resp = self.client.post(
             f'{BUDGET_URL}imports/',
-            {'gestion': str(self.gestion.id), 'perfil': 'SISPOA_GASTOS_HISTORICO',
+            {'gestion': str(self.gestion.id), 'perfil': 'PIP_GASTOS_HISTORICO',
              'archivo': archivo},
             format='multipart',
         )
@@ -1323,7 +1323,7 @@ class ImportadorUploadTests(ImportadorBase):
         client.force_authenticate(user=usuario)
         resp = client.post(
             f'{BUDGET_URL}imports/',
-            {'gestion': str(self.gestion.id), 'perfil': 'SISPOA_GASTOS_HISTORICO',
+            {'gestion': str(self.gestion.id), 'perfil': 'PIP_GASTOS_HISTORICO',
              'archivo': SimpleUploadedFile(
                  'g.xlsx', construir_xlsx([HEADER_GASTOS, fila_detalle()]),
                  content_type=XLSX_MIME,

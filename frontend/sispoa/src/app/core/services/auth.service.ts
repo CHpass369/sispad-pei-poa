@@ -8,11 +8,22 @@ import { LoginRequest, LoginResponse, Usuario } from '../models/usuario.model';
 export class AuthService {
   private api = `${environment.apiUrl}/auth`;
   private tokenKey = environment.tokenKey;
+  /** Key legacy (refactor PIP): se migra a tokenKey en el constructor si existe. */
+  private legacyTokenKey = 'sispoa_token';
   private userSubject = new BehaviorSubject<Usuario | null>(null);
 
   user$ = this.userSubject.asObservable();
 
   constructor(private http: HttpClient) {
+    // Migración de sesión (refactor PIP): si el usuario tenía sesión con la key
+    // legacy 'sispoa_token', se traslada a la nueva key sin cerrarle la sesión.
+    if (this.tokenKey !== this.legacyTokenKey) {
+      const legacy = localStorage.getItem(this.legacyTokenKey);
+      if (legacy && !localStorage.getItem(this.tokenKey)) {
+        localStorage.setItem(this.tokenKey, legacy);
+      }
+      localStorage.removeItem(this.legacyTokenKey);
+    }
     // No llamar loadUser() aquí — crea dependencia circular con el interceptor HTTP
   }
 

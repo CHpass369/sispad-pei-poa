@@ -869,13 +869,13 @@ class EstadoImportacion:
 
 class PerfilImportacion:
     """Perfiles de planilla: definen columnas esperadas y el mapeo por defecto."""
-    SISPOA_GASTOS_HISTORICO = 'SISPOA_GASTOS_HISTORICO'
-    SISPOA_GASTOS_ACTUAL = 'SISPOA_GASTOS_ACTUAL'
+    PIP_GASTOS_HISTORICO = 'PIP_GASTOS_HISTORICO'
+    PIP_GASTOS_ACTUAL = 'PIP_GASTOS_ACTUAL'
     OTRO = 'OTRO'
 
     CHOICES = [
-        (SISPOA_GASTOS_HISTORICO, 'GASTOS histórico (estructura oficial)'),
-        (SISPOA_GASTOS_ACTUAL, 'GASTOS actual (planilla vigente)'),
+        (PIP_GASTOS_HISTORICO, 'GASTOS histórico (estructura oficial)'),
+        (PIP_GASTOS_ACTUAL, 'GASTOS actual (planilla vigente)'),
         (OTRO, 'Otro'),
     ]
 
@@ -961,7 +961,7 @@ class BudgetImport(TimeStampedModel):
     )
     perfil = models.CharField(
         max_length=40, choices=PerfilImportacion.CHOICES,
-        default=PerfilImportacion.SISPOA_GASTOS_ACTUAL,
+        default=PerfilImportacion.PIP_GASTOS_ACTUAL,
     )
     filename = models.CharField(max_length=300, blank=True, default='')
     mime_type = models.CharField(max_length=120, blank=True, default='')

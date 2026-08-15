@@ -107,12 +107,12 @@ _MAPEO_GASTOS_HISTORICO = {
 }
 
 PERFILES = {
-    PerfilImportacion.SISPOA_GASTOS_HISTORICO: {
+    PerfilImportacion.PIP_GASTOS_HISTORICO: {
         'columnas': _COLUMNAS_GASTOS,
         'mapeo': dict(_MAPEO_GASTOS_HISTORICO),
         'fuentes': dict(FUENTES_DEFAULT),
     },
-    PerfilImportacion.SISPOA_GASTOS_ACTUAL: {
+    PerfilImportacion.PIP_GASTOS_ACTUAL: {
         # La planilla actual es similar a la histórica; se reutiliza el mismo
         # mapeo y el usuario puede corregirlo desde la UI (POST map).
         'columnas': _COLUMNAS_GASTOS,

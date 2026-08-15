@@ -108,11 +108,20 @@ DATABASES = {
         'ENGINE': os.environ.get(
             'DB_ENGINE', 'django.contrib.gis.db.backends.postgis'
         ),
-        'NAME': os.environ.get('DB_NAME', 'gams_sis_poa'),
+        'NAME': os.environ.get('DB_NAME', 'gams_pip'),
         'USER': os.environ.get('DB_USER', 'chpass369'),
         'PASSWORD': os.environ.get('DB_PASSWORD', ''),
         'HOST': os.environ.get('DB_HOST', '/tmp/opencode'),
         'PORT': os.environ.get('DB_PORT', '5433'),
+        # PIP (ADR-003): search_path multi-esquema — public primero para que
+        # migraciones futuras y PostGIS sigan funcionando; las tablas de dominio
+        # viven en pip_core/pip_catalogo/sis_pe/sis_poa/sis_pro/pip_integracion/
+        # pip_auditoria/pip_geo/reportes (migración física 2026-08-15).
+        'OPTIONS': {
+            'options': '-c search_path=public,pip_core,pip_catalogo,sis_pe,'
+                       'sis_poa,sis_pro,pip_integracion,pip_auditoria,'
+                       'pip_geo,reportes',
+        },
         'TEST': {
             # Template con PostGIS preinstalado: evita requerir superusuario
             # para crear extensiones en la base de test.
