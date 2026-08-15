@@ -30,13 +30,13 @@ from drf_spectacular.utils import OpenApiTypes, extend_schema
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
-from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.permissions import TieneCapacidad
 from apps.auditoria.models import EventoAuditoria
 from apps.auditoria.services import registrar_evento
+from apps.core.pagination import AuditoriaDualPagination, ImportacionDualPagination
 from apps.gestion.models import GestionFiscal
 
 from .models import (
@@ -973,6 +973,7 @@ class BudgetImportViewSet(viewsets.ModelViewSet):
 
     queryset = BudgetImport.objects.select_related('gestion').all()
     serializer_class = BudgetImportSerializer
+    pagination_class = ImportacionDualPagination
     http_method_names = ['get', 'post']
     filterset_fields = ['gestion', 'estado', 'perfil']
     search_fields = ['filename']
@@ -1524,7 +1525,7 @@ class AuditLogView(APIView):
             qs = qs.filter(creado_en__date__lte=hasta)
 
         qs = qs.order_by('-creado_en')
-        paginator = PageNumberPagination()
+        paginator = AuditoriaDualPagination()
         pagina = paginator.paginate_queryset(qs, request)
         return paginator.get_paginated_response(
             AuditEventSerializer(pagina, many=True).data

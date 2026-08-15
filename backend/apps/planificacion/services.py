@@ -131,9 +131,15 @@ def obtener_nodos_por_plan(plan, nivel=None):
 
 
 def obtener_arbol_nodos(plan):
-    raices = NodoPlanificacion.objects.filter(
-        plan=plan, padre__isnull=True, activo=True
+    # Carga única de todos los nodos activos del plan; el árbol se arma en
+    # memoria con un dict {padre_id: [hijos]} para evitar N+1 en el recorrido.
+    nodos = NodoPlanificacion.objects.filter(
+        plan=plan, activo=True
     ).order_by('orden')
+    hijos_por_padre = {}
+    for nodo in nodos:
+        hijos_por_padre.setdefault(nodo.padre_id, []).append(nodo)
+    raices = hijos_por_padre.get(None, [])
 
     def _construir(nodo):
         nodo_dict = {
@@ -144,9 +150,7 @@ def obtener_arbol_nodos(plan):
             'orden': nodo.orden,
             'hijos': [],
         }
-        for hijo in NodoPlanificacion.objects.filter(
-            padre=nodo, activo=True
-        ).order_by('orden'):
+        for hijo in hijos_por_padre.get(nodo.id, []):
             nodo_dict['hijos'].append(_construir(hijo))
         return nodo_dict
 

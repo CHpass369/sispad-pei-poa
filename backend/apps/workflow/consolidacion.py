@@ -182,49 +182,76 @@ def consolidar_poa_institucional(gestion: int) -> dict[str, Any]:
     }
 
     # ── Resultados por programa ─────────────────────────────────────────
-    programas_qs = ProgramaPresupuestario.objects.filter(
-        gestion=gestion, activo=True
-    ).select_related("ue_responsable")
+    programas_qs = list(
+        ProgramaPresupuestario.objects.filter(
+            gestion=gestion, activo=True
+        ).select_related("ue_responsable")
+    )
+    ids_programas = [p.id for p in programas_qs]
+
+    # Una sola agregación GROUP BY por programa
+    totales_por_programa = dict(
+        lineas.filter(programa_id__in=ids_programas)
+        .values("programa_id")
+        .annotate(
+            total=Coalesce(Sum("importe", output_field=DecimalField()), Value(Decimal("0.00")))
+        )
+        .values_list("programa_id", "total")
+    )
+
+    # Cantidad de líneas por programa (una sola query)
+    cantidad_por_programa = dict(
+        lineas.filter(programa_id__in=ids_programas)
+        .values("programa_id")
+        .annotate(cantidad=Count("id"))
+        .values_list("programa_id", "cantidad")
+    )
+
+    # Una sola query de detalle por programa (fuente/organismo/objeto + total y cantidad)
+    detalle_por_programa = {}
+    filas_detalle = (
+        lineas.filter(programa_id__in=ids_programas)
+        .annotate(_programa_id=F("programa_id"))
+        .values(
+            "_programa_id",
+            fuente_codigo=F("fuente__codigo"),
+            fuente_nombre=F("fuente__denominacion"),
+            organismo_codigo=F("organismo__codigo"),
+            organismo_nombre=F("organismo__denominacion"),
+            objeto_codigo=F("objeto_gasto__codigo"),
+            objeto_nombre=F("objeto_gasto__denominacion"),
+        )
+        .annotate(
+            total_linea=Coalesce(
+                Sum("importe", output_field=DecimalField()), Value(Decimal("0.00"))
+            ),
+            cantidad=Count("id"),
+        )
+        .order_by("-total_linea")
+    )
+    for fila in filas_detalle:
+        detalle_por_programa.setdefault(fila.pop("_programa_id"), []).append(fila)
+
+    # Techos distribuidos por programa (una sola query)
+    techo_por_programa = dict(
+        DistribucionTecho.objects.filter(
+            techo__gestion=gestion, programa_id__in=ids_programas, activo=True
+        )
+        .values("programa_id")
+        .annotate(
+            total=Coalesce(
+                Sum("monto_asignado", output_field=DecimalField()),
+                Value(Decimal("0.00")),
+            )
+        )
+        .values_list("programa_id", "total")
+    )
 
     resultados_por_programa = []
     for prog in programas_qs:
-        prog_lineas = lineas.filter(programa=prog)
-        total_prog = _monto(
-            prog_lineas.aggregate(
-                total=Coalesce(Sum("importe", output_field=DecimalField()), Value(Decimal("0.00")))
-            )["total"]
-        )
-
-        # Detalle por fuente / organismo / objeto del gasto
-        detalle = list(
-            prog_lineas.values(
-                fuente_codigo=F("fuente__codigo"),
-                fuente_nombre=F("fuente__denominacion"),
-                organismo_codigo=F("organismo__codigo"),
-                organismo_nombre=F("organismo__denominacion"),
-                objeto_codigo=F("objeto_gasto__codigo"),
-                objeto_nombre=F("objeto_gasto__denominacion"),
-            )
-            .annotate(
-                total_linea=Coalesce(
-                    Sum("importe", output_field=DecimalField()), Value(Decimal("0.00"))
-                ),
-                cantidad=Count("id"),
-            )
-            .order_by("-total_linea")
-        )
-
-        # Techo asociado al programa (distribuciones)
-        techo_prog = _monto(
-            DistribucionTecho.objects.filter(
-                techo__gestion=gestion, programa=prog, activo=True
-            ).aggregate(
-                total=Coalesce(
-                    Sum("monto_asignado", output_field=DecimalField()),
-                    Value(Decimal("0.00")),
-                )
-            )["total"]
-        )
+        total_prog = totales_por_programa.get(prog.id, Decimal("0.00"))
+        detalle = detalle_por_programa.get(prog.id, [])
+        techo_prog = techo_por_programa.get(prog.id, Decimal("0.00"))
 
         ue_resp = prog.ue_responsable
         resultados_por_programa.append(
@@ -236,7 +263,7 @@ def consolidar_poa_institucional(gestion: int) -> dict[str, Any]:
                 "total_formulado": total_prog,
                 "total_techo_asignado": techo_prog,
                 "diferencia": techo_prog - total_prog,
-                "cantidad_lineas": prog_lineas.count(),
+                "cantidad_lineas": cantidad_por_programa.get(prog.id, 0),
                 "detalle_fuente_organismo_objeto": detalle,
             }
         )

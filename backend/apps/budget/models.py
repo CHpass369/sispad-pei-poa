@@ -1248,9 +1248,6 @@ class ExpenseObjectAllocation(TimeStampedModel):
                 name='uniq_allocation_objeto_gasto',
             ),
         ]
-        indexes = [
-            models.Index(fields=['allocation', 'objeto_gasto']),
-        ]
 
     def __str__(self):
         return f'{self.objeto_gasto.codigo}: {self.monto}'

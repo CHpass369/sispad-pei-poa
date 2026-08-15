@@ -173,6 +173,13 @@ class WorkflowTask(models.Model):
         verbose_name = 'Tarea de workflow'
         verbose_name_plural = 'Tareas de workflow'
         ordering = ['-creado_en']
+        indexes = [
+            models.Index(
+                fields=['asignado_a', '-creado_en'],
+                name='flujo_tarea_bandeja_idx',
+                condition=models.Q(estado__in=['pendiente', 'en_curso']),
+            ),
+        ]
 
     def __str__(self):
         return f'{self.instancia} / {self.paso.nombre} ({self.estado})'

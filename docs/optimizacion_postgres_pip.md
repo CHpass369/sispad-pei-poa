@@ -139,3 +139,42 @@ ORDER BY creado_en DESC;
 ```
 
 **Estado actual de este documento**: hallazgos y plan propuesto — **sin aplicar** (decisión del equipo: documentar antes de tocar la BD con datos reales cargados).
+
+---
+
+## 6. Registro de aplicación (2026-08-15) — FASES A/B/C APLICADAS
+
+### ✅ FASE A — Aplicada (índices + refactor N+1 + limpieza)
+- **Índice de bandeja**: `flujo_tarea_bandeja_idx` (parcial, `asignado_a, -creado_en WHERE estado IN ('pendiente','en_curso')`) — migración `workflow/0005`.
+- **Índices de auditoría**: `audit_entidad_historial_idx` (`entidad, entidad_id, -creado_en`) + `audit_gestion_accion_idx` (`gestion, accion`) — migración `auditoria/0002`.
+- **7 índices redundantes del rename eliminados**:
+  - `budget/0009` (RunSQL DROP): 4 índices FK automáticos `budget_*` en territorialdistribution, budgetdocument, budgetimport, reform.
+  - `presupuesto/0006` (RunSQL DROP): 1 índice FK automático legacy.
+  - `budget/0010`: RemoveIndex `presupuesto_allocat_c5ae8a_idx` (duplicaba al UNIQUE `uniq_allocation_objeto_gasto`) — requirió quitar el índice no-unique de `ExpenseObjectAllocation.Meta`.
+  - `seguimiento/0002`: RemoveIndex `seguimiento_reporte_521f0b_idx` (duplicaba al unique_together `(reporte, actividad)`) — requirió quitar el índice de `EntradaSeguimiento.Meta`.
+  - **Nota de corrección sobre el doc original**: el índice a eliminar en `seguimiento_entradaseguimiento` era el **no-unique** (`seguimiento_reporte_521f0b_idx`), NO el UNIQUE `..._2cab77bf_uniq` (ese es la integridad activa). Corregido en la aplicación.
+- **Refactor N+1**:
+  - `workflow/consolidacion.py`: consolidación por programa batcheada (totales GROUP BY + detalle + techo por programa con `programa_id__in`) — antes ~4 queries × N programas, ahora 5 queries fijas. Contrato de salida preservado (verificado con regression manual).
+  - `planificacion/services.py`: árbol de nodos con carga única + dict `{padre_id: [hijos]}`.
+- **Tests**: workflow 57-66 passed, planificacion 25 passed, budget smoke 48 passed, importadores OK.
+
+### ✅ FASE B — Aplicada (config PostgreSQL)
+- `ALTER SYSTEM` (como superuser postgres): `work_mem 32MB`, `maintenance_work_mem 256MB`, `effective_cache_size 24GB`, `random_page_cost 1.1` — **activos** (context user, pg_reload_conf).
+- `shared_buffers 2GB` — persistido en `postgresql.auto.conf` pero **requiere reinicio del servicio** `postgresql-x64-16` (context postmaster; el reinicio necesita permisos de administrador — pendiente manual: `Restart-Service postgresql-x64-16`).
+- **Conexión real de la BD local**: HOST=localhost, PORT=**5432** (no 5433), USER=`sispoa`, PASSWORD=`sispoa_local_2026`, NAME=`gams_sis_poa`. Usuario `sispoa` no es superuser; `postgres`/`postgres` sí.
+
+### ✅ FASE C — Aplicada parcial (paginación dual; particionado documentado como NO viable)
+- **Paginación dual (cursor + page)** — `backend/apps/core/pagination.py`:
+  - `PaginacionDualPagination(PageNumberPagination)` — modo page por defecto (contrato `{count, results, next, previous}` idéntico, frontend intacto); si el cliente manda `?cursor=`, delega a cursor con `count` real (una query COUNT extra, igual que page).
+  - Aplicada a `EventoAuditoriaViewSet` (ordering `-creado_en`) y `AuditLogView` (el endpoint real que consume el frontend, `/api/v2/sis-poa/budget/audit/`) + `BudgetImportViewSet`.
+  - **Confirmado**: el frontend Angular construye `?page=N` a mano y no usa `next` → queda en modo page por defecto, cero impacto; el modo cursor queda listo para clientes futuros (reportes, exportaciones).
+  - Tests: `tests/test_paginacion_dual.py` 4 passed; frontend audit+imports 15 SUCCESS.
+- **Particionado de `auditoria_eventoauditoria` — NO aplicado (bloqueo técnico documentado)**:
+  - PostgreSQL exige que las constraints UNIQUE/PK de una tabla particionada **incluyan la columna de partición**.
+  - `EventoAuditoria` tiene PK `id UUID` simple; particionar por `gestion` (o `creado_en`) obligaría a PK compuesta `(id, gestion)`, cambio estructural que rompe ORM, URLs, serializers y frontend.
+  - **Alternativa recomendada cuando crezca (~10M filas)**: política de retención por gestión (purga de gestiones cerradas antiguas) + los índices nuevos ya cubren los patrones de consulta. Si algún día se decide particionar, requiere rediseño de PK con migración de datos planificada.
+
+### 🔲 PENDIENTE
+- Reiniciar el servicio PostgreSQL (`Restart-Service postgresql-x64-16` como administrador) para activar `shared_buffers = 2GB`.
+- `pg_stat_statements` para producción (requiere agregar la librería a `shared_preload_libraries` + restart — NO aplicado en dev para no tocar la config de arranque; documentado en sección 3).
+- Particionado de auditoría: solo si se acepta el rediseño de PK (ver arriba).

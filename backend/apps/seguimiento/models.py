@@ -138,9 +138,6 @@ class EntradaSeguimiento(TimeStampedModel):
         verbose_name_plural = 'Entradas de seguimiento'
         ordering = ['actividad__codigo']
         unique_together = [('reporte', 'actividad')]
-        indexes = [
-            models.Index(fields=['reporte', 'actividad']),
-        ]
 
     def __str__(self):
         return f'{self.actividad} - {self.reporte}'

@@ -44,6 +44,8 @@ class EventoAuditoria(models.Model):
             models.Index(fields=['entidad', 'entidad_id']),
             models.Index(fields=['usuario', 'creado_en']),
             models.Index(fields=['gestion']),
+            models.Index(fields=['entidad', 'entidad_id', '-creado_en'], name='audit_entidad_historial_idx'),
+            models.Index(fields=['gestion', 'accion'], name='audit_gestion_accion_idx'),
         ]
 
     def __str__(self):
