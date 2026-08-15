@@ -1,6 +1,7 @@
 """Strict-TDD contracts for the controlled SIM-2027 migration."""
 import datetime
 import json
+import os
 
 import pytest
 from django.contrib.auth import get_user_model
@@ -413,5 +414,8 @@ def test_manifiesto_json_es_canonico_y_verificable(tmp_path, cadena_sim):
 
     persisted = json.loads(path.read_text(encoding='utf-8'))
     assert persisted == manifest
-    assert path.stat().st_mode & 0o777 == 0o600
+    # El permiso 0600 es un invariante POSIX del manifiesto (auditoría);
+    # en Windows el bitmask POSIX no aplica (siempre 0666), se omite.
+    if os.name != 'nt':
+        assert path.stat().st_mode & 0o777 == 0o600
     assert service.verificar_hash(persisted) is True

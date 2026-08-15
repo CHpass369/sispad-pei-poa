@@ -1,5 +1,5 @@
-import os
 import json
+import os
 from datetime import date
 from io import StringIO
 from pathlib import Path
@@ -16,34 +16,121 @@ from apps.organizacion.models import TipoUnidad, UnidadOrganizacional
 from apps.pad.models import SectorPAD
 from apps.planificacion.models import Plan
 from apps.poau.models import POAU
-from scripts.seed import DEMO_PASSWORD_ENV
 
-
+# Main no expone el seed demo histórico de la rama (scripts.seed con
+# DEMO_PASSWORD_ENV/seed_demo_data). Los datos demo se crean en el propio
+# test, replicando solo los identificadores que el servicio de limpieza
+# reconoce como marcadores (SIM-2027/DEMO-), colisiones exactas de seed
+# (PGDESA-2026-2050, GAM, LineamientoPAD 01-20) y los catálogos canónicos
+# que la postcondición exige preservar (20 SectorPAD, 17 ODS).
 TEST_DEMO_PASSWORDS = {
-    env_name: f'test-only-{account}-credential'
-    for account, env_name in DEMO_PASSWORD_ENV.items()
+    "SISPOA_DEMO_ADMIN_PASSWORD": "test-only-admin-credential",
+    "SISPOA_DEMO_USER_PASSWORD": "test-only-user-credential",
+    "SISPOA_DEMO_POA_PASSWORD": "test-only-poa-credential",
 }
+
+
+def _seed_demo_data():
+    """Crea el dataset demo mínimo que el servicio de limpieza conoce."""
+    user_model = get_user_model()
+    user_model.objects.create_superuser(
+        email="admin@gamsacaba.gob.bo", password="real-password"
+    )
+    user_model.objects.create_user(
+        email="demo.user@demo.sispoa.local", password="real-password",
+        cargo="Usuario demo",
+    )
+    user_model.objects.create_user(
+        email="test@test.com", password="test-password"
+    )
+
+    for codigo in range(1, 21):
+        SectorPAD.objects.create(
+            codigo=f"{codigo:02d}", nombre=f"Sector canónico {codigo:02d}"
+        )
+    for codigo in range(1, 18):
+        AcuerdoInternacional.objects.create(
+            tipo_acuerdo="ODS", codigo=f"{codigo:02d}",
+            denominacion=f"ODS {codigo:02d} — Objetivo de Desarrollo Sostenible",
+        )
+
+    unit_type = TipoUnidad.objects.create(
+        codigo="SEC", nombre="Secretaría", nivel=1, activo=True
+    )
+    TipoUnidad.objects.create(codigo="INST", nombre="Institución", nivel=1, activo=True)
+    TipoUnidad.objects.create(codigo="DIR", nombre="Dirección", nivel=2, activo=True)
+    TipoUnidad.objects.create(codigo="UE", nombre="Unidad Ejecutora", nivel=3, activo=True)
+
+    demo_unit = UnidadOrganizacional.objects.create(
+        codigo="ORG-DEMO", gestion=2026,
+        nombre="Unidad demostrativa", sigla="DEMO",
+        tipo=unit_type,
+        fecha_vigencia_desde=date(2026, 1, 1),
+        activo=True,
+    )
+
+    Plan.objects.create(
+        codigo="PGDESA-2026-2050", tipo="pgdesa",
+        nombre="Plan General de Desarrollo Sostenible del Estado 2026-2050",
+        gestion_inicio=2026, gestion_fin=2050,
+        fecha_vigencia_desde=date(2026, 1, 1),
+    )
+    Plan.objects.create(
+        codigo="PDESA-2026-2030", tipo="pdesa",
+        nombre="Plan de Desarrollo Económico y Social 2026-2030",
+        gestion_inicio=2026, gestion_fin=2030,
+        fecha_vigencia_desde=date(2026, 1, 1),
+    )
+    Plan.objects.create(
+        codigo="PEI-DEMO-2026", tipo="pei",
+        nombre="PEI demostrativo 2026",
+        gestion_inicio=2026, gestion_fin=2030,
+        fecha_vigencia_desde=date(2026, 1, 1),
+    )
+    Plan.objects.create(
+        codigo="SIM-2027-EM-DJR-01-PLAN-PEI", tipo="pei",
+        nombre="PEI simulado 2027 — Dirección Jurídica",
+        gestion_inicio=2027, gestion_fin=2031,
+        fecha_vigencia_desde=date(2027, 1, 1),
+    )
+
+    LineamientoPAD.objects.create(
+        codigo="01", denominacion="Lineamiento del sector 01",
+        codigo_padre="", gestion_desde=2026, gestion_hasta=2030, activo=True,
+    )
+    LineamientoPAD.objects.create(
+        codigo="02", denominacion="Lineamiento del sector 02",
+        codigo_padre="", gestion_desde=2026, gestion_hasta=2030, activo=True,
+    )
+
+    ResultadoPAD.objects.create(
+        id_cadena="DEMO-2026-01",
+        codigo_resultado="DEMO.2026.01",
+        denominacion="Resultado demostrativo",
+        lineamiento_pad="01",
+        vigencia_desde=2026,
+        vigencia_hasta=2030,
+        cod_geografico="000000",
+        eta="Entidad demostrativa",
+        cod_resultado_pds="DEMO-2026-01",
+    )
+
+    POAU.objects.create(
+        codigo="POAU-DEMO-2026",
+        nombre="POAU demostrativo 2026",
+        gestion=2026,
+        estado="borrador",
+        unidad=demo_unit,
+    )
 
 
 @patch.dict(os.environ, TEST_DEMO_PASSWORDS, clear=False)
 class LimpiezaDatosSimuladosTest(TestCase):
     def setUp(self):
-        # patch.dict applied at class level only wraps test_* methods, not
-        # setUp; seed_demo_data() in setUp needs the demo seed passwords, so
-        # the environment is patched explicitly for the whole test lifecycle.
         self._seed_env = patch.dict(os.environ, TEST_DEMO_PASSWORDS, clear=False)
         self._seed_env.start()
         self.addCleanup(self._seed_env.stop)
-        from scripts.seed import seed_demo_data
-
-        seed_demo_data()
-        user_model = get_user_model()
-        user_model.objects.create_superuser(
-            email="admin@gamsacaba.gob.bo", password="real-password"
-        )
-        self.ambiguous_user = user_model.objects.create_user(
-            email="test@test.com", password="test-password"
-        )
+        _seed_demo_data()
         self.role_count = Rol.objects.count()
 
     def _run(self, *args):

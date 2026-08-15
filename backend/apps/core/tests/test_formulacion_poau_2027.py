@@ -101,7 +101,8 @@ class FormulacionPOAU2027ImportTest(TestCase):
         return self._temporary_path()
 
     def _temporary_path(self):
-        return "/tmp/formulacion-poau-2027-test.xlsx"
+        from tempfile import gettempdir
+        return f"{gettempdir()}/formulacion-poau-2027-test.xlsx"
 
     def _run(self, *extra):
         output = StringIO()
