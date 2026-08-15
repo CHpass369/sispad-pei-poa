@@ -24,7 +24,17 @@ from apps.presupuesto.models import (
     ProgramaPresupuestario,
     ProyectoPresupuestario,
 )
-from apps.techos.models import RecursoTecho, TechoPresupuestario
+from apps.techos.models import TechoPresupuestario
+
+# TODO(integracion-s2): ``techos.RecursoTecho`` (desglose rubro/fuente/
+# organismo/entidad del techo, R16) es un modelo nuevo de la rama que main
+# NO tiene. Hasta que se integre con su migración, el desglose de recursos
+# se degrada a un warning reportado sin romper el lote: los programas,
+# actividades y el techo 2027 (monto 0) sí se importan.
+try:
+    from apps.techos.models import RecursoTecho
+except ImportError:  # pragma: no cover - degradación documentada
+    RecursoTecho = None
 
 # Los datos de sispoa (programa/actividad/recurso) son gestión 2027
 # (H9): se importan con esta gestión fija, independiente de --gestion.
@@ -199,7 +209,7 @@ def importar_recursos(reporte, gestion):
         )
 
     techo = TechoPresupuestario.objects.filter(
-        gestion_fiscal=gestion_fiscal,
+        gestion=gestion,
     ).first()
     if techo is None:
         fuente_base = (
@@ -214,19 +224,27 @@ def importar_recursos(reporte, gestion):
             )
         techo = TechoPresupuestario.objects.create(
             gestion=gestion,
-            gestion_fiscal=gestion_fiscal,
             monto_total=Decimal('0.00'),
-            otras_afectaciones=Decimal('0.00'),
             fuente=fuente_base,
             organismo=None,
-            concepto='Techo importado del catálogo maestro (sin montos, R16)',
             descripcion=(
-                'Montos por flujo de techo; el catálogo maestro solo '
-                'parametriza rubro/fuente/organismo/entidad otorgante.'
+                'Techo importado del catálogo maestro (sin montos, R16): '
+                'montos por flujo de techo; el catálogo solo parametriza '
+                'rubro/fuente/organismo/entidad otorgante.'
             ),
             activo=True,
         )
         reporte.creados += 1
+
+    if RecursoTecho is None:
+        reporte.warnings.append(
+            'Desglose de recursos (RecursoTecho) omitido: el modelo no '
+            'existe en este árbol (rama s2). El techo 2027 se crea igual.'
+        )
+        reporte.conteos_modelo['TechoPresupuestario'] = (
+            TechoPresupuestario.objects.filter(gestion=gestion).count()
+        )
+        return
 
     for orden, fila in enumerate(filas):
         fuente = _resolver_fuente(fila['fuente_financiamiento'], 2026)

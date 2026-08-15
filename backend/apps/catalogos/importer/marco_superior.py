@@ -288,7 +288,22 @@ def importar_lineamientos(reporte, instrumento, version_pdesa, componentes):
 
 
 def importar_con_tiene(reporte, version_pdesa, componentes, lineamiento_por_sistema):
-    """Relación CONTIENE (170): componente del lineamiento (opción A)."""
+    """Relación CONTIENE (170): componente del lineamiento (opción A).
+
+    TODO(integracion-s2): main no tiene el campo ``LineamientoPAD.componente``
+    (la relación CONTIENE componente→lineamiento nació en la rama s2 con su
+    propia migración). Mientras no se integre, el vínculo se omite con
+    warning: ejes, componentes y lineamientos sí se importan.
+    """
+    if not any(
+        f.name == 'componente'
+        for f in LineamientoPAD._meta.fields
+    ):
+        reporte.warnings.append(
+            'Relación CONTIENE componente→lineamiento omitida: el campo '
+            'LineamientoPAD.componente no existe en este árbol (rama s2).'
+        )
+        return 0
     filas = leer_filas(
         """
         SELECT o.codigo_oficial AS componente_codigo,

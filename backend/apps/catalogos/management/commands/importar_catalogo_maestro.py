@@ -8,6 +8,14 @@ Lotes (orden crítico): L0 GestionFiscal 2026 → (L1 clasificadores + L5
 reglas) → (L2 marco superior + L3 acuerdos) → L4 sispoa → L6 dominios →
 L7 geográfico/sector. Por defecto ejecuta TODO en modo dry-run: lee,
 transforma y cuenta sin persistir (transaction.atomic + rollback).
+
+FUENTE DE DATOS: el comando lee los esquemas ``core|catalogo|sispe|sispoa``
+(``catalogo.clasificador_item``, ``catalogo.regla_gam``, ``sispe.elemento``,
+``sispoa.catalogo_programa``, ...) de la BD LEGACY del MEFP, NO de la BD de
+SISPOA. La conexión Django activa debe apuntar a un servidor que exponga
+esos esquemas (p. ej. el dump de producción con GRANT de lectura), o bien
+replicarlos previamente en la BD local. Sin esa BD el comando falla con
+ProgrammingError en el primer SELECT.
 """
 import argparse
 import json
@@ -186,7 +194,7 @@ class Command(BaseCommand):
             f'omitidos: {reporte.omitidos} | errores: {reporte.errores}'
         )
         for warning in reporte.warnings:
-            self.stdout.write(self.style.WARNING(f'  ⚠ {warning}'))
+            self.stdout.write(self.style.WARNING(f'  [!] {warning}'))
         for modelo, conteo in sorted(reporte.conteos_modelo.items()):
             self.stdout.write(f'  {modelo}: {conteo}')
 

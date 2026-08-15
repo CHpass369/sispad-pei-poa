@@ -14,15 +14,20 @@ FROM catalogo.regla_gam
 ORDER BY codigo_regla
 """
 
+# TODO(integracion-s2): el catálogo legacy tipa reglas con más variedad
+# (PORCENTAJE/IMPUTACION/PROGRAMA/FUENTE/PERSONAL/DESTINO/CODIGO) que
+# ReglaPresupuestariaLegal.Tipo en main. Mapeo conservador: LIMITE→limite,
+# PORCENTAJE→minimo (análogo en main: gasto_sus/renta_dignidad usan minimo)
+# y el resto a consistencia (fallback que el propio lote ya usa).
 MAPEO_TIPO = {
     'LIMITE': ReglaPresupuestariaLegal.Tipo.LIMITE,
-    'PORCENTAJE': ReglaPresupuestariaLegal.Tipo.PORCENTAJE,
-    'IMPUTACION': ReglaPresupuestariaLegal.Tipo.IMPUTACION,
-    'PROGRAMA': ReglaPresupuestariaLegal.Tipo.PROGRAMA,
-    'FUENTE': ReglaPresupuestariaLegal.Tipo.FUENTE,
-    'PERSONAL': ReglaPresupuestariaLegal.Tipo.PERSONAL,
-    'DESTINO': ReglaPresupuestariaLegal.Tipo.DESTINO,
-    'CODIGO': ReglaPresupuestariaLegal.Tipo.CODIGO,
+    'PORCENTAJE': ReglaPresupuestariaLegal.Tipo.MINIMO,
+    'IMPUTACION': ReglaPresupuestariaLegal.Tipo.CONSISTENCIA,
+    'PROGRAMA': ReglaPresupuestariaLegal.Tipo.CONSISTENCIA,
+    'FUENTE': ReglaPresupuestariaLegal.Tipo.CONSISTENCIA,
+    'PERSONAL': ReglaPresupuestariaLegal.Tipo.CONSISTENCIA,
+    'DESTINO': ReglaPresupuestariaLegal.Tipo.CONSISTENCIA,
+    'CODIGO': ReglaPresupuestariaLegal.Tipo.CONSISTENCIA,
 }
 
 MAPEO_SEVERIDAD = {

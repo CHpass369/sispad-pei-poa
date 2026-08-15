@@ -5,7 +5,17 @@
   con código = ``codigo_sistema`` del catálogo (p. ej. NDC3.AGROPECUARIO.M01).
 """
 from apps.catalogos.importer.base import ReporteLote, leer_filas, upsert
-from apps.articulacion.models import AcuerdoInternacional, MetaAcuerdoInternacional
+from apps.articulacion.models import AcuerdoInternacional
+
+# TODO(integracion-s2): ``articulacion.MetaAcuerdoInternacional`` (NDC/NDT/
+# KMGBF, codigo_sistema max 50) es un modelo nuevo de la rama que main NO
+# tiene. Hasta que se integre con su migración, el lote de metas se degrada
+# a un error reportado (sin romper el resto del comando). Los ODS siguen
+# importándose con normalidad.
+try:
+    from apps.articulacion.models import MetaAcuerdoInternacional
+except ImportError:  # pragma: no cover - degradación documentada
+    MetaAcuerdoInternacional = None
 
 SQL_ODS = """
 SELECT e.elemento_uuid, e.codigo_oficial, e.codigo_sistema, e.denominacion
@@ -48,6 +58,13 @@ def importar_ods(reporte):
 
 
 def importar_metas(reporte):
+    if MetaAcuerdoInternacional is None:
+        reporte.errores += 1
+        reporte.warnings.append(
+            'Lote de metas NDC/NDT/KMGBF omitido: articulacion.'
+            'MetaAcuerdoInternacional no existe en este árbol (rama s2).'
+        )
+        return
     filas = leer_filas(SQL_METAS)
     reporte.fuente = f'NDC/NDT/KMGBF ({len(filas)})'
     for fila in filas:

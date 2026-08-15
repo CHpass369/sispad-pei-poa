@@ -451,3 +451,70 @@ class VersionCatalogo(TimeStampedModel):
 
     def __str__(self):
         return f'{self.nombre} - {self.gestion}'
+
+
+class SectorEconomicoPresupuestario(CatalogoBase):
+    """Clasificador presupuestario de sector económico del catálogo maestro.
+
+    Independiente de ``codificacion.SectorEconomico`` (segmento SS del PAD):
+    este clasificador tiene 3 niveles y ~406 ítems (R5 del mapeo). Su código
+    es punteado (``1.1.1``) y la jerarquía se resuelve por ``parent_uuid``.
+    """
+
+    padre = models.ForeignKey(
+        'self',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='hijos',
+        verbose_name='Padre',
+    )
+    nivel = models.CharField(
+        max_length=20,
+        blank=True,
+        verbose_name='Nivel',
+        help_text='Profundidad derivada del código (1, 2 o 3).',
+    )
+
+    class Meta:
+        verbose_name = 'Sector económico presupuestario'
+        verbose_name_plural = 'Sectores económicos presupuestarios'
+        ordering = ['codigo']
+
+    def clean(self):
+        super().clean()
+        if self.padre_id and self.padre.gestion != self.gestion:
+            raise ValidationError(
+                {'padre': 'El padre debe pertenecer a la misma gestión.'}
+            )
+
+
+class ValidacionPlataforma(TimeStampedModel):
+    """Control parametrizado del motor de validaciones de articuladores.
+
+    El catálogo maestro trae 9 validaciones (VAL-001..009) por módulo
+    (POA/POAU/PRESUPUESTO/ARTICULACION/CODIFICACION/CRONOGRAMA/NORMATIVA).
+    Hoy el motor de validaciones no tenía modelo: esta tabla lo parametriza.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    codigo = models.CharField(max_length=20, unique=True, verbose_name='Código')
+    modulo = models.CharField(max_length=30, verbose_name='Módulo')
+    control = models.CharField(max_length=100, verbose_name='Control')
+    regla = models.TextField(blank=True, verbose_name='Regla')
+    nivel = models.CharField(
+        max_length=20, blank=True, default='ERROR', verbose_name='Nivel',
+    )
+    efecto = models.CharField(
+        max_length=30, blank=True, default='BLOQUEA_ENVIO', verbose_name='Efecto',
+    )
+    activo = models.BooleanField(default=True, verbose_name='Activo')
+    metadatos_importacion = models.JSONField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'Validación de plataforma'
+        verbose_name_plural = 'Validaciones de plataforma'
+        ordering = ['modulo', 'codigo']
+
+    def __str__(self):
+        return f'[{self.codigo}] {self.modulo} — {self.control}'
