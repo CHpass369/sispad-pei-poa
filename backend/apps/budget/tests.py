@@ -3931,3 +3931,408 @@ class AuditoriaFase11Tests(ReformulacionBase):
                       'OBSERVE', 'APPROVE', 'FREEZE', 'REFORM', 'RELEASE',
                       'CLOSE', 'RESTORE', 'CONSOLIDATE'):
             self.assertIn(clave, ACCIONES_AUDITORIA)
+
+
+# ===========================================================================
+# Fase 12 - Testing E2E del flujo completo (§135): APIClient real, superuser
+# ===========================================================================
+
+
+class FlujoCompletoE2ETests(TestCase):
+    """E2E del ciclo presupuestario completo vía API (Fase 12, §135).
+
+    Recorre el flujo del administrador de punta a punta usando SOLO
+    endpoints (APIClient autenticado como superuser), verificando cada paso
+    con un assert explícito (mensaje descriptivo) antes de continuar:
+
+        1. Habilitar la gestión 2040 (fiscal-years + enable).
+        2. Techo SIGEP (245.290.497,50; fuente 41 / organismo 113).
+        3. Recursos propios municipales (5.000.000).
+        4. Gastos obligatorios (6.464.396,00; fuente 41).
+        5. Composición (bruto / distribuible exactos).
+        6. Revisión → aprobación → fijación del techo (inmutable + hash).
+        7. Categorías programáticas (PROGRAMA 09 + SUBPROGRAMA 010).
+        8. Distribución: aperturas + reserva DISTRITAL = techo por fuente.
+        9. Validación de fijación (Σfuente = techo).
+        10. Fijación de la distribución (inmutable; sin aperturas nuevas).
+        11. Objetos del gasto (400.000 programado / 100.000 disponible;
+            exceso → 409 BUDGET_EXCEEDED y sistema intacto).
+        12. Reformulación TRASPASO (50.000 entre aperturas; saldos movidos
+            y ReformMovement con saldo_antes/saldo_despues).
+        13. Auditoría: evento por cada operación clave.
+
+    Montos Decimal exactos (sin float). Un solo `test_*` para preservar el
+    estado secuencial del flujo. Corre en < 2 minutos: TestCase Django en
+    una transacción, sin concurrencia real.
+    """
+
+    ANIO = 2040
+
+    # Datos de prueba del flujo (§135) — NO hardcodeados en código
+    # productivo, solo en este test.
+    SIGEP = Decimal('245290497.50')
+    MUNICIPAL = Decimal('5000000.00')
+    OBLIGATORIOS = Decimal('6464396.00')
+
+    def setUp(self):
+        self.admin = Usuario.objects.create_superuser(
+            email='admin@e2e.test', password='test2026'
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.admin)
+
+    # -- Helpers ------------------------------------------------------------
+
+    def _post(self, ruta, datos):
+        return self.client.post(f'{BUDGET_URL}{ruta}', datos, format='json')
+
+    def _crear_apertura(self, gestion, fuente, organismo, monto,
+                        denominacion):
+        resp = self._post('allocations/', {
+            'gestion': str(gestion.id), 'denominacion': denominacion,
+            'codigo_sisin': '12345678',
+            'fuentes': [{
+                'fuente': str(fuente.id), 'organismo': str(organismo.id),
+                'monto': monto,
+            }],
+        })
+        self.assertEqual(resp.status_code, 201, resp.data)
+        self.assertEqual(resp.data['estado'], 'ACTIVA', resp.data)
+        self.assertEqual(resp.data['total'], monto, resp.data)
+        return Allocation.objects.get(pk=resp.data['id'])
+
+    def _flujo_techo(self, ceiling_id, prefijo):
+        for paso in ('submit', 'approve', 'freeze'):
+            resp = self.client.post(
+                f'{BUDGET_URL}{prefijo}{ceiling_id}/{paso}/', {},
+                format='json',
+            )
+            self.assertEqual(resp.status_code, 200, f'{paso}: {resp.data}')
+        return resp
+
+    # -- E2E ----------------------------------------------------------------
+
+    def test_flujo_completo_administrador(self):
+        # --------------------------------------------------------------
+        # 1. Habilitar gestión: POST fiscal-years (2040) + enable
+        # --------------------------------------------------------------
+        resp = self._post('fiscal-years/', {'anio': self.ANIO})
+        self.assertEqual(resp.status_code, 201, resp.data)
+        self.assertEqual(resp.data['estado'], 'preparacion', resp.data)
+        gestion = GestionFiscal.objects.get(anio=self.ANIO)
+
+        resp = self.client.post(
+            f'{BUDGET_URL}fiscal-years/{gestion.id}/enable/', {},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(resp.data['estado'], 'HABILITADA',
+                         'el enable debe dejar la gestión HABILITADA')
+        gestion.refresh_from_db()
+        self.assertEqual(gestion.estado, 'HABILITADA',
+                         'el estado en BD debe ser HABILITADA')
+        self.assertIsNotNone(gestion.fecha_apertura)
+
+        # --------------------------------------------------------------
+        # 2-4. Catálogos + techo directivo (SIGEP, municipales, oblig.)
+        # --------------------------------------------------------------
+        fuente = FuenteFinanciamiento.objects.create(
+            codigo='41', denominacion='Coparticipación tributaria',
+            gestion=self.ANIO, fecha_vigencia_desde=timezone.now().date(),
+        )
+        organismo = OrganismoFinanciador.objects.create(
+            codigo='113', denominacion='Organismo financiador SIGEP',
+            gestion=self.ANIO, fecha_vigencia_desde=timezone.now().date(),
+        )
+
+        resp = self._post('directive-ceilings/', {'gestion': str(gestion.id)})
+        self.assertEqual(resp.status_code, 201, resp.data)
+        self.assertEqual(resp.data['estado'], 'BORRADOR', resp.data)
+        ceiling = DirectiveCeiling.objects.get(gestion=gestion)
+        version = DirectiveCeilingVersion.objects.get(
+            ceiling=ceiling, numero=1,
+        )
+        self.assertEqual(version.estado, 'BORRADOR',
+                         'la versión 1 del techo nace en BORRADOR')
+
+        resp = self._post('resources/', {
+            'version': str(version.id), 'origen': 'SIGEP', 'concepto': 'CT',
+            'monto': str(self.SIGEP), 'fuente': str(fuente.id),
+            'organismo': str(organismo.id),
+        })
+        self.assertEqual(resp.status_code, 201, resp.data)
+        self.assertEqual(resp.data['monto'], str(self.SIGEP), resp.data)
+
+        resp = self._post('resources/', {
+            'version': str(version.id), 'origen': 'MUNICIPAL',
+            'concepto': 'Ingresos propios', 'monto': str(self.MUNICIPAL),
+        })
+        self.assertEqual(resp.status_code, 201, resp.data)
+        self.assertEqual(resp.data['monto'], str(self.MUNICIPAL), resp.data)
+
+        resp = self._post('mandatory-expenses/', {
+            'version': str(version.id), 'denominacion': 'Gastos obligatorios',
+            'monto': str(self.OBLIGATORIOS), 'fuente': str(fuente.id),
+        })
+        self.assertEqual(resp.status_code, 201, resp.data)
+        self.assertEqual(resp.data['monto'], str(self.OBLIGATORIOS), resp.data)
+
+        # --------------------------------------------------------------
+        # 5. Composición: bruto = SIGEP + municipales; distribuible = − oblig.
+        # --------------------------------------------------------------
+        bruto = self.SIGEP + self.MUNICIPAL
+        distribuible = bruto - self.OBLIGATORIOS
+        resp = self.client.get(
+            f'{BUDGET_URL}directive-ceilings/{ceiling.id}/composition/'
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(Decimal(resp.data['techo_bruto']), bruto,
+                         f'techo bruto debe ser SIGEP + municipales = {bruto}')
+        self.assertEqual(
+            Decimal(resp.data['techo_distribuible']), distribuible,
+            f'distribuible = bruto − obligatorios = {distribuible}',
+        )
+        self.assertEqual(Decimal(resp.data['sigep']), self.SIGEP)
+        self.assertEqual(Decimal(resp.data['municipales']), self.MUNICIPAL)
+        self.assertEqual(Decimal(resp.data['gastos_obligatorios']),
+                         self.OBLIGATORIOS)
+        self.assertEqual(len(resp.data['por_fuente']), 2,
+                         'fuente 41 + recursos sin fuente agrupados aparte')
+        por_fuente = {f['fuente']: f for f in resp.data['por_fuente']}
+        self.assertEqual(Decimal(por_fuente['41']['monto']), self.SIGEP)
+        self.assertEqual(
+            Decimal(por_fuente['SIN_FUENTE']['monto']), self.MUNICIPAL,
+            'el recurso MUNICIPAL sin fuente se agrupa como SIN_FUENTE',
+        )
+
+        # --------------------------------------------------------------
+        # 6. Revisión → aprobación → fijación del techo
+        # --------------------------------------------------------------
+        self._flujo_techo(ceiling.id, 'directive-ceilings/')
+        version.refresh_from_db()
+        self.assertEqual(version.estado, 'FIJADO',
+                         'el techo debe quedar FIJADO tras el freeze')
+        self.assertTrue(version.inmutable,
+                        'la versión fijada es inmutable (solo lectura)')
+        self.assertTrue(version.hash,
+                        'la versión fijada lleva checksum SHA-256')
+        self.assertEqual(len(version.hash), 64)
+        self.assertTrue(version.verificar_hash(),
+                        'el checksum se verifica contra los datos')
+        ceiling.refresh_from_db()
+        self.assertEqual(ceiling.estado, 'FIJADO')
+
+        # --------------------------------------------------------------
+        # 7. Categorías programáticas (PROGRAMA 09 + SUBPROGRAMA 010)
+        # --------------------------------------------------------------
+        resp = self._post('programmatic-categories/', {
+            'gestion': gestion.id, 'codigo': '09',
+            'denominacion': 'Servicios generales', 'nivel': 'PROGRAMA',
+        })
+        self.assertEqual(resp.status_code, 201, resp.data)
+        self.assertEqual(resp.data['codigo'], '09',
+                         'el código preserva los ceros')
+        resp = self._post('programmatic-categories/', {
+            'gestion': gestion.id, 'codigo': '010',
+            'denominacion': 'Servicios administrativos',
+            'nivel': 'SUBPROGRAMA', 'parent': resp.data['id'],
+        })
+        self.assertEqual(resp.status_code, 201, resp.data)
+        self.assertEqual(resp.data['codigo_compuesto'], '09.010')
+
+        # --------------------------------------------------------------
+        # 8. Distribución: aperturas + reserva DISTRITAL = techo por fuente
+        # --------------------------------------------------------------
+        techo_fuente41 = self.SIGEP - self.OBLIGATORIOS  # 238.826.101,50
+        apertura_a = self._crear_apertura(
+            gestion, fuente, organismo, '200000000.00', 'Apertura principal',
+        )
+        apertura_b = self._crear_apertura(
+            gestion, fuente, organismo, '500000.00', 'Apertura ejemplo 500K',
+        )
+        distribuido_total = Decimal('200500000.00')
+        reserva_monto = techo_fuente41 - distribuido_total  # 38.326.101,50
+        self.assertGreater(reserva_monto, Decimal('0.00'))
+        resp = self._post('reserves/', {
+            'gestion': str(gestion.id), 'fuente': str(fuente.id),
+            'organismo': str(organismo.id), 'tipo': 'DISTRITAL',
+            'motivo': 'Reserva por el resto del techo distribuible',
+            'monto': str(reserva_monto),
+        })
+        self.assertEqual(resp.status_code, 201, resp.data)
+        self.assertEqual(resp.data['tipo'], 'DISTRITAL', resp.data)
+        self.assertEqual(resp.data['estado'], 'ACTIVA', resp.data)
+
+        # Σ por fuente: distribuido + reservado = techo → disponible 0.
+        self.assertEqual(
+            distribuido_por_fuente(gestion)[fuente.id], distribuido_total,
+            'el distribuido debe ser la suma de las aperturas',
+        )
+        self.assertEqual(
+            reservado_por_fuente(gestion)[fuente.id], reserva_monto,
+            'la reserva DISTRITAL cubre exactamente el resto del techo',
+        )
+        self.assertEqual(
+            disponible_por_fuente(gestion)[fuente.id], Decimal('0.00'),
+            'sin disponible: distribuido + reserva = techo por fuente',
+        )
+
+        # --------------------------------------------------------------
+        # 9. Validación de la fijación (GET validate → Σfuente = techo)
+        # --------------------------------------------------------------
+        version_dist = version_distribucion_activa(gestion)
+        self.assertEqual(version_dist.numero, 1, version_dist.numero)
+        resp = self.client.get(
+            f'{BUDGET_URL}distributions/{version_dist.id}/validate/'
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertTrue(resp.data['valida'],
+                        'la distribución está completa por fuente')
+        fila = resp.data['diferencias'][0]
+        self.assertEqual(Decimal(fila['techo']), techo_fuente41)
+        self.assertEqual(Decimal(fila['distribuido']), distribuido_total)
+        self.assertEqual(Decimal(fila['reservado']), reserva_monto)
+        self.assertEqual(Decimal(fila['diferencia']), Decimal('0.00'))
+
+        # --------------------------------------------------------------
+        # 10. Fijar la distribución (submit → approve → freeze)
+        # --------------------------------------------------------------
+        self._flujo_techo(version_dist.id, 'distributions/')
+        version_dist.refresh_from_db()
+        self.assertEqual(version_dist.estado, 'FIJADO',
+                         'la distribución debe quedar FIJADA')
+        self.assertTrue(version_dist.inmutable)
+        self.assertTrue(version_dist.hash)
+        self.assertEqual(len(version_dist.hash), 64)
+        self.assertTrue(version_dist.verificar_hash())
+
+        # Inmutabilidad E2E: una apertura nueva tras la fijación se rechaza.
+        resp = self._post('allocations/', {
+            'gestion': str(gestion.id), 'denominacion': 'Post fijación',
+            'fuentes': [{
+                'fuente': str(fuente.id), 'organismo': str(organismo.id),
+                'monto': '100.00',
+            }],
+        })
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertIn('fijada', json.dumps(resp.data))
+
+        # --------------------------------------------------------------
+        # 11. Objetos del gasto sobre la apertura de 500.000
+        # --------------------------------------------------------------
+        objetos = {}
+        for codigo, denominacion in (
+            ('25220', 'Papelería y útiles'),
+            ('34200', 'Pasajes al interior'),
+            ('43110', 'Maquinaria y equipo'),
+            ('42310', 'Muebles de oficina'),
+        ):
+            objetos[codigo] = ObjetoGasto.objects.create(
+                codigo=codigo, denominacion=denominacion, gestion=self.ANIO,
+                fecha_vigencia_desde=timezone.now().date(),
+            )
+        for codigo, monto in (('25220', '100000.00'),
+                              ('34200', '180000.00'),
+                              ('43110', '120000.00')):
+            resp = self._post('expense-objects/', {
+                'allocation': str(apertura_b.id),
+                'objeto_gasto': str(objetos[codigo].id), 'monto': monto,
+            })
+            self.assertEqual(resp.status_code, 201, resp.data)
+        self.assertEqual(
+            BudgetControlService.get_allocated_to_expense_objects(apertura_b),
+            Decimal('400000.00'),
+            'programado = 100.000 + 180.000 + 120.000 = 400.000',
+        )
+        self.assertEqual(
+            BudgetControlService.get_allocation_available(apertura_b),
+            Decimal('100000.00'),
+            'disponible = techo 500.000 − programado 400.000',
+        )
+        resp = self._post('expense-objects/', {
+            'allocation': str(apertura_b.id),
+            'objeto_gasto': str(objetos['42310'].id), 'monto': '150000.00',
+        })
+        self.assertEqual(resp.status_code, 409,
+                         'programar 150.000 sobre disponible 100.000 → 409')
+        self.assertEqual(resp.data['code'], 'BUDGET_EXCEEDED', resp.data)
+        self.assertEqual(resp.data['details']['requested'], '150000.00')
+        self.assertEqual(resp.data['details']['available'], '100000.00')
+        self.assertEqual(resp.data['details']['difference'], '50000.00')
+        self.assertFalse(
+            ExpenseObjectAllocation.objects.filter(
+                allocation=apertura_b, objeto_gasto=objetos['42310'],
+            ).exists(),
+            'la programación con exceso no se persiste',
+        )
+        self.assertEqual(
+            ExpenseObjectAllocation.objects.filter(allocation=apertura_b)
+            .count(), 3,
+            'el sistema queda intacto tras el rechazo (siguen 3 objetos)',
+        )
+
+        # --------------------------------------------------------------
+        # 12. Reformulación: TRASPASO de 50.000 entre aperturas (fuente 41)
+        # --------------------------------------------------------------
+        resp = self._post('reforms/', {
+            'gestion': str(gestion.id), 'tipo': 'TRASPASO',
+            'motivo': 'Reasignación entre aperturas (E2E)',
+            'movimientos': [{
+                'tipo': 'TRASPASO',
+                'apertura_origen': str(apertura_a.id),
+                'apertura_destino': str(apertura_b.id),
+                'fuente': str(fuente.id), 'organismo': str(organismo.id),
+                'monto': '50000.00', 'motivo': 'Traspaso E2E',
+            }],
+        })
+        self.assertEqual(resp.status_code, 201, resp.data)
+        self.assertEqual(resp.data['estado'], 'BORRADOR', resp.data)
+        reform_id = resp.data['id']
+        for paso in ('submit', 'approve', 'apply'):
+            resp = self.client.post(
+                f'{BUDGET_URL}reforms/{reform_id}/{paso}/', {}, format='json',
+            )
+            self.assertEqual(resp.status_code, 200, f'{paso}: {resp.data}')
+        self.assertEqual(resp.data['estado'], 'APLICADA', resp.data)
+        self.assertIsNotNone(resp.data['fecha_aplicacion'])
+
+        # Saldos movidos: origen −50.000, destino +50.000.
+        self.assertEqual(
+            AllocationSource.objects.get(
+                allocation=apertura_a, fuente=fuente,
+            ).monto,
+            Decimal('199950000.00'),
+            'origen: 200.000.000 − 50.000 = 199.950.000',
+        )
+        self.assertEqual(
+            AllocationSource.objects.get(
+                allocation=apertura_b, fuente=fuente,
+            ).monto,
+            Decimal('550000.00'),
+            'destino: 500.000 + 50.000 = 550.000',
+        )
+        mov = ReformMovement.objects.get(reform_id=reform_id)
+        self.assertEqual(mov.saldo_antes, Decimal('200000000.00'),
+                         'saldo_antes del origen antes del movimiento')
+        self.assertEqual(mov.saldo_despues, Decimal('199950000.00'),
+                         'saldo_despues del origen tras el movimiento')
+
+        # --------------------------------------------------------------
+        # 13. Auditoría: al menos un evento por operación clave (§135)
+        # --------------------------------------------------------------
+        resp = self.client.get(
+            f'{BUDGET_URL}audit/', {'gestion': str(self.ANIO)},
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertGreaterEqual(resp.data['count'], 1)
+        entidades = {fila['entidad'] for fila in resp.data['results']}
+        for entidad, operacion in (
+            ('GestionFiscal', 'enable de la gestión'),
+            ('DirectiveCeilingVersion', 'freeze del techo directivo'),
+            ('DistributionVersion', 'freeze de la distribución'),
+            ('Reform', 'reformulación aplicada'),
+        ):
+            self.assertIn(
+                entidad, entidades,
+                f'la auditoría debe incluir la operación: {operacion}',
+            )
