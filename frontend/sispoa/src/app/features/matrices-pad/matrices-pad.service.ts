@@ -26,6 +26,12 @@ export interface MatrizGestionResponse {
  *   guardarSeccion(id, seccion, valores) → PATCH {"seccion": ..., "valores": ...}
  * Los visualizadores Matriz A/B leen en vivo:
  *   GET /borradores-matriz-pad/{id}/matriz_a|b/
+ *
+ * TODO(integracion-s2): los endpoints /articulacion/borradores-matriz-pad/* y
+ * /articulacion/matrices/matriz_[ab]_gestion/ pertenecen al núcleo Matrices
+ * PAD de la rama s2, descartado en esta integración; el backend de estos
+ * contratos lo decide el orquestador. Las URLs usan el patrón ApiService
+ * (environment.apiUrl) de main.
  */
 @Injectable({ providedIn: 'root' })
 export class MatricesPadService {

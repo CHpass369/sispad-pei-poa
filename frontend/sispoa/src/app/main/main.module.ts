@@ -30,6 +30,7 @@ const routes: Routes = [
       { path: 'reportes', loadChildren: () => import('../features/reportes/reportes.module').then(m => m.ReportesModule) },
       { path: 'articulacion', loadChildren: () => import('../features/articulacion/articulacion.module').then(m => m.ArticulacionModule) },
       { path: 'articulador', loadChildren: () => import('../features/pad/pad.module').then(m => m.PadModule) },
+      { path: 'matrices-pad', loadChildren: () => import('../features/matrices-pad/matrices-pad.module').then(m => m.MatricesPadModule) },
       { path: 'poau', loadChildren: () => import('../features/poau/poau.module').then(m => m.PoauModule) },
       { path: 'auditoria', loadChildren: () => import('../features/auditoria/auditoria.module').then(m => m.AuditoriaModule) },
       { path: 'admin-usuarios', loadChildren: () => import('../features/admin-usuarios/admin-usuarios.module').then(m => m.AdminUsuariosModule) },
