@@ -46,7 +46,7 @@ LOCAL_APPS = [
     'apps.notificaciones',
     'apps.seguimiento.apps.SeguimientoConfig',
     'apps.acciones_correctivas',
-    'apps.articulacion',
+    'apps.articulacion.apps.ArticulacionConfig',
     'apps.codificacion.apps.CodificacionConfig',
     'apps.budget.apps.BudgetConfig',
 ]

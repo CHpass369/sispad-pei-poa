@@ -45,7 +45,7 @@ LOCAL_APPS_TEST = [
     'apps.notificaciones',
     'apps.seguimiento.apps.SeguimientoConfig',
     'apps.acciones_correctivas',
-    'apps.articulacion',
+    'apps.articulacion.apps.ArticulacionConfig',
     'apps.codificacion.apps.CodificacionConfig',
 ]
 
