@@ -1,7 +1,7 @@
 {
-  "name": "sispoa",
+  "name": "pip-sacaba",
   "version": "0.1.0",
-  "description": "SISPOA Sacaba - Frontend",
+  "description": "PIP Sacaba - Frontend",
   "private": true,
   "scripts": {
     "ng": "ng",

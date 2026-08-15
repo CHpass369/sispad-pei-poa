@@ -81,7 +81,7 @@ import {
         <button class="btn btn-sm" (click)="generar('ITCP')" [disabled]="!puedeValidar">📄 Generar ITCP DOCX</button>
         <button class="btn btn-sm" (click)="generar('EDTP')" [disabled]="!puedeValidar">📄 Generar EDTP DOCX</button>
         <button class="btn btn-sm" (click)="cambiarEstado('enviado_poa')" [disabled]="!puedeValidar">
-          ➜ Enviar a SISPOA
+          ➜ Enviar a SIS-POA
         </button>
       </div>
       <div class="acciones mt">

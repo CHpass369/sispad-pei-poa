@@ -585,7 +585,7 @@ export class PreinversionService {
       itcp_revision: 'ITCP en revisión', itcp_aprobado: 'ITCP aprobado',
       edtp_elaboracion: 'EDTP en elaboración', edtp_revision: 'EDTP en revisión',
       edtp_aprobado: 'EDTP aprobado', viable: 'Viable',
-      habilitado_poa: 'Habilitado para POA', enviado_poa: 'Enviado a SISPOA',
+      habilitado_poa: 'Habilitado para POA', enviado_poa: 'Enviado a SIS-POA',
       no_viable: 'No viable', archivado: 'Archivado',
     };
     return mapa[estado] ?? estado;
