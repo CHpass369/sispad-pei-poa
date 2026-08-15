@@ -20,6 +20,7 @@ from .views import (
     FiscalYearViewSet,
     MandatoryExpenseViewSet,
     ProgrammaticCategoryViewSet,
+    ReformViewSet,
     ReserveViewSet,
     TerritorialDistributionViewSet,
 )
@@ -54,6 +55,7 @@ budget_router.register(
     'territorial-distributions', TerritorialDistributionViewSet,
     basename='v2-territorial-distributions',
 )
+budget_router.register('reforms', ReformViewSet, basename='v2-budget-reforms')
 
 urlpatterns = [
     path(

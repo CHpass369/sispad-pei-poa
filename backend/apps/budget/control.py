@@ -27,13 +27,18 @@ Convenciones:
       `transaction.atomic` y lockean las filas del techo fijado.
 
 Fases futuras (NO ampliar alcance acá):
-    - Fase 10: `apply_movement` implementa el movimiento atómico de
-      reformulación (hoy solo valida el saldo del origen).
+    - Fase 11: auditoría transversal completa (la reformulación ya registra
+      EventoAuditoria en aplicar; la UI de consulta es Fase 11).
 
 Fase 9 (objetos del gasto): `get_allocated_to_expense_objects`/
 `get_allocation_available`/`validate_expense_object` ya están completos
 sobre `ExpenseObjectAllocation`; la programación la ejecuta
 `services.programar_objeto_gasto` (upsert, BUDGET_EXCEEDED → HTTP 409).
+
+Fase 10 (reformulaciones): `apply_movement` implementa el movimiento
+atómico TRASPASO (origen → destino por fuente) con locks y saldos
+antes/después; `services.aplicar_reform` lo reutiliza y resuelve
+INCREMENTO/DISMINUCION/CAMBIO_FUENTE sobre el mismo kernel.
 """
 from decimal import Decimal
 
@@ -45,6 +50,7 @@ from apps.auditoria.services import registrar_evento
 
 from .models import (
     Allocation,
+    AllocationSource,
     EstadoApertura,
     EstadoReserva,
     EstadosTecho,
@@ -351,17 +357,38 @@ class BudgetControlService:
     @staticmethod
     @transaction.atomic
     def apply_movement(orig, dest, fuente, organismo, monto, motivo, usuario):
-        """Valida un movimiento entre aperturas (preparado para Fase 10).
+        """Mueve `monto` de una apertura a otra POR FUENTE (Fase 10).
 
-        Fase 8: valida que el origen exista, el monto sea > 0 y que el saldo
-        del origen alcance (BUDGET_EXCEEDED si no) SIN mover montos —
-        devuelve {'valido': True, 'movido': False}. El lock cubre la fila de
-        la apertura origen y las filas del techo de la fuente. La Fase 10
-        (reformulaciones) implementa el movimiento atómico con saldos
-        antes/después sobre este esqueleto.
+        Movimiento básico de reformulación TRASPASO (origen → destino):
+        reduce el `AllocationSource` (origen, fuente, organismo) y aumenta
+        el de (destino, fuente, organismo), creándolo si no existe.
+
+        Concurrencia (§87): locks sobre la fila de la apertura origen
+        (`select_for_update`) y sobre las filas del techo fijado de la
+        fuente (`_bloquear_fuentes`), que es el punto de serialización de
+        TODAS las escrituras del ciclo.
+
+        Validaciones (reglas §151 en backend, innegociables):
+            - monto > 0 y aperturas existentes.
+            - saldo_origen >= monto → si no, `ErrorDisponibilidad`
+              (code BUDGET_EXCEEDED, details requested/available/difference).
+            - el saldo resultante del DESTINO no excede el techo distribuible
+              de la fuente (`techo_distribuible_por_fuente`); en un traspaso
+              el agregado de la fuente se conserva, así que solo dispara si
+              la distribución ya estaba inconsistente (red de seguridad).
+
+        Devuelve {'valido', 'movido', 'origen', 'destino', 'fuente',
+        'saldo_antes', 'saldo_despues'} — los saldos del AllocationSource de
+        ORIGEN antes/después, que `services.aplicar_reform` persiste en el
+        `ReformMovement` (histórico).
         """
         if monto is None or monto <= 0:
             raise ValidationError('El monto del movimiento debe ser mayor que 0.')
+        if fuente is None:
+            raise ValidationError(
+                'El movimiento entre aperturas debe indicar una fuente '
+                'de financiamiento.'
+            )
         origen = (
             Allocation.objects
             .select_for_update()
@@ -370,19 +397,81 @@ class BudgetControlService:
         )
         if origen is None:
             raise ValidationError('La apertura de origen no existe.')
-        fuente_id = getattr(fuente, 'id', fuente)
-        BudgetControlService._bloquear_fuentes(
-            origen.gestion,
-            {fuente_id} if fuente_id else set(),
+        destino = (
+            Allocation.objects
+            .select_for_update()
+            .filter(pk=dest.pk)
+            .first()
         )
-        disponible = BudgetControlService.get_allocation_available(origen)
-        if monto > disponible:
-            raise ErrorDisponibilidad(fuente_id or '', monto, disponible)
+        if destino is None:
+            raise ValidationError('La apertura de destino no existe.')
+
+        fuente_id = getattr(fuente, 'id', fuente)
+        organismo_id = getattr(organismo, 'id', organismo) if organismo else None
+        BudgetControlService._bloquear_fuentes(
+            origen.gestion, {fuente_id},
+        )
+
+        # Lock y lectura del saldo del origen (Fase 8: validaba sin mover;
+        # Fase 10: el movimiento es atómico con saldos antes/después).
+        origen_src = (
+            AllocationSource.objects
+            .select_for_update()
+            .filter(
+                allocation=origen, fuente_id=fuente_id,
+                organismo_id=organismo_id,
+            )
+            .first()
+        )
+        saldo_antes = (
+            origen_src.monto if origen_src is not None else Decimal('0.00')
+        )
+        if monto > saldo_antes:
+            raise ErrorDisponibilidad(fuente_id, monto, saldo_antes)
+
+        # Destino: no excede el techo distribuible de la fuente (§96).
+        destino_src = (
+            AllocationSource.objects
+            .select_for_update()
+            .filter(
+                allocation=destino, fuente_id=fuente_id,
+                organismo_id=organismo_id,
+            )
+            .first()
+        )
+        saldo_destino = (
+            destino_src.monto if destino_src is not None else Decimal('0.00')
+        )
+        techo = techo_distribuible_por_fuente(origen.gestion)
+        if saldo_destino + monto > techo.get(fuente_id, Decimal('0.00')):
+            raise ValidationError(
+                'El saldo resultante del destino supera el techo '
+                'distribuible de la fuente.'
+            )
+
+        # Aplicación atómica del movimiento.
+        origen_src.monto = saldo_antes - monto
+        origen_src.updated_by = usuario
+        origen_src.save(update_fields=['monto', 'updated_by', 'updated_at'])
+        if destino_src is None:
+            destino_src = AllocationSource.objects.create(
+                allocation=destino, fuente_id=fuente_id,
+                organismo_id=organismo_id, monto=monto,
+                created_by=usuario, updated_by=usuario,
+            )
+        else:
+            destino_src.monto = saldo_destino + monto
+            destino_src.updated_by = usuario
+            destino_src.save(update_fields=['monto', 'updated_by', 'updated_at'])
+
         return {
             'valido': True,
-            'movido': False,
+            'movido': True,
             'origen': str(origen.id),
-            'monto': monto,
+            'destino': str(destino.id),
+            'fuente': str(fuente_id),
+            'saldo_antes': saldo_antes,
+            'saldo_despues': origen_src.monto,
         }
 
     # ------------------------------------------------------------------

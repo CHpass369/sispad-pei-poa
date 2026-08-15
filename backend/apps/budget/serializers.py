@@ -29,9 +29,12 @@ from .models import (
     ImportError,
     MandatoryExpense,
     ProgrammaticCategory,
+    Reform,
+    ReformMovement,
     Reserve,
     TerritorialAllocation,
     TerritorialDistribution,
+    TipoMovimientoReform,
 )
 from .services import (
     composicion_techo,
@@ -828,3 +831,156 @@ class TerritorialDistributionSerializer(serializers.ModelSerializer):
             ['monto_total']
         )
         return str(total) if total is not None else '0.00'
+
+
+# ---------------------------------------------------------------------------
+# Fase 10 - Reformulaciones (cabecera + movimientos con saldos antes/después)
+# ---------------------------------------------------------------------------
+class ReformMovementInput(serializers.Serializer):
+    """Fila de movimiento del payload de create (write-only, §92-97).
+
+    Campos: {tipo, apertura_origen?, apertura_destino?, fuente?,
+    organismo?, monto}. La estructura (aperturas de la gestión, monto > 0)
+    la valida `services._validar_movimientos_reform`; la disponibilidad de
+    saldos se valida al aplicar (`aplicar_reform`).
+    """
+
+    tipo = serializers.ChoiceField(choices=TipoMovimientoReform.CHOICES)
+    apertura_origen = serializers.IntegerField(
+        required=False, allow_null=True,
+    )
+    apertura_destino = serializers.IntegerField(
+        required=False, allow_null=True,
+    )
+    fuente = serializers.UUIDField(required=False, allow_null=True)
+    organismo = serializers.UUIDField(required=False, allow_null=True)
+    monto = serializers.DecimalField(
+        max_digits=18, decimal_places=2, min_value=Decimal('0.01'),
+    )
+    motivo = serializers.CharField(required=False, allow_blank=True,
+                                   max_length=300)
+
+
+def _detalle_apertura(apertura) -> dict | None:
+    """{'id', 'denominacion', 'codigo_sisin'} de la apertura o None."""
+    if apertura is None:
+        return None
+    return {
+        'id': str(apertura.id),
+        'denominacion': apertura.denominacion,
+        'codigo_sisin': apertura.codigo_sisin or '',
+    }
+
+
+class ReformMovementSerializer(serializers.ModelSerializer):
+    """Movimiento de reformulación: lectura con detalles y saldos."""
+
+    tipo_display = serializers.CharField(
+        source='get_tipo_display', read_only=True,
+    )
+    apertura_origen_detalle = serializers.SerializerMethodField()
+    apertura_destino_detalle = serializers.SerializerMethodField()
+    fuente_detalle = serializers.SerializerMethodField()
+    organismo_detalle = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ReformMovement
+        fields = [
+            'id', 'tipo', 'tipo_display', 'apertura_origen',
+            'apertura_origen_detalle', 'apertura_destino',
+            'apertura_destino_detalle', 'fuente', 'fuente_detalle',
+            'organismo', 'organismo_detalle', 'monto', 'saldo_antes',
+            'saldo_despues', 'motivo', 'created_at', 'updated_at',
+        ]
+        read_only_fields = fields
+
+    def get_apertura_origen_detalle(self, obj) -> dict | None:
+        return _detalle_apertura(obj.apertura_origen)
+
+    def get_apertura_destino_detalle(self, obj) -> dict | None:
+        return _detalle_apertura(obj.apertura_destino)
+
+    def get_fuente_detalle(self, obj) -> dict | None:
+        return _detalle_catalogo(obj.fuente)
+
+    def get_organismo_detalle(self, obj) -> dict | None:
+        return _detalle_catalogo(obj.organismo)
+
+
+class ReformSerializer(serializers.ModelSerializer):
+    """Reformulación: cabecera + movimientos anidados.
+
+    Escritura: `movimientos_input` acepta [{tipo, apertura_origen?,
+    apertura_destino?, fuente?, organismo?, monto, motivo?}]; el viewset
+    delega la creación en `services.crear_reform` (transacción + validación
+    de gestión/distribución fijada). Lectura: `movimientos` con detalles y
+    saldos.
+    """
+
+    gestion_anio = serializers.IntegerField(source='gestion.anio', read_only=True)
+    tipo_display = serializers.CharField(source='get_tipo_display', read_only=True)
+    estado_display = serializers.CharField(
+        source='get_estado_display', read_only=True,
+    )
+    solicitada_por_email = serializers.SerializerMethodField()
+    aprobada_por_email = serializers.SerializerMethodField()
+    version_origen_numero = serializers.SerializerMethodField()
+    movimientos = ReformMovementSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Reform
+        fields = [
+            'id', 'gestion', 'gestion_anio', 'tipo', 'tipo_display',
+            'estado', 'estado_display', 'motivo', 'resolucion',
+            'documento', 'version_origen', 'version_origen_numero',
+            'version_resultante', 'solicitada_por', 'solicitada_por_email',
+            'aprobada_por', 'aprobada_por_email', 'fecha_aplicacion',
+            'movimientos', 'created_at', 'updated_at',
+        ]
+        read_only_fields = [
+            'id', 'estado', 'estado_display', 'version_origen',
+            'version_origen_numero', 'version_resultante', 'solicitada_por',
+            'aprobada_por', 'fecha_aplicacion', 'movimientos',
+            'created_at', 'updated_at',
+        ]
+        extra_kwargs = {
+            'gestion': {'required': True},
+            'tipo': {'required': True},
+            'documento': {'required': False, 'allow_null': True},
+            'resolucion': {'required': False, 'allow_blank': True},
+            'motivo': {'required': False, 'allow_blank': True},
+        }
+
+    def get_solicitada_por_email(self, obj) -> str | None:
+        return obj.solicitada_por.email if obj.solicitada_por else None
+
+    def get_aprobada_por_email(self, obj) -> str | None:
+        return obj.aprobada_por.email if obj.aprobada_por else None
+
+    def get_version_origen_numero(self, obj) -> int | None:
+        return obj.version_origen.numero if obj.version_origen else None
+
+    def to_internal_value(self, data):
+        """Extrae `movimientos` del payload y valida cada fila (patrón
+        `AllocationSerializer.fuentes`): la lectura `movimientos` sigue
+        siendo read-only y la escritura viaja por el mismo nombre."""
+        data = dict(data)
+        movimientos_raw = data.pop('movimientos', None)
+        validated = super().to_internal_value(data)
+        if movimientos_raw is not None:
+            if not isinstance(movimientos_raw, (list, tuple)):
+                raise serializers.ValidationError({
+                    'movimientos': 'Debe ser una lista de {tipo, '
+                                   'apertura_origen, apertura_destino, '
+                                   'fuente, organismo, monto}.',
+                })
+            entradas = []
+            for i, fila in enumerate(movimientos_raw):
+                serializador = ReformMovementInput(data=fila)
+                if not serializador.is_valid():
+                    raise serializers.ValidationError({
+                        'movimientos': {i: serializador.errors},
+                    })
+                entradas.append(serializador.validated_data)
+            validated['movimientos'] = entradas
+        return validated

@@ -10,6 +10,7 @@ import { FiscalYearComponent } from './fiscal-year.component';
 import { ImportsComponent } from './imports.component';
 import { MonedaPipe } from './moneda.pipe';
 import { ProgrammaticCategoriesComponent } from './programmatic-categories.component';
+import { ReformsComponent } from './reforms.component';
 import { TerritorialComponent } from './territorial.component';
 
 const routes: Routes = [
@@ -50,6 +51,12 @@ const routes: Routes = [
     canActivate: [CapabilityGuard],
     data: { capacidades: ['sis_poa.budget.import'] },
   },
+  {
+    path: 'reformulaciones',
+    component: ReformsComponent,
+    canActivate: [CapabilityGuard],
+    data: { capacidades: ['sis_poa.budget.reform', 'sis_poa.formulate'] },
+  },
 ];
 
 @NgModule({
@@ -60,6 +67,7 @@ const routes: Routes = [
     DistributionComponent,
     ImportsComponent,
     TerritorialComponent,
+    ReformsComponent,
     MonedaPipe,
   ],
   imports: [CommonModule, FormsModule, RouterModule.forChild(routes)],

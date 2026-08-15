@@ -26,6 +26,7 @@ export interface FiscalYearInput {
 }
 
 export interface DetalleCatalogo {
+  id?: string;
   codigo: string;
   denominacion: string;
   /** Variante del endpoint /catalogs/ (GET /catalogs/ devuelve `nombre`). */
@@ -265,6 +266,91 @@ export interface ApiErrorResponse {
   details?: { requested?: string; available?: string; difference?: string };
 }
 
+// -- Reformulaciones (Fase 10, §92-97) --------------------------------------
+
+export type TipoReform =
+  | 'TRASPASO'
+  | 'INCREMENTO'
+  | 'DISMINUCION'
+  | 'NUEVA_APERTURA'
+  | 'CIERRE_APERTURA'
+  | 'CAMBIO_FUENTE'
+  | 'AJUSTE_DISTRIBUCION';
+
+export type EstadoReform =
+  | 'BORRADOR'
+  | 'EN_REVISION'
+  | 'OBSERVADA'
+  | 'APROBADA'
+  | 'APLICADA'
+  | 'RECHAZADA';
+
+export interface DetalleAperturaReform {
+  id: string;
+  denominacion: string;
+  codigo_sisin: string;
+}
+
+export interface ReformMovement {
+  id: number;
+  tipo: string;
+  tipo_display: string;
+  apertura_origen: number | null;
+  apertura_origen_detalle: DetalleAperturaReform | null;
+  apertura_destino: number | null;
+  apertura_destino_detalle: DetalleAperturaReform | null;
+  fuente: string | null;
+  fuente_detalle: DetalleCatalogo | null;
+  organismo: string | null;
+  organismo_detalle: DetalleCatalogo | null;
+  monto: string;
+  saldo_antes: string | null;
+  saldo_despues: string | null;
+  motivo: string;
+}
+
+export interface ReformMovementInput {
+  tipo: string;
+  apertura_origen?: number | null;
+  apertura_destino?: number | null;
+  fuente?: string | null;
+  organismo?: string | null;
+  monto: string | number;
+  motivo?: string;
+}
+
+export interface Reform {
+  id: number;
+  gestion: string;
+  gestion_anio: number;
+  tipo: string;
+  tipo_display: string;
+  estado: string;
+  estado_display: string;
+  motivo: string;
+  resolucion: string;
+  documento: number | null;
+  version_origen: number | null;
+  version_origen_numero: number | null;
+  version_resultante: number | null;
+  solicitada_por: string;
+  solicitada_por_email: string;
+  aprobada_por: string | null;
+  aprobada_por_email: string | null;
+  fecha_aplicacion: string | null;
+  movimientos: ReformMovement[];
+  created_at: string;
+}
+
+export interface ReformInput {
+  gestion: string;
+  tipo: string;
+  motivo?: string;
+  resolucion?: string;
+  documento?: number | null;
+  movimientos: ReformMovementInput[];
+}
+
 
 /** Composición del techo directivo (§22). Montos en string (convención API). */
 export interface Composition {
@@ -452,8 +538,7 @@ export interface ImportResultado {
 
 // -- Distribución territorial (Fase 6) --------------------------------------
 
-export interface TerritorialAllocation {
-  id: number;
+export interface TerritorialAllocation {  id: number;
   distrito: string;
   distrito_detalle: DetalleDistrito;
   poblacion: number | null;
@@ -883,5 +968,46 @@ export class BudgetService {
       `${this.base}/control/validate/`,
       { tipo: 'allocation', allocation: allocationId },
     );
+  }
+
+  // -- Reformulaciones (Fase 10) ---------------------------------------------
+
+  listarReforms(params?: { gestion?: string; estado?: string; tipo?: string }):
+    Observable<Paginado<Reform>> {
+    return this.http.get<Paginado<Reform>>(`${this.base}/reforms/`, {
+      params: this.params(params),
+    });
+  }
+
+  crearReform(data: ReformInput): Observable<Reform> {
+    return this.http.post<Reform>(`${this.base}/reforms/`, data);
+  }
+
+  detalleReform(id: number): Observable<Reform> {
+    return this.http.get<Reform>(`${this.base}/reforms/${id}/`);
+  }
+
+  submitReform(id: number): Observable<Reform> {
+    return this.http.post<Reform>(`${this.base}/reforms/${id}/submit/`, {});
+  }
+
+  observarReform(id: number, motivo: string): Observable<Reform> {
+    return this.http.post<Reform>(
+      `${this.base}/reforms/${id}/observe/`, { observaciones: motivo },
+    );
+  }
+
+  aprobarReform(id: number): Observable<Reform> {
+    return this.http.post<Reform>(`${this.base}/reforms/${id}/approve/`, {});
+  }
+
+  rechazarReform(id: number, motivo: string): Observable<Reform> {
+    return this.http.post<Reform>(
+      `${this.base}/reforms/${id}/reject/`, { motivo },
+    );
+  }
+
+  aplicarReform(id: number): Observable<Reform> {
+    return this.http.post<Reform>(`${this.base}/reforms/${id}/apply/`, {});
   }
 }

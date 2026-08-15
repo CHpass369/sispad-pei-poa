@@ -42,10 +42,15 @@ from .models import (
     DistributionVersion,
     EstadoApertura,
     EstadoReserva,
+    EstadosReform,
     EstadosTecho,
     ExpenseObjectAllocation,
     MandatoryExpense,
+    Reform,
+    ReformMovement,
     Reserve,
+    TipoMovimientoReform,
+    TipoReform,
     TipoReserva,
 )
 
@@ -1550,3 +1555,599 @@ def eliminar_objeto_gasto(fila, usuario):
         datos_previos={'monto': str(monto)},
         gestion=allocation.gestion.anio,
     )
+
+
+# ===========================================================================
+# Fase 10 — Reformulaciones presupuestarias (§92-97)
+#
+# Workflow de la cabecera: BORRADOR → EN_REVISION → OBSERVADA → APROBADA →
+# APLICADA (o RECHAZADA desde EN_REVISION). El saldo efectivo de cada
+# movimiento se registra con saldo_antes/saldo_despues y la aplicación es
+# ATÓMICA: si un movimiento falla, la transacción completa hace rollback.
+#
+# DECISIÓN DE ARQUITECTURA (Fase 10, documentada):
+#   La reformulación opera DIRECTAMENTE sobre las filas `AllocationSource`
+#   existentes (no se duplican filas ni se re-apunta la versión de las
+#   aperturas): el "nuevo saldo efectivo" ES el saldo tras el movimiento y
+#   el histórico queda en `ReformMovement` + `EventoAuditoria`. La versión
+#   fijada conserva sus filas (checksum de v1 queda obsoleto por diseño:
+#   el congelamiento protege la EDICIÓN del documento, no los saldos que la
+#   reformulación modifica legítimamente con trazabilidad). Si la
+#   distribución está fijada y no hay versión activa, se abre la versión
+#   siguiente vía `ajuste_distribucion` (contenedor BORRADOR que habilita
+#   el flujo de la gestión; `version_resultante` se deja NULL en esta fase).
+#   AJUSTE DE TECHO (modifica recursos, Fase 2) ≠ REFORMULACIÓN DE
+#   DISTRIBUCIÓN (modifica cómo se distribuye; esta fase).
+# ===========================================================================
+
+
+def _resolver_allocation_de_gestion(gestion, allocation_id, campo):
+    """Resuelve una apertura por id validando que pertenezca a la gestión."""
+    allocation = (
+        Allocation.objects.filter(pk=allocation_id, gestion=gestion).first()
+        if allocation_id else None
+    )
+    if allocation_id and allocation is None:
+        raise ValidationError(
+            f'La apertura de {campo} no existe o no pertenece a la gestión '
+            f'{gestion.anio}.'
+        )
+    return allocation
+
+
+def _validar_movimientos_reform(gestion, movimientos):
+    """Valida la estructura de los movimientos de una reformulación.
+
+    Devuelve la lista normalizada de dicts {tipo, apertura_origen,
+    apertura_destino, fuente, organismo, monto, motivo} (objetos resueltos).
+    La disponibilidad de saldos NO se valida acá: se valida al aplicar
+    (`aplicar_reform`), dentro de la transacción atómica.
+    """
+    if not isinstance(movimientos, (list, tuple)) or not movimientos:
+        raise ValidationError(
+            'Debe indicar al menos un movimiento de la reformulación.'
+        )
+    validos = []
+    for i, fila in enumerate(movimientos):
+        if not isinstance(fila, dict):
+            raise ValidationError(
+                f'Movimiento {i + 1}: debe ser un objeto con tipo, '
+                'aperturas/fuente y monto.'
+            )
+        tipo = fila.get('tipo')
+        tipos_validos = {t for t, _ in TipoMovimientoReform.CHOICES}
+        if tipo not in tipos_validos:
+            raise ValidationError(
+                f'Movimiento {i + 1}: tipo inválido ({tipo}); debe ser uno '
+                f'de {sorted(tipos_validos)}.'
+            )
+        monto = fila.get('monto')
+        if monto is None or monto <= 0:
+            raise ValidationError(
+                f'Movimiento {i + 1}: el monto debe ser mayor que 0.'
+            )
+        monto = monto if isinstance(monto, Decimal) else Decimal(str(monto))
+
+        origen = _resolver_allocation_de_gestion(
+            gestion, fila.get('apertura_origen'), 'origen',
+        )
+        destino = _resolver_allocation_de_gestion(
+            gestion, fila.get('apertura_destino'), 'destino',
+        )
+        if tipo in (TipoMovimientoReform.TRASPASO,):
+            if origen is None or destino is None:
+                raise ValidationError(
+                    f'Movimiento {i + 1}: un traspaso requiere apertura de '
+                    'origen y de destino.'
+                )
+        elif tipo == TipoMovimientoReform.INCREMENTO:
+            if destino is None:
+                raise ValidationError(
+                    f'Movimiento {i + 1}: un incremento requiere apertura '
+                    'de destino.'
+                )
+            if origen is not None:
+                raise ValidationError(
+                    f'Movimiento {i + 1}: un incremento no lleva apertura '
+                    'de origen.'
+                )
+        elif tipo == TipoMovimientoReform.DISMINUCION:
+            if origen is None:
+                raise ValidationError(
+                    f'Movimiento {i + 1}: una disminución requiere apertura '
+                    'de origen.'
+                )
+            if destino is not None:
+                raise ValidationError(
+                    f'Movimiento {i + 1}: una disminución no lleva apertura '
+                    'de destino.'
+                )
+        elif tipo == TipoMovimientoReform.CAMBIO_FUENTE:
+            if origen is None:
+                raise ValidationError(
+                    f'Movimiento {i + 1}: un cambio de fuente requiere '
+                    'apertura de origen.'
+                )
+            if destino is not None and destino.id != origen.id:
+                raise ValidationError(
+                    f'Movimiento {i + 1}: el cambio de fuente opera sobre la '
+                    'MISMA apertura (apertura_destino debe omitirse o '
+                    'coincidir con la de origen).'
+                )
+
+        # Fuente: obligatoria en todos los tipos (identifica el saldo).
+        from apps.catalogos.models import FuenteFinanciamiento
+        fuente_id = fila.get('fuente')
+        if not fuente_id:
+            raise ValidationError(
+                f'Movimiento {i + 1}: debe indicar la fuente de '
+                'financiamiento.'
+            )
+        fuente = FuenteFinanciamiento.objects.filter(pk=fuente_id).first()
+        if fuente is None:
+            raise ValidationError(
+                f'Movimiento {i + 1}: la fuente de financiamiento no existe.'
+            )
+        if fuente.gestion != gestion.anio:
+            raise ValidationError(
+                f'Movimiento {i + 1}: la fuente "{fuente.codigo}" no '
+                f'pertenece a la gestión {gestion.anio}.'
+            )
+        organismo = None
+        organismo_id = fila.get('organismo')
+        if organismo_id:
+            from apps.catalogos.models import OrganismoFinanciador
+            organismo = OrganismoFinanciador.objects.filter(
+                pk=organismo_id,
+            ).first()
+            if organismo is None:
+                raise ValidationError(
+                    f'Movimiento {i + 1}: el organismo financiador no existe.'
+                )
+            if organismo.gestion != gestion.anio:
+                raise ValidationError(
+                    f'Movimiento {i + 1}: el organismo "{organismo.codigo}" '
+                    f'no pertenece a la gestión {gestion.anio}.'
+                )
+
+        validos.append({
+            'tipo': tipo,
+            'apertura_origen': origen,
+            'apertura_destino': destino,
+            'fuente': fuente,
+            'organismo': organismo,
+            'monto': monto,
+            'motivo': fila.get('motivo', '') or '',
+        })
+    return validos
+
+
+@transaction.atomic
+def crear_reform(gestion, tipo, motivo, usuario, movimientos):
+    """Crea una reformulación en BORRADOR con sus movimientos (Fase 10).
+
+    Valida la gestión habilitada, la existencia de una distribución FIJADA
+    (las reformulaciones operan sobre sus aperturas) y la estructura de
+    cada movimiento (aperturas/fuente de la gestión, monto > 0). La
+    disponibilidad de saldos se valida recién al APLICAR. `version_origen`
+    apunta a la versión fijada. Registra auditoría. Devuelve la reform.
+    """
+    validar_gestion_para_distribucion(gestion)
+    tipos_validos = {t for t, _ in TipoReform.CHOICES}
+    if tipo not in tipos_validos:
+        raise ValidationError(
+            f'Tipo de reformulación inválido ({tipo}); debe ser uno de '
+            f'{sorted(tipos_validos)}.'
+        )
+    fijada = (
+        DistributionVersion.objects
+        .filter(gestion=gestion, inmutable=True)
+        .order_by('-numero')
+        .first()
+    )
+    if fijada is None:
+        raise ValidationError(
+            f'La gestión {gestion.anio} no tiene una distribución fijada; '
+            'no se pueden crear reformulaciones.'
+        )
+    validos = _validar_movimientos_reform(gestion, movimientos)
+
+    reform = Reform.objects.create(
+        gestion=gestion,
+        tipo=tipo,
+        estado=EstadosReform.BORRADOR,
+        motivo=motivo or '',
+        version_origen=fijada,
+        solicitada_por=usuario,
+        created_by=usuario,
+        updated_by=usuario,
+    )
+    for m in validos:
+        ReformMovement.objects.create(
+            reform=reform,
+            tipo=m['tipo'],
+            apertura_origen=m['apertura_origen'],
+            apertura_destino=m['apertura_destino'],
+            fuente=m['fuente'],
+            organismo=m['organismo'],
+            monto=m['monto'],
+            motivo=m['motivo'],
+            created_by=usuario,
+            updated_by=usuario,
+        )
+    registrar_evento(
+        usuario,
+        EventoAuditoria.Accion.CREAR,
+        'Reform',
+        reform.id,
+        resumen=(
+            f'Reformulación {reform.get_tipo_display()} creada '
+            f'(gestión {gestion.anio}, {len(validos)} movimiento(s))'
+        ),
+        datos_posteriores={
+            'tipo': reform.tipo,
+            'estado': reform.estado,
+            'movimientos': len(validos),
+        },
+        gestion=gestion.anio,
+    )
+    return reform
+
+
+def _transicionar_reform(reform, destino, usuario, accion, resumen,
+                         estado_posterior_extra=None, update_extra=None):
+    """Aplica una transición válida del workflow y registra auditoría."""
+    if reform.estado == destino:
+        raise ValidationError(
+            f'La reformulación ya está en estado '
+            f'{reform.get_estado_display()}.'
+        )
+    if destino not in EstadosReform.TRANSICIONES.get(reform.estado, set()):
+        raise ValidationError(
+            f'No se puede pasar la reformulación de '
+            f'{reform.get_estado_display()} a '
+            f'{dict(EstadosReform.CHOICES)[destino]}.'
+        )
+    estado_previo = reform.estado
+    reform.estado = destino
+    reform.updated_by = usuario
+    update_fields = ['estado', 'updated_by', 'updated_at']
+    if update_extra:
+        update_fields += list(update_extra)
+    reform.save(update_fields=update_fields)
+    posterior = {'estado': reform.estado}
+    if estado_posterior_extra:
+        posterior.update(estado_posterior_extra)
+    registrar_evento(
+        usuario,
+        accion,
+        'Reform',
+        reform.id,
+        resumen=resumen,
+        datos_previos={'estado': estado_previo},
+        datos_posteriores=posterior,
+        gestion=reform.gestion.anio,
+    )
+    return reform
+
+
+def enviar_reform_a_revision(reform, usuario):
+    """BORRADOR|OBSERVADA → EN_REVISION."""
+    return _transicionar_reform(
+        reform,
+        EstadosReform.EN_REVISION,
+        usuario,
+        EventoAuditoria.Accion.ENVIAR,
+        f'Reformulación enviada a revisión (gestión {reform.gestion.anio})',
+    )
+
+
+def observar_reform(reform, usuario, motivo):
+    """EN_REVISION → OBSERVADA (con motivo del revisor, en auditoría)."""
+    if not (motivo or '').strip():
+        raise ValidationError('Debe indicar el motivo de la observación.')
+    return _transicionar_reform(
+        reform,
+        EstadosReform.OBSERVADA,
+        usuario,
+        EventoAuditoria.Accion.DEVOLVER,
+        f'Reformulación observada: {motivo} (gestión {reform.gestion.anio})',
+    )
+
+
+def aprobar_reform(reform, usuario):
+    """EN_REVISION → APROBADA (registra al aprobador)."""
+    reform.aprobada_por = usuario
+    return _transicionar_reform(
+        reform,
+        EstadosReform.APROBADA,
+        usuario,
+        EventoAuditoria.Accion.APROBAR,
+        f'Reformulación aprobada (gestión {reform.gestion.anio})',
+        estado_posterior_extra={'aprobada_por': str(usuario.id)},
+        update_extra=['aprobada_por'],
+    )
+
+
+def rechazar_reform(reform, usuario, motivo):
+    """EN_REVISION → RECHAZADA (definitivo; no puede aplicarse).
+
+    Se registra con accion `anular`: el rechazo anula el documento.
+    """
+    if not (motivo or '').strip():
+        raise ValidationError('Debe indicar el motivo del rechazo.')
+    return _transicionar_reform(
+        reform,
+        EstadosReform.RECHAZADA,
+        usuario,
+        EventoAuditoria.Accion.ANULAR,
+        f'Reformulación rechazada: {motivo} (gestión {reform.gestion.anio})',
+    )
+
+
+# -- Movimientos de la aplicación (kernel financiero) -----------------------
+
+
+def _lock_y_obtener_source(allocation, fuente_id, organismo_id, crear=False,
+                           usuario=None):
+    """AllocationSource (allocation, fuente, organismo) con lock de fila.
+
+    Si `crear` y no existe, lo crea con monto 0.00 (el saldo inicial de un
+    destino es 0; el monto del movimiento se SUMA después por el llamador —
+    nunca se crea con el monto final). Devuelve (source|None, saldo_actual).
+    """
+    source = (
+        AllocationSource.objects
+        .select_for_update()
+        .filter(
+            allocation=allocation, fuente_id=fuente_id,
+            organismo_id=organismo_id,
+        )
+        .first()
+    )
+    if source is None and crear:
+        source = AllocationSource.objects.create(
+            allocation=allocation, fuente_id=fuente_id,
+            organismo_id=organismo_id, monto=Decimal('0.00'),
+            created_by=usuario, updated_by=usuario,
+        )
+    saldo = source.monto if source is not None else Decimal('0.00')
+    return source, saldo
+
+
+def _incrementar_movimiento(reform, mov, usuario):
+    """INCREMENTO: amplía el saldo del destino dentro de su techo de fuente.
+
+    Regla §96 "el destino no excede el techo": el saldo RESULTANTE del
+    AllocationSource destino no supera el techo distribuible de su fuente
+    (`techo_distribuible_por_fuente`) → BUDGET_EXCEEDED si no. DECISIÓN
+    documentada (Fase 10): la validación es por DESTINO contra el techo
+    distribuible de la fuente, no contra el pool — tras una fijación el
+    pool por fuente es 0 por construcción (Σ = techo − reservas), así que
+    el pool solo crece con DISMINUCIONES/liberaciones; un incremento que
+    cabe en el techo de la fuente es válido. Lock de la fuente
+    (`_bloquear_fuentes`) + lock de la fila destino. Devuelve
+    (saldo_antes, saldo_despues) del AllocationSource DESTINO.
+    """
+    from .control import BudgetControlService
+    fuente_id = mov.fuente_id
+    organismo_id = mov.organismo_id
+    BudgetControlService._bloquear_fuentes(reform.gestion, {fuente_id})
+    dest_src, saldo_antes = _lock_y_obtener_source(
+        mov.apertura_destino, fuente_id, organismo_id,
+        crear=True, usuario=usuario,
+    )
+    techo = techo_distribuible_por_fuente(reform.gestion)
+    tope_fuente = techo.get(fuente_id, Decimal('0.00'))
+    if saldo_antes + mov.monto > tope_fuente:
+        raise ErrorDisponibilidad(
+            fuente_id, mov.monto, tope_fuente - saldo_antes,
+        )
+    dest_src.monto = saldo_antes + mov.monto
+    dest_src.updated_by = usuario
+    dest_src.save(update_fields=['monto', 'updated_by', 'updated_at'])
+    return saldo_antes, dest_src.monto
+
+
+def _disminuir_movimiento(reform, mov, usuario):
+    """DISMINUCION: devuelve saldo del origen al pool de la fuente.
+
+    Valida saldo_origen >= monto (BUDGET_EXCEEDED si no); lock de la fuente
+    + lock de la fila origen. Devuelve (saldo_antes, saldo_despues) del
+    AllocationSource ORIGEN.
+    """
+    from .control import BudgetControlService
+    fuente_id = mov.fuente_id
+    organismo_id = mov.organismo_id
+    BudgetControlService._bloquear_fuentes(reform.gestion, {fuente_id})
+    origen_src, saldo_antes = _lock_y_obtener_source(
+        mov.apertura_origen, fuente_id, organismo_id,
+    )
+    if mov.monto > saldo_antes:
+        raise ErrorDisponibilidad(fuente_id, mov.monto, saldo_antes)
+    origen_src.monto = saldo_antes - mov.monto
+    origen_src.updated_by = usuario
+    origen_src.save(update_fields=['monto', 'updated_by', 'updated_at'])
+    return saldo_antes, origen_src.monto
+
+
+def _cambio_fuente_movimiento(reform, mov, usuario):
+    """CAMBIO_FUENTE: reduce la fuente vieja y aumenta la nueva (misma
+    apertura, §96).
+
+    La fuente VIEJA (a reducir) no se persiste en el modelo (una sola FK de
+    fuente por movimiento): se infiere de forma determinista y documentada —
+    el AllocationSource de la apertura distinto de (fuente nueva, organismo
+    nuevo) con saldo suficiente para el monto; si hay varios, el de MAYOR
+    saldo (empate → menor id). La fuente NUEVA crece validando la misma
+    regla §96 del incremento: el saldo resultante del destino no supera el
+    techo distribuible de la fuente nueva (BUDGET_EXCEEDED si no).
+    Devuelve (saldo_antes, saldo_despues) de la fuente vieja.
+    """
+    from .control import BudgetControlService
+    apertura = mov.apertura_origen
+    fuente_nueva_id = mov.fuente_id
+    organismo_nuevo_id = mov.organismo_id
+    BudgetControlService._bloquear_fuentes(
+        reform.gestion, {fuente_nueva_id},
+    )
+
+    candidatas = list(
+        AllocationSource.objects
+        .select_for_update()
+        .filter(allocation=apertura)
+        .exclude(
+            fuente_id=fuente_nueva_id, organismo_id=organismo_nuevo_id,
+        )
+        .order_by('-monto', 'id')
+    )
+    origen_src = next(
+        (s for s in candidatas if s.monto >= mov.monto), None,
+    )
+    if origen_src is None:
+        raise ValidationError(
+            'La apertura no tiene una fuente con saldo suficiente para el '
+            'cambio de fuente.'
+        )
+    fuente_vieja_id = origen_src.fuente_id
+    if fuente_vieja_id and fuente_vieja_id != fuente_nueva_id:
+        BudgetControlService._bloquear_fuentes(
+            reform.gestion, {fuente_vieja_id},
+        )
+    saldo_antes = origen_src.monto
+    origen_src.monto = saldo_antes - mov.monto
+    origen_src.updated_by = usuario
+    origen_src.save(update_fields=['monto', 'updated_by', 'updated_at'])
+
+    techo = techo_distribuible_por_fuente(reform.gestion)
+    tope_fuente = techo.get(fuente_nueva_id, Decimal('0.00'))
+    nueva_src, saldo_nueva = _lock_y_obtener_source(
+        apertura, fuente_nueva_id, organismo_nuevo_id,
+        crear=True, usuario=usuario,
+    )
+    if saldo_nueva + mov.monto > tope_fuente:
+        raise ErrorDisponibilidad(
+            fuente_nueva_id, mov.monto, tope_fuente - saldo_nueva,
+        )
+    nueva_src.monto = saldo_nueva + mov.monto
+    nueva_src.updated_by = usuario
+    nueva_src.save(update_fields=['monto', 'updated_by', 'updated_at'])
+    return saldo_antes, origen_src.monto
+
+
+def _aplicar_movimiento_reform(reform, mov, usuario):
+    """Aplica UN movimiento dentro de la transacción de `aplicar_reform`.
+
+    Registra saldo_antes/saldo_despues en el propio movimiento (histórico).
+    Cualquier excepción propaga y hace rollback de TODO (atomicidad §97).
+    """
+    if mov.tipo == TipoMovimientoReform.TRASPASO:
+        from .control import BudgetControlService
+        resultado = BudgetControlService.apply_movement(
+            mov.apertura_origen, mov.apertura_destino, mov.fuente,
+            mov.organismo, mov.monto, mov.motivo, usuario,
+        )
+        saldo_antes, saldo_despues = (
+            resultado['saldo_antes'], resultado['saldo_despues'],
+        )
+    elif mov.tipo == TipoMovimientoReform.INCREMENTO:
+        saldo_antes, saldo_despues = _incrementar_movimiento(
+            reform, mov, usuario,
+        )
+    elif mov.tipo == TipoMovimientoReform.DISMINUCION:
+        saldo_antes, saldo_despues = _disminuir_movimiento(
+            reform, mov, usuario,
+        )
+    elif mov.tipo == TipoMovimientoReform.CAMBIO_FUENTE:
+        saldo_antes, saldo_despues = _cambio_fuente_movimiento(
+            reform, mov, usuario,
+        )
+    else:
+        raise ValidationError(
+            f'Tipo de movimiento no aplicable ({mov.tipo}).'
+        )
+    mov.saldo_antes = saldo_antes
+    mov.saldo_despues = saldo_despues
+    mov.updated_by = usuario
+    mov.save(update_fields=['saldo_antes', 'saldo_despues', 'updated_by',
+                            'updated_at'])
+
+
+@transaction.atomic
+def aplicar_reform(reform, usuario):
+    """APROBADA → APLICADA: aplica los movimientos en UNA transacción (§97).
+
+    1. Valida estado APROBADA y gestión habilitada.
+    2. Versión activa: si la distribución está FIJADA y no hay versión
+       activa, abre la versión siguiente vía `ajuste_distribucion`
+       (contenedor BORRADOR). DECISIÓN Fase 10 (documentada arriba): la
+       reformulación opera DIRECTAMENTE sobre los AllocationSource/Reserve
+       existentes — no se duplican filas; el "nuevo saldo efectivo" ES el
+       saldo tras el movimiento y el histórico queda en `ReformMovement`
+       + `EventoAuditoria`; `version_resultante` se deja NULL.
+    3. Aplica cada movimiento en orden estable (orden de creación): TRASPASO
+       (apply_movement, saldo_origen >= monto → BUDGET_EXCEEDED),
+       INCREMENTO y CAMBIO_FUENTE (el destino no excede el techo
+       distribuible de su fuente, §96) y DISMINUCION (saldo_origen >=
+       monto), registrando saldo_antes/saldo_despues de cada
+       AllocationSource afectado.
+    4. Si CUALQUIER movimiento falla → ValidationError y ROLLBACK COMPLETO
+       (nada se persiste: ni saldos, ni la versión abierta, ni el estado).
+    5. Estado → APLICADA, fecha_aplicacion y auditoría.
+    """
+    if reform.estado != EstadosReform.APROBADA:
+        raise ValidationError(
+            'Solo una reformulación aprobada puede aplicarse '
+            f'(estado actual: {reform.get_estado_display()}).'
+        )
+    validar_gestion_para_distribucion(reform.gestion)
+
+    version_activa = (
+        DistributionVersion.objects
+        .filter(gestion=reform.gestion, inmutable=False)
+        .order_by('-numero')
+        .first()
+    )
+    if version_activa is None:
+        fijada = (
+            DistributionVersion.objects
+            .filter(gestion=reform.gestion, inmutable=True)
+            .order_by('-numero')
+            .first()
+        )
+        if fijada is None:
+            raise ValidationError(
+                f'La gestión {reform.gestion.anio} no tiene una distribución '
+                'fijada; no se puede aplicar la reformulación.'
+            )
+        version_activa = ajuste_distribucion(fijada, usuario)
+
+    for mov in reform.movimientos.order_by('id'):
+        _aplicar_movimiento_reform(reform, mov, usuario)
+
+    estado_previo = reform.estado
+    reform.estado = EstadosReform.APLICADA
+    reform.fecha_aplicacion = timezone.now()
+    reform.updated_by = usuario
+    reform.save(update_fields=[
+        'estado', 'fecha_aplicacion', 'updated_by', 'updated_at',
+    ])
+    registrar_evento(
+        usuario,
+        EventoAuditoria.Accion.APROBAR,
+        'Reform',
+        reform.id,
+        resumen=(
+            f'Reformulación {reform.get_tipo_display()} aplicada '
+            f'(gestión {reform.gestion.anio}, '
+            f'{reform.movimientos.count()} movimiento(s))'
+        ),
+        datos_previos={'estado': estado_previo},
+        datos_posteriores={
+            'estado': EstadosReform.APLICADA,
+            'fecha_aplicacion': reform.fecha_aplicacion.isoformat(),
+            'version_activa': version_activa.numero,
+        },
+        gestion=reform.gestion.anio,
+    )
+    return reform

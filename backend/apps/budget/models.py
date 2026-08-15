@@ -1279,3 +1279,219 @@ class ImportError(TimeStampedModel):
 
     def __str__(self):
         return f'[{self.severidad}] {self.campo} fila {self.fila}: {self.mensaje}'
+
+
+# ---------------------------------------------------------------------------
+# Fase 10 - Reformulaciones presupuestarias (§92-97): tipos + workflow de
+# estados + movimientos atómicos con saldos antes/después.
+#
+# Decisiones de arquitectura (documentadas; ver también `services.aplicar_reform`):
+#   1. AJUSTE DE DISTRIBUCIÓN ≠ AJUSTE DE TECHO: la reformulación modifica
+#      CÓMO se distribuye (saldos entre aperturas/fuentes); el ajuste de
+#      techo (recursos) ya existe como `ajuste_de_techo` (Fase 2).
+#   2. NUEVOS SALDOS SIN DESTRUIR EL HISTÓRICO: al aplicar, la reformulación
+#      opera DIRECTAMENTE sobre las filas `AllocationSource`/`Reserve`
+#      existentes (no se duplican filas): el "nuevo saldo efectivo" ES el
+#      saldo tras el movimiento y el histórico queda en `ReformMovement`
+#      (saldo_antes/saldo_despues) + `EventoAuditoria`. La versión fijada
+#      conserva sus filas (no se crean AllocationSource nuevos de la versión
+#      resultante en esta fase).
+#   3. ATOMICIDAD: una reformulación aplicada corre en UNA transacción;
+#      si un movimiento falla → rollback completo (nada se persiste).
+# ---------------------------------------------------------------------------
+class EstadosReform:
+    BORRADOR = 'BORRADOR'
+    EN_REVISION = 'EN_REVISION'
+    OBSERVADA = 'OBSERVADA'
+    APROBADA = 'APROBADA'
+    APLICADA = 'APLICADA'
+    RECHAZADA = 'RECHAZADA'
+
+    CHOICES = [
+        (BORRADOR, 'Borrador'),
+        (EN_REVISION, 'En revisión'),
+        (OBSERVADA, 'Observada'),
+        (APROBADA, 'Aprobada'),
+        (APLICADA, 'Aplicada'),
+        (RECHAZADA, 'Rechazada'),
+    ]
+
+    # Transiciones válidas: BORRADOR|OBSERVADA → EN_REVISION →
+    # (OBSERVADA | APROBADA | RECHAZADA) → APLICADA (solo desde APROBADA).
+    TRANSICIONES = {
+        BORRADOR: {EN_REVISION},
+        EN_REVISION: {OBSERVADA, APROBADA, RECHAZADA},
+        OBSERVADA: {EN_REVISION},
+        APROBADA: {APLICADA},
+        APLICADA: set(),
+        RECHAZADA: set(),
+    }
+
+
+class TipoReform:
+    TRASPASO = 'TRASPASO'
+    INCREMENTO = 'INCREMENTO'
+    DISMINUCION = 'DISMINUCION'
+    NUEVA_APERTURA = 'NUEVA_APERTURA'
+    CIERRE_APERTURA = 'CIERRE_APERTURA'
+    CAMBIO_FUENTE = 'CAMBIO_FUENTE'
+    AJUSTE_DISTRIBUCION = 'AJUSTE_DISTRIBUCION'
+
+    CHOICES = [
+        (TRASPASO, 'Traspaso entre aperturas'),
+        (INCREMENTO, 'Incremento'),
+        (DISMINUCION, 'Disminución'),
+        (NUEVA_APERTURA, 'Nueva apertura'),
+        (CIERRE_APERTURA, 'Cierre de apertura'),
+        (CAMBIO_FUENTE, 'Cambio de fuente'),
+        (AJUSTE_DISTRIBUCION, 'Ajuste de distribución'),
+    ]
+
+
+class TipoMovimientoReform:
+    """Tipos de MOVIMIENTO (línea de la reformulación).
+
+    NUEVA_APERTURA/CIERRE_APERTURA/AJUSTE_DISTRIBUCION son tipos de REFORM
+    (cabecera) que en esta fase se componen con movimientos de estos tipos;
+    su ciclo de vida completo de apertura/cierre se implementa en fases
+    posteriores.
+    """
+    TRASPASO = 'TRASPASO'
+    INCREMENTO = 'INCREMENTO'
+    DISMINUCION = 'DISMINUCION'
+    CAMBIO_FUENTE = 'CAMBIO_FUENTE'
+
+    CHOICES = [
+        (TRASPASO, 'Traspaso'),
+        (INCREMENTO, 'Incremento'),
+        (DISMINUCION, 'Disminución'),
+        (CAMBIO_FUENTE, 'Cambio de fuente'),
+    ]
+
+
+class Reform(TimeStampedModel):
+    """Reformulación presupuestaria (cabecera del documento, §92-97).
+
+    Workflow: BORRADOR → EN_REVISION → OBSERVADA → APROBADA → APLICADA
+    (o RECHAZADA desde EN_REVISION). Los movimientos viven en
+    `ReformMovement`; aplicar la reformulación muta los saldos en UNA
+    transacción (ver `services.aplicar_reform`).
+    """
+
+    gestion = models.ForeignKey(
+        'gestion.GestionFiscal', on_delete=models.CASCADE,
+        related_name='reformulaciones',
+        help_text='Gestión fiscal de la reformulación.',
+    )
+    tipo = models.CharField(max_length=20, choices=TipoReform.CHOICES)
+    estado = models.CharField(
+        max_length=20, choices=EstadosReform.CHOICES,
+        default=EstadosReform.BORRADOR,
+    )
+    motivo = models.TextField(blank=True, default='')
+    resolucion = models.CharField(max_length=200, blank=True, default='')
+    documento = models.ForeignKey(
+        'budget.BudgetDocument', null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='reformulaciones',
+    )
+    version_origen = models.ForeignKey(
+        DistributionVersion, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='reforms_origen',
+        help_text='Versión de distribución sobre la que opera (la fijada).',
+    )
+    version_resultante = models.ForeignKey(
+        DistributionVersion, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='reforms_resultantes',
+        help_text=(
+            'Versión resultante. Fase 10: se deja NULL (la reformulación '
+            'opera directamente sobre las filas existentes; el histórico '
+            'queda en ReformMovement + EventoAuditoria).'
+        ),
+    )
+    solicitada_por = models.ForeignKey(
+        'accounts.Usuario', on_delete=models.PROTECT,
+        related_name='reformulaciones_solicitadas',
+        help_text='Usuario que solicita la reformulación.',
+    )
+    aprobada_por = models.ForeignKey(
+        'accounts.Usuario', null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='reformulaciones_aprobadas',
+    )
+    fecha_aplicacion = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'Reformulación'
+        verbose_name_plural = 'Reformulaciones'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['gestion']),
+        ]
+
+    def __str__(self):
+        return (
+            f'{self.get_tipo_display()} {self.get_estado_display()} '
+            f'(gestión {self.gestion.anio})'
+        )
+
+
+class ReformMovement(TimeStampedModel):
+    """Movimiento de una reformulación (línea del documento, §92-97).
+
+    `saldo_antes`/`saldo_despues` registran el saldo del AllocationSource
+    ORIGEN antes/después del movimiento (para INCREMENTO, sin origen, los
+    del AllocationSource DESTINO): ese par ES el histórico del saldo
+    efectivo (decisión Fase 10 — no se duplican filas de fuentes).
+    """
+
+    reform = models.ForeignKey(
+        Reform, on_delete=models.CASCADE, related_name='movimientos',
+    )
+    tipo = models.CharField(
+        max_length=20, choices=TipoMovimientoReform.CHOICES,
+    )
+    apertura_origen = models.ForeignKey(
+        Allocation, null=True, blank=True,
+        on_delete=models.PROTECT, related_name='movimientos_reform_origen',
+        help_text='Apertura que cede saldo (TRASPASO/DISMINUCION/CAMBIO_FUENTE).',
+    )
+    apertura_destino = models.ForeignKey(
+        Allocation, null=True, blank=True,
+        on_delete=models.PROTECT, related_name='movimientos_reform_destino',
+        help_text='Apertura que recibe saldo (TRASPASO/INCREMENTO).',
+    )
+    fuente = models.ForeignKey(
+        'catalogos.FuenteFinanciamiento', null=True, blank=True,
+        on_delete=models.PROTECT, related_name='movimientos_reform',
+        help_text='Fuente del movimiento (destino para CAMBIO_FUENTE).',
+    )
+    organismo = models.ForeignKey(
+        'catalogos.OrganismoFinanciador', null=True, blank=True,
+        on_delete=models.PROTECT, related_name='movimientos_reform',
+    )
+    monto = models.DecimalField(
+        max_digits=18, decimal_places=2, verbose_name='Monto (Bs)'
+    )
+    saldo_antes = models.DecimalField(
+        max_digits=18, decimal_places=2, null=True, blank=True,
+        help_text='Saldo del AllocationSource de origen (destino si INCREMENTO) antes.',
+    )
+    saldo_despues = models.DecimalField(
+        max_digits=18, decimal_places=2, null=True, blank=True,
+        help_text='Saldo del AllocationSource de origen (destino si INCREMENTO) después.',
+    )
+    motivo = models.CharField(max_length=300, blank=True, default='')
+
+    class Meta:
+        verbose_name = 'Movimiento de reformulación'
+        verbose_name_plural = 'Movimientos de reformulación'
+        ordering = ['reform', 'id']
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(monto__gte=0),
+                name='check_reformmovement_monto_positivo',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.get_tipo_display()} {self.monto}'
+

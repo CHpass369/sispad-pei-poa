@@ -2503,7 +2503,7 @@ class ControlReservaTests(DistribucionBase):
 
 
 class ControlMovimientoTests(DistribucionBase):
-    """apply_movement: validación de saldo del origen (Fase 10 lo mueve)."""
+    """apply_movement: movimiento atómico TRASPASO con saldos (Fase 10)."""
 
     def _escenario(self):
         resp = self.crear_apertura(monto='100.00', denominacion='Origen')
@@ -2518,18 +2518,23 @@ class ControlMovimientoTests(DistribucionBase):
         )
         return origen, destino
 
-    def test_apply_movement_valida_saldo_suficiente(self):
+    def test_apply_movement_mueve_saldos_con_saldos_antes_despues(self):
         origen, destino = self._escenario()
         resultado = BudgetControlService.apply_movement(
             origen, destino, self.fuente, self.organismo,
-            Decimal('80.00'), motivo='Reformulación (validación)',
+            Decimal('80.00'), motivo='Reformulación (traspaso)',
             usuario=self.admin,
         )
         self.assertTrue(resultado['valido'])
-        self.assertFalse(resultado['movido'])
-        # Fase 8: no mueve nada.
-        self.assertEqual(origen.fuentes.count(), 1)
-        self.assertEqual(destino.fuentes.count(), 0)
+        self.assertTrue(resultado['movido'])
+        # Saldos del AllocationSource de ORIGEN antes/después.
+        self.assertEqual(resultado['saldo_antes'], Decimal('100.00'))
+        self.assertEqual(resultado['saldo_despues'], Decimal('20.00'))
+        origen_src = AllocationSource.objects.get(allocation=origen)
+        self.assertEqual(origen_src.monto, Decimal('20.00'))
+        # El destino gana la fuente (se crea la fila si no existía).
+        destino_src = AllocationSource.objects.get(allocation=destino)
+        self.assertEqual(destino_src.monto, Decimal('80.00'))
 
     def test_apply_movement_con_exceso_lanza_budget_exceeded(self):
         origen, destino = self._escenario()
@@ -2543,6 +2548,10 @@ class ControlMovimientoTests(DistribucionBase):
         self.assertEqual(
             Allocation.objects.get(pk=origen.pk).fuentes.count(), 1,
         )
+        # Nada movido: el destino sigue sin fuentes (rollback del intento).
+        self.assertEqual(
+            Allocation.objects.get(pk=destino.pk).fuentes.count(), 0,
+        )
 
     def test_apply_movement_con_origen_inexistente_rechazado(self):
         origen, destino = self._escenario()
@@ -2551,6 +2560,14 @@ class ControlMovimientoTests(DistribucionBase):
             BudgetControlService.apply_movement(
                 origen, destino, self.fuente, self.organismo,
                 Decimal('10.00'), motivo='Inexistente', usuario=self.admin,
+            )
+
+    def test_apply_movement_sin_fuente_rechazado(self):
+        origen, destino = self._escenario()
+        with self.assertRaises(ValidationError):
+            BudgetControlService.apply_movement(
+                origen, destino, None, self.organismo,
+                Decimal('10.00'), motivo='Sin fuente', usuario=self.admin,
             )
 
 
@@ -3149,3 +3166,615 @@ class ProgramacionObjetosGastoTests(ObjetosGastoBase):
         self.assertEqual(ctx.exception.details['requested'], '150000.00')
         self.assertEqual(ctx.exception.details['available'], '100000.00')
         self.assertEqual(ctx.exception.details['difference'], '50000.00')
+
+# ===========================================================================
+# Fase 10 - Reformulaciones (tipos + workflow + movimientos atómicos, §92-97)
+# ===========================================================================
+from .models import Reform, ReformMovement  # noqa: E402
+from .services import (  # noqa: E402
+    EstadosReform,
+    aprobar_reform,
+    aplicar_reform,
+    crear_reform,
+    enviar_reform_a_revision,
+    observar_reform,
+    rechazar_reform,
+)
+
+REFORM_URL = BUDGET_URL + 'reforms/'
+
+
+class ReformulacionBase(FijacionDistribucionBase):
+    """Base de Fase 10: techo 1500 (fuente 11) + distribución fijada.
+
+    La distribución v1 se fija con aperturas A/B y una reserva, dejando el
+    pool disponible en `pool` (techo − distribuido − reservado).
+    """
+
+    def preparar_distribucion_fijada(self, monto_a='1000.00', monto_b='300.00',
+                                     reserva='200.00'):
+        """Aperturas A (monto_a) y B (monto_b) + reserva → fija v1.
+
+        Pool por fuente = techo(1500) − A − B − reserva.
+        """
+        self.crear_apertura(monto=monto_a, denominacion='Apertura A')
+        self.crear_apertura(monto=monto_b, denominacion='Apertura B')
+        self.crear_reserva_api(monto=reserva)
+        version = self.version_activa()
+        enviar_distribucion_a_revision(version, self.admin)
+        aprobar_distribucion(version, self.admin)
+        fijar_distribucion(version, self.admin)
+        return version
+
+    def apertura(self, denominacion):
+        return Allocation.objects.get(gestion=self.gestion,
+                                      denominacion=denominacion)
+
+    def source(self, allocation, fuente=None):
+        return AllocationSource.objects.get(
+            allocation=allocation, fuente=fuente or self.fuente,
+        )
+
+    def movimiento(self, tipo, origen=None, destino=None, fuente=None,
+                   organismo=None, monto='500.00', motivo=''):
+        fila = {'tipo': tipo, 'monto': monto}
+        if origen is not None:
+            fila['apertura_origen'] = str(origen.id)
+        if destino is not None:
+            fila['apertura_destino'] = str(destino.id)
+        if fuente is not None:
+            fila['fuente'] = str(fuente.id)
+        elif self.fuente is not None:
+            fila['fuente'] = str(self.fuente.id)
+        if organismo is not None:
+            fila['organismo'] = str(organismo.id)
+        elif self.organismo is not None:
+            fila['organismo'] = str(self.organismo.id)
+        if motivo:
+            fila['motivo'] = motivo
+        return fila
+
+    def crear_api(self, tipo='TRASPASO', movimientos=None, motivo='Prueba'):
+        return self.client.post(
+            f'{REFORM_URL}',
+            {'gestion': str(self.gestion.id), 'tipo': tipo,
+             'motivo': motivo, 'movimientos': movimientos},
+            format='json',
+        )
+
+    def flujo_hasta(self, reform_id, paso):
+        """Recorre submit → approve (→ observe/re-submit si `paso` lo pide)."""
+        if paso in ('submit',):
+            return self.client.post(
+                f'{REFORM_URL}{reform_id}/submit/', {}, format='json',
+            )
+        resp = self.client.post(
+            f'{REFORM_URL}{reform_id}/submit/', {}, format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        resp = self.client.post(
+            f'{REFORM_URL}{reform_id}/approve/', {}, format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        return resp
+
+
+class ReformulacionCreacionTests(ReformulacionBase):
+    def test_crear_reform_traspaso_borrador_con_dos_movimientos(self):
+        self.preparar_distribucion_fijada()
+        a = self.apertura('Apertura A')
+        b = self.apertura('Apertura B')
+        resp = self.crear_api(movimientos=[
+            self.movimiento('TRASPASO', origen=a, destino=b, monto='300.00'),
+            self.movimiento('TRASPASO', origen=b, destino=a, monto='100.00'),
+        ])
+        self.assertEqual(resp.status_code, 201, resp.data)
+        self.assertEqual(resp.data['estado'], 'BORRADOR')
+        self.assertEqual(resp.data['tipo'], 'TRASPASO')
+        self.assertEqual(len(resp.data['movimientos']), 2)
+        # Solo BORRADOR: los saldos NO se movieron.
+        self.assertEqual(self.source(a).monto, Decimal('1000.00'))
+        self.assertEqual(self.source(b).monto, Decimal('300.00'))
+        reform = Reform.objects.get(pk=resp.data['id'])
+        self.assertEqual(reform.version_origen.estado, 'FIJADO')
+        self.assertIsNone(reform.version_resultante)
+
+    def test_crear_reform_sin_distribucion_fijada_rechazado(self):
+        # Gestión sin fijar la distribución → 400.
+        resp = self.crear_api(movimientos=[self.movimiento('DISMINUCION')])
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertEqual(Reform.objects.count(), 0)
+
+    def test_crear_reform_valida_estructura_de_movimientos(self):
+        self.preparar_distribucion_fijada()
+        a = self.apertura('Apertura A')
+        b = self.apertura('Apertura B')
+        # Traspaso sin destino → 400.
+        resp = self.crear_api(movimientos=[
+            self.movimiento('TRASPASO', origen=a, monto='50.00'),
+        ])
+        self.assertEqual(resp.status_code, 400, resp.data)
+        # Monto no positivo → 400.
+        resp = self.crear_api(movimientos=[
+            self.movimiento('TRASPASO', origen=a, destino=b, monto='0.00'),
+        ])
+        self.assertEqual(resp.status_code, 400, resp.data)
+        # Sin movimientos → 400.
+        resp = self.crear_api(movimientos=[])
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertEqual(Reform.objects.count(), 0)
+
+    def test_crear_reform_permisos_requieren_capacidad_reform(self):
+        self.preparar_distribucion_fijada()
+        a = self.apertura('Apertura A')
+        b = self.apertura('Apertura B')
+        usuario = self._usuario_sin_capacidades()
+        client = APIClient()
+        client.force_authenticate(user=usuario)
+        resp = client.post(
+            f'{REFORM_URL}',
+            {'gestion': str(self.gestion.id), 'tipo': 'TRASPASO',
+             'motivo': 'x', 'movimientos': [
+                 self.movimiento('TRASPASO', origen=a, destino=b,
+                                 monto='50.00'),
+             ]},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 403, resp.data)
+
+
+class ReformulacionFlujoTests(ReformulacionBase):
+    def test_flujo_completo_submit_approve_apply_mueve_saldos(self):
+        self.preparar_distribucion_fijada()
+        a = self.apertura('Apertura A')
+        b = self.apertura('Apertura B')
+        resp = self.crear_api(movimientos=[
+            self.movimiento('TRASPASO', origen=a, destino=b, monto='500.00'),
+        ])
+        self.assertEqual(resp.status_code, 201, resp.data)
+        reform_id = resp.data['id']
+
+        resp = self.client.post(
+            f'{REFORM_URL}{reform_id}/submit/', {}, format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(resp.data['estado'], 'EN_REVISION')
+
+        resp = self.client.post(
+            f'{REFORM_URL}{reform_id}/approve/', {}, format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(resp.data['estado'], 'APROBADA')
+        self.assertEqual(resp.data['aprobada_por_email'], 'admin@techo.test')
+
+        resp = self.client.post(
+            f'{REFORM_URL}{reform_id}/apply/', {}, format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(resp.data['estado'], 'APLICADA')
+        self.assertIsNotNone(resp.data['fecha_aplicacion'])
+
+        # Saldos movidos: origen baja, destino sube (500 A→B).
+        self.assertEqual(self.source(a).monto, Decimal('500.00'))
+        self.assertEqual(self.source(b).monto, Decimal('800.00'))
+        reform = Reform.objects.get(pk=reform_id)
+        self.assertEqual(reform.fecha_aplicacion is not None, True)
+        self.assertEqual(reform.aprobada_por, self.admin)
+
+    def test_observar_requiere_motivo_y_reenviar(self):
+        self.preparar_distribucion_fijada()
+        a = self.apertura('Apertura A')
+        b = self.apertura('Apertura B')
+        resp = self.crear_api(movimientos=[
+            self.movimiento('TRASPASO', origen=a, destino=b, monto='100.00'),
+        ])
+        reform_id = resp.data['id']
+        resp = self.client.post(
+            f'{REFORM_URL}{reform_id}/submit/', {}, format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        # Observar sin motivo → 400.
+        resp = self.client.post(
+            f'{REFORM_URL}{reform_id}/observe/', {}, format='json',
+        )
+        self.assertEqual(resp.status_code, 400, resp.data)
+        resp = self.client.post(
+            f'{REFORM_URL}{reform_id}/observe/',
+            {'observaciones': 'Falta la resolución'}, format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(resp.data['estado'], 'OBSERVADA')
+        # Re-envío tras observación.
+        resp = self.client.post(
+            f'{REFORM_URL}{reform_id}/submit/', {}, format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(resp.data['estado'], 'EN_REVISION')
+
+    def test_apply_de_reform_no_aprobada_rechazado(self):
+        self.preparar_distribucion_fijada()
+        a = self.apertura('Apertura A')
+        b = self.apertura('Apertura B')
+        resp = self.crear_api(movimientos=[
+            self.movimiento('TRASPASO', origen=a, destino=b, monto='100.00'),
+        ])
+        self.assertEqual(resp.status_code, 201, resp.data)
+        reform_id = resp.data['id']
+        # BORRADOR → apply rechazado.
+        resp = self.client.post(
+            f'{REFORM_URL}{reform_id}/apply/', {}, format='json',
+        )
+        self.assertEqual(resp.status_code, 400, resp.data)
+        # EN_REVISION → apply rechazado (falta aprobar).
+        resp = self.client.post(
+            f'{REFORM_URL}{reform_id}/submit/', {}, format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        resp = self.client.post(
+            f'{REFORM_URL}{reform_id}/apply/', {}, format='json',
+        )
+        self.assertEqual(resp.status_code, 400, resp.data)
+        reform = Reform.objects.get(pk=reform_id)
+        self.assertEqual(reform.estado, 'EN_REVISION')
+        # Nada aplicado.
+        self.assertEqual(self.source(a).monto, Decimal('1000.00'))
+        self.assertEqual(self.source(b).monto, Decimal('300.00'))
+
+    def test_rechazar_reform_no_aplica(self):
+        self.preparar_distribucion_fijada()
+        a = self.apertura('Apertura A')
+        b = self.apertura('Apertura B')
+        resp = self.crear_api(movimientos=[
+            self.movimiento('TRASPASO', origen=a, destino=b, monto='100.00'),
+        ])
+        reform_id = resp.data['id']
+        self.client.post(f'{REFORM_URL}{reform_id}/submit/', {}, format='json')
+        # Rechazo sin motivo → 400.
+        resp = self.client.post(
+            f'{REFORM_URL}{reform_id}/reject/', {}, format='json',
+        )
+        self.assertEqual(resp.status_code, 400, resp.data)
+        resp = self.client.post(
+            f'{REFORM_URL}{reform_id}/reject/',
+            {'motivo': 'No corresponde la reasignación'}, format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(resp.data['estado'], 'RECHAZADA')
+        # Una rechazada no puede aplicarse.
+        resp = self.client.post(
+            f'{REFORM_URL}{reform_id}/apply/', {}, format='json',
+        )
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertEqual(self.source(a).monto, Decimal('1000.00'))
+        self.assertEqual(self.source(b).monto, Decimal('300.00'))
+
+    def test_movimiento_registra_saldo_antes_despues(self):
+        self.preparar_distribucion_fijada()
+        a = self.apertura('Apertura A')
+        b = self.apertura('Apertura B')
+        resp = self.crear_api(movimientos=[
+            self.movimiento('TRASPASO', origen=a, destino=b, monto='250.00'),
+        ])
+        reform_id = resp.data['id']
+        self.flujo_hasta(reform_id, 'approve')
+        resp = self.client.post(
+            f'{REFORM_URL}{reform_id}/apply/', {}, format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        mov = ReformMovement.objects.get(reform_id=reform_id)
+        self.assertEqual(mov.saldo_antes, Decimal('1000.00'))
+        self.assertEqual(mov.saldo_despues, Decimal('750.00'))
+        # El detalle de la API expone los saldos.
+        self.assertEqual(resp.data['movimientos'][0]['saldo_antes'],
+                         '1000.00')
+        self.assertEqual(resp.data['movimientos'][0]['saldo_despues'],
+                         '750.00')
+
+
+class ReformulacionAtomicidadTests(ReformulacionBase):
+    def test_traspaso_sin_saldo_400_budget_exceeded_rollback_total(self):
+        self.preparar_distribucion_fijada()
+        a = self.apertura('Apertura A')
+        b = self.apertura('Apertura B')
+        # Traspaso de 2000 > saldo de A (1000) → BUDGET_EXCEEDED al aplicar.
+        resp = self.crear_api(movimientos=[
+            self.movimiento('TRASPASO', origen=a, destino=b, monto='2000.00'),
+        ])
+        self.assertEqual(resp.status_code, 201, resp.data)
+        reform_id = resp.data['id']
+        self.flujo_hasta(reform_id, 'approve')
+        resp = self.client.post(
+            f'{REFORM_URL}{reform_id}/apply/', {}, format='json',
+        )
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertEqual(resp.data['code'], 'BUDGET_EXCEEDED')
+        self.assertEqual(resp.data['details']['available'], '1000.00')
+        # ROLLBACK COMPLETO: reform sigue APROBADA y saldos intactos.
+        reform = Reform.objects.get(pk=reform_id)
+        self.assertEqual(reform.estado, 'APROBADA')
+        self.assertIsNone(reform.fecha_aplicacion)
+        self.assertEqual(self.source(a).monto, Decimal('1000.00'))
+        self.assertEqual(self.source(b).monto, Decimal('300.00'))
+        # La versión activa abierta por el ajuste también se revirtió.
+        self.assertEqual(
+            DistributionVersion.objects.filter(
+                gestion=self.gestion, inmutable=False,
+            ).count(), 0,
+        )
+
+    def test_segundo_movimiento_fallido_rollback_del_primero(self):
+        self.preparar_distribucion_fijada()
+        a = self.apertura('Apertura A')
+        b = self.apertura('Apertura B')
+        # Primer movimiento VÁLIDO (300: A 1000→700, B 300→600); segundo
+        # INVALIDO (700 de B, que tras el primero solo tiene 600) → el
+        # primer movimiento también se revierte (atomicidad §97).
+        resp = self.crear_api(movimientos=[
+            self.movimiento('TRASPASO', origen=a, destino=b, monto='300.00'),
+            self.movimiento('TRASPASO', origen=b, destino=a, monto='700.00'),
+        ])
+        self.assertEqual(resp.status_code, 201, resp.data)
+        reform_id = resp.data['id']
+        self.flujo_hasta(reform_id, 'approve')
+        resp = self.client.post(
+            f'{REFORM_URL}{reform_id}/apply/', {}, format='json',
+        )
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertEqual(resp.data['code'], 'BUDGET_EXCEEDED')
+        # NADA se movió: A sigue con 1000 y B con 300.
+        self.assertEqual(self.source(a).monto, Decimal('1000.00'))
+        self.assertEqual(self.source(b).monto, Decimal('300.00'))
+
+
+class ReformulacionTiposTests(ReformulacionBase):
+    def test_incremento_dentro_del_techo_y_exceso(self):
+        self.preparar_distribucion_fijada()
+        # Regla §96: el destino crece sin exceder el techo distribuible de
+        # la fuente (1500): B (300) puede crecer hasta 1500; más → 400.
+        b = self.apertura('Apertura B')
+        resp = self.crear_api(
+            tipo='INCREMENTO',
+            movimientos=[
+                self.movimiento('INCREMENTO', destino=b, monto='150.00'),
+            ],
+        )
+        self.assertEqual(resp.status_code, 201, resp.data)
+        reform_id = resp.data['id']
+        self.flujo_hasta(reform_id, 'approve')
+        resp = self.client.post(
+            f'{REFORM_URL}{reform_id}/apply/', {}, format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(self.source(b).monto, Decimal('450.00'))
+        # saldo_antes/despues del DESTINO (sin origen).
+        mov = ReformMovement.objects.get(reform_id=reform_id)
+        self.assertEqual(mov.saldo_antes, Decimal('300.00'))
+        self.assertEqual(mov.saldo_despues, Decimal('450.00'))
+
+        # Segundo incremento de 1300: B (450) quedaría en 1750 > techo 1500
+        # → BUDGET_EXCEEDED con available = techo − saldo actual.
+        resp = self.crear_api(
+            tipo='INCREMENTO',
+            movimientos=[
+                self.movimiento('INCREMENTO', destino=b, monto='1300.00'),
+            ],
+        )
+        self.assertEqual(resp.status_code, 201, resp.data)
+        reform2_id = resp.data['id']
+        self.flujo_hasta(reform2_id, 'approve')
+        resp = self.client.post(
+            f'{REFORM_URL}{reform2_id}/apply/', {}, format='json',
+        )
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertEqual(resp.data['code'], 'BUDGET_EXCEEDED')
+        self.assertEqual(resp.data['details']['available'], '1050.00')
+        self.assertEqual(self.source(b).monto, Decimal('450.00'))
+
+    def test_disminucion_devuelve_al_pool(self):
+        self.preparar_distribucion_fijada()
+        a = self.apertura('Apertura A')
+        resp = self.crear_api(
+            tipo='DISMINUCION',
+            movimientos=[
+                self.movimiento('DISMINUCION', origen=a, monto='400.00'),
+            ],
+        )
+        self.assertEqual(resp.status_code, 201, resp.data)
+        reform_id = resp.data['id']
+        self.flujo_hasta(reform_id, 'approve')
+        resp = self.client.post(
+            f'{REFORM_URL}{reform_id}/apply/', {}, format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(self.source(a).monto, Decimal('600.00'))
+        mov = ReformMovement.objects.get(reform_id=reform_id)
+        self.assertEqual(mov.saldo_antes, Decimal('1000.00'))
+        self.assertEqual(mov.saldo_despues, Decimal('600.00'))
+
+    def test_cambio_fuente_en_la_misma_apertura(self):
+        # Gestión 2042: techo 1000 en fuente A + 1000 en fuente B.
+        gestion = crear_gestion(2042, estado='HABILITADA')
+        fuente_a = FuenteFinanciamiento.objects.create(
+            codigo='41', denominacion='Fuente A (cambio)', gestion=2042,
+            fecha_vigencia_desde=timezone.now().date(),
+        )
+        fuente_b = FuenteFinanciamiento.objects.create(
+            codigo='42', denominacion='Fuente B (cambio)', gestion=2042,
+            fecha_vigencia_desde=timezone.now().date(),
+        )
+        organismo = OrganismoFinanciador.objects.create(
+            codigo='411', denominacion='Origen A (cambio)', gestion=2042,
+            fecha_vigencia_desde=timezone.now().date(),
+        )
+        resp = self.client.post(
+            f'{BUDGET_URL}directive-ceilings/',
+            {'gestion': str(gestion.id)}, format='json',
+        )
+        self.assertEqual(resp.status_code, 201, resp.data)
+        ceiling = DirectiveCeiling.objects.get(gestion=gestion)
+        version = DirectiveCeilingVersion.objects.get(ceiling=ceiling, numero=1)
+        CeilingResource.objects.create(
+            version=version, origen='SIGEP', monto='1000.00', concepto='A',
+            fuente=fuente_a, organismo=organismo,
+            created_by=self.admin, updated_by=self.admin,
+        )
+        CeilingResource.objects.create(
+            version=version, origen='SIGEP', monto='1000.00', concepto='B',
+            fuente=fuente_b, organismo=organismo,
+            created_by=self.admin, updated_by=self.admin,
+        )
+        enviar_a_revision(version, self.admin)
+        aprobar(version, self.admin)
+        fijar_techo(version, self.admin)
+
+        # Aperturas: X {a: 500}, Y {a: 500, b: 300}; reserva en b: 700.
+        # Σa = 1000 = techo_a; Σb = 300 (Y) + 700 (reserva) = 1000 = techo_b.
+        resp = self.client.post(
+            f'{BUDGET_URL}allocations/',
+            {'gestion': str(gestion.id), 'denominacion': 'Apertura X',
+             'fuentes': [{'fuente': str(fuente_a.id),
+                          'organismo': str(organismo.id),
+                          'monto': '500.00'}]},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 201, resp.data)
+        resp = self.client.post(
+            f'{BUDGET_URL}allocations/',
+            {'gestion': str(gestion.id), 'denominacion': 'Apertura Y',
+             'fuentes': [
+                 {'fuente': str(fuente_a.id), 'organismo': str(organismo.id),
+                  'monto': '500.00'},
+                 {'fuente': str(fuente_b.id), 'organismo': str(organismo.id),
+                  'monto': '300.00'},
+             ]},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 201, resp.data)
+        resp = self.client.post(
+            f'{BUDGET_URL}reserves/',
+            {'gestion': str(gestion.id), 'fuente': str(fuente_b.id),
+             'organismo': str(organismo.id), 'tipo': 'OTRA',
+             'motivo': 'Contingencia', 'monto': '700.00'},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 201, resp.data)
+        version_dist = DistributionVersion.objects.get(
+            gestion=gestion, numero=1,
+        )
+        enviar_distribucion_a_revision(version_dist, self.admin)
+        aprobar_distribucion(version_dist, self.admin)
+        fijar_distribucion(version_dist, self.admin)
+
+        # CAMBIO_FUENTE en X: 300 de la fuente a → fuente b (misma apertura).
+        x = Allocation.objects.get(gestion=gestion, denominacion='Apertura X')
+        resp = self.client.post(
+            f'{REFORM_URL}',
+            {'gestion': str(gestion.id), 'tipo': 'CAMBIO_FUENTE',
+             'motivo': 'Cambiar origen de fondos',
+             'movimientos': [{
+                 'tipo': 'CAMBIO_FUENTE',
+                 'apertura_origen': str(x.id),
+                 'fuente': str(fuente_b.id),
+                 'organismo': str(organismo.id),
+                 'monto': '300.00',
+             }]},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 201, resp.data)
+        reform_id = resp.data['id']
+        self.flujo_hasta(reform_id, 'approve')
+        resp = self.client.post(
+            f'{REFORM_URL}{reform_id}/apply/', {}, format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+
+        # X: fuente a baja 500 → 200; fuente b nace con 300.
+        self.assertEqual(
+            AllocationSource.objects.get(
+                allocation=x, fuente=fuente_a, organismo=organismo,
+            ).monto, Decimal('200.00'),
+        )
+        self.assertEqual(
+            AllocationSource.objects.get(
+                allocation=x, fuente=fuente_b, organismo=organismo,
+            ).monto, Decimal('300.00'),
+        )
+        mov = ReformMovement.objects.get(reform_id=reform_id)
+        self.assertEqual(mov.saldo_antes, Decimal('500.00'))
+        self.assertEqual(mov.saldo_despues, Decimal('200.00'))
+
+    def test_cambio_fuente_sin_pool_en_destino_rechazado(self):
+        # Sin pool en la fuente nueva: el CAMBIO_FUENTE falla (BUDGET_EXCEEDED).
+        self.preparar_distribucion_fijada()
+        a = self.apertura('Apertura A')
+        fuente_extra = FuenteFinanciamiento.objects.create(
+            codigo='51', denominacion='Fuente sin techo', gestion=2030,
+            fecha_vigencia_desde=timezone.now().date(),
+        )
+        resp = self.crear_api(
+            tipo='CAMBIO_FUENTE',
+            movimientos=[{
+                'tipo': 'CAMBIO_FUENTE',
+                'apertura_origen': str(a.id),
+                'fuente': str(fuente_extra.id),
+                'organismo': str(self.organismo.id),
+                'monto': '100.00',
+            }],
+        )
+        self.assertEqual(resp.status_code, 201, resp.data)
+        reform_id = resp.data['id']
+        self.flujo_hasta(reform_id, 'approve')
+        resp = self.client.post(
+            f'{REFORM_URL}{reform_id}/apply/', {}, format='json',
+        )
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertEqual(resp.data['code'], 'BUDGET_EXCEEDED')
+        self.assertEqual(self.source(a).monto, Decimal('1000.00'))
+
+
+class ReformulacionAuditoriaTests(ReformulacionBase):
+    def test_auditoria_registrada_en_aplicar(self):
+        self.preparar_distribucion_fijada()
+        a = self.apertura('Apertura A')
+        b = self.apertura('Apertura B')
+        resp = self.crear_api(movimientos=[
+            self.movimiento('TRASPASO', origen=a, destino=b, monto='100.00'),
+        ])
+        reform_id = resp.data['id']
+        self.flujo_hasta(reform_id, 'approve')
+        self.client.post(f'{REFORM_URL}{reform_id}/apply/', {}, format='json')
+        evento = EventoAuditoria.objects.filter(
+            entidad='Reform', entidad_id=str(reform_id),
+        ).order_by('-creado_en').first()
+        self.assertIsNotNone(evento)
+        self.assertIn('aplicada', evento.resumen.lower())
+        self.assertEqual(evento.accion, 'aprobar')
+        self.assertEqual(evento.datos_posteriores['estado'], 'APLICADA')
+        self.assertEqual(evento.gestion, 2030)
+        # El flujo completo dejó su rastro (crear → enviar → aprobar → aplicar).
+        self.assertGreaterEqual(
+            EventoAuditoria.objects.filter(entidad='Reform',
+                                           entidad_id=str(reform_id)).count(),
+            4,
+        )
+
+    def test_estados_terminales_no_transicionan(self):
+        self.preparar_distribucion_fijada()
+        a = self.apertura('Apertura A')
+        b = self.apertura('Apertura B')
+        resp = self.crear_api(movimientos=[
+            self.movimiento('TRASPASO', origen=a, destino=b, monto='50.00'),
+        ])
+        reform_id = resp.data['id']
+        self.flujo_hasta(reform_id, 'approve')
+        self.client.post(f'{REFORM_URL}{reform_id}/apply/', {}, format='json')
+        # APLICADA: no admite más transiciones.
+        resp = self.client.post(
+            f'{REFORM_URL}{reform_id}/submit/', {}, format='json',
+        )
+        self.assertEqual(resp.status_code, 400, resp.data)
+        resp = self.client.post(
+            f'{REFORM_URL}{reform_id}/reject/', {'motivo': 'x'},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 400, resp.data)

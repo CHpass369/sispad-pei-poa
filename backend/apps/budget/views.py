@@ -46,6 +46,7 @@ from .models import (
     ExpenseObjectAllocation,
     MandatoryExpense,
     ProgrammaticCategory,
+    Reform,
     Reserve,
     TerritorialAllocation,
     TerritorialDistribution,
@@ -60,6 +61,7 @@ from .serializers import (
     FiscalYearSerializer,
     MandatoryExpenseSerializer,
     ProgrammaticCategorySerializer,
+    ReformSerializer,
     ReserveSerializer,
     TerritorialDistributionSerializer,
     _serializar_montos,
@@ -68,19 +70,23 @@ from .services import (
     ErrorDisponibilidad,
     ErrorObjetoGastoExcedido,
     ajuste_distribucion,
+    aplicar_reform,
     aprobar,
     aprobar_distribucion,
+    aprobar_reform,
     actualizar_allocation,
     actualizar_objeto_gasto,
     cerrar_allocation,
     cerrar_gestion,
     composicion_techo,
     crear_allocation,
+    crear_reform,
     crear_reserva,
     eliminar_allocation,
     eliminar_objeto_gasto,
     enviar_a_revision,
     enviar_distribucion_a_revision,
+    enviar_reform_a_revision,
     fijar_distribucion,
     fijar_techo,
     gestion_habilitada,
@@ -88,7 +94,9 @@ from .services import (
     liberar_reserva,
     observar,
     observar_distribucion,
+    observar_reform,
     programar_objeto_gasto,
+    rechazar_reform,
     resumen_distribucion,
     validar_distribucion_completa,
 )
@@ -1202,3 +1210,151 @@ class TerritorialDistributionViewSet(viewsets.ModelViewSet):
     def liberar(self, request, pk=None):
         """Libera las reservas DISTRITALES (solo APLICADA → CALCULADA)."""
         return self._ejecutar(liberar_reparto, self.get_object(), request.user)
+
+
+# ---------------------------------------------------------------------------
+# Fase 10 - Reformulaciones (tipos + workflow + movimientos atómicos, §92-97)
+# ---------------------------------------------------------------------------
+CAPACIDAD_REFORM = 'sis_poa.budget.reform'
+
+
+class ReformViewSet(viewsets.ModelViewSet):
+    """Reformulaciones presupuestarias (Fase 10, §92-97).
+
+    CRUD: create acepta `movimientos_input`: [{tipo, apertura_origen?,
+    apertura_destino?, fuente?, organismo?, monto, motivo?}] y delega en
+    `services.crear_reform` (BORRADOR). update/patch/destroy solo en
+    BORRADOR (el documento en flujo es inmodificable).
+
+    Acciones del workflow:
+        POST .../submit/  → EN_REVISION
+        POST .../observe/ → OBSERVADA (body: observaciones|motivo)
+        POST .../approve/ → APROBADA
+        POST .../reject/  → RECHAZADA (body: motivo, obligatorio)
+        POST .../apply/   → APLICADA (ATÓMICO: mueve saldos en una
+                            transacción; BUDGET_EXCEEDED → 400 {code,
+                            details}; fallo → rollback completo)
+
+    Permisos (ADR-003): create/update/destroy/submit → `sis_poa.budget.
+    reform`; observe/approve/reject/apply → `sis_poa.budget.approve`.
+    """
+
+    queryset = Reform.objects.select_related(
+        'gestion', 'documento', 'version_origen', 'version_resultante',
+        'solicitada_por', 'aprobada_por',
+    ).prefetch_related(
+        'movimientos__apertura_origen', 'movimientos__apertura_destino',
+        'movimientos__fuente', 'movimientos__organismo',
+    ).all()
+    serializer_class = ReformSerializer
+    filterset_fields = ['gestion', 'estado', 'tipo']
+    search_fields = ['motivo', 'resolucion']
+
+    def get_permissions(self):
+        if self.action in ('create', 'update', 'partial_update', 'destroy',
+                           'submit'):
+            return [TieneCapacidad(CAPACIDAD_REFORM)]
+        if self.action in ('observe', 'approve', 'reject', 'apply'):
+            return [TieneCapacidad(CAPACIDAD_APROBACION)]
+        return super().get_permissions()
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        gestion = self.request.query_params.get('gestion')
+        if gestion:
+            qs = qs.filter(gestion_id=gestion)
+        return qs
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            reform = crear_reform(
+                gestion=serializer.validated_data['gestion'],
+                tipo=serializer.validated_data['tipo'],
+                motivo=serializer.validated_data.get('motivo') or '',
+                usuario=request.user,
+                movimientos=serializer.validated_data.get('movimientos')
+                or [],
+            )
+        except DjangoValidationError as exc:
+            return _respuesta_error(exc)
+        return Response(self.get_serializer(reform).data, status=201)
+
+    def update(self, request, *args, **kwargs):
+        reform = self.get_object()
+        if reform.estado != 'BORRADOR':
+            return Response(
+                {'error': {'detail': [
+                    'Solo se puede editar una reformulación en BORRADOR.',
+                ]}},
+                status=400,
+            )
+        return super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        reform = self.get_object()
+        if reform.estado != 'BORRADOR':
+            return Response(
+                {'error': {'detail': [
+                    'Solo se puede eliminar una reformulación en BORRADOR.',
+                ]}},
+                status=400,
+            )
+        return super().destroy(request, *args, **kwargs)
+
+    def _ejecutar(self, request, pk, servicio, *args, **kwargs):
+        """Ejecuta un servicio de transición/aplicación y serializa."""
+        reform = self.get_object()
+        try:
+            resultado = servicio(reform, request.user, *args, **kwargs)
+        except ErrorDisponibilidad as exc:
+            return _respuesta_exceso(exc)
+        except DjangoValidationError as exc:
+            return _respuesta_error(exc)
+        # Refresca movimientos (saldos registrados al aplicar).
+        cache = getattr(reform, '_prefetched_objects_cache', None)
+        if cache:
+            cache.pop('movimientos', None)
+        return Response(self.get_serializer(resultado).data)
+
+    @action(detail=True, methods=['post'], url_path='submit')
+    def submit(self, request, pk=None):
+        """BORRADOR|OBSERVADA → EN_REVISION."""
+        return self._ejecutar(request, pk, enviar_reform_a_revision)
+
+    @action(detail=True, methods=['post'], url_path='observe')
+    def observe(self, request, pk=None):
+        """EN_REVISION → OBSERVADA. Body: {'observaciones': 'motivo'}."""
+        motivo = (
+            request.data.get('observaciones') or request.data.get('motivo') or ''
+        )
+        if not motivo.strip():
+            return Response(
+                {'error': {'detail': [
+                    'Debe indicar el motivo de la observación.',
+                ]}},
+                status=400,
+            )
+        return self._ejecutar(request, pk, observar_reform, motivo)
+
+    @action(detail=True, methods=['post'], url_path='approve')
+    def approve(self, request, pk=None):
+        """EN_REVISION → APROBADA."""
+        return self._ejecutar(request, pk, aprobar_reform)
+
+    @action(detail=True, methods=['post'], url_path='reject')
+    def reject(self, request, pk=None):
+        """EN_REVISION → RECHAZADA. Body: {'motivo': '...'} (obligatorio)."""
+        motivo = request.data.get('motivo') or ''
+        if not motivo.strip():
+            return Response(
+                {'error': {'detail': ['Debe indicar el motivo del rechazo.']}},
+                status=400,
+            )
+        return self._ejecutar(request, pk, rechazar_reform, motivo)
+
+    @action(detail=True, methods=['post'], url_path='apply')
+    def apply(self, request, pk=None):
+        """APROBADA → APLICADA: movimientos atómicos con saldos (§97)."""
+        return self._ejecutar(request, pk, aplicar_reform)
