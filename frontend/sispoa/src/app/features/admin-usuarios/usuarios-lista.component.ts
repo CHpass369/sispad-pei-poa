@@ -10,54 +10,66 @@ import { AdminUsuariosService, AdminUsuario } from './admin-usuarios.service';
       <h2>Gestión de Usuarios</h2>
       <p class="text-secondary">Administración de usuarios y roles del sistema</p>
     </div>
-
+    
     <div class="acciones-superior">
       <div class="field">
         <input [(ngModel)]="busqueda" (keyup.enter)="cargar()" class="form-control"
-               placeholder="Buscar por email o nombre...">
+          placeholder="Buscar por email o nombre...">
+        </div>
+        <button class="btn btn-primary" (click)="nuevo()">+ Nuevo Usuario</button>
       </div>
-      <button class="btn btn-primary" (click)="nuevo()">+ Nuevo Usuario</button>
-    </div>
-
-    <div class="table-container" *ngIf="!cargando">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Email</th>
-            <th>Nombre</th>
-            <th>Roles</th>
-            <th>Estado</th>
-            <th>Registro</th>
-            <th>Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let u of usuarios">
-            <td>{{ u.email }}</td>
-            <td>{{ u.first_name }} {{ u.last_name }}</td>
-            <td>
-              <span *ngFor="let r of u.rol_nombre" class="badge badge-info">{{ r }}</span>
-            </td>
-            <td>
-              <span class="badge" [class.badge-success]="u.is_active" [class.badge-danger]="!u.is_active">
-                {{ u.is_active ? 'Activo' : 'Inactivo' }}
-              </span>
-            </td>
-            <td>{{ u.date_joined | date:'dd/MM/yyyy' }}</td>
-            <td>
-              <button class="btn btn-sm btn-outline" (click)="editar(u)">Editar</button>
-              <button class="btn btn-sm btn-danger" (click)="eliminar(u)">Eliminar</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-      <div *ngIf="usuarios.length === 0" class="empty">No se encontraron usuarios</div>
-    </div>
-
-    <div class="loading" *ngIf="cargando">Cargando...</div>
-
-    <div class="alert alert-error" *ngIf="error">{{ error }}</div>
-  `,
+    
+      @if (!cargando) {
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Nombre</th>
+                <th>Roles</th>
+                <th>Estado</th>
+                <th>Registro</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (u of usuarios; track u) {
+                <tr>
+                  <td>{{ u.email }}</td>
+                  <td>{{ u.first_name }} {{ u.last_name }}</td>
+                  <td>
+                    @for (r of u.rol_nombre; track r) {
+                      <span class="badge badge-info">{{ r }}</span>
+                    }
+                  </td>
+                  <td>
+                    <span class="badge" [class.badge-success]="u.is_active" [class.badge-danger]="!u.is_active">
+                      {{ u.is_active ? 'Activo' : 'Inactivo' }}
+                    </span>
+                  </td>
+                  <td>{{ u.date_joined | date:'dd/MM/yyyy' }}</td>
+                  <td>
+                    <button class="btn btn-sm btn-outline" (click)="editar(u)">Editar</button>
+                    <button class="btn btn-sm btn-danger" (click)="eliminar(u)">Eliminar</button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+          @if (usuarios.length === 0) {
+            <div class="empty">No se encontraron usuarios</div>
+          }
+        </div>
+      }
+    
+      @if (cargando) {
+        <div class="loading">Cargando...</div>
+      }
+    
+      @if (error) {
+        <div class="alert alert-error">{{ error }}</div>
+      }
+    `,
   styles: [`
     .page-header { margin-bottom: 1rem; }
     .page-header h2 { font-size: 1.5rem; margin-bottom: 0.25rem; }

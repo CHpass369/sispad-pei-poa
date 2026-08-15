@@ -13,69 +13,85 @@ import { ApiService } from '../../core/services/api.service';
           <label>Secretaría:</label>
           <select [(ngModel)]="filtroSec" (change)="filtrar()" class="form-control filtro-select">
             <option value="">Todas</option>
-            <option *ngFor="let s of secretarias" [value]="s.sigla">{{ s.nombre }}</option>
+            @for (s of secretarias; track s) {
+              <option [value]="s.sigla">{{ s.nombre }}</option>
+            }
           </select>
           <label>Programa:</label>
-          <input [(ngModel)]="filtroProg" (keyup.enter)="filtrar()" class="form-control" 
-                 placeholder="Filtrar por código...">
-          <label>Buscar:</label>
-          <input [(ngModel)]="filtroTexto" (keyup.enter)="filtrar()" class="form-control" 
-                 placeholder="Acción o indicador...">
+          <input [(ngModel)]="filtroProg" (keyup.enter)="filtrar()" class="form-control"
+            placeholder="Filtrar por código...">
+            <label>Buscar:</label>
+            <input [(ngModel)]="filtroTexto" (keyup.enter)="filtrar()" class="form-control"
+              placeholder="Acción o indicador...">
+            </div>
+          </div>
+    
+          <div class="card">
+            <div class="table-wrapper">
+              <table class="matriz-table">
+                <thead>
+                  <tr>
+                    <th>AMP</th>
+                    <th>Acción de Mediano Plazo (PEI)</th>
+                    <th>ACP</th>
+                    <th>Acción de Corto Plazo (POA)</th>
+                    <th>Indicador</th>
+                    <th>Fórmula</th>
+                    <th>Línea Base</th>
+                    <th>Meta 2025</th>
+                    <th>Unidad</th>
+                    <th>Categoría Programática</th>
+                    <th>Secretaría</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (amp of ampsFiltrados; track amp) {
+                    @for (acp of amp.acciones; track acp; let i = $index) {
+                      <tr class="artic-row">
+                        @if (i === 0) {
+                          <td [attr.rowspan]="amp.acciones.length" class="amp-cell">
+                            <strong>{{ amp.codigo_amp }}</strong>
+                          </td>
+                        }
+                        @if (i === 0) {
+                          <td [attr.rowspan]="amp.acciones.length" class="amp-desc">
+                            {{ amp.nombre }}
+                            @if (amp.producto) {
+                              <div class="producto">Producto: {{ amp.producto }}</div>
+                            }
+                            @if (amp.programa) {
+                              <div class="programa-link"><small>{{ amp.programa }}</small></div>
+                            }
+                          </td>
+                        }
+                        <td><strong>{{ acp.codigo }}</strong></td>
+                        <td>{{ acp.nombre }}</td>
+                        <td>{{ acp.indicador || '—' }}</td>
+                        <td class="formula-cell">{{ acp.formula || '—' }}</td>
+                        <td>{{ acp.linea_base || '—' }}</td>
+                        <td>{{ acp.meta_2025 || '—' }}</td>
+                        <td>{{ acp.unidad_medida || '—' }}</td>
+                        <td><code>{{ acp.cat_prog || '—' }}</code></td>
+                        <td><span class="badge badge-info">{{ acp.secretaria || '—' }}</span></td>
+                      </tr>
+                    }
+                  }
+                  @if (ampsFiltrados.length === 0) {
+                    <tr>
+                      <td colspan="11" class="empty">No se encontraron acciones</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+            @if (amps.length > 0) {
+              <div class="table-footer">
+                Mostrando {{ ampsFiltrados.length }} de {{ amps.length }} acciones de mediano plazo
+              </div>
+            }
+          </div>
         </div>
-      </div>
-
-      <div class="card">
-        <div class="table-wrapper">
-          <table class="matriz-table">
-            <thead>
-              <tr>
-                <th>AMP</th>
-                <th>Acción de Mediano Plazo (PEI)</th>
-                <th>ACP</th>
-                <th>Acción de Corto Plazo (POA)</th>
-                <th>Indicador</th>
-                <th>Fórmula</th>
-                <th>Línea Base</th>
-                <th>Meta 2025</th>
-                <th>Unidad</th>
-                <th>Categoría Programática</th>
-                <th>Secretaría</th>
-              </tr>
-            </thead>
-            <tbody>
-              <ng-container *ngFor="let amp of ampsFiltrados">
-                <tr *ngFor="let acp of amp.acciones; let i = index" class="artic-row">
-                  <td *ngIf="i === 0" [attr.rowspan]="amp.acciones.length" class="amp-cell">
-                    <strong>{{ amp.codigo_amp }}</strong>
-                  </td>
-                  <td *ngIf="i === 0" [attr.rowspan]="amp.acciones.length" class="amp-desc">
-                    {{ amp.nombre }}
-                    <div class="producto" *ngIf="amp.producto">Producto: {{ amp.producto }}</div>
-                    <div class="programa-link" *ngIf="amp.programa"><small>{{ amp.programa }}</small></div>
-                  </td>
-                  <td><strong>{{ acp.codigo }}</strong></td>
-                  <td>{{ acp.nombre }}</td>
-                  <td>{{ acp.indicador || '—' }}</td>
-                  <td class="formula-cell">{{ acp.formula || '—' }}</td>
-                  <td>{{ acp.linea_base || '—' }}</td>
-                  <td>{{ acp.meta_2025 || '—' }}</td>
-                  <td>{{ acp.unidad_medida || '—' }}</td>
-                  <td><code>{{ acp.cat_prog || '—' }}</code></td>
-                  <td><span class="badge badge-info">{{ acp.secretaria || '—' }}</span></td>
-                </tr>
-              </ng-container>
-              <tr *ngIf="ampsFiltrados.length === 0">
-                <td colspan="11" class="empty">No se encontraron acciones</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div class="table-footer" *ngIf="amps.length > 0">
-          Mostrando {{ ampsFiltrados.length }} de {{ amps.length }} acciones de mediano plazo
-        </div>
-      </div>
-    </div>
-  `,
+    `,
   styles: [`
     .matriz-page { padding-bottom: 2rem; }
     .page-header { margin-bottom: 1rem; }

@@ -10,49 +10,59 @@ import { EvaluacionService, Evaluacion } from './evaluacion.service';
       <h2>Evaluaciones</h2>
       <p class="text-secondary">Gestión de evaluaciones del plan</p>
     </div>
-
+    
     <div class="acciones-superior">
       <div class="field">
         <input [(ngModel)]="busqueda" (keyup.enter)="cargar()" class="form-control"
-               placeholder="Buscar evaluaciones...">
+          placeholder="Buscar evaluaciones...">
+        </div>
+        <button class="btn btn-primary" (click)="nueva()">+ Nueva Evaluación</button>
+        <button class="btn btn-outline" (click)="generar()">Generar Evaluación</button>
       </div>
-      <button class="btn btn-primary" (click)="nueva()">+ Nueva Evaluación</button>
-      <button class="btn btn-outline" (click)="generar()">Generar Evaluación</button>
-    </div>
-
-    <div class="table-container" *ngIf="!cargando">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Tipo</th>
-            <th>Periodo</th>
-            <th>Responsable</th>
-            <th>Estado</th>
-            <th>Fecha Creación</th>
-            <th>Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let e of evaluaciones">
-            <td>{{ e.tipo }}</td>
-            <td>{{ e.periodo }}</td>
-            <td>{{ e.responsable_nombre || e.responsable }}</td>
-            <td>
-              <span class="badge" [ngClass]="'badge-' + e.estado">{{ e.estado }}</span>
-            </td>
-            <td>{{ e.fecha_creacion | date:'dd/MM/yyyy' }}</td>
-            <td>
-              <button class="btn btn-sm btn-outline" (click)="verDetalle(e)">Ver Detalle</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-      <div *ngIf="evaluaciones.length === 0" class="empty">No hay evaluaciones registradas</div>
-    </div>
-
-    <div class="loading" *ngIf="cargando">Cargando evaluaciones...</div>
-    <div class="alert alert-error" *ngIf="error">{{ error }}</div>
-  `,
+    
+      @if (!cargando) {
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Tipo</th>
+                <th>Periodo</th>
+                <th>Responsable</th>
+                <th>Estado</th>
+                <th>Fecha Creación</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (e of evaluaciones; track e) {
+                <tr>
+                  <td>{{ e.tipo }}</td>
+                  <td>{{ e.periodo }}</td>
+                  <td>{{ e.responsable_nombre || e.responsable }}</td>
+                  <td>
+                    <span class="badge" [ngClass]="'badge-' + e.estado">{{ e.estado }}</span>
+                  </td>
+                  <td>{{ e.fecha_creacion | date:'dd/MM/yyyy' }}</td>
+                  <td>
+                    <button class="btn btn-sm btn-outline" (click)="verDetalle(e)">Ver Detalle</button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+          @if (evaluaciones.length === 0) {
+            <div class="empty">No hay evaluaciones registradas</div>
+          }
+        </div>
+      }
+    
+      @if (cargando) {
+        <div class="loading">Cargando evaluaciones...</div>
+      }
+      @if (error) {
+        <div class="alert alert-error">{{ error }}</div>
+      }
+    `,
   styles: [`
     .page-header { margin-bottom: 1rem; }
     .page-header h2 { font-size: 1.5rem; margin-bottom: 0.25rem; }

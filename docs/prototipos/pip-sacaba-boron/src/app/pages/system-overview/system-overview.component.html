@@ -1,0 +1,28 @@
+@let c = config();
+<section class="system-hero card" [class]="'system-hero card ' + c.className">
+  <div>
+    <span class="pill">{{ c.code }}</span>
+    <h1>{{ c.title }}</h1>
+    <p>{{ c.subtitle }}</p>
+  </div>
+  <div class="hero-stat"><span>Configuración</span><strong>{{ c.progress }}%</strong><div><i [style.width.%]="c.progress"></i></div></div>
+</section>
+
+<section class="stage-row">
+  @for (stage of c.stages; track stage; let idx = $index) {
+    <div class="stage card"><span>0{{ idx + 1 }}</span><strong>{{ stage }}</strong></div>
+    @if (idx < c.stages.length - 1) { <b>→</b> }
+  }
+</section>
+
+<div class="section-head"><div><span>MÓDULOS</span><h2>Herramientas de {{ c.code }}</h2></div><button>＋ Nueva configuración</button></div>
+<section class="module-grid">
+  @for (module of c.modules; track module.title; let idx = $index) {
+    <a class="module card" [routerLink]="module.route">
+      <div class="module-top"><span>{{ (idx + 1).toString().padStart(2,'0') }}</span><b>↗</b></div>
+      <h3>{{ module.title }}</h3>
+      <p>{{ module.text }}</p>
+      <footer><span>{{ module.badge }}</span><strong>Abrir módulo</strong></footer>
+    </a>
+  }
+</section>

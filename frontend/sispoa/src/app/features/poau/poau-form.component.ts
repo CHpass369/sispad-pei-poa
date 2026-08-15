@@ -10,7 +10,7 @@ import { ApiService } from '../../core/services/api.service';
       <div class="page-header">
         <h2>{{ esNuevo ? 'Nuevo POAU' : 'Editar POAU' }}</h2>
       </div>
-
+    
       <!-- POAU Header Card -->
       <div class="card">
         <div class="form-2col">
@@ -21,26 +21,33 @@ import { ApiService } from '../../core/services/api.service';
         <div class="field"><label>Descripción</label><textarea [(ngModel)]="form.descripcion" class="form-control" rows="2"></textarea></div>
         <div class="form-2col">
           <div class="field"><label>Unidad Responsable</label>
-            <select [(ngModel)]="form.unidad" class="form-control">
-              <option *ngFor="let u of unidades" [value]="u.id">{{ u.sigla || u.codigo }} — {{ u.nombre }}</option>
-            </select>
-          </div>
-          <div class="field"><label>Producto Territorial (del PAD)</label>
-            <select [(ngModel)]="form.producto_territorial" class="form-control">
-              <option value="">— Ninguno —</option>
-              <option *ngFor="let p of productos" [value]="p.id">{{ p.codigo }} — {{ p.nombre | slice:0:50 }}</option>
-            </select>
-          </div>
+          <select [(ngModel)]="form.unidad" class="form-control">
+            @for (u of unidades; track u) {
+              <option [value]="u.id">{{ u.sigla || u.codigo }} — {{ u.nombre }}</option>
+            }
+          </select>
         </div>
-        <div class="step-nav">
-          <a routerLink="/poau" class="btn btn-outline">← Volver</a>
-          <button class="btn btn-primary" [disabled]="!form.nombre" (click)="guardar()">Guardar POAU</button>
-        </div>
-        <div *ngIf="msg" class="msg-box" [class.error]="msgClass==='error'">{{ msg }}</div>
+        <div class="field"><label>Producto Territorial (del PAD)</label>
+        <select [(ngModel)]="form.producto_territorial" class="form-control">
+          <option value="">— Ninguno —</option>
+          @for (p of productos; track p) {
+            <option [value]="p.id">{{ p.codigo }} — {{ p.nombre | slice:0:50 }}</option>
+          }
+        </select>
       </div>
-
-      <!-- Actividades trimestrales card -->
-      <div class="card" *ngIf="!esNuevo && form.actividades?.length">
+    </div>
+    <div class="step-nav">
+      <a routerLink="/poau" class="btn btn-outline">← Volver</a>
+      <button class="btn btn-primary" [disabled]="!form.nombre" (click)="guardar()">Guardar POAU</button>
+    </div>
+    @if (msg) {
+      <div class="msg-box" [class.error]="msgClass==='error'">{{ msg }}</div>
+    }
+    </div>
+    
+    <!-- Actividades trimestrales card -->
+    @if (!esNuevo && form.actividades?.length) {
+      <div class="card">
         <h3 class="card-title">Actividades — Programación Trimestral</h3>
         <div class="table-wrap">
           <table>
@@ -58,42 +65,49 @@ import { ApiService } from '../../core/services/api.service';
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let act of form.actividades">
-                <td><strong>{{ act.codigo }}</strong></td>
-                <td class="cell-nombre">{{ act.nombre | slice:0:60 }}</td>
-                <td><input type="number" min="0" step="0.0001"
-                      [(ngModel)]="act.meta_q1" (ngModelChange)="act._total = sumaTrimestres(act)"
-                      class="form-control input-q"></td>
-                <td><input type="number" min="0" step="0.0001"
-                      [(ngModel)]="act.meta_q2" (ngModelChange)="act._total = sumaTrimestres(act)"
-                      class="form-control input-q"></td>
-                <td><input type="number" min="0" step="0.0001"
-                      [(ngModel)]="act.meta_q3" (ngModelChange)="act._total = sumaTrimestres(act)"
-                      class="form-control input-q"></td>
-                <td><input type="number" min="0" step="0.0001"
-                      [(ngModel)]="act.meta_q4" (ngModelChange)="act._total = sumaTrimestres(act)"
-                      class="form-control input-q"></td>
-                <td class="cell-total">{{ act._total | number:'1.2-2' }}</td>
-                <td class="cell-avance">{{ act.avance }}%</td>
-                <td>
-                  <button class="btn btn-primary btn-sm"
-                          (click)="guardarActividad(act)"
-                          [disabled]="act._guardando">
-                    {{ act._guardando ? 'Guardando…' : 'Guardar' }}
-                  </button>
-                </td>
-              </tr>
+              @for (act of form.actividades; track act) {
+                <tr>
+                  <td><strong>{{ act.codigo }}</strong></td>
+                  <td class="cell-nombre">{{ act.nombre | slice:0:60 }}</td>
+                  <td><input type="number" min="0" step="0.0001"
+                    [(ngModel)]="act.meta_q1" (ngModelChange)="act._total = sumaTrimestres(act)"
+                  class="form-control input-q"></td>
+                  <td><input type="number" min="0" step="0.0001"
+                    [(ngModel)]="act.meta_q2" (ngModelChange)="act._total = sumaTrimestres(act)"
+                  class="form-control input-q"></td>
+                  <td><input type="number" min="0" step="0.0001"
+                    [(ngModel)]="act.meta_q3" (ngModelChange)="act._total = sumaTrimestres(act)"
+                  class="form-control input-q"></td>
+                  <td><input type="number" min="0" step="0.0001"
+                    [(ngModel)]="act.meta_q4" (ngModelChange)="act._total = sumaTrimestres(act)"
+                  class="form-control input-q"></td>
+                  <td class="cell-total">{{ act._total | number:'1.2-2' }}</td>
+                  <td class="cell-avance">{{ act.avance }}%</td>
+                  <td>
+                    <button class="btn btn-primary btn-sm"
+                      (click)="guardarActividad(act)"
+                      [disabled]="act._guardando">
+                      {{ act._guardando ? 'Guardando…' : 'Guardar' }}
+                    </button>
+                  </td>
+                </tr>
+              }
             </tbody>
           </table>
         </div>
-        <div *ngIf="actividadesMsg" class="msg-box" [class.error]="actividadesMsgClase==='error'"
-             [class.success]="actividadesMsgClase==='success'">{{ actividadesMsg }}</div>
+        @if (actividadesMsg) {
+          <div class="msg-box" [class.error]="actividadesMsgClase==='error'"
+          [class.success]="actividadesMsgClase==='success'">{{ actividadesMsg }}</div>
+        }
       </div>
-      <div class="card" *ngIf="!esNuevo && (!form.actividades || form.actividades.length === 0)">
+    }
+    @if (!esNuevo && (!form.actividades || form.actividades.length === 0)) {
+      <div class="card">
         <p class="text-secondary">Este POAU no tiene actividades registradas. Agréguelas desde el detalle del POAU.</p>
       </div>
+    }
     </div>
-  `,
+    `,
   styles: [`
     .poau-form { max-width:960px; margin:0 auto; }
     .page-header { margin-bottom:1rem; }

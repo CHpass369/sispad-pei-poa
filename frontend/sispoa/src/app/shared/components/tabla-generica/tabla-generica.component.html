@@ -1,43 +1,62 @@
 <div class="tabla-wrapper">
-  <div *ngIf="loading" class="loading-text">Cargando datos...</div>
+  @if (loading) {
+    <div class="loading-text">Cargando datos...</div>
+  }
 
-  <div *ngIf="!loading">
-    <table>
-      <thead>
-        <tr>
-          <th>#</th>
-          <th *ngFor="let col of columns">{{ col.label }}</th>
-          <th *ngIf="acciones.length > 0">Acciones</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let fila of paginatedData; let i = index">
-          <td>{{ (currentPage - 1) * pageSize + i + 1 }}</td>
-          <td *ngFor="let col of columns">{{ fila[col.key] }}</td>
-          <td *ngIf="acciones.length > 0" class="acciones-cell">
-            <button *ngFor="let acc of acciones" class="btn btn-primary btn-sm" (click)="acc.handler(fila)">
-              {{ acc.label }}
+  @if (!loading) {
+    <div>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            @for (col of columns; track col) {
+              <th>{{ col.label }}</th>
+            }
+            @if (acciones.length > 0) {
+              <th>Acciones</th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (fila of paginatedData; track fila; let i = $index) {
+            <tr>
+              <td>{{ (currentPage - 1) * pageSize + i + 1 }}</td>
+              @for (col of columns; track col) {
+                <td>{{ fila[col.key] }}</td>
+              }
+              @if (acciones.length > 0) {
+                <td class="acciones-cell">
+                  @for (acc of acciones; track acc) {
+                    <button class="btn btn-primary btn-sm" (click)="acc.handler(fila)">
+                      {{ acc.label }}
+                    </button>
+                  }
+                </td>
+              }
+            </tr>
+          }
+          @if (data.length === 0) {
+            <tr>
+              <td [attr.colspan]="columns.length + (acciones.length > 0 ? 2 : 1)" class="empty-text">
+                No se encontraron registros.
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+      @if (data.length > pageSize) {
+        <div class="pagination-bar">
+          <span class="page-info">Página {{ currentPage }} de {{ totalPages }} ({{ data.length }} registros)</span>
+          <div class="page-controls">
+            <button class="btn btn-outline btn-sm" [disabled]="currentPage <= 1" (click)="previousPage()">
+              &laquo; Anterior
             </button>
-          </td>
-        </tr>
-        <tr *ngIf="data.length === 0">
-          <td [attr.colspan]="columns.length + (acciones.length > 0 ? 2 : 1)" class="empty-text">
-            No se encontraron registros.
-          </td>
-        </tr>
-      </tbody>
-    </table>
-
-    <div *ngIf="data.length > pageSize" class="pagination-bar">
-      <span class="page-info">Página {{ currentPage }} de {{ totalPages }} ({{ data.length }} registros)</span>
-      <div class="page-controls">
-        <button class="btn btn-outline btn-sm" [disabled]="currentPage <= 1" (click)="previousPage()">
-          &laquo; Anterior
-        </button>
-        <button class="btn btn-outline btn-sm" [disabled]="currentPage >= totalPages" (click)="nextPage()">
-          Siguiente &raquo;
-        </button>
-      </div>
+            <button class="btn btn-outline btn-sm" [disabled]="currentPage >= totalPages" (click)="nextPage()">
+              Siguiente &raquo;
+            </button>
+          </div>
+        </div>
+      }
     </div>
-  </div>
+  }
 </div>

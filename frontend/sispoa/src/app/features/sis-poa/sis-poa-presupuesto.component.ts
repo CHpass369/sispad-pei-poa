@@ -9,18 +9,24 @@ import { PoaV2, ProgramacionFila, SisPoaService, ValidacionTecho } from './sis-p
       <h2>Presupuesto del POA</h2>
       <p class="text-secondary">Programación físico-financiera por actividad y validación de techos</p>
     </div>
-    <div class="alert alert-error" *ngIf="error">{{ error }}</div>
-
+    @if (error) {
+      <div class="alert alert-error">{{ error }}</div>
+    }
+    
     <div class="card">
       <label>POA</label>
       <select [(ngModel)]="poaSeleccionado" (ngModelChange)="cargar()" class="input">
-        <option *ngFor="let poa of poas" [value]="poa.id">{{ poa.codigo }} — {{ poa.nombre }}</option>
+        @for (poa of poas; track poa) {
+          <option [value]="poa.id">{{ poa.codigo }} — {{ poa.nombre }}</option>
+        }
       </select>
     </div>
-
-    <div *ngIf="cargando" class="loading">Cargando programaciones...</div>
-
-    <ng-container *ngIf="!cargando && filas.length">
+    
+    @if (cargando) {
+      <div class="loading">Cargando programaciones...</div>
+    }
+    
+    @if (!cargando && filas.length) {
       <table class="data-table">
         <thead>
           <tr>
@@ -29,16 +35,17 @@ import { PoaV2, ProgramacionFila, SisPoaService, ValidacionTecho } from './sis-p
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let fila of filas">
-            <td>{{ fila.actividad_codigo }} — {{ fila.actividad_nombre }}</td>
-            <td>{{ fila.anio }}</td>
-            <td>{{ fila.tipo === 'financiera' ? 'Financiera' : 'Física' }}</td>
-            <td>Bs {{ fila.programado }}</td>
-            <td>Bs {{ fila.ejecutado }}</td>
-          </tr>
+          @for (fila of filas; track fila) {
+            <tr>
+              <td>{{ fila.actividad_codigo }} — {{ fila.actividad_nombre }}</td>
+              <td>{{ fila.anio }}</td>
+              <td>{{ fila.tipo === 'financiera' ? 'Financiera' : 'Física' }}</td>
+              <td>Bs {{ fila.programado }}</td>
+              <td>Bs {{ fila.ejecutado }}</td>
+            </tr>
+          }
         </tbody>
       </table>
-
       <div class="card resumen">
         <h3>Resumen financiero</h3>
         <div class="info-grid">
@@ -49,15 +56,19 @@ import { PoaV2, ProgramacionFila, SisPoaService, ValidacionTecho } from './sis-p
         <div class="actions">
           <button class="btn btn-sm" (click)="validarTecho()">Validar contra techo</button>
         </div>
-        <div *ngIf="techo" class="techo {{ techo.excede ? 'excede' : 'ok' }}">
-          {{ techo.mensaje }} — techo: Bs {{ techo.techo }} | formulado: Bs {{ techo.formulado }}
-        </div>
+        @if (techo) {
+          <div class="techo {{ techo.excede ? 'excede' : 'ok' }}">
+            {{ techo.mensaje }} — techo: Bs {{ techo.techo }} | formulado: Bs {{ techo.formulado }}
+          </div>
+        }
       </div>
-    </ng-container>
-    <div *ngIf="!cargando && poas.length && filas.length === 0" class="empty">
-      Sin programaciones para este POA
-    </div>
-  `,
+    }
+    @if (!cargando && poas.length && filas.length === 0) {
+      <div class="empty">
+        Sin programaciones para este POA
+      </div>
+    }
+    `,
   styles: [`
     .page-header { margin-bottom: 1.5rem; }
     .text-secondary { color: var(--text-secondary); font-size: 0.875rem; }

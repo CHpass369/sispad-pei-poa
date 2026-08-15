@@ -17,86 +17,92 @@ import {
           Vinculación de resultados y productos del PAD con resultados y productos del PEI
         </p>
       </div>
-
+    
       <div class="card filtros-card">
         <div class="filtros">
           <div class="field">
             <label>Buscar por código</label>
             <input [(ngModel)]="filtroCodigo" class="form-control" placeholder="Código..."
-                   (input)="aplicarFiltros()">
-          </div>
-          <div class="field">
-            <label>Estado</label>
-            <select [(ngModel)]="filtroEstado" class="form-control" (change)="aplicarFiltros()">
-              <option value="">Todos</option>
-              <option value="REFERENCIAL">Referencial</option>
-              <option value="VALIDADO">Validado</option>
-              <option value="APROBADO">Aprobado</option>
-            </select>
-          </div>
-          <div class="field">
-            <label>&nbsp;</label>
-            <span class="badge badge-info">Mostrando {{ filtrados.length }} de {{ articulaciones.length }} registros</span>
-          </div>
-          <div class="field export-field">
-            <label>&nbsp;</label>
-            <a routerLink="./nuevo" class="btn btn-sm btn-primary">+ Nueva</a>
-          </div>
-          <div class="field export-field">
-            <label>&nbsp;</label>
-            <button class="btn btn-sm btn-outline-success" (click)="exportarXLSX()">
-              ⬇ Exportar XLSX
-            </button>
+              (input)="aplicarFiltros()">
+            </div>
+            <div class="field">
+              <label>Estado</label>
+              <select [(ngModel)]="filtroEstado" class="form-control" (change)="aplicarFiltros()">
+                <option value="">Todos</option>
+                <option value="REFERENCIAL">Referencial</option>
+                <option value="VALIDADO">Validado</option>
+                <option value="APROBADO">Aprobado</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>&nbsp;</label>
+              <span class="badge badge-info">Mostrando {{ filtrados.length }} de {{ articulaciones.length }} registros</span>
+            </div>
+            <div class="field export-field">
+              <label>&nbsp;</label>
+              <a routerLink="./nuevo" class="btn btn-sm btn-primary">+ Nueva</a>
+            </div>
+            <div class="field export-field">
+              <label>&nbsp;</label>
+              <button class="btn btn-sm btn-outline-success" (click)="exportarXLSX()">
+                ⬇ Exportar XLSX
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-
-      <div class="card table-card">
-        <div class="table-scroll">
-          <table class="matriz-table">
-            <thead>
-              <tr>
-                <th>Código Resultado PAD</th>
-                <th>Resultado PAD</th>
-                <th>Código Producto PAD</th>
-                <th>Producto PAD</th>
-                <th>Código Resultado PEI</th>
-                <th>Resultado PEI</th>
-                <th>Código Producto PEI</th>
-                <th>Producto PEI</th>
-                <th>Estado</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let item of filtrados">
-                <td><span class="codigo">{{ item.codigo_resultado_pad }}</span></td>
-                <td class="cell-desc">{{ item.resultado_pad }}</td>
-                <td><span class="codigo">{{ item.codigo_producto_pad }}</span></td>
-                <td class="cell-desc">{{ item.producto_pad }}</td>
-                <td><span class="codigo">{{ item.codigo_resultado_pei }}</span></td>
-                <td class="cell-desc">{{ item.resultado_pei }}</td>
-                <td><span class="codigo">{{ item.codigo_producto_pei }}</span></td>
-                <td class="cell-desc">{{ item.producto_pei }}</td>
-                <td>
-                  <span class="badge" [class.badge-success]="item.estado==='APROBADO'"
+    
+        <div class="card table-card">
+          <div class="table-scroll">
+            <table class="matriz-table">
+              <thead>
+                <tr>
+                  <th>Código Resultado PAD</th>
+                  <th>Resultado PAD</th>
+                  <th>Código Producto PAD</th>
+                  <th>Producto PAD</th>
+                  <th>Código Resultado PEI</th>
+                  <th>Resultado PEI</th>
+                  <th>Código Producto PEI</th>
+                  <th>Producto PEI</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of filtrados; track item) {
+                  <tr>
+                    <td><span class="codigo">{{ item.codigo_resultado_pad }}</span></td>
+                    <td class="cell-desc">{{ item.resultado_pad }}</td>
+                    <td><span class="codigo">{{ item.codigo_producto_pad }}</span></td>
+                    <td class="cell-desc">{{ item.producto_pad }}</td>
+                    <td><span class="codigo">{{ item.codigo_resultado_pei }}</span></td>
+                    <td class="cell-desc">{{ item.resultado_pei }}</td>
+                    <td><span class="codigo">{{ item.codigo_producto_pei }}</span></td>
+                    <td class="cell-desc">{{ item.producto_pei }}</td>
+                    <td>
+                      <span class="badge" [class.badge-success]="item.estado==='APROBADO'"
                         [class.badge-warning]="item.estado==='VALIDADO'"
                         [class.badge-info]="item.estado==='REFERENCIAL'">
-                    {{ item.estado }}
-                  </span>
-                </td>
-              </tr>
-              <tr *ngIf="cargando">
-                <td colspan="9" class="empty-cell">Cargando datos...</td>
-              </tr>
-              <tr *ngIf="!cargando && filtrados.length === 0">
-                <td colspan="9" class="empty-cell">No se encontraron registros de articulación PAD-PEI</td>
-              </tr>
-            </tbody>
-          </table>
+                        {{ item.estado }}
+                      </span>
+                    </td>
+                  </tr>
+                }
+                @if (cargando) {
+                  <tr>
+                    <td colspan="9" class="empty-cell">Cargando datos...</td>
+                  </tr>
+                }
+                @if (!cargando && filtrados.length === 0) {
+                  <tr>
+                    <td colspan="9" class="empty-cell">No se encontraron registros de articulación PAD-PEI</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
-    </div>
-  `,
+    `,
   styles: [`
     .matriz-page { padding-bottom: 2rem; }
     .page-header { margin-bottom: 1rem; }

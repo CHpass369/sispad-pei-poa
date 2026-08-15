@@ -17,97 +17,105 @@ import {
           Acciones del POA articuladas con productos del PEI, indicadores, metas y presupuesto
         </p>
       </div>
-
+    
       <div class="card filtros-card">
         <div class="filtros">
           <div class="field">
             <label>Buscar</label>
             <input [(ngModel)]="filtroTexto" class="form-control" placeholder="Código o denominación..."
-                   (input)="aplicarFiltros()">
-          </div>
-          <div class="field">
-            <label>Estado</label>
-            <select [(ngModel)]="filtroEstado" class="form-control" (change)="aplicarFiltros()">
-              <option value="">Todos</option>
-              <option value="REFERENCIAL">Referencial</option>
-              <option value="ENVIADO">Enviado</option>
-              <option value="APROBADO">Aprobado</option>
-              <option value="OBSERVADO">Observado</option>
-              <option value="EJECUCION">En Ejecución</option>
-              <option value="FINALIZADO">Finalizado</option>
-            </select>
-          </div>
-          <div class="field">
-            <label>Gestión</label>
-            <select [(ngModel)]="filtroGestion" class="form-control" (change)="aplicarFiltros()">
-              <option value="">Todas</option>
-              <option *ngFor="let g of gestiones" [value]="g">{{ g }}</option>
-            </select>
-          </div>
-          <div class="field">
-            <label>&nbsp;</label>
-            <span class="badge badge-info">Mostrando {{ filtrados.length }} de {{ acciones.length }} registros</span>
-          </div>
-          <div class="field export-field">
-            <label>&nbsp;</label>
-            <a routerLink="./nuevo" class="btn btn-sm btn-primary">+ Nueva</a>
-          </div>
-          <div class="field export-field">
-            <label>&nbsp;</label>
-            <button class="btn btn-sm btn-outline-success" (click)="exportarXLSX()">
-              ⬇ Exportar XLSX
-            </button>
+              (input)="aplicarFiltros()">
+            </div>
+            <div class="field">
+              <label>Estado</label>
+              <select [(ngModel)]="filtroEstado" class="form-control" (change)="aplicarFiltros()">
+                <option value="">Todos</option>
+                <option value="REFERENCIAL">Referencial</option>
+                <option value="ENVIADO">Enviado</option>
+                <option value="APROBADO">Aprobado</option>
+                <option value="OBSERVADO">Observado</option>
+                <option value="EJECUCION">En Ejecución</option>
+                <option value="FINALIZADO">Finalizado</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Gestión</label>
+              <select [(ngModel)]="filtroGestion" class="form-control" (change)="aplicarFiltros()">
+                <option value="">Todas</option>
+                @for (g of gestiones; track g) {
+                  <option [value]="g">{{ g }}</option>
+                }
+              </select>
+            </div>
+            <div class="field">
+              <label>&nbsp;</label>
+              <span class="badge badge-info">Mostrando {{ filtrados.length }} de {{ acciones.length }} registros</span>
+            </div>
+            <div class="field export-field">
+              <label>&nbsp;</label>
+              <a routerLink="./nuevo" class="btn btn-sm btn-primary">+ Nueva</a>
+            </div>
+            <div class="field export-field">
+              <label>&nbsp;</label>
+              <button class="btn btn-sm btn-outline-success" (click)="exportarXLSX()">
+                ⬇ Exportar XLSX
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-
-      <div class="card table-card">
-        <div class="table-scroll">
-          <table class="matriz-table">
-            <thead>
-              <tr>
-                <th>Código Acción POA</th>
-                <th>Acción POA</th>
-                <th>Producto PEI</th>
-                <th>Indicador</th>
-                <th>Unidad</th>
-                <th>Meta Gestión</th>
-                <th>Presupuesto Programado</th>
-                <th>FF</th>
-                <th>Estado</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let item of filtrados">
-                <td><span class="codigo">{{ item.codigo_accion }}</span></td>
-                <td class="cell-desc">{{ item.denominacion }}</td>
-                <td class="cell-desc">{{ item.producto_pei_nombre || '—' }}</td>
-                <td class="cell-desc">{{ item.indicador || '—' }}</td>
-                <td>{{ item.unidad_medida || '—' }}</td>
-                <td class="num">{{ item.meta_gestion != null ? item.meta_gestion : '—' }}</td>
-                <td class="num">{{ item.presupuesto_programado != null ? (item.presupuesto_programado | number:'1.0-2') : '—' }}</td>
-                <td>{{ item.fuente_financiamiento || '—' }}</td>
-                <td>
-                  <span class="badge" [class.badge-success]="item.estado==='APROBADO'||item.estado==='FINALIZADO'"
+    
+        <div class="card table-card">
+          <div class="table-scroll">
+            <table class="matriz-table">
+              <thead>
+                <tr>
+                  <th>Código Acción POA</th>
+                  <th>Acción POA</th>
+                  <th>Producto PEI</th>
+                  <th>Indicador</th>
+                  <th>Unidad</th>
+                  <th>Meta Gestión</th>
+                  <th>Presupuesto Programado</th>
+                  <th>FF</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of filtrados; track item) {
+                  <tr>
+                    <td><span class="codigo">{{ item.codigo_accion }}</span></td>
+                    <td class="cell-desc">{{ item.denominacion }}</td>
+                    <td class="cell-desc">{{ item.producto_pei_nombre || '—' }}</td>
+                    <td class="cell-desc">{{ item.indicador || '—' }}</td>
+                    <td>{{ item.unidad_medida || '—' }}</td>
+                    <td class="num">{{ item.meta_gestion != null ? item.meta_gestion : '—' }}</td>
+                    <td class="num">{{ item.presupuesto_programado != null ? (item.presupuesto_programado | number:'1.0-2') : '—' }}</td>
+                    <td>{{ item.fuente_financiamiento || '—' }}</td>
+                    <td>
+                      <span class="badge" [class.badge-success]="item.estado==='APROBADO'||item.estado==='FINALIZADO'"
                         [class.badge-warning]="item.estado==='ENVIADO'||item.estado==='EJECUCION'"
                         [class.badge-danger]="item.estado==='OBSERVADO'"
                         [class.badge-info]="item.estado==='REFERENCIAL'">
-                    {{ item.estado }}
-                  </span>
-                </td>
-              </tr>
-              <tr *ngIf="cargando">
-                <td colspan="9" class="empty-cell">Cargando datos...</td>
-              </tr>
-              <tr *ngIf="!cargando && filtrados.length === 0">
-                <td colspan="9" class="empty-cell">No se encontraron acciones POA</td>
-              </tr>
-            </tbody>
-          </table>
+                        {{ item.estado }}
+                      </span>
+                    </td>
+                  </tr>
+                }
+                @if (cargando) {
+                  <tr>
+                    <td colspan="9" class="empty-cell">Cargando datos...</td>
+                  </tr>
+                }
+                @if (!cargando && filtrados.length === 0) {
+                  <tr>
+                    <td colspan="9" class="empty-cell">No se encontraron acciones POA</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
-    </div>
-  `,
+    `,
   styles: [`
     .matriz-page { padding-bottom: 2rem; }
     .page-header { margin-bottom: 1rem; }

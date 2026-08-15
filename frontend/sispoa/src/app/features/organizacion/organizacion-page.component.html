@@ -4,29 +4,36 @@
   <!-- Tabs -->
   <div class="border-b border-gray-200 mb-6">
     <nav class="flex gap-6">
-      <button
-        *ngFor="let tab of tabs"
-        class="pb-3 text-sm font-medium transition border-b-2 -mb-px"
-        [class.border-blue-600]="tabActivo === tab.id"
-        [class.text-blue-600]="tabActivo === tab.id"
-        [class.border-transparent]="tabActivo !== tab.id"
-        [class.text-gray-500]="tabActivo !== tab.id"
-        [class.hover:text-gray-700]="tabActivo !== tab.id"
-        (click)="activarTab(tab.id)"
-      >
-        {{ tab.label }}
-      </button>
+      @for (tab of tabs; track tab) {
+        <button
+          class="pb-3 text-sm font-medium transition border-b-2 -mb-px"
+          [class.border-blue-600]="tabActivo === tab.id"
+          [class.text-blue-600]="tabActivo === tab.id"
+          [class.border-transparent]="tabActivo !== tab.id"
+          [class.text-gray-500]="tabActivo !== tab.id"
+          [class.hover:text-gray-700]="tabActivo !== tab.id"
+          (click)="activarTab(tab.id)"
+          >
+          {{ tab.label }}
+        </button>
+      }
     </nav>
   </div>
 
   <!-- Contenido de cada tab -->
-  <div *ngIf="tabActivo === 'unidades'">
-    <app-organizacion-tree></app-organizacion-tree>
-  </div>
-  <div *ngIf="tabActivo === 'da'">
-    <app-organizacion-da></app-organizacion-da>
-  </div>
-  <div *ngIf="tabActivo === 'ue'">
-    <app-organizacion-ue></app-organizacion-ue>
-  </div>
+  @if (tabActivo === 'unidades') {
+    <div>
+      <app-organizacion-tree></app-organizacion-tree>
+    </div>
+  }
+  @if (tabActivo === 'da') {
+    <div>
+      <app-organizacion-da></app-organizacion-da>
+    </div>
+  }
+  @if (tabActivo === 'ue') {
+    <div>
+      <app-organizacion-ue></app-organizacion-ue>
+    </div>
+  }
 </div>

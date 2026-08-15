@@ -17,95 +17,105 @@ import {
           Asignaciones de objetos de gasto por actividad: código, grupo, fuente, organismo y monto
         </p>
       </div>
-
+    
       <div class="card filtros-card">
         <div class="filtros">
           <div class="field">
             <label>Buscar</label>
             <input [(ngModel)]="filtroTexto" class="form-control" placeholder="Código o descripción..."
-                   (input)="aplicarFiltros()">
+              (input)="aplicarFiltros()">
+            </div>
+            <div class="field">
+              <label>Grupo de gasto</label>
+              <select [(ngModel)]="filtroGrupo" class="form-control" (change)="aplicarFiltros()">
+                <option value="">Todos</option>
+                @for (g of grupos; track g) {
+                  <option [value]="g">{{ g }}</option>
+                }
+              </select>
+            </div>
+            <div class="field">
+              <label>Gestión</label>
+              <select [(ngModel)]="filtroGestion" class="form-control" (change)="aplicarFiltros()">
+                <option value="">Todas</option>
+                @for (g of gestiones; track g) {
+                  <option [value]="g">{{ g }}</option>
+                }
+              </select>
+            </div>
+            <div class="field">
+              <label>&nbsp;</label>
+              <span class="badge badge-info">Mostrando {{ filtrados.length }} de {{ asignaciones.length }} registros</span>
+            </div>
+            <div class="field export-field">
+              <label>&nbsp;</label>
+              <a routerLink="./nuevo" class="btn btn-sm btn-primary">+ Nueva</a>
+            </div>
+            <div class="field export-field">
+              <label>&nbsp;</label>
+              <button class="btn btn-sm btn-outline-success" (click)="exportarXLSX()">
+                ⬇ Exportar XLSX
+              </button>
+            </div>
           </div>
-          <div class="field">
-            <label>Grupo de gasto</label>
-            <select [(ngModel)]="filtroGrupo" class="form-control" (change)="aplicarFiltros()">
-              <option value="">Todos</option>
-              <option *ngFor="let g of grupos" [value]="g">{{ g }}</option>
-            </select>
-          </div>
-          <div class="field">
-            <label>Gestión</label>
-            <select [(ngModel)]="filtroGestion" class="form-control" (change)="aplicarFiltros()">
-              <option value="">Todas</option>
-              <option *ngFor="let g of gestiones" [value]="g">{{ g }}</option>
-            </select>
-          </div>
-          <div class="field">
-            <label>&nbsp;</label>
-            <span class="badge badge-info">Mostrando {{ filtrados.length }} de {{ asignaciones.length }} registros</span>
-          </div>
-          <div class="field export-field">
-            <label>&nbsp;</label>
-            <a routerLink="./nuevo" class="btn btn-sm btn-primary">+ Nueva</a>
-          </div>
-          <div class="field export-field">
-            <label>&nbsp;</label>
-            <button class="btn btn-sm btn-outline-success" (click)="exportarXLSX()">
-              ⬇ Exportar XLSX
-            </button>
+        </div>
+    
+        <div class="card table-card">
+          <div class="table-scroll">
+            <table class="matriz-table">
+              <thead>
+                <tr>
+                  <th>Código Asignación</th>
+                  <th>Actividad</th>
+                  <th>Código Objeto Gasto</th>
+                  <th>Descripción Objeto</th>
+                  <th>Grupo Gasto</th>
+                  <th>Tipo Gasto</th>
+                  <th>FTE</th>
+                  <th>ORG</th>
+                  <th>Cat. Programática</th>
+                  <th>DA</th>
+                  <th>UE</th>
+                  <th>Monto Programado</th>
+                  <th>Monto Vigente</th>
+                  <th>Justificación</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of filtrados; track item) {
+                  <tr>
+                    <td><span class="codigo">{{ item.codigo_asignacion }}</span></td>
+                    <td class="cell-desc">{{ item.actividad_nombre || '—' }}</td>
+                    <td><span class="codigo">{{ item.cod_objeto_gasto }}</span></td>
+                    <td class="cell-desc">{{ item.descripcion_objeto }}</td>
+                    <td><span class="badge badge-info">{{ item.grupo_gasto }}</span></td>
+                    <td>{{ item.tipo_gasto || '—' }}</td>
+                    <td>{{ item.fuente_financiamiento || '—' }}</td>
+                    <td>{{ item.organismo_financiador || '—' }}</td>
+                    <td class="cell-desc">{{ item.categoria_programatica || '—' }}</td>
+                    <td>{{ item.da || '—' }}</td>
+                    <td>{{ item.ue || '—' }}</td>
+                    <td class="num">{{ item.monto_programado | number:'1.2-2' }}</td>
+                    <td class="num"><strong>{{ item.monto_vigente | number:'1.2-2' }}</strong></td>
+                    <td class="cell-desc">{{ item.justificacion || '—' }}</td>
+                  </tr>
+                }
+                @if (cargando) {
+                  <tr>
+                    <td colspan="14" class="empty-cell">Cargando datos...</td>
+                  </tr>
+                }
+                @if (!cargando && filtrados.length === 0) {
+                  <tr>
+                    <td colspan="14" class="empty-cell">No se encontraron asignaciones de objetos de gasto</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
-
-      <div class="card table-card">
-        <div class="table-scroll">
-          <table class="matriz-table">
-            <thead>
-              <tr>
-                <th>Código Asignación</th>
-                <th>Actividad</th>
-                <th>Código Objeto Gasto</th>
-                <th>Descripción Objeto</th>
-                <th>Grupo Gasto</th>
-                <th>Tipo Gasto</th>
-                <th>FTE</th>
-                <th>ORG</th>
-                <th>Cat. Programática</th>
-                <th>DA</th>
-                <th>UE</th>
-                <th>Monto Programado</th>
-                <th>Monto Vigente</th>
-                <th>Justificación</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let item of filtrados">
-                <td><span class="codigo">{{ item.codigo_asignacion }}</span></td>
-                <td class="cell-desc">{{ item.actividad_nombre || '—' }}</td>
-                <td><span class="codigo">{{ item.cod_objeto_gasto }}</span></td>
-                <td class="cell-desc">{{ item.descripcion_objeto }}</td>
-                <td><span class="badge badge-info">{{ item.grupo_gasto }}</span></td>
-                <td>{{ item.tipo_gasto || '—' }}</td>
-                <td>{{ item.fuente_financiamiento || '—' }}</td>
-                <td>{{ item.organismo_financiador || '—' }}</td>
-                <td class="cell-desc">{{ item.categoria_programatica || '—' }}</td>
-                <td>{{ item.da || '—' }}</td>
-                <td>{{ item.ue || '—' }}</td>
-                <td class="num">{{ item.monto_programado | number:'1.2-2' }}</td>
-                <td class="num"><strong>{{ item.monto_vigente | number:'1.2-2' }}</strong></td>
-                <td class="cell-desc">{{ item.justificacion || '—' }}</td>
-              </tr>
-              <tr *ngIf="cargando">
-                <td colspan="14" class="empty-cell">Cargando datos...</td>
-              </tr>
-              <tr *ngIf="!cargando && filtrados.length === 0">
-                <td colspan="14" class="empty-cell">No se encontraron asignaciones de objetos de gasto</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  `,
+    `,
   styles: [`
     .matriz-page { padding-bottom: 2rem; }
     .page-header { margin-bottom: 1rem; }

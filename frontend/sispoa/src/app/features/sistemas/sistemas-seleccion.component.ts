@@ -10,60 +10,140 @@ interface Sistema {
   ruta: string;
   capacidades: string[];
   color: string;
+  progress: number;
+  meta: string;
+  caption: string;
+  modulos: string[];
 }
 
 @Component({
   standalone: false,
   selector: 'app-sistemas-seleccion',
   template: `
-    <div class="seleccion">
-      <div class="header">
+    <div class="seleccion-page">
+      <header class="seleccion-head">
+        <div class="eyebrow">Gobierno Autónomo Municipal de Sacaba</div>
         <h1>Plataforma Integral de Planificación</h1>
-        <p class="subtitle">PIP-GAMS — Gobierno Autónomo Municipal de Sacaba</p>
-      </div>
-      <div class="grid">
-        <a *ngFor="let sis of sistemas" [routerLink]="sis.ruta" class="card {{ sis.color }}">
-          <div class="icono">{{ sis.icono }}</div>
-          <h2>{{ sis.sigla }}</h2>
-          <h3>{{ sis.nombre }}</h3>
-          <p>{{ sis.descripcion }}</p>
-          <div class="modulos">
-            <span class="chip" *ngFor="let m of sis.modulos">{{ m }}</span>
-          </div>
-          <div class="entrar">Ingresar →</div>
-        </a>
-      </div>
-      <div class="nota" *ngIf="sinAcceso">
-        <p>No tienes acceso a ningún sistema. Contacta al administrador.</p>
-      </div>
+        <p>Centro de mando para planificación estratégica, operativa y gestión del ciclo de proyectos.</p>
+      </header>
+
+      <main class="systems-grid">
+        @for (sis of sistemas; track sis.codigo) {
+          <a [routerLink]="sis.ruta" class="system-card {{ sis.color }}"
+            [attr.aria-label]="'Ingresar a ' + sis.sigla">
+            <div class="system-top">
+              <span class="code">{{ sis.sigla }}</span>
+              <lucide-angular [name]="sis.icono" [size]="18"></lucide-angular>
+            </div>
+            <h2>{{ sis.nombre }}</h2>
+            <p>{{ sis.descripcion }}</p>
+            <div class="meta mono">{{ sis.meta }}</div>
+            <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100"
+              [attr.aria-valuenow]="sis.progress" [attr.aria-label]="'Progreso ' + sis.sigla">
+              <i [style.width.%]="sis.progress"></i>
+            </div>
+            <div class="progress-caption">
+              <span>{{ sis.caption }}</span>
+              <strong>{{ sis.progress }}%</strong>
+            </div>
+          </a>
+        }
+      </main>
+
+      @if (sinAcceso) {
+        <div class="nota">
+          <p>No tienes acceso a ningún sistema. Contacta al administrador.</p>
+        </div>
+      }
+
+      <footer class="foot">
+        <span>Plataforma Integral de Planificación · GAM Sacaba</span>
+        <span class="mono">Gestión 2027 · RM N° 271/2026 · pip_core</span>
+      </footer>
     </div>
-  `,
+    `,
   styles: [`
-    .seleccion { padding: 2rem; max-width: 1100px; margin: 0 auto; }
-    .header { text-align: center; margin-bottom: 2.5rem; }
-    .header h1 { font-size: 1.75rem; margin-bottom: 0.25rem; color: var(--primary); }
-    .subtitle { color: var(--text-secondary); font-size: 0.9rem; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; }
-    .card {
-      display: block; text-decoration: none; color: var(--text-primary);
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 12px; padding: 1.75rem; transition: transform 0.15s, box-shadow 0.15s;
+    .seleccion-page {
+      min-height: 100vh;
+      display: flex; flex-direction: column;
+      padding: 48px 26px 28px;
+      max-width: 1100px; margin: 0 auto; width: 100%;
     }
-    .card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
-    .icono { font-size: 2.5rem; }
-    .card h2 { font-size: 1.5rem; margin: 0.75rem 0 0.125rem; }
-    .card h3 { font-size: 1rem; margin: 0 0 0.5rem; }
-    .card p { font-size: 0.8125rem; color: var(--text-secondary); line-height: 1.5; }
-    .modulos { display: flex; flex-wrap: wrap; gap: 0.375rem; margin: 0.875rem 0; }
-    .chip {
-      font-size: 0.6875rem; padding: 0.125rem 0.5rem; border-radius: 999px;
-      background: #F5F5F5; color: var(--text-secondary);
+    .seleccion-head { text-align: center; margin-bottom: 36px; }
+    .eyebrow {
+      font-size: 10.5px; letter-spacing: 1.8px; text-transform: uppercase;
+      color: var(--pip-green-700); font-weight: 700; margin-bottom: 6px;
     }
-    .entrar { font-weight: 700; font-size: 0.875rem; }
-    .sis-pe .entrar { color: #1565C0; }
-    .sis-poa .entrar { color: #2E7D32; }
-    .sis-pro .entrar { color: #E65100; }
-    .nota { text-align: center; margin-top: 1.5rem; color: var(--warn); font-size: 0.875rem; }
+    .seleccion-head h1 {
+      font-family: var(--font-display);
+      font-size: clamp(24px, 3vw, 32px); font-weight: 700; letter-spacing: -.5px;
+    }
+    .seleccion-head p { color: var(--pip-ink-soft); font-size: 13.5px; margin-top: 6px; }
+
+    .systems-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 18px; margin-bottom: 24px;
+    }
+    .system-card {
+      display: block; text-decoration: none; color: inherit;
+      background: var(--pip-card);
+      border: 1px solid var(--pip-line);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--shadow);
+      transition: transform .15s, box-shadow .15s;
+      position: relative;
+      overflow: hidden;
+    }
+    .system-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 28px rgba(19,32,25,.1);
+      color: inherit;
+    }
+    .system-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px;
+    }
+    .system-card.pe::before { background: #4A9FD8; }
+    .system-card.poa::before { background: var(--pip-green-500); }
+    .system-card.pro::before { background: #D9704F; }
+    .system-top {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 10px;
+    }
+    .system-top .code {
+      font-family: var(--font-display); font-weight: 700; font-size: 15px; letter-spacing: .5px;
+    }
+    .system-card h2 {
+      font-family: var(--font-display); font-size: 16.5px; font-weight: 600; margin-bottom: 4px;
+    }
+    .system-card p { font-size: 12.5px; color: var(--pip-ink-soft); margin-bottom: 12px; }
+    .system-card .meta {
+      font-family: var(--font-mono); font-size: 10.5px; color: var(--pip-green-700); margin-bottom: 12px;
+    }
+    .progress { height: 6px; background: #EDF1EE; border-radius: 20px; overflow: hidden; }
+    .progress i { display: block; height: 100%; border-radius: 20px; background: var(--pip-green-700); }
+    .system-card.pe .progress i { background: #4A9FD8; }
+    .system-card.poa .progress i { background: var(--pip-green-500); }
+    .system-card.pro .progress i { background: #D9704F; }
+    .progress-caption {
+      display: flex; justify-content: space-between;
+      font-size: 11px; color: var(--pip-ink-soft); margin-top: 5px;
+    }
+    .progress-caption strong { color: var(--pip-ink); font-family: var(--font-display); }
+
+    .nota { text-align: center; margin: 1.5rem 0; color: var(--pip-warn); font-size: 0.875rem; }
+
+    .foot {
+      margin-top: auto; padding-top: 16px;
+      border-top: 1px solid var(--pip-line);
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 11.5px; color: var(--pip-ink-soft); flex-wrap: wrap; gap: 8px;
+    }
+
+    @media (max-width: 640px) {
+      .seleccion-page { padding: 32px 16px 24px; }
+      .foot { justify-content: center; text-align: center; }
+    }
   `],
 })
 export class SistemasSeleccionComponent implements OnInit {
@@ -79,10 +159,13 @@ export class SistemasSeleccionComponent implements OnInit {
         sigla: 'SIS-PE',
         nombre: 'Planificación Estratégica',
         descripcion: 'Instrumentos y metodologías, marco nacional, PAD, PEI, articulación estratégica, indicadores, territorialización y evaluación.',
-        icono: '🏛️',
+        icono: 'target',
         ruta: '/sis-pe/dashboard',
         capacidades: ['sis_pe.instrumento.read'],
-        color: 'sis-pe',
+        color: 'pe',
+        progress: 68,
+        meta: 'PGDESA → PDESA → PAD → PEI',
+        caption: 'Instrumentos aprobados',
         modulos: ['Instrumentos', 'PAD', 'PEI', 'Articulación', 'Indicadores', 'Territorio'],
       },
       {
@@ -90,10 +173,13 @@ export class SistemasSeleccionComponent implements OnInit {
         sigla: 'SIS-POA',
         nombre: 'Planificación Operativa Anual',
         descripcion: 'POA institucional y POAU, acciones de corto plazo, operaciones, actividades, tareas, techos, presupuesto y seguimiento.',
-        icono: '📊',
+        icono: 'layout-dashboard',
         ruta: '/sis-poa/dashboard',
         capacidades: ['sis_poa.formulate'],
-        color: 'sis-poa',
+        color: 'poa',
+        progress: 54,
+        meta: 'PEI → POA → POAU → Presupuesto',
+        caption: 'Techo cargado · en revisión',
         modulos: ['POA', 'POAU', 'Recursos', 'Techos', 'Presupuesto', 'Seguimiento'],
       },
       {
@@ -101,10 +187,13 @@ export class SistemasSeleccionComponent implements OnInit {
         sigla: 'SIS-PRO',
         nombre: 'Ciclo del Proyecto',
         descripcion: 'Cartera, condiciones previas, preinversión, formulación, costos, contratación, ejecución, supervisión y cierre.',
-        icono: '🚧',
+        icono: 'folder-kanban',
         ruta: '/sis-pro/dashboard',
         capacidades: ['sis_pro.project.read'],
-        color: 'sis-pro',
+        color: 'pro',
+        progress: 41,
+        meta: 'ITCP → EDTP → Contratación → Ejecución',
+        caption: 'Ciclo de proyectos',
         modulos: ['Cartera', 'Preinversión', 'Formulación', 'Contratación', 'Ejecución'],
       },
     ];

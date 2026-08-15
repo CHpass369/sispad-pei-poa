@@ -10,62 +10,74 @@ import { ApiService } from '../../core/services/api.service';
         <h2>Techos Presupuestarios</h2>
         <p class="text-secondary">Techos asignados por gestión</p>
       </div>
-
+    
       <!-- Gestión Filter -->
       <div class="filter-bar">
         <label for="gestion">Gestión:</label>
         <select id="gestion" [ngModel]="gestion" (ngModelChange)="onGestionChange($event)" class="select-input">
-          <option *ngFor="let g of gestiones" [value]="g">{{ g }}</option>
+          @for (g of gestiones; track g) {
+            <option [value]="g">{{ g }}</option>
+          }
         </select>
       </div>
-
+    
       <!-- Loading -->
-      <div class="loading" *ngIf="!items && !error">
-        <p>Cargando techos...</p>
-      </div>
-
+      @if (!items && !error) {
+        <div class="loading">
+          <p>Cargando techos...</p>
+        </div>
+      }
+    
       <!-- Error -->
-      <div class="alert alert-error" *ngIf="error">
-        {{ error }}
-      </div>
-
+      @if (error) {
+        <div class="alert alert-error">
+          {{ error }}
+        </div>
+      }
+    
       <!-- Table -->
-      <div class="table-responsive" *ngIf="items">
-        <table>
-          <thead>
-            <tr>
-              <th>Código</th>
-              <th>Concepto</th>
-              <th>Monto Asignado (Bs)</th>
-              <th>Monto Distribuido (Bs)</th>
-              <th>Saldo (Bs)</th>
-              <th>Estado</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let t of items">
-              <td><strong>{{ t.codigo }}</strong></td>
-              <td>{{ t.concepto }}</td>
-              <td class="text-right">{{ t.monto_asignado | number:'1.2-2' }}</td>
-              <td class="text-right">{{ t.monto_distribuido | number:'1.2-2' }}</td>
-              <td class="text-right" [class.text-warn]="t.saldo > 0">
-                {{ t.saldo | number:'1.2-2' }}
-              </td>
-              <td>
-                <span class="badge" [class.badge-ok]="t.saldo === 0"
+      @if (items) {
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Concepto</th>
+                <th>Monto Asignado (Bs)</th>
+                <th>Monto Distribuido (Bs)</th>
+                <th>Saldo (Bs)</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (t of items; track t) {
+                <tr>
+                  <td><strong>{{ t.codigo }}</strong></td>
+                  <td>{{ t.concepto }}</td>
+                  <td class="text-right">{{ t.monto_asignado | number:'1.2-2' }}</td>
+                  <td class="text-right">{{ t.monto_distribuido | number:'1.2-2' }}</td>
+                  <td class="text-right" [class.text-warn]="t.saldo > 0">
+                    {{ t.saldo | number:'1.2-2' }}
+                  </td>
+                  <td>
+                    <span class="badge" [class.badge-ok]="t.saldo === 0"
                       [class.badge-warn]="t.saldo > 0">
-                  {{ t.saldo === 0 ? 'Distribuido' : 'Pendiente' }}
-                </span>
-              </td>
-            </tr>
-            <tr *ngIf="items.length === 0">
-              <td colspan="6" class="empty">No se encontraron techos para esta gestión</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+                      {{ t.saldo === 0 ? 'Distribuido' : 'Pendiente' }}
+                    </span>
+                  </td>
+                </tr>
+              }
+              @if (items.length === 0) {
+                <tr>
+                  <td colspan="6" class="empty">No se encontraron techos para esta gestión</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
     </div>
-  `,
+    `,
   styles: [`
     .page-header { margin-bottom: 1.5rem; }
     .page-header h2 { font-size: 1.5rem; margin-bottom: 0.25rem; }

@@ -6,16 +6,20 @@ import { NodoV2 } from './sis-pe.service';
   selector: 'app-sis-pe-arbol',
   template: `
     <ul class="tree">
-      <li *ngFor="let nodo of nodos">
-        <div class="node">
-          <span class="code">{{ nodo.codigo }}</span>
-          <span class="name">{{ nodo.nombre }}</span>
-          <span class="tipo">{{ nodo.tipo_nodo_denominacion }}</span>
-        </div>
-        <app-sis-pe-arbol *ngIf="nodo.hijos?.length" [nodos]="nodo.hijos"></app-sis-pe-arbol>
-      </li>
+      @for (nodo of nodos; track nodo) {
+        <li>
+          <div class="node">
+            <span class="code">{{ nodo.codigo }}</span>
+            <span class="name">{{ nodo.nombre }}</span>
+            <span class="tipo">{{ nodo.tipo_nodo_denominacion }}</span>
+          </div>
+          @if (nodo.hijos?.length) {
+            <app-sis-pe-arbol [nodos]="nodo.hijos"></app-sis-pe-arbol>
+          }
+        </li>
+      }
     </ul>
-  `,
+    `,
   styles: [`
     .tree { list-style: none; padding-left: 1.25rem; margin: 0; }
     .node { display: flex; gap: 0.5rem; align-items: baseline; padding: 0.25rem 0; font-size: 0.8125rem; }

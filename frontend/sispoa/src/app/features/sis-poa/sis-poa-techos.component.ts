@@ -18,49 +18,67 @@ interface FuenteV1 {
       <h2>Techos Presupuestarios</h2>
       <p class="text-secondary">Límites de programación por gestión y fuente</p>
     </div>
-    <div class="alert alert-error" *ngIf="error">{{ error }}</div>
-    <div class="alert alert-success" *ngIf="mensaje">{{ mensaje }}</div>
-
-    <form *ngIf="puedeGestionar" (ngSubmit)="crear()" class="card form-inline">
-      <div class="campo">
-        <label>Gestión</label>
-        <input [(ngModel)]="form.gestion" name="g" type="number" required class="input" />
-      </div>
-      <div class="campo">
-        <label>Monto total</label>
-        <input [(ngModel)]="form.monto_total" name="m" type="number" required class="input" />
-      </div>
-      <div class="campo">
-        <label>Fuente</label>
-        <select [(ngModel)]="form.fuente" name="f" required class="input">
-          <option *ngFor="let fuente of fuentes" [value]="fuente.id">{{ fuente.codigo }} — {{ fuente.denominacion }}</option>
-        </select>
-      </div>
-      <div class="campo">
-        <label>&nbsp;</label>
-        <button type="submit" class="btn btn-primary">+ Techo</button>
-      </div>
-    </form>
-
-    <div *ngIf="cargando" class="loading">Cargando techos...</div>
-    <table class="data-table" *ngIf="!cargando">
-      <thead>
-        <tr><th>Gestión</th><th>Fuente</th><th>Monto</th><th>Estado</th><th></th></tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let techo of techos">
-          <td>{{ techo.gestion }}</td>
-          <td>{{ techo.fuente_codigo }} — {{ techo.fuente_nombre }}</td>
-          <td>Bs {{ techo.monto_total }}</td>
-          <td><span class="badge">{{ techo.activo ? 'activo' : 'inactivo' }}</span></td>
-          <td>
-            <button class="btn btn-sm" *ngIf="puedeGestionar" (click)="eliminar(techo)">Eliminar</button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-    <div *ngIf="!cargando && techos.length === 0" class="empty">Sin techos registrados</div>
-  `,
+    @if (error) {
+      <div class="alert alert-error">{{ error }}</div>
+    }
+    @if (mensaje) {
+      <div class="alert alert-success">{{ mensaje }}</div>
+    }
+    
+    @if (puedeGestionar) {
+      <form (ngSubmit)="crear()" class="card form-inline">
+        <div class="campo">
+          <label>Gestión</label>
+          <input [(ngModel)]="form.gestion" name="g" type="number" required class="input" />
+        </div>
+        <div class="campo">
+          <label>Monto total</label>
+          <input [(ngModel)]="form.monto_total" name="m" type="number" required class="input" />
+        </div>
+        <div class="campo">
+          <label>Fuente</label>
+          <select [(ngModel)]="form.fuente" name="f" required class="input">
+            @for (fuente of fuentes; track fuente) {
+              <option [value]="fuente.id">{{ fuente.codigo }} — {{ fuente.denominacion }}</option>
+            }
+          </select>
+        </div>
+        <div class="campo">
+          <label>&nbsp;</label>
+          <button type="submit" class="btn btn-primary">+ Techo</button>
+        </div>
+      </form>
+    }
+    
+    @if (cargando) {
+      <div class="loading">Cargando techos...</div>
+    }
+    @if (!cargando) {
+      <table class="data-table">
+        <thead>
+          <tr><th>Gestión</th><th>Fuente</th><th>Monto</th><th>Estado</th><th></th></tr>
+        </thead>
+        <tbody>
+          @for (techo of techos; track techo) {
+            <tr>
+              <td>{{ techo.gestion }}</td>
+              <td>{{ techo.fuente_codigo }} — {{ techo.fuente_nombre }}</td>
+              <td>Bs {{ techo.monto_total }}</td>
+              <td><span class="badge">{{ techo.activo ? 'activo' : 'inactivo' }}</span></td>
+              <td>
+                @if (puedeGestionar) {
+                  <button class="btn btn-sm" (click)="eliminar(techo)">Eliminar</button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+    @if (!cargando && techos.length === 0) {
+      <div class="empty">Sin techos registrados</div>
+    }
+    `,
   styles: [`
     .page-header { margin-bottom: 1.5rem; }
     .text-secondary { color: var(--text-secondary); font-size: 0.875rem; }

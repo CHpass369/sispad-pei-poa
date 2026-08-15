@@ -11,315 +11,353 @@ import { Router } from '@angular/router';
         <h2>Nueva Articulación PAD → PEI</h2>
         <p class="text-secondary">Complete los pasos para crear una cadena completa de articulación</p>
       </div>
-
+    
       <!-- Barra de progreso -->
       <div class="stepper">
-        <div class="step" *ngFor="let s of pasos; let i = index"
-             [class.active]="pasoActual === i + 1"
-             [class.completed]="pasoActual > i + 1"
-             (click)="irAPaso(i + 1)">
-          <div class="step-circle">{{ pasoActual > i + 1 ? '✓' : i + 1 }}</div>
-          <div class="step-label">{{ s }}</div>
-        </div>
+        @for (s of pasos; track s; let i = $index) {
+          <div class="step"
+            [class.active]="pasoActual === i + 1"
+            [class.completed]="pasoActual > i + 1"
+            (click)="irAPaso(i + 1)">
+            <div class="step-circle">{{ pasoActual > i + 1 ? '✓' : i + 1 }}</div>
+            <div class="step-label">{{ s }}</div>
+          </div>
+        }
       </div>
-
+    
       <!-- Mensajes -->
-      <div class="alert alert-success" *ngIf="mensajeExito">{{ mensajeExito }}</div>
-      <div class="alert alert-danger" *ngIf="mensajeError">{{ mensajeError }}</div>
-
+      @if (mensajeExito) {
+        <div class="alert alert-success">{{ mensajeExito }}</div>
+      }
+      @if (mensajeError) {
+        <div class="alert alert-danger">{{ mensajeError }}</div>
+      }
+    
       <div class="card form-card">
         <!-- ======= PASO 1: Planificación Nacional ======= -->
-        <div *ngIf="pasoActual === 1">
-          <h3 class="step-title">Paso 1: Planificación Nacional</h3>
-          <div class="form-grid">
-            <div class="field">
-              <label>Eje PGDESA</label>
-              <select [(ngModel)]="form.eje_pgdesa" class="form-control">
-                <option value="">Seleccionar...</option>
-                <option value="EJE 1 - Reconstrucción Económica">EJE 1 - Reconstrucción Económica</option>
-                <option value="EJE 2 - Desarrollo Social">EJE 2 - Desarrollo Social</option>
-                <option value="EJE 3 - Medio Ambiente y Cambio Climático">EJE 3 - Medio Ambiente y Cambio Climático</option>
-                <option value="EJE 4 - Descentralización y Autonomías">EJE 4 - Descentralización y Autonomías</option>
-              </select>
-            </div>
-            <div class="field">
-              <label>Componente PDESA</label>
-              <select [(ngModel)]="form.componente_pdesa" class="form-control">
-                <option value="">Seleccionar...</option>
-                <option value="CP-01 - Fortalecimiento Productivo">CP-01 - Fortalecimiento Productivo</option>
-                <option value="CP-02 - Infraestructura y Servicios">CP-02 - Infraestructura y Servicios</option>
-                <option value="CP-03 - Desarrollo Humano">CP-03 - Desarrollo Humano</option>
-                <option value="CP-04 - Gestión Ambiental">CP-04 - Gestión Ambiental</option>
-                <option value="CP-05 - Fortalecimiento Institucional">CP-05 - Fortalecimiento Institucional</option>
-              </select>
-            </div>
-            <div class="field">
-              <label>Objetivo de Impacto</label>
-              <input [(ngModel)]="form.objetivo_impacto" class="form-control" placeholder="Objetivo de impacto del PGDESA">
-            </div>
-            <div class="field">
-              <label>Efecto</label>
-              <input [(ngModel)]="form.efecto" class="form-control" placeholder="Efecto esperado">
+        @if (pasoActual === 1) {
+          <div>
+            <h3 class="step-title">Paso 1: Planificación Nacional</h3>
+            <div class="form-grid">
+              <div class="field">
+                <label>Eje PGDESA</label>
+                <select [(ngModel)]="form.eje_pgdesa" class="form-control">
+                  <option value="">Seleccionar...</option>
+                  <option value="EJE 1 - Reconstrucción Económica">EJE 1 - Reconstrucción Económica</option>
+                  <option value="EJE 2 - Desarrollo Social">EJE 2 - Desarrollo Social</option>
+                  <option value="EJE 3 - Medio Ambiente y Cambio Climático">EJE 3 - Medio Ambiente y Cambio Climático</option>
+                  <option value="EJE 4 - Descentralización y Autonomías">EJE 4 - Descentralización y Autonomías</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Componente PDESA</label>
+                <select [(ngModel)]="form.componente_pdesa" class="form-control">
+                  <option value="">Seleccionar...</option>
+                  <option value="CP-01 - Fortalecimiento Productivo">CP-01 - Fortalecimiento Productivo</option>
+                  <option value="CP-02 - Infraestructura y Servicios">CP-02 - Infraestructura y Servicios</option>
+                  <option value="CP-03 - Desarrollo Humano">CP-03 - Desarrollo Humano</option>
+                  <option value="CP-04 - Gestión Ambiental">CP-04 - Gestión Ambiental</option>
+                  <option value="CP-05 - Fortalecimiento Institucional">CP-05 - Fortalecimiento Institucional</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Objetivo de Impacto</label>
+                <input [(ngModel)]="form.objetivo_impacto" class="form-control" placeholder="Objetivo de impacto del PGDESA">
+              </div>
+              <div class="field">
+                <label>Efecto</label>
+                <input [(ngModel)]="form.efecto" class="form-control" placeholder="Efecto esperado">
+              </div>
             </div>
           </div>
-        </div>
-
+        }
+    
         <!-- ======= PASO 2: Acuerdos Internacionales ======= -->
-        <div *ngIf="pasoActual === 2">
-          <h3 class="step-title">Paso 2: Acuerdos Internacionales</h3>
-          <div class="form-grid">
-            <div class="field-full">
-              <label>ODS (Objetivos de Desarrollo Sostenible)</label>
-              <div class="checkbox-grid">
-                <label *ngFor="let ods of catalogoODS" class="checkbox-item">
-                  <input type="checkbox" [value]="ods.id"
-                         [checked]="form.ods_seleccionados.includes(ods.id)"
-                         (change)="toggleODS(ods.id)">
-                  <span>{{ ods.codigo || ods.nombre }}</span>
-                </label>
+        @if (pasoActual === 2) {
+          <div>
+            <h3 class="step-title">Paso 2: Acuerdos Internacionales</h3>
+            <div class="form-grid">
+              <div class="field-full">
+                <label>ODS (Objetivos de Desarrollo Sostenible)</label>
+                <div class="checkbox-grid">
+                  @for (ods of catalogoODS; track ods) {
+                    <label class="checkbox-item">
+                      <input type="checkbox" [value]="ods.id"
+                        [checked]="form.ods_seleccionados.includes(ods.id)"
+                        (change)="toggleODS(ods.id)">
+                        <span>{{ ods.codigo || ods.nombre }}</span>
+                      </label>
+                    }
+                  </div>
+                </div>
+                <div class="field">
+                  <label>NDC (Contribución Nacional Determinada)</label>
+                  <input [(ngModel)]="form.ndc" class="form-control" placeholder="NDC">
+                </div>
+                <div class="field">
+                  <label>NDT</label>
+                  <input [(ngModel)]="form.ndt" class="form-control" placeholder="NDT">
+                </div>
+                <div class="field">
+                  <label>30/30</label>
+                  <input [(ngModel)]="form.meta_3030" class="form-control" placeholder="Meta 30/30">
+                </div>
               </div>
             </div>
-            <div class="field">
-              <label>NDC (Contribución Nacional Determinada)</label>
-              <input [(ngModel)]="form.ndc" class="form-control" placeholder="NDC">
-            </div>
-            <div class="field">
-              <label>NDT</label>
-              <input [(ngModel)]="form.ndt" class="form-control" placeholder="NDT">
-            </div>
-            <div class="field">
-              <label>30/30</label>
-              <input [(ngModel)]="form.meta_3030" class="form-control" placeholder="Meta 30/30">
-            </div>
-          </div>
-        </div>
-
-        <!-- ======= PASO 3: Planificación Sectorial ======= -->
-        <div *ngIf="pasoActual === 3">
-          <h3 class="step-title">Paso 3: Planificación Sectorial</h3>
-          <div class="form-grid">
-            <div class="field">
-              <label>Sector</label>
-              <select [(ngModel)]="form.sector" class="form-control">
-                <option value="">Seleccionar sector...</option>
-                <option value="SALUD">Salud</option>
-                <option value="EDUCACION">Educación</option>
-                <option value="INFRAESTRUCTURA">Infraestructura</option>
-                <option value="DESARROLLO_PRODUCTIVO">Desarrollo Productivo</option>
-                <option value="MEDIO_AMBIENTE">Medio Ambiente</option>
-                <option value="DESARROLLO_SOCIAL">Desarrollo Social</option>
-                <option value="INSTITUCIONAL">Institucional</option>
-              </select>
-            </div>
-            <div class="field">
-              <label>Código Resultado PDS</label>
-              <input [(ngModel)]="form.codigo_resultado_pds" class="form-control" placeholder="Ej: R-PDS-01">
-            </div>
-            <div class="field-full">
-              <label>Nombre Resultado PDS</label>
-              <input [(ngModel)]="form.nombre_resultado_pds" class="form-control" placeholder="Denominación del resultado PDS">
-            </div>
-          </div>
-        </div>
-
-        <!-- ======= PASO 4: PAD ======= -->
-        <div *ngIf="pasoActual === 4">
-          <h3 class="step-title">Paso 4: Plan de Acción Departamental (PAD)</h3>
-          <div class="form-grid">
-            <div class="field">
-              <label>Código Geográfico</label>
-              <input [(ngModel)]="form.codigo_geografico" class="form-control" placeholder="Código municipio/departamento">
-            </div>
-            <div class="field">
-              <label>ETA (Estructura Territorial de Apoyo)</label>
-              <input [(ngModel)]="form.eta" class="form-control" placeholder="ETA">
-            </div>
-            <h4 class="section-subtitle">Resultado PAD</h4>
-            <div class="field">
-              <label>Código Resultado PAD</label>
-              <input [(ngModel)]="form.codigo_resultado_pad" class="form-control" placeholder="Ej: RPAD-01">
-            </div>
-            <div class="field-full">
-              <label>Denominación Resultado PAD</label>
-              <textarea [(ngModel)]="form.denominacion_resultado_pad" class="form-control" rows="2" placeholder="Descripción del resultado PAD"></textarea>
-            </div>
-            <h4 class="section-subtitle">Producto PAD</h4>
-            <div class="field">
-              <label>Código Producto PAD</label>
-              <input [(ngModel)]="form.codigo_producto_pad" class="form-control" placeholder="Ej: PPAD-01">
-            </div>
-            <div class="field-full">
-              <label>Denominación Producto PAD</label>
-              <textarea [(ngModel)]="form.denominacion_producto_pad" class="form-control" rows="2" placeholder="Descripción del producto PAD"></textarea>
-            </div>
-          </div>
-        </div>
-
-        <!-- ======= PASO 5: PEI ======= -->
-        <div *ngIf="pasoActual === 5">
-          <h3 class="step-title">Paso 5: Plan Estratégico Institucional (PEI)</h3>
-          <div class="form-grid">
-            <div class="field">
-              <label>Código Entidad</label>
-              <input [(ngModel)]="form.codigo_entidad" class="form-control" placeholder="Código de la entidad">
-            </div>
-            <h4 class="section-subtitle">Resultado PEI</h4>
-            <div class="field">
-              <label>Código Resultado PEI</label>
-              <input [(ngModel)]="form.codigo_resultado_pei" class="form-control" placeholder="Ej: RPEI-01">
-            </div>
-            <div class="field-full">
-              <label>Denominación Resultado PEI</label>
-              <textarea [(ngModel)]="form.denominacion_resultado_pei" class="form-control" rows="2" placeholder="Descripción del resultado PEI"></textarea>
-            </div>
-            <h4 class="section-subtitle">Producto PEI</h4>
-            <div class="field">
-              <label>Código Producto PEI</label>
-              <input [(ngModel)]="form.codigo_producto_pei" class="form-control" placeholder="Ej: PPEI-01">
-            </div>
-            <div class="field-full">
-              <label>Denominación Producto PEI</label>
-              <textarea [(ngModel)]="form.denominacion_producto_pei" class="form-control" rows="2" placeholder="Descripción del producto PEI"></textarea>
-            </div>
-          </div>
-        </div>
-
-        <!-- ======= PASO 6: Articulación ======= -->
-        <div *ngIf="pasoActual === 6">
-          <h3 class="step-title">Paso 6: Articulación PAD → PEI</h3>
-          <div class="form-grid">
-            <div class="field">
-              <label>Tipo de Contribución</label>
-              <select [(ngModel)]="form.tipo_contribucion" class="form-control">
-                <option value="">Seleccionar...</option>
-                <option value="DIRECTA">Directa</option>
-                <option value="INDIRECTA">Indirecta</option>
-                <option value="COMPLEMENTARIA">Complementaria</option>
-              </select>
-            </div>
-            <div class="field">
-              <label>Ponderación (%)</label>
-              <input type="number" [(ngModel)]="form.ponderacion" class="form-control" min="0" max="100" placeholder="0-100">
-            </div>
-          </div>
-        </div>
-
-        <!-- ======= PASO 7: Indicador ======= -->
-        <div *ngIf="pasoActual === 7">
-          <h3 class="step-title">Paso 7: Indicador de Cadena</h3>
-          <div class="form-grid">
-            <div class="field-full">
-              <label>Indicador</label>
-              <textarea [(ngModel)]="form.indicador" class="form-control" rows="2" placeholder="Nombre del indicador"></textarea>
-            </div>
-            <div class="field-full">
-              <label>Fórmula</label>
-              <input [(ngModel)]="form.formula" class="form-control" placeholder="Ej: (A/B)*100">
-            </div>
-            <div class="field">
-              <label>Unidad de Medida</label>
-              <select [(ngModel)]="form.unidad_medida" class="form-control">
-                <option value="">Seleccionar...</option>
-                <option value="Porcentaje">Porcentaje</option>
-                <option value="Número">Número</option>
-                <option value="Unidad">Unidad</option>
-                <option value="Persona">Persona</option>
-                <option value="Familia">Familia</option>
-                <option value="Hectárea">Hectárea</option>
-                <option value="Metro">Metro</option>
-                <option value="Metro cuadrado">Metro cuadrado</option>
-                <option value="Kilómetro">Kilómetro</option>
-                <option value="Obra">Obra</option>
-                <option value="Proyecto">Proyecto</option>
-              </select>
-            </div>
-            <div class="field">
-              <label>Línea Base</label>
-              <input type="number" step="0.01" [(ngModel)]="form.linea_base" class="form-control" placeholder="Valor línea base">
-            </div>
-            <div class="field">
-              <label>Meta 2030</label>
-              <input type="number" step="0.01" [(ngModel)]="form.meta_2030" class="form-control" placeholder="Meta al 2030">
-            </div>
-            <div class="field">
-              <label>Fuente del Indicador</label>
-              <input [(ngModel)]="form.fuente_indicador" class="form-control" placeholder="Fuente">
-            </div>
-          </div>
-        </div>
-
-        <!-- ======= PASO 8: Programación Física ======= -->
-        <div *ngIf="pasoActual === 8">
-          <h3 class="step-title">Paso 8: Programación Física</h3>
-          <p class="field-hint">Metas físicas anuales del quinquenio</p>
-          <div class="quinquenio-grid">
-            <div class="field" *ngFor="let year of quinquenio">
-              <label>{{ year }}</label>
-              <input type="number" step="0.01"
-                     [(ngModel)]="form['pf_' + year]"
-                     class="form-control"
-                     [placeholder]="'Meta ' + year">
-            </div>
-          </div>
-        </div>
-
-        <!-- ======= PASO 9: Presupuesto Quinquenal ======= -->
-        <div *ngIf="pasoActual === 9">
-          <h3 class="step-title">Paso 9: Presupuesto Quinquenal</h3>
-          <div class="presupuesto-grid">
-            <div class="budget-section">
-              <h4>Inversión</h4>
-              <div class="field" *ngFor="let year of aniosPresupuesto">
-                <label>Inversión {{ year }}</label>
-                <input type="number" step="0.01" [(ngModel)]="form['inversion_' + year]" class="form-control" placeholder="Bs.">
+          }
+    
+          <!-- ======= PASO 3: Planificación Sectorial ======= -->
+          @if (pasoActual === 3) {
+            <div>
+              <h3 class="step-title">Paso 3: Planificación Sectorial</h3>
+              <div class="form-grid">
+                <div class="field">
+                  <label>Sector</label>
+                  <select [(ngModel)]="form.sector" class="form-control">
+                    <option value="">Seleccionar sector...</option>
+                    <option value="SALUD">Salud</option>
+                    <option value="EDUCACION">Educación</option>
+                    <option value="INFRAESTRUCTURA">Infraestructura</option>
+                    <option value="DESARROLLO_PRODUCTIVO">Desarrollo Productivo</option>
+                    <option value="MEDIO_AMBIENTE">Medio Ambiente</option>
+                    <option value="DESARROLLO_SOCIAL">Desarrollo Social</option>
+                    <option value="INSTITUCIONAL">Institucional</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label>Código Resultado PDS</label>
+                  <input [(ngModel)]="form.codigo_resultado_pds" class="form-control" placeholder="Ej: R-PDS-01">
+                </div>
+                <div class="field-full">
+                  <label>Nombre Resultado PDS</label>
+                  <input [(ngModel)]="form.nombre_resultado_pds" class="form-control" placeholder="Denominación del resultado PDS">
+                </div>
               </div>
             </div>
-            <div class="budget-section">
-              <h4>Corriente</h4>
-              <div class="field" *ngFor="let year of aniosPresupuesto">
-                <label>Corriente {{ year }}</label>
-                <input type="number" step="0.01" [(ngModel)]="form['corriente_' + year]" class="form-control" placeholder="Bs.">
+          }
+    
+          <!-- ======= PASO 4: PAD ======= -->
+          @if (pasoActual === 4) {
+            <div>
+              <h3 class="step-title">Paso 4: Plan de Acción Departamental (PAD)</h3>
+              <div class="form-grid">
+                <div class="field">
+                  <label>Código Geográfico</label>
+                  <input [(ngModel)]="form.codigo_geografico" class="form-control" placeholder="Código municipio/departamento">
+                </div>
+                <div class="field">
+                  <label>ETA (Estructura Territorial de Apoyo)</label>
+                  <input [(ngModel)]="form.eta" class="form-control" placeholder="ETA">
+                </div>
+                <h4 class="section-subtitle">Resultado PAD</h4>
+                <div class="field">
+                  <label>Código Resultado PAD</label>
+                  <input [(ngModel)]="form.codigo_resultado_pad" class="form-control" placeholder="Ej: RPAD-01">
+                </div>
+                <div class="field-full">
+                  <label>Denominación Resultado PAD</label>
+                  <textarea [(ngModel)]="form.denominacion_resultado_pad" class="form-control" rows="2" placeholder="Descripción del resultado PAD"></textarea>
+                </div>
+                <h4 class="section-subtitle">Producto PAD</h4>
+                <div class="field">
+                  <label>Código Producto PAD</label>
+                  <input [(ngModel)]="form.codigo_producto_pad" class="form-control" placeholder="Ej: PPAD-01">
+                </div>
+                <div class="field-full">
+                  <label>Denominación Producto PAD</label>
+                  <textarea [(ngModel)]="form.denominacion_producto_pad" class="form-control" rows="2" placeholder="Descripción del producto PAD"></textarea>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
-
-        <!-- ======= PASO 10: Guardar todo ======= -->
-        <div *ngIf="pasoActual === 10">
-          <h3 class="step-title">Paso 10: Revisión y Guardado</h3>
-          <div class="resumen-card">
-            <p>Revise los datos ingresados antes de guardar. Todos los registros se crearán en una sola operación.</p>
-            <div class="resumen-grid">
-              <div class="resumen-item"><strong>Eje PGDESA:</strong> {{ form.eje_pgdesa || '—' }}</div>
-              <div class="resumen-item"><strong>Comp. PDESA:</strong> {{ form.componente_pdesa || '—' }}</div>
-              <div class="resumen-item"><strong>Objetivo Impacto:</strong> {{ form.objetivo_impacto || '—' }}</div>
-              <div class="resumen-item"><strong>Efecto:</strong> {{ form.efecto || '—' }}</div>
-              <div class="resumen-item"><strong>Resultado PAD:</strong> {{ form.codigo_resultado_pad }} — {{ form.denominacion_resultado_pad || '—' }}</div>
-              <div class="resumen-item"><strong>Producto PAD:</strong> {{ form.codigo_producto_pad }} — {{ form.denominacion_producto_pad || '—' }}</div>
-              <div class="resumen-item"><strong>Resultado PEI:</strong> {{ form.codigo_resultado_pei }} — {{ form.denominacion_resultado_pei || '—' }}</div>
-              <div class="resumen-item"><strong>Producto PEI:</strong> {{ form.codigo_producto_pei }} — {{ form.denominacion_producto_pei || '—' }}</div>
-              <div class="resumen-item"><strong>Tipo Contribución:</strong> {{ form.tipo_contribucion || '—' }}</div>
-              <div class="resumen-item"><strong>Ponderación:</strong> {{ form.ponderacion || '—' }}%</div>
+          }
+    
+          <!-- ======= PASO 5: PEI ======= -->
+          @if (pasoActual === 5) {
+            <div>
+              <h3 class="step-title">Paso 5: Plan Estratégico Institucional (PEI)</h3>
+              <div class="form-grid">
+                <div class="field">
+                  <label>Código Entidad</label>
+                  <input [(ngModel)]="form.codigo_entidad" class="form-control" placeholder="Código de la entidad">
+                </div>
+                <h4 class="section-subtitle">Resultado PEI</h4>
+                <div class="field">
+                  <label>Código Resultado PEI</label>
+                  <input [(ngModel)]="form.codigo_resultado_pei" class="form-control" placeholder="Ej: RPEI-01">
+                </div>
+                <div class="field-full">
+                  <label>Denominación Resultado PEI</label>
+                  <textarea [(ngModel)]="form.denominacion_resultado_pei" class="form-control" rows="2" placeholder="Descripción del resultado PEI"></textarea>
+                </div>
+                <h4 class="section-subtitle">Producto PEI</h4>
+                <div class="field">
+                  <label>Código Producto PEI</label>
+                  <input [(ngModel)]="form.codigo_producto_pei" class="form-control" placeholder="Ej: PPEI-01">
+                </div>
+                <div class="field-full">
+                  <label>Denominación Producto PEI</label>
+                  <textarea [(ngModel)]="form.denominacion_producto_pei" class="form-control" rows="2" placeholder="Descripción del producto PEI"></textarea>
+                </div>
+              </div>
+            </div>
+          }
+    
+          <!-- ======= PASO 6: Articulación ======= -->
+          @if (pasoActual === 6) {
+            <div>
+              <h3 class="step-title">Paso 6: Articulación PAD → PEI</h3>
+              <div class="form-grid">
+                <div class="field">
+                  <label>Tipo de Contribución</label>
+                  <select [(ngModel)]="form.tipo_contribucion" class="form-control">
+                    <option value="">Seleccionar...</option>
+                    <option value="DIRECTA">Directa</option>
+                    <option value="INDIRECTA">Indirecta</option>
+                    <option value="COMPLEMENTARIA">Complementaria</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label>Ponderación (%)</label>
+                  <input type="number" [(ngModel)]="form.ponderacion" class="form-control" min="0" max="100" placeholder="0-100">
+                </div>
+              </div>
+            </div>
+          }
+    
+          <!-- ======= PASO 7: Indicador ======= -->
+          @if (pasoActual === 7) {
+            <div>
+              <h3 class="step-title">Paso 7: Indicador de Cadena</h3>
+              <div class="form-grid">
+                <div class="field-full">
+                  <label>Indicador</label>
+                  <textarea [(ngModel)]="form.indicador" class="form-control" rows="2" placeholder="Nombre del indicador"></textarea>
+                </div>
+                <div class="field-full">
+                  <label>Fórmula</label>
+                  <input [(ngModel)]="form.formula" class="form-control" placeholder="Ej: (A/B)*100">
+                </div>
+                <div class="field">
+                  <label>Unidad de Medida</label>
+                  <select [(ngModel)]="form.unidad_medida" class="form-control">
+                    <option value="">Seleccionar...</option>
+                    <option value="Porcentaje">Porcentaje</option>
+                    <option value="Número">Número</option>
+                    <option value="Unidad">Unidad</option>
+                    <option value="Persona">Persona</option>
+                    <option value="Familia">Familia</option>
+                    <option value="Hectárea">Hectárea</option>
+                    <option value="Metro">Metro</option>
+                    <option value="Metro cuadrado">Metro cuadrado</option>
+                    <option value="Kilómetro">Kilómetro</option>
+                    <option value="Obra">Obra</option>
+                    <option value="Proyecto">Proyecto</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label>Línea Base</label>
+                  <input type="number" step="0.01" [(ngModel)]="form.linea_base" class="form-control" placeholder="Valor línea base">
+                </div>
+                <div class="field">
+                  <label>Meta 2030</label>
+                  <input type="number" step="0.01" [(ngModel)]="form.meta_2030" class="form-control" placeholder="Meta al 2030">
+                </div>
+                <div class="field">
+                  <label>Fuente del Indicador</label>
+                  <input [(ngModel)]="form.fuente_indicador" class="form-control" placeholder="Fuente">
+                </div>
+              </div>
+            </div>
+          }
+    
+          <!-- ======= PASO 8: Programación Física ======= -->
+          @if (pasoActual === 8) {
+            <div>
+              <h3 class="step-title">Paso 8: Programación Física</h3>
+              <p class="field-hint">Metas físicas anuales del quinquenio</p>
+              <div class="quinquenio-grid">
+                @for (year of quinquenio; track year) {
+                  <div class="field">
+                    <label>{{ year }}</label>
+                    <input type="number" step="0.01"
+                      [(ngModel)]="form['pf_' + year]"
+                      class="form-control"
+                      [placeholder]="'Meta ' + year">
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+    
+            <!-- ======= PASO 9: Presupuesto Quinquenal ======= -->
+            @if (pasoActual === 9) {
+              <div>
+                <h3 class="step-title">Paso 9: Presupuesto Quinquenal</h3>
+                <div class="presupuesto-grid">
+                  <div class="budget-section">
+                    <h4>Inversión</h4>
+                    @for (year of aniosPresupuesto; track year) {
+                      <div class="field">
+                        <label>Inversión {{ year }}</label>
+                        <input type="number" step="0.01" [(ngModel)]="form['inversion_' + year]" class="form-control" placeholder="Bs.">
+                      </div>
+                    }
+                  </div>
+                  <div class="budget-section">
+                    <h4>Corriente</h4>
+                    @for (year of aniosPresupuesto; track year) {
+                      <div class="field">
+                        <label>Corriente {{ year }}</label>
+                        <input type="number" step="0.01" [(ngModel)]="form['corriente_' + year]" class="form-control" placeholder="Bs.">
+                      </div>
+                    }
+                  </div>
+                </div>
+              </div>
+            }
+    
+            <!-- ======= PASO 10: Guardar todo ======= -->
+            @if (pasoActual === 10) {
+              <div>
+                <h3 class="step-title">Paso 10: Revisión y Guardado</h3>
+                <div class="resumen-card">
+                  <p>Revise los datos ingresados antes de guardar. Todos los registros se crearán en una sola operación.</p>
+                  <div class="resumen-grid">
+                    <div class="resumen-item"><strong>Eje PGDESA:</strong> {{ form.eje_pgdesa || '—' }}</div>
+                    <div class="resumen-item"><strong>Comp. PDESA:</strong> {{ form.componente_pdesa || '—' }}</div>
+                    <div class="resumen-item"><strong>Objetivo Impacto:</strong> {{ form.objetivo_impacto || '—' }}</div>
+                    <div class="resumen-item"><strong>Efecto:</strong> {{ form.efecto || '—' }}</div>
+                    <div class="resumen-item"><strong>Resultado PAD:</strong> {{ form.codigo_resultado_pad }} — {{ form.denominacion_resultado_pad || '—' }}</div>
+                    <div class="resumen-item"><strong>Producto PAD:</strong> {{ form.codigo_producto_pad }} — {{ form.denominacion_producto_pad || '—' }}</div>
+                    <div class="resumen-item"><strong>Resultado PEI:</strong> {{ form.codigo_resultado_pei }} — {{ form.denominacion_resultado_pei || '—' }}</div>
+                    <div class="resumen-item"><strong>Producto PEI:</strong> {{ form.codigo_producto_pei }} — {{ form.denominacion_producto_pei || '—' }}</div>
+                    <div class="resumen-item"><strong>Tipo Contribución:</strong> {{ form.tipo_contribucion || '—' }}</div>
+                    <div class="resumen-item"><strong>Ponderación:</strong> {{ form.ponderacion || '—' }}%</div>
+                  </div>
+                </div>
+              </div>
+            }
+    
+            <!-- Navegación -->
+            <div class="form-nav">
+              <button class="btn btn-outline" (click)="pasoAnterior()" [disabled]="pasoActual === 1">
+                ← Anterior
+              </button>
+              <span class="step-counter">Paso {{ pasoActual }} de 10</span>
+              @if (pasoActual < 10) {
+                <button class="btn btn-primary" (click)="pasoSiguiente()">
+                  Siguiente →
+                </button>
+              }
+              @if (pasoActual === 10) {
+                <button class="btn btn-primary btn-guardar" (click)="guardarTodo()" [disabled]="guardando">
+                  {{ guardando ? 'Guardando...' : '💾 Guardar Articulación Completa' }}
+                </button>
+              }
             </div>
           </div>
         </div>
-
-        <!-- Navegación -->
-        <div class="form-nav">
-          <button class="btn btn-outline" (click)="pasoAnterior()" [disabled]="pasoActual === 1">
-            ← Anterior
-          </button>
-          <span class="step-counter">Paso {{ pasoActual }} de 10</span>
-          <button class="btn btn-primary" (click)="pasoSiguiente()" *ngIf="pasoActual < 10">
-            Siguiente →
-          </button>
-          <button class="btn btn-primary btn-guardar" (click)="guardarTodo()" *ngIf="pasoActual === 10" [disabled]="guardando">
-            {{ guardando ? 'Guardando...' : '💾 Guardar Articulación Completa' }}
-          </button>
-        </div>
-      </div>
-    </div>
-  `,
+    `,
   styles: [`
     .form-page { padding-bottom: 2rem; max-width: 960px; margin: 0 auto; }
     .page-header { margin-bottom: 1rem; }

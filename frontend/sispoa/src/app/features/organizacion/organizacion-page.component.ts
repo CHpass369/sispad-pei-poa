@@ -1,5 +1,5 @@
 ﻿import { Component } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 
 type TabId = 'unidades' | 'da' | 'ue';
 

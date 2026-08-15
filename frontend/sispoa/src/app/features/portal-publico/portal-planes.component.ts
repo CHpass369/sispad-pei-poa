@@ -20,50 +20,70 @@ interface PlanNodo {
       <h2>Planes Institucionales</h2>
       <p class="text-secondary">Jerarquía de planificación: PDESA → PTDI → PEI → PAD</p>
     </div>
-
+    
     <div class="acciones-superior">
       <button class="btn btn-outline" (click)="expandirTodo()">Expandir Todo</button>
       <button class="btn btn-outline" (click)="colapsarTodo()">Colapsar Todo</button>
     </div>
-
-    <div class="planes-container" *ngIf="!cargando">
-      <div *ngFor="let nodo of arbol">
-        <ng-container *ngTemplateOutlet="nodeTpl; context: { $implicit: nodo, level: 0 }"></ng-container>
+    
+    @if (!cargando) {
+      <div class="planes-container">
+        @for (nodo of arbol; track nodo) {
+          <div>
+            <ng-container *ngTemplateOutlet="nodeTpl; context: { $implicit: nodo, level: 0 }"></ng-container>
+          </div>
+        }
+        <ng-template #nodeTpl let-nodo let-level="level">
+          <div class="plan-item" [style.margin-left.px]="level * 28"
+            [class.tipo-pdesa]="nodo.tipo === 'pdesa'"
+            [class.tipo-ptdi]="nodo.tipo === 'ptdi'"
+            [class.tipo-pei]="nodo.tipo === 'pei'"
+            [class.tipo-pad]="nodo.tipo === 'pad'">
+            @if (nodo.children.length > 0) {
+              <span class="plan-toggle" (click)="toggleNodo(nodo)">
+                {{ nodo.expanded ? '▼' : '▶' }}
+              </span>
+            }
+            @if (nodo.children.length === 0) {
+              <span class="plan-toggle">&nbsp;&nbsp;&nbsp;</span>
+            }
+            <span class="badge badge-tipo" [ngClass]="'badge-' + nodo.tipo">{{ nodo.tipo | uppercase }}</span>
+            <span class="plan-nombre">{{ nodo.nombre }}</span>
+            @if (nodo.estado) {
+              <span class="plan-estado">
+                <span class="badge" [ngClass]="'badge-estado-' + nodo.estado">{{ nodo.estado }}</span>
+              </span>
+            }
+            @if (nodo.gestion) {
+              <span class="plan-gestion">{{ nodo.gestion }}</span>
+            }
+          </div>
+          @if (nodo.expanded && nodo.descripcion) {
+            <div class="plan-desc" [style.margin-left.px]="level * 28 + 40">
+              {{ nodo.descripcion }}
+            </div>
+          }
+          @if (nodo.expanded && nodo.children.length > 0) {
+            <div>
+              @for (hijo of nodo.children; track hijo) {
+                <ng-container *ngTemplateOutlet="nodeTpl; context: { $implicit: hijo, level: level + 1 }"></ng-container>
+              }
+            </div>
+          }
+        </ng-template>
+        @if (arbol.length === 0) {
+          <div class="empty">No hay planes disponibles para consulta pública</div>
+        }
       </div>
-
-      <ng-template #nodeTpl let-nodo let-level="level">
-        <div class="plan-item" [style.margin-left.px]="level * 28"
-             [class.tipo-pdesa]="nodo.tipo === 'pdesa'"
-             [class.tipo-ptdi]="nodo.tipo === 'ptdi'"
-             [class.tipo-pei]="nodo.tipo === 'pei'"
-             [class.tipo-pad]="nodo.tipo === 'pad'">
-          <span class="plan-toggle" *ngIf="nodo.children.length > 0" (click)="toggleNodo(nodo)">
-            {{ nodo.expanded ? '▼' : '▶' }}
-          </span>
-          <span class="plan-toggle" *ngIf="nodo.children.length === 0">&nbsp;&nbsp;&nbsp;</span>
-          <span class="badge badge-tipo" [ngClass]="'badge-' + nodo.tipo">{{ nodo.tipo | uppercase }}</span>
-          <span class="plan-nombre">{{ nodo.nombre }}</span>
-          <span class="plan-estado" *ngIf="nodo.estado">
-            <span class="badge" [ngClass]="'badge-estado-' + nodo.estado">{{ nodo.estado }}</span>
-          </span>
-          <span class="plan-gestion" *ngIf="nodo.gestion">{{ nodo.gestion }}</span>
-        </div>
-        <div class="plan-desc" *ngIf="nodo.expanded && nodo.descripcion" [style.margin-left.px]="level * 28 + 40">
-          {{ nodo.descripcion }}
-        </div>
-        <div *ngIf="nodo.expanded && nodo.children.length > 0">
-          <ng-container *ngFor="let hijo of nodo.children">
-            <ng-container *ngTemplateOutlet="nodeTpl; context: { $implicit: hijo, level: level + 1 }"></ng-container>
-          </ng-container>
-        </div>
-      </ng-template>
-
-      <div *ngIf="arbol.length === 0" class="empty">No hay planes disponibles para consulta pública</div>
-    </div>
-
-    <div class="loading" *ngIf="cargando">Cargando planes...</div>
-    <div class="alert alert-error" *ngIf="error">{{ error }}</div>
-  `,
+    }
+    
+    @if (cargando) {
+      <div class="loading">Cargando planes...</div>
+    }
+    @if (error) {
+      <div class="alert alert-error">{{ error }}</div>
+    }
+    `,
   styles: [`
     .page-header { margin-bottom: 1rem; }
     .page-header h2 { font-size: 1.5rem; margin-bottom: 0.25rem; }

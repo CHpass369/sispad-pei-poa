@@ -9,37 +9,45 @@ import { SisPeService } from './sis-pe.service';
       <h2>SIS-PE — Dashboard Estratégico</h2>
       <p class="text-secondary">Sistema de Planificación Estratégica (kernel V2)</p>
     </div>
-
-    <div *ngIf="cargando" class="loading">Cargando indicadores...</div>
-    <div class="alert alert-error" *ngIf="error">{{ error }}</div>
-
-    <div class="stats-grid" *ngIf="!cargando">
-      <div class="card stat-card">
-        <div class="stat-icon">📋</div>
-        <div class="stat-value">{{ total }}</div>
-        <div class="stat-label">Instrumentos</div>
+    
+    @if (cargando) {
+      <div class="loading">Cargando indicadores...</div>
+    }
+    @if (error) {
+      <div class="alert alert-error">{{ error }}</div>
+    }
+    
+    @if (!cargando) {
+      <div class="stats-grid">
+        <div class="card stat-card">
+          <div class="stat-icon">📋</div>
+          <div class="stat-value">{{ total }}</div>
+          <div class="stat-label">Instrumentos</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-icon">✅</div>
+          <div class="stat-value">{{ aprobados }}</div>
+          <div class="stat-label">Aprobados</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-icon">✏️</div>
+          <div class="stat-value">{{ en_borrador }}</div>
+          <div class="stat-label">En borrador</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-icon">🧩</div>
+          <div class="stat-value">{{ versiones }}</div>
+          <div class="stat-label">Versiones</div>
+        </div>
       </div>
-      <div class="card stat-card">
-        <div class="stat-icon">✅</div>
-        <div class="stat-value">{{ aprobados }}</div>
-        <div class="stat-label">Aprobados</div>
+    }
+    
+    @if (!cargando) {
+      <div class="quick-actions">
+        <a routerLink="/sis-pe/instrumentos" class="btn btn-primary">Instrumentos</a>
       </div>
-      <div class="card stat-card">
-        <div class="stat-icon">✏️</div>
-        <div class="stat-value">{{ en_borrador }}</div>
-        <div class="stat-label">En borrador</div>
-      </div>
-      <div class="card stat-card">
-        <div class="stat-icon">🧩</div>
-        <div class="stat-value">{{ versiones }}</div>
-        <div class="stat-label">Versiones</div>
-      </div>
-    </div>
-
-    <div class="quick-actions" *ngIf="!cargando">
-      <a routerLink="/sis-pe/instrumentos" class="btn btn-primary">Instrumentos</a>
-    </div>
-  `,
+    }
+    `,
   styles: [`
     .page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
     .text-secondary { color: var(--text-secondary); font-size: 0.875rem; }

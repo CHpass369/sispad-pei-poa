@@ -1,7 +1,9 @@
 <div class="page-header">
   <h2>Auditoría de Trazabilidad</h2>
   <div class="acciones">
-    <span class="badge badge-crear" *ngIf="total > 0">{{ total }} evento(s) del ciclo</span>
+    @if (total > 0) {
+      <span class="badge badge-crear">{{ total }} evento(s) del ciclo</span>
+    }
   </div>
 </div>
 
@@ -10,21 +12,27 @@
     <label>Gestión</label>
     <select class="input" [(ngModel)]="filtros.gestion" (ngModelChange)="buscar()">
       <option value="">Todas</option>
-      <option *ngFor="let g of gestiones" [ngValue]="g.id">{{ g.anio }} — {{ g.estado_display }}</option>
+      @for (g of gestiones; track g) {
+        <option [ngValue]="g.id">{{ g.anio }} — {{ g.estado_display }}</option>
+      }
     </select>
   </div>
   <div class="campo">
     <label>Entidad</label>
     <select class="input" [(ngModel)]="filtros.entidad" (ngModelChange)="buscar()">
       <option value="">Todas</option>
-      <option *ngFor="let e of entidades" [ngValue]="e.valor">{{ e.etiqueta }}</option>
+      @for (e of entidades; track e) {
+        <option [ngValue]="e.valor">{{ e.etiqueta }}</option>
+      }
     </select>
   </div>
   <div class="campo">
     <label>Operación</label>
     <select class="input" [(ngModel)]="filtros.accion" (ngModelChange)="buscar()">
       <option value="">Todas</option>
-      <option *ngFor="let a of acciones" [ngValue]="a.valor">{{ a.etiqueta }}</option>
+      @for (a of acciones; track a) {
+        <option [ngValue]="a.valor">{{ a.etiqueta }}</option>
+      }
     </select>
   </div>
   <div class="campo">
@@ -47,69 +55,80 @@
   </div>
 </div>
 
-<div class="alert-error" *ngIf="error">{{ error }}</div>
+@if (error) {
+  <div class="alert-error">{{ error }}</div>
+}
 
-<div class="loading" *ngIf="cargando">Cargando eventos de auditoría…</div>
+@if (cargando) {
+  <div class="loading">Cargando eventos de auditoría…</div>
+}
 
-<ng-container *ngIf="!cargando">
-  <table class="data-table" *ngIf="eventos.length > 0">
-    <thead>
-      <tr>
-        <th>Fecha</th>
-        <th>Usuario</th>
-        <th>Operación</th>
-        <th>Entidad</th>
-        <th>Registro</th>
-        <th>Gestión</th>
-        <th>Motivo / resumen</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr *ngFor="let ev of eventos"
-          class="fila-seleccionable"
-          [class.fila-seleccionada]="seleccionado?.id === ev.id"
-          (click)="seleccionar(ev)">
-        <td>{{ ev.creado_en | date: 'dd/MM/yyyy HH:mm' }}</td>
-        <td>{{ ev.usuario_nombre }}</td>
-        <td><span class="badge" [class]="badgeClase(ev.accion)">{{ ev.accion_display }}</span></td>
-        <td>{{ ev.entidad_display }}</td>
-        <td>{{ ev.entidad_id }}</td>
-        <td>{{ ev.gestion ?? '—' }}</td>
-        <td>{{ ev.resumen }}</td>
-      </tr>
-    </tbody>
-  </table>
-
-  <div class="empty" *ngIf="eventos.length === 0">Sin eventos para los filtros indicados.</div>
-
-  <div class="paginado" *ngIf="total > 0">
-    <button class="btn" (click)="paginaAnterior()" [disabled]="pagina <= 1">‹ Anterior</button>
-    <span>Página {{ pagina }} de {{ totalPaginas }}</span>
-    <button class="btn" (click)="paginaSiguiente()" [disabled]="pagina * paginaSize >= total">Siguiente ›</button>
-  </div>
-
-  <div class="detalle" *ngIf="seleccionado">
-    <h3>Detalle del evento</h3>
-    <div class="detalle-grid">
-      <div><b>Fecha</b>{{ seleccionado.creado_en | date: 'dd/MM/yyyy HH:mm:ss' }}</div>
-      <div><b>Usuario</b>{{ seleccionado.usuario_nombre }}</div>
-      <div><b>Operación</b>{{ seleccionado.accion_display }} ({{ seleccionado.accion }})</div>
-      <div><b>Entidad</b>{{ seleccionado.entidad_display }} ({{ seleccionado.entidad }})</div>
-      <div><b>Registro</b>{{ seleccionado.entidad_id }}</div>
-      <div><b>Gestión</b>{{ seleccionado.gestion ?? '—' }}</div>
-      <div><b>Versión</b>{{ seleccionado.version ?? '—' }}</div>
-      <div><b>IP</b>{{ seleccionado.direccion_ip ?? '—' }}</div>
+@if (!cargando) {
+  @if (eventos.length > 0) {
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Usuario</th>
+          <th>Operación</th>
+          <th>Entidad</th>
+          <th>Registro</th>
+          <th>Gestión</th>
+          <th>Motivo / resumen</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (ev of eventos; track ev) {
+          <tr
+            class="fila-seleccionable"
+            [class.fila-seleccionada]="seleccionado?.id === ev.id"
+            (click)="seleccionar(ev)">
+            <td>{{ ev.creado_en | date: 'dd/MM/yyyy HH:mm' }}</td>
+            <td>{{ ev.usuario_nombre }}</td>
+            <td><span class="badge" [class]="badgeClase(ev.accion)">{{ ev.accion_display }}</span></td>
+            <td>{{ ev.entidad_display }}</td>
+            <td>{{ ev.entidad_id }}</td>
+            <td>{{ ev.gestion ?? '—' }}</td>
+            <td>{{ ev.resumen }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+  @if (eventos.length === 0) {
+    <div class="empty">Sin eventos para los filtros indicados.</div>
+  }
+  @if (total > 0) {
+    <div class="paginado">
+      <button class="btn" (click)="paginaAnterior()" [disabled]="pagina <= 1">‹ Anterior</button>
+      <span>Página {{ pagina }} de {{ totalPaginas }}</span>
+      <button class="btn" (click)="paginaSiguiente()" [disabled]="pagina * paginaSize >= total">Siguiente ›</button>
     </div>
-    <p style="font-size: 0.8125rem;">{{ seleccionado.resumen }}</p>
-    <div class="detalle-grid">
-      <div>
-        <b>Datos previos</b>
-        <pre class="json">{{ jsonLegible(seleccionado.datos_previos) }}</pre>
+  }
+  @if (seleccionado) {
+    <div class="detalle">
+      <h3>Detalle del evento</h3>
+      <div class="detalle-grid">
+        <div><b>Fecha</b>{{ seleccionado.creado_en | date: 'dd/MM/yyyy HH:mm:ss' }}</div>
+        <div><b>Usuario</b>{{ seleccionado.usuario_nombre }}</div>
+        <div><b>Operación</b>{{ seleccionado.accion_display }} ({{ seleccionado.accion }})</div>
+        <div><b>Entidad</b>{{ seleccionado.entidad_display }} ({{ seleccionado.entidad }})</div>
+        <div><b>Registro</b>{{ seleccionado.entidad_id }}</div>
+        <div><b>Gestión</b>{{ seleccionado.gestion ?? '—' }}</div>
+        <div><b>Versión</b>{{ seleccionado.version ?? '—' }}</div>
+        <div><b>IP</b>{{ seleccionado.direccion_ip ?? '—' }}</div>
       </div>
-      <div>
-        <b>Datos nuevos</b>
-        <pre class="json">{{ jsonLegible(seleccionado.datos_posteriores) }}</pre>
+      <p style="font-size: 0.8125rem;">{{ seleccionado.resumen }}</p>
+      <div class="detalle-grid">
+        <div>
+          <b>Datos previos</b>
+          <pre class="json">{{ jsonLegible(seleccionado.datos_previos) }}</pre>
+        </div>
+        <div>
+          <b>Datos nuevos</b>
+          <pre class="json">{{ jsonLegible(seleccionado.datos_posteriores) }}</pre>
+        </div>
       </div>
     </div>
-  </div>
-</ng-container>
+  }
+}

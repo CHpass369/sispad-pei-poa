@@ -10,7 +10,7 @@ import { EvaluacionService, Evaluacion } from './evaluacion.service';
       <h2>Nueva Evaluación</h2>
       <p class="text-secondary">Crear una nueva evaluación del plan</p>
     </div>
-
+    
     <div class="form-card">
       <form (ngSubmit)="guardar()">
         <div class="form-grid">
@@ -26,39 +26,41 @@ import { EvaluacionService, Evaluacion } from './evaluacion.service';
           <div class="field">
             <label>Periodo *</label>
             <input [(ngModel)]="evaluacion.periodo" name="periodo" class="form-control"
-                   placeholder="Ej: 2026-S1" required>
-          </div>
-          <div class="field">
-            <label>Responsable</label>
-            <input [(ngModel)]="evaluacion.responsable" name="responsable" class="form-control"
-                   placeholder="Nombre del responsable">
-          </div>
-          <div class="field">
-            <label>Estado</label>
-            <select [(ngModel)]="evaluacion.estado" name="estado" class="form-control">
-              <option value="borrador">Borrador</option>
-              <option value="en_curso">En Curso</option>
-              <option value="completada">Completada</option>
-            </select>
-          </div>
-          <div class="field field-full">
-            <label>Observaciones</label>
-            <textarea [(ngModel)]="evaluacion.observaciones" name="observaciones"
-                      class="form-control" rows="3"></textarea>
-          </div>
+              placeholder="Ej: 2026-S1" required>
+            </div>
+            <div class="field">
+              <label>Responsable</label>
+              <input [(ngModel)]="evaluacion.responsable" name="responsable" class="form-control"
+                placeholder="Nombre del responsable">
+              </div>
+              <div class="field">
+                <label>Estado</label>
+                <select [(ngModel)]="evaluacion.estado" name="estado" class="form-control">
+                  <option value="borrador">Borrador</option>
+                  <option value="en_curso">En Curso</option>
+                  <option value="completada">Completada</option>
+                </select>
+              </div>
+              <div class="field field-full">
+                <label>Observaciones</label>
+                <textarea [(ngModel)]="evaluacion.observaciones" name="observaciones"
+                class="form-control" rows="3"></textarea>
+              </div>
+            </div>
+    
+            <div class="form-actions">
+              <button type="button" class="btn btn-outline" (click)="cancelar()">Cancelar</button>
+              <button type="submit" class="btn btn-primary" [disabled]="guardando">
+                {{ guardando ? 'Guardando...' : 'Crear Evaluación' }}
+              </button>
+            </div>
+          </form>
         </div>
-
-        <div class="form-actions">
-          <button type="button" class="btn btn-outline" (click)="cancelar()">Cancelar</button>
-          <button type="submit" class="btn btn-primary" [disabled]="guardando">
-            {{ guardando ? 'Guardando...' : 'Crear Evaluación' }}
-          </button>
-        </div>
-      </form>
-    </div>
-
-    <div class="alert alert-error" *ngIf="error">{{ error }}</div>
-  `,
+    
+        @if (error) {
+          <div class="alert alert-error">{{ error }}</div>
+        }
+    `,
   styles: [`
     .page-header { margin-bottom: 1rem; }
     .page-header h2 { font-size: 1.5rem; margin-bottom: 0.25rem; }

@@ -10,58 +10,68 @@ import { DocumentosService, Documento } from './documentos.service';
       <h2>Documentos</h2>
       <p class="text-secondary">Gestión de documentos del sistema</p>
     </div>
-
+    
     <div class="acciones-superior">
       <div class="field">
         <input [(ngModel)]="busqueda" (keyup.enter)="cargar()" class="form-control"
-               placeholder="Buscar por nombre o descripción...">
+          placeholder="Buscar por nombre o descripción...">
+        </div>
+        <select [(ngModel)]="filtroTipo" (change)="cargar()" class="form-control filtro-select">
+          <option value="">Todos los tipos</option>
+          <option value="pdf">PDF</option>
+          <option value="xlsx">Excel</option>
+          <option value="docx">Word</option>
+          <option value="imagen">Imagen</option>
+          <option value="otro">Otro</option>
+        </select>
+        <button class="btn btn-primary" (click)="subir()">+ Subir Documento</button>
       </div>
-      <select [(ngModel)]="filtroTipo" (change)="cargar()" class="form-control filtro-select">
-        <option value="">Todos los tipos</option>
-        <option value="pdf">PDF</option>
-        <option value="xlsx">Excel</option>
-        <option value="docx">Word</option>
-        <option value="imagen">Imagen</option>
-        <option value="otro">Otro</option>
-      </select>
-      <button class="btn btn-primary" (click)="subir()">+ Subir Documento</button>
-    </div>
-
-    <div class="table-container" *ngIf="!cargando">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Nombre</th>
-            <th>Tipo</th>
-            <th>Entidad Asociada</th>
-            <th>Tamaño</th>
-            <th>Fecha Subida</th>
-            <th>Subido Por</th>
-            <th>Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let d of documentos">
-            <td>{{ d.nombre }}</td>
-            <td>
-              <span class="badge badge-info">{{ d.tipo }}</span>
-            </td>
-            <td>{{ d.entidad_descripcion || '-' }}</td>
-            <td>{{ formatTamano(d.tamano) }}</td>
-            <td>{{ d.fecha_subida | date:'dd/MM/yyyy HH:mm' }}</td>
-            <td>{{ d.subido_por }}</td>
-            <td>
-              <button class="btn btn-sm btn-outline" (click)="verDetalle(d)">Ver Detalle</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-      <div *ngIf="documentos.length === 0" class="empty">No se encontraron documentos</div>
-    </div>
-
-    <div class="loading" *ngIf="cargando">Cargando documentos...</div>
-    <div class="alert alert-error" *ngIf="error">{{ error }}</div>
-  `,
+    
+      @if (!cargando) {
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Tipo</th>
+                <th>Entidad Asociada</th>
+                <th>Tamaño</th>
+                <th>Fecha Subida</th>
+                <th>Subido Por</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (d of documentos; track d) {
+                <tr>
+                  <td>{{ d.nombre }}</td>
+                  <td>
+                    <span class="badge badge-info">{{ d.tipo }}</span>
+                  </td>
+                  <td>{{ d.entidad_descripcion || '-' }}</td>
+                  <td>{{ formatTamano(d.tamano) }}</td>
+                  <td>{{ d.fecha_subida | date:'dd/MM/yyyy HH:mm' }}</td>
+                  <td>{{ d.subido_por }}</td>
+                  <td>
+                    <button class="btn btn-sm btn-outline" (click)="verDetalle(d)">Ver Detalle</button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+          @if (documentos.length === 0) {
+            <div class="empty">No se encontraron documentos</div>
+          }
+        </div>
+      }
+    
+      @if (cargando) {
+        <div class="loading">Cargando documentos...</div>
+      }
+      @if (error) {
+        <div class="alert alert-error">{{ error }}</div>
+      }
+    `,
   styles: [`
     .page-header { margin-bottom: 1rem; }
     .page-header h2 { font-size: 1.5rem; margin-bottom: 0.25rem; }

@@ -24,11 +24,13 @@ declare var L: any;
         <div class="legend-item"><span class="dot" style="background:#1B5E3B"></span> Proyectos</div>
         <div class="legend-item"><span class="dot" style="background:#C7952E"></span> Acciones</div>
       </div>
-      <p *ngIf="totalPuntos > 0" class="text-secondary" style="margin-top:0.5rem;">
-        Mostrando {{ totalPuntos }} localizaciones
-      </p>
+      @if (totalPuntos > 0) {
+        <p class="text-secondary" style="margin-top:0.5rem;">
+          Mostrando {{ totalPuntos }} localizaciones
+        </p>
+      }
     </div>
-  `,
+    `,
   styles: [`
     .mapa-page { display: flex; flex-direction: column; height: calc(100vh - 120px); }
     .page-header { margin-bottom: 1rem; }

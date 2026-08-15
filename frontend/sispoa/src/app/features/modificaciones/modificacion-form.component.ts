@@ -10,7 +10,7 @@ import { ModificacionesService, SolicitudModificacion } from './modificaciones.s
       <h2>Nueva Solicitud de Modificación</h2>
       <p class="text-secondary">Registrar una solicitud de modificación al plan</p>
     </div>
-
+    
     <div class="form-card">
       <form (ngSubmit)="guardar()">
         <div class="form-grid">
@@ -27,36 +27,38 @@ import { ModificacionesService, SolicitudModificacion } from './modificaciones.s
           <div class="field">
             <label>Entidad Afectada *</label>
             <input [(ngModel)]="solicitud.entidad" name="entidad" class="form-control"
-                   placeholder="Nombre de la entidad" required>
+              placeholder="Nombre de la entidad" required>
+            </div>
+            <div class="field field-full">
+              <label>Motivo *</label>
+              <textarea [(ngModel)]="solicitud.motivo" name="motivo" class="form-control"
+              rows="3" placeholder="Describa el motivo de la modificación" required></textarea>
+            </div>
+            <div class="field field-full">
+              <label>Informe Técnico</label>
+              <textarea [(ngModel)]="solicitud.informe_tecnico" name="informe_tecnico" class="form-control"
+              rows="4" placeholder="Detalle técnico de la modificación propuesta"></textarea>
+            </div>
+            <div class="field field-full">
+              <label>Observaciones</label>
+              <textarea [(ngModel)]="solicitud.observaciones" name="observaciones" class="form-control"
+              rows="2"></textarea>
+            </div>
           </div>
-          <div class="field field-full">
-            <label>Motivo *</label>
-            <textarea [(ngModel)]="solicitud.motivo" name="motivo" class="form-control"
-                      rows="3" placeholder="Describa el motivo de la modificación" required></textarea>
+    
+          <div class="form-actions">
+            <button type="button" class="btn btn-outline" (click)="cancelar()">Cancelar</button>
+            <button type="submit" class="btn btn-primary" [disabled]="guardando">
+              {{ guardando ? 'Enviando...' : 'Enviar Solicitud' }}
+            </button>
           </div>
-          <div class="field field-full">
-            <label>Informe Técnico</label>
-            <textarea [(ngModel)]="solicitud.informe_tecnico" name="informe_tecnico" class="form-control"
-                      rows="4" placeholder="Detalle técnico de la modificación propuesta"></textarea>
-          </div>
-          <div class="field field-full">
-            <label>Observaciones</label>
-            <textarea [(ngModel)]="solicitud.observaciones" name="observaciones" class="form-control"
-                      rows="2"></textarea>
-          </div>
-        </div>
-
-        <div class="form-actions">
-          <button type="button" class="btn btn-outline" (click)="cancelar()">Cancelar</button>
-          <button type="submit" class="btn btn-primary" [disabled]="guardando">
-            {{ guardando ? 'Enviando...' : 'Enviar Solicitud' }}
-          </button>
-        </div>
-      </form>
-    </div>
-
-    <div class="alert alert-error" *ngIf="error">{{ error }}</div>
-  `,
+        </form>
+      </div>
+    
+      @if (error) {
+        <div class="alert alert-error">{{ error }}</div>
+      }
+    `,
   styles: [`
     .page-header { margin-bottom: 1rem; }
     .page-header h2 { font-size: 1.5rem; margin-bottom: 0.25rem; }

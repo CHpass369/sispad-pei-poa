@@ -9,44 +9,65 @@ import { NodoV2, SisPeService, VersionV2 } from './sis-pe.service';
   template: `
     <div class="page-header">
       <h2>Versión de Instrumento</h2>
-      <p class="text-secondary" *ngIf="version">
-        {{ version.instrumento_codigo }} v{{ version.numero }} — {{ version.etiqueta }}
-      </p>
+      @if (version) {
+        <p class="text-secondary">
+          {{ version.instrumento_codigo }} v{{ version.numero }} — {{ version.etiqueta }}
+        </p>
+      }
     </div>
-
-    <div *ngIf="cargando" class="loading">Cargando versión...</div>
-    <div class="alert alert-error" *ngIf="error">{{ error }}</div>
-    <div class="alert alert-success" *ngIf="mensaje">{{ mensaje }}</div>
-
-    <div class="card" *ngIf="version && !cargando">
-      <div class="info-grid">
-        <div><strong>Estado:</strong> <span class="badge">{{ version.estado }}</span></div>
-        <div><strong>Metodología:</strong> {{ version.metodologia_nombre }}</div>
-        <div><strong>Nodos:</strong> {{ version.nodos_count }}</div>
-        <div><strong>Vínculos:</strong> {{ version.vinculos_count }}</div>
-        <div *ngIf="version.inmutable">
-          <strong>Inmutable:</strong> ✓ aprobada
-          <div class="checksum">{{ version.checksum }}</div>
+    
+    @if (cargando) {
+      <div class="loading">Cargando versión...</div>
+    }
+    @if (error) {
+      <div class="alert alert-error">{{ error }}</div>
+    }
+    @if (mensaje) {
+      <div class="alert alert-success">{{ mensaje }}</div>
+    }
+    
+    @if (version && !cargando) {
+      <div class="card">
+        <div class="info-grid">
+          <div><strong>Estado:</strong> <span class="badge">{{ version.estado }}</span></div>
+          <div><strong>Metodología:</strong> {{ version.metodologia_nombre }}</div>
+          <div><strong>Nodos:</strong> {{ version.nodos_count }}</div>
+          <div><strong>Vínculos:</strong> {{ version.vinculos_count }}</div>
+          @if (version.inmutable) {
+            <div>
+              <strong>Inmutable:</strong> ✓ aprobada
+              <div class="checksum">{{ version.checksum }}</div>
+            </div>
+          }
         </div>
+        <div class="actions">
+          <button class="btn btn-sm" (click)="verificar()">Verificar checksum</button>
+          @if (!version.inmutable && puedeAprobar) {
+            <button
+              class="btn btn-sm btn-approve"
+            (click)="aprobar()">Aprobar</button>
+          }
+        </div>
+        @if (verificacion) {
+          <div class="verify-box">
+            Checksum {{ verificacion.consistente ? '✅ consistente' : '⚠️ INCONSISTENTE' }}
+          </div>
+        }
       </div>
-      <div class="actions">
-        <button class="btn btn-sm" (click)="verificar()">Verificar checksum</button>
-        <button
-          *ngIf="!version.inmutable && puedeAprobar"
-          class="btn btn-sm btn-approve"
-          (click)="aprobar()">Aprobar</button>
+    }
+    
+    @if (!cargando && version) {
+      <h3 class="section-title">Árbol de nodos</h3>
+    }
+    @if (!cargando && version) {
+      <div class="card">
+        <app-sis-pe-arbol [nodos]="arbol"></app-sis-pe-arbol>
+        @if (arbol.length === 0) {
+          <div class="empty">Sin nodos</div>
+        }
       </div>
-      <div *ngIf="verificacion" class="verify-box">
-        Checksum {{ verificacion.consistente ? '✅ consistente' : '⚠️ INCONSISTENTE' }}
-      </div>
-    </div>
-
-    <h3 class="section-title" *ngIf="!cargando && version">Árbol de nodos</h3>
-    <div class="card" *ngIf="!cargando && version">
-      <app-sis-pe-arbol [nodos]="arbol"></app-sis-pe-arbol>
-      <div *ngIf="arbol.length === 0" class="empty">Sin nodos</div>
-    </div>
-  `,
+    }
+    `,
   styles: [`
     .page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; }
     .text-secondary { color: var(--text-secondary); font-size: 0.875rem; }

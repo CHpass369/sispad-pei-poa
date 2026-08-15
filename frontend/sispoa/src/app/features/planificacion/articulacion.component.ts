@@ -10,7 +10,7 @@ import { ApiService } from '../../core/services/api.service';
         <h2>Constructor de Articulación</h2>
         <p class="text-secondary">PDES → PTDI → PEI → POA</p>
       </div>
-
+    
       <!-- Step builder: 4 niveles en paralelo -->
       <div class="builder-layout">
         <!-- Nivel 1: PDES -->
@@ -21,138 +21,168 @@ import { ApiService } from '../../core/services/api.service';
           </div>
           <div class="panel-body">
             <div class="selector">
-              <input [(ngModel)]="pdesSearch" (input)="filtrarPdes()" 
-                     class="form-control" placeholder="Buscar acción PDES...">
-            </div>
-            <div class="item-list">
-              <div *ngFor="let n of pdesFiltrados" class="item" 
-                   [class.selected]="pdesSelected?.id === n.id"
-                   (click)="seleccionarPdes(n)">
-                <strong>{{ n.codigo }}</strong>
-                <span class="item-desc">{{ n.nombre | slice:0:60 }}</span>
-                <span class="item-count" *ngIf="n.pei_count > 0">{{ n.pei_count }} PEI</span>
+              <input [(ngModel)]="pdesSearch" (input)="filtrarPdes()"
+                class="form-control" placeholder="Buscar acción PDES...">
+              </div>
+              <div class="item-list">
+                @for (n of pdesFiltrados; track n) {
+                  <div class="item"
+                    [class.selected]="pdesSelected?.id === n.id"
+                    (click)="seleccionarPdes(n)">
+                    <strong>{{ n.codigo }}</strong>
+                    <span class="item-desc">{{ n.nombre | slice:0:60 }}</span>
+                    @if (n.pei_count > 0) {
+                      <span class="item-count">{{ n.pei_count }} PEI</span>
+                    }
+                  </div>
+                }
               </div>
             </div>
           </div>
-        </div>
-
-        <!-- Nivel 2: PTDI (Acción PEI vinculada) -->
-        <div class="level-panel">
-          <div class="panel-header" style="background:#2E7D4F">
-            <h3>PTDI / PEI</h3>
-            <small>Acción de Mediano Plazo</small>
-          </div>
-          <div class="panel-body">
-            <div class="selector">
-              <button class="btn btn-accent btn-sm btn-full" (click)="crearAmp()">
-                + Nueva AMP
-              </button>
+    
+          <!-- Nivel 2: PTDI (Acción PEI vinculada) -->
+          <div class="level-panel">
+            <div class="panel-header" style="background:#2E7D4F">
+              <h3>PTDI / PEI</h3>
+              <small>Acción de Mediano Plazo</small>
             </div>
-            <div class="item-list">
-              <div *ngFor="let amp of ampsVinculadas" class="item" 
-                   [class.selected]="ampSelected?.id === amp.id"
-                   (click)="seleccionarAmp(amp)">
-                <strong>{{ amp.codigo }}</strong>
-                <span class="item-desc">{{ amp.nombre | slice:0:60 }}</span>
-                <span class="item-count" *ngIf="amp.poa_count > 0">{{ amp.poa_count }} POA</span>
-              </div>
-              <div *ngIf="ampsVinculadas.length === 0" class="empty-hint">
-                Seleccione una acción PDES
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Nivel 3: POA por año -->
-        <div class="level-panel">
-          <div class="panel-header" style="background:#C7952E">
-            <h3>POA</h3>
-            <small>Acción de Corto Plazo</small>
-          </div>
-          <div class="panel-body">
-            <div class="selector">
-              <button class="btn btn-accent btn-sm btn-full" (click)="crearAcp()">
-                + Nueva ACP
-              </button>
-            </div>
-            <div class="item-list">
-              <div *ngFor="let acp of acpsVinculadas" class="item"
-                   [class.selected]="acpSelected?.id === acp.id">
-                <strong>{{ acp.codigo }}</strong>
-                <span class="item-year">{{ acp.gestion }}</span>
-                <span class="item-desc">{{ acp.nombre | slice:0:50 }}</span>
-              </div>
-              <div *ngIf="acpsVinculadas.length === 0" class="empty-hint">
-                Seleccione una AMP
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Vincular panel -->
-        <div class="level-panel vincular-panel">
-          <div class="panel-header" style="background:#1565C0">
-            <h3>Vincular</h3>
-            <small>Crear articulación</small>
-          </div>
-          <div class="panel-body">
-            <div class="vinculacion-form">
-              <label>Tipo de vínculo:</label>
-              <select [(ngModel)]="tipoVinculo" class="form-control">
-                <option value="pdes_pei">PDES → PEI (AMP)</option>
-                <option value="pei_poa">PEI → POA (ACP)</option>
-              </select>
-
-              <div *ngIf="tipoVinculo === 'pdes_pei'" class="vinculacion-step">
-                <label>Acción PDES origen:</label>
-                <div class="selected-item">{{ pdesSelected?.codigo || '—' }}</div>
-                <label>Acción PEI destino:</label>
-                <select [(ngModel)]="ampAVincular" class="form-control">
-                  <option value="">Seleccione AMP...</option>
-                  <option *ngFor="let a of ampsDisponibles" [value]="a.id">{{ a.codigo }} - {{ a.nombre | slice:0:40 }}</option>
-                </select>
-                <button class="btn btn-primary btn-full" (click)="vincularPdesPei()" 
-                        [disabled]="!pdesSelected || !ampAVincular">
-                  Vincular PDES → PEI
+            <div class="panel-body">
+              <div class="selector">
+                <button class="btn btn-accent btn-sm btn-full" (click)="crearAmp()">
+                  + Nueva AMP
                 </button>
               </div>
-
-              <div *ngIf="tipoVinculo === 'pei_poa'" class="vinculacion-step">
-                <label>Acción PEI origen:</label>
-                <div class="selected-item">{{ ampSelected?.codigo || '—' }}</div>
-                <label>Acción POA destino (y año):</label>
-                <select [(ngModel)]="acpAVincular" class="form-control">
-                  <option value="">Seleccione ACP...</option>
-                  <option *ngFor="let a of acpsDisponibles" [value]="a.id">{{ a.codigo }} ({{ a.gestion }})</option>
-                </select>
-                <button class="btn btn-primary btn-full" (click)="vincularPeiPoa()"
-                        [disabled]="!ampSelected || !acpAVincular">
-                  Vincular PEI → POA
+              <div class="item-list">
+                @for (amp of ampsVinculadas; track amp) {
+                  <div class="item"
+                    [class.selected]="ampSelected?.id === amp.id"
+                    (click)="seleccionarAmp(amp)">
+                    <strong>{{ amp.codigo }}</strong>
+                    <span class="item-desc">{{ amp.nombre | slice:0:60 }}</span>
+                    @if (amp.poa_count > 0) {
+                      <span class="item-count">{{ amp.poa_count }} POA</span>
+                    }
+                  </div>
+                }
+                @if (ampsVinculadas.length === 0) {
+                  <div class="empty-hint">
+                    Seleccione una acción PDES
+                  </div>
+                }
+              </div>
+            </div>
+          </div>
+    
+          <!-- Nivel 3: POA por año -->
+          <div class="level-panel">
+            <div class="panel-header" style="background:#C7952E">
+              <h3>POA</h3>
+              <small>Acción de Corto Plazo</small>
+            </div>
+            <div class="panel-body">
+              <div class="selector">
+                <button class="btn btn-accent btn-sm btn-full" (click)="crearAcp()">
+                  + Nueva ACP
                 </button>
               </div>
-
-              <div *ngIf="mensaje" class="msg" [class.error]="mensajeError">
-                {{ mensaje }}
+              <div class="item-list">
+                @for (acp of acpsVinculadas; track acp) {
+                  <div class="item"
+                    [class.selected]="acpSelected?.id === acp.id">
+                    <strong>{{ acp.codigo }}</strong>
+                    <span class="item-year">{{ acp.gestion }}</span>
+                    <span class="item-desc">{{ acp.nombre | slice:0:50 }}</span>
+                  </div>
+                }
+                @if (acpsVinculadas.length === 0) {
+                  <div class="empty-hint">
+                    Seleccione una AMP
+                  </div>
+                }
+              </div>
+            </div>
+          </div>
+    
+          <!-- Vincular panel -->
+          <div class="level-panel vincular-panel">
+            <div class="panel-header" style="background:#1565C0">
+              <h3>Vincular</h3>
+              <small>Crear articulación</small>
+            </div>
+            <div class="panel-body">
+              <div class="vinculacion-form">
+                <label>Tipo de vínculo:</label>
+                <select [(ngModel)]="tipoVinculo" class="form-control">
+                  <option value="pdes_pei">PDES → PEI (AMP)</option>
+                  <option value="pei_poa">PEI → POA (ACP)</option>
+                </select>
+    
+                @if (tipoVinculo === 'pdes_pei') {
+                  <div class="vinculacion-step">
+                    <label>Acción PDES origen:</label>
+                    <div class="selected-item">{{ pdesSelected?.codigo || '—' }}</div>
+                    <label>Acción PEI destino:</label>
+                    <select [(ngModel)]="ampAVincular" class="form-control">
+                      <option value="">Seleccione AMP...</option>
+                      @for (a of ampsDisponibles; track a) {
+                        <option [value]="a.id">{{ a.codigo }} - {{ a.nombre | slice:0:40 }}</option>
+                      }
+                    </select>
+                    <button class="btn btn-primary btn-full" (click)="vincularPdesPei()"
+                      [disabled]="!pdesSelected || !ampAVincular">
+                      Vincular PDES → PEI
+                    </button>
+                  </div>
+                }
+    
+                @if (tipoVinculo === 'pei_poa') {
+                  <div class="vinculacion-step">
+                    <label>Acción PEI origen:</label>
+                    <div class="selected-item">{{ ampSelected?.codigo || '—' }}</div>
+                    <label>Acción POA destino (y año):</label>
+                    <select [(ngModel)]="acpAVincular" class="form-control">
+                      <option value="">Seleccione ACP...</option>
+                      @for (a of acpsDisponibles; track a) {
+                        <option [value]="a.id">{{ a.codigo }} ({{ a.gestion }})</option>
+                      }
+                    </select>
+                    <button class="btn btn-primary btn-full" (click)="vincularPeiPoa()"
+                      [disabled]="!ampSelected || !acpAVincular">
+                      Vincular PEI → POA
+                    </button>
+                  </div>
+                }
+    
+                @if (mensaje) {
+                  <div class="msg" [class.error]="mensajeError">
+                    {{ mensaje }}
+                  </div>
+                }
               </div>
             </div>
           </div>
         </div>
-      </div>
-
-      <!-- Vista resumen -->
-      <div class="card resumen-card" *ngIf="pdesSelected">
-        <h4>Cadena: {{ pdesSelected.codigo }} — {{ pdesSelected.nombre | slice:0:60 }}</h4>
-        <div class="cadena">
-          <div class="eslabon" *ngFor="let amp of ampsVinculadas">
-            <div class="eslabon-cabecera">{{ amp.codigo }} — {{ amp.nombre | slice:0:50 }}</div>
+    
+        <!-- Vista resumen -->
+        @if (pdesSelected) {
+          <div class="card resumen-card">
+            <h4>Cadena: {{ pdesSelected.codigo }} — {{ pdesSelected.nombre | slice:0:60 }}</h4>
+            <div class="cadena">
+              @for (amp of ampsVinculadas; track amp) {
+                <div class="eslabon">
+                  <div class="eslabon-cabecera">{{ amp.codigo }} — {{ amp.nombre | slice:0:50 }}</div>
+                </div>
+              }
+              @if (ampsVinculadas.length === 0) {
+                <div class="empty-hint">
+                  Sin PEI vinculadas — use el panel Vincular
+                </div>
+              }
+            </div>
           </div>
-          <div *ngIf="ampsVinculadas.length === 0" class="empty-hint">
-            Sin PEI vinculadas — use el panel Vincular
-          </div>
-        </div>
+        }
       </div>
-    </div>
-  `,
+    `,
   styles: [`
     .builder-page { padding-bottom: 2rem; }
     .page-header { margin-bottom: 1rem; }

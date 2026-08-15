@@ -6,76 +6,94 @@ import { EvaluacionService, Evaluacion, ResultadoEvaluacion } from './evaluacion
   standalone: false,
   selector: 'app-evaluacion-detalle',
   template: `
-    <div class="page-header" *ngIf="evaluacion">
-      <h2>Detalle de Evaluación</h2>
-      <p class="text-secondary">{{ evaluacion.tipo }} — {{ evaluacion.periodo }}</p>
-    </div>
-
-    <div class="info-grid" *ngIf="evaluacion">
-      <div class="card info-item">
-        <label>Tipo</label>
-        <span>{{ evaluacion.tipo }}</span>
+    @if (evaluacion) {
+      <div class="page-header">
+        <h2>Detalle de Evaluación</h2>
+        <p class="text-secondary">{{ evaluacion.tipo }} — {{ evaluacion.periodo }}</p>
       </div>
-      <div class="card info-item">
-        <label>Periodo</label>
-        <span>{{ evaluacion.periodo }}</span>
+    }
+    
+    @if (evaluacion) {
+      <div class="info-grid">
+        <div class="card info-item">
+          <label>Tipo</label>
+          <span>{{ evaluacion.tipo }}</span>
+        </div>
+        <div class="card info-item">
+          <label>Periodo</label>
+          <span>{{ evaluacion.periodo }}</span>
+        </div>
+        <div class="card info-item">
+          <label>Responsable</label>
+          <span>{{ evaluacion.responsable_nombre || evaluacion.responsable }}</span>
+        </div>
+        <div class="card info-item">
+          <label>Estado</label>
+          <span class="badge" [ngClass]="'badge-' + evaluacion.estado">{{ evaluacion.estado }}</span>
+        </div>
+        @if (evaluacion.observaciones) {
+          <div class="card info-item full-width">
+            <label>Observaciones</label>
+            <span>{{ evaluacion.observaciones }}</span>
+          </div>
+        }
       </div>
-      <div class="card info-item">
-        <label>Responsable</label>
-        <span>{{ evaluacion.responsable_nombre || evaluacion.responsable }}</span>
-      </div>
-      <div class="card info-item">
-        <label>Estado</label>
-        <span class="badge" [ngClass]="'badge-' + evaluacion.estado">{{ evaluacion.estado }}</span>
-      </div>
-      <div class="card info-item full-width" *ngIf="evaluacion.observaciones">
-        <label>Observaciones</label>
-        <span>{{ evaluacion.observaciones }}</span>
-      </div>
-    </div>
-
-    <div class="seccion" *ngIf="resultados.length > 0">
-      <h3>Resultados por POAU / Unidad</h3>
-      <div class="table-container">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>POAU</th>
-              <th>Unidad</th>
-              <th>Criterio</th>
-              <th>Puntaje</th>
-              <th>Máximo</th>
-              <th>Observaciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let r of resultados">
-              <td>{{ r.poau }}</td>
-              <td>{{ r.unidad }}</td>
-              <td>{{ r.criterio }}</td>
-              <td>{{ r.puntaje }}</td>
-              <td>{{ r.max_puntaje }}</td>
-              <td>{{ r.observaciones }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="seccion" *ngIf="resultados.length > 0">
-      <h3>Resumen de Calificaciones</h3>
-      <div class="resumen-grid">
-        <div class="card resumen-item" *ngFor="let r of resumenPorPoau">
-          <strong>{{ r.poau }}</strong>
-          <span class="resumen-puntaje">{{ r.puntaje_total }} / {{ r.max_total }}</span>
-          <span class="resumen-porcentaje">{{ r.porcentaje }}%</span>
+    }
+    
+    @if (resultados.length > 0) {
+      <div class="seccion">
+        <h3>Resultados por POAU / Unidad</h3>
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>POAU</th>
+                <th>Unidad</th>
+                <th>Criterio</th>
+                <th>Puntaje</th>
+                <th>Máximo</th>
+                <th>Observaciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (r of resultados; track r) {
+                <tr>
+                  <td>{{ r.poau }}</td>
+                  <td>{{ r.unidad }}</td>
+                  <td>{{ r.criterio }}</td>
+                  <td>{{ r.puntaje }}</td>
+                  <td>{{ r.max_puntaje }}</td>
+                  <td>{{ r.observaciones }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
         </div>
       </div>
-    </div>
-
-    <div class="loading" *ngIf="cargando">Cargando detalle...</div>
-    <div class="alert alert-error" *ngIf="error">{{ error }}</div>
-  `,
+    }
+    
+    @if (resultados.length > 0) {
+      <div class="seccion">
+        <h3>Resumen de Calificaciones</h3>
+        <div class="resumen-grid">
+          @for (r of resumenPorPoau; track r) {
+            <div class="card resumen-item">
+              <strong>{{ r.poau }}</strong>
+              <span class="resumen-puntaje">{{ r.puntaje_total }} / {{ r.max_total }}</span>
+              <span class="resumen-porcentaje">{{ r.porcentaje }}%</span>
+            </div>
+          }
+        </div>
+      </div>
+    }
+    
+    @if (cargando) {
+      <div class="loading">Cargando detalle...</div>
+    }
+    @if (error) {
+      <div class="alert alert-error">{{ error }}</div>
+    }
+    `,
   styles: [`
     .page-header { margin-bottom: 1.5rem; }
     .page-header h2 { font-size: 1.5rem; margin-bottom: 0.25rem; }

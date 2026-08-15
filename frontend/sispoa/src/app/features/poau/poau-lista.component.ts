@@ -13,33 +13,39 @@ import { ApiService } from '../../core/services/api.service';
           <a routerLink="/poau/nuevo" class="btn btn-primary">+ Nuevo POAU</a>
         </div>
       </div>
-
+    
       <div class="card">
         <table>
           <thead>
             <tr><th>Código</th><th>Nombre</th><th>Unidad</th><th>Gestión</th><th>Estado</th><th>Acciones</th></tr>
           </thead>
           <tbody>
-            <tr *ngFor="let p of poaus">
-              <td><strong>{{ p.codigo }}</strong></td>
-              <td>{{ p.nombre | slice:0:60 }}</td>
-              <td>{{ p.unidad_nombre || '—' }}</td>
-              <td>{{ p.gestion }}</td>
-              <td><span class="badge" [class.badge-success]="p.estado==='aprobado'" 
-                        [class.badge-warning]="p.estado==='enviado'"
-                        [class.badge-info]="p.estado==='borrador'">{{ p.estado }}</span></td>
-              <td>
-                <a [routerLink]="['/poau', p.id]" class="btn btn-outline btn-sm">Editar</a>
-                <button *ngIf="p.estado==='borrador'" class="btn btn-primary btn-sm" 
-                        (click)="enviar(p)">Enviar</button>
-              </td>
-            </tr>
-            <tr *ngIf="poaus.length===0"><td colspan="6" class="empty-cell">No hay POAUs. Cree uno nuevo.</td></tr>
+            @for (p of poaus; track p) {
+              <tr>
+                <td><strong>{{ p.codigo }}</strong></td>
+                <td>{{ p.nombre | slice:0:60 }}</td>
+                <td>{{ p.unidad_nombre || '—' }}</td>
+                <td>{{ p.gestion }}</td>
+                <td><span class="badge" [class.badge-success]="p.estado==='aprobado'"
+                  [class.badge-warning]="p.estado==='enviado'"
+                [class.badge-info]="p.estado==='borrador'">{{ p.estado }}</span></td>
+                <td>
+                  <a [routerLink]="['/poau', p.id]" class="btn btn-outline btn-sm">Editar</a>
+                  @if (p.estado==='borrador') {
+                    <button class="btn btn-primary btn-sm"
+                    (click)="enviar(p)">Enviar</button>
+                  }
+                </td>
+              </tr>
+            }
+            @if (poaus.length===0) {
+              <tr><td colspan="6" class="empty-cell">No hay POAUs. Cree uno nuevo.</td></tr>
+            }
           </tbody>
         </table>
       </div>
     </div>
-  `,
+    `,
   styles: [`
     .poau-page { padding-bottom:2rem; }
     .page-header { margin-bottom:1rem; }

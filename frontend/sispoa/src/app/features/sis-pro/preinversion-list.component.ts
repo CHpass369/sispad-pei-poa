@@ -10,9 +10,13 @@ import { PreinversionService, ProyectoPreinversion } from './preinversion.servic
       <h2>Preinversión — Expediente RM 115</h2>
       <p class="text-secondary">ITCP · TDR · EDTP — banco de proyectos viables (SISPRE)</p>
     </div>
-    <div class="alert alert-error" *ngIf="error">{{ error }}</div>
-    <div class="alert alert-success" *ngIf="mensaje">{{ mensaje }}</div>
-
+    @if (error) {
+      <div class="alert alert-error">{{ error }}</div>
+    }
+    @if (mensaje) {
+      <div class="alert alert-success">{{ mensaje }}</div>
+    }
+    
     <div class="toolbar">
       <label>Gestión
         <input type="number" [(ngModel)]="filtro.gestion" (change)="cargar()" class="input" />
@@ -36,37 +40,45 @@ import { PreinversionService, ProyectoPreinversion } from './preinversion.servic
       </label>
       <a class="btn btn-sm btn-inventario" routerLink="/sis-pro/preinversion/inventario">📚 Inventario documental</a>
     </div>
-
-    <div *ngIf="cargando" class="loading">Cargando expedientes...</div>
-    <table class="data-table" *ngIf="!cargando">
-      <thead>
-        <tr>
-          <th>Código</th><th>Proyecto</th><th>Tipología</th><th>Estado</th>
-          <th>Madurez</th><th>POA</th><th></th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let p of proyectos">
-          <td>{{ p.codigo_interno }}</td>
-          <td>{{ p.nombre }}</td>
-          <td><span class="badge">{{ p.tipologia_rm115 || '—' }}</span></td>
-          <td><span class="badge estado">{{ service.etiquetaEstadoExpediente(p.estado_preinversion) }}</span></td>
-          <td>
-            <div class="madurez">
-              <div class="barra"><div class="relleno" [style.width.%]="madurezNum(p)"></div></div>
-              {{ p.puntaje_madurez }}%
-            </div>
-          </td>
-          <td>{{ p.habilitado_poa ? '✅' : '—' }}</td>
-          <td>
-            <a class="btn btn-sm" [routerLink]="['/sis-pro/preinversion', p.id, 'wizard']">Wizard</a>
-            <a class="btn btn-sm" [routerLink]="['/sis-pro/preinversion', p.id]">Expediente</a>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-    <div *ngIf="!cargando && proyectos.length === 0" class="empty">No hay proyectos en preinversión</div>
-  `,
+    
+    @if (cargando) {
+      <div class="loading">Cargando expedientes...</div>
+    }
+    @if (!cargando) {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Código</th><th>Proyecto</th><th>Tipología</th><th>Estado</th>
+            <th>Madurez</th><th>POA</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (p of proyectos; track p) {
+            <tr>
+              <td>{{ p.codigo_interno }}</td>
+              <td>{{ p.nombre }}</td>
+              <td><span class="badge">{{ p.tipologia_rm115 || '—' }}</span></td>
+              <td><span class="badge estado">{{ service.etiquetaEstadoExpediente(p.estado_preinversion) }}</span></td>
+              <td>
+                <div class="madurez">
+                  <div class="barra"><div class="relleno" [style.width.%]="madurezNum(p)"></div></div>
+                  {{ p.puntaje_madurez }}%
+                </div>
+              </td>
+              <td>{{ p.habilitado_poa ? '✅' : '—' }}</td>
+              <td>
+                <a class="btn btn-sm" [routerLink]="['/sis-pro/preinversion', p.id, 'wizard']">Wizard</a>
+                <a class="btn btn-sm" [routerLink]="['/sis-pro/preinversion', p.id]">Expediente</a>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+    @if (!cargando && proyectos.length === 0) {
+      <div class="empty">No hay proyectos en preinversión</div>
+    }
+    `,
   styles: [`
     .page-header { margin-bottom: 1.5rem; }
     .text-secondary { color: var(--text-secondary); font-size: 0.875rem; }

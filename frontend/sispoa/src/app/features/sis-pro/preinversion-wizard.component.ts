@@ -15,304 +15,362 @@ import {
       <h2>Wizard de Preinversión — {{ proyecto?.codigo_interno }}</h2>
       <p class="text-secondary">{{ proyecto?.nombre }}</p>
     </div>
-    <div class="alert alert-error" *ngIf="error">{{ error }}</div>
-    <div class="alert alert-success" *ngIf="mensaje">{{ mensaje }}</div>
-
+    @if (error) {
+      <div class="alert alert-error">{{ error }}</div>
+    }
+    @if (mensaje) {
+      <div class="alert alert-success">{{ mensaje }}</div>
+    }
+    
     <!-- Barra de progreso -->
     <div class="stepper">
-      <div class="step" *ngFor="let s of pasos; let i = index"
-           [class.active]="pasoActual === i + 1"
-           [class.completed]="pasoActual > i + 1"
-           (click)="irAPaso(i + 1)">
-        <div class="step-circle">{{ pasoActual > i + 1 ? '✓' : i + 1 }}</div>
-        <div class="step-label">{{ s }}</div>
-      </div>
+      @for (s of pasos; track s; let i = $index) {
+        <div class="step"
+          [class.active]="pasoActual === i + 1"
+          [class.completed]="pasoActual > i + 1"
+          (click)="irAPaso(i + 1)">
+          <div class="step-circle">{{ pasoActual > i + 1 ? '✓' : i + 1 }}</div>
+          <div class="step-label">{{ s }}</div>
+        </div>
+      }
     </div>
-
+    
     <div class="card">
       <!-- ======= PASO 1: Ficha del proyecto ======= -->
-      <div *ngIf="pasoActual === 1">
-        <h3 class="step-title">Paso 1: Ficha del proyecto</h3>
-        <div class="form-grid">
-          <div class="field-full">
-            <label>Nombre oficial</label>
-            <input [(ngModel)]="ficha.nombre" name="nombre" class="form-control" (change)="guardarFicha()" />
-          </div>
-          <div class="field">
-            <label>Problema / necesidad</label>
-            <textarea [(ngModel)]="ficha.problema" name="problema" rows="3" class="form-control" (change)="guardarFicha()"></textarea>
-          </div>
-          <div class="field">
-            <label>Objetivo general</label>
-            <textarea [(ngModel)]="ficha.objetivo_general" name="obj" rows="3" class="form-control" (change)="guardarFicha()"></textarea>
-          </div>
-          <div class="field">
-            <label>Distrito</label>
-            <input [(ngModel)]="ficha.distrito" name="distrito" class="form-control" (change)="guardarFicha()" />
-          </div>
-          <div class="field">
-            <label>Comunidad / OTB</label>
-            <input [(ngModel)]="ficha.comunidad" name="comunidad" class="form-control" (change)="guardarFicha()" />
-          </div>
-          <div class="field">
-            <label>Localización</label>
-            <input [(ngModel)]="ficha.descripcion_localizacion" name="loc" class="form-control" (change)="guardarFicha()" />
-          </div>
-          <div class="field">
-            <label>Presupuesto estimado (Bs)</label>
-            <input type="number" [(ngModel)]="ficha.presupuesto_estimado" name="pe" class="form-control" (change)="guardarFicha()" />
-          </div>
-          <div class="field">
-            <label>Presupuesto aprobado (Bs)</label>
-            <input type="number" [(ngModel)]="ficha.presupuesto_aprobado" name="pa" class="form-control" (change)="guardarFicha()" />
-          </div>
-          <div class="field">
-            <label>Tipología RM 115</label>
-            <div class="tipologia-row">
-              <span class="badge" *ngIf="proyecto?.tipologia_rm115">{{ service.tipologiaNombre(proyecto!.tipologia_rm115) }}</span>
-              <button class="btn btn-sm" (click)="clasificar()" [disabled]="!puedeEditar">🤖 Clasificar</button>
+      @if (pasoActual === 1) {
+        <div>
+          <h3 class="step-title">Paso 1: Ficha del proyecto</h3>
+          <div class="form-grid">
+            <div class="field-full">
+              <label>Nombre oficial</label>
+              <input [(ngModel)]="ficha.nombre" name="nombre" class="form-control" (change)="guardarFicha()" />
+            </div>
+            <div class="field">
+              <label>Problema / necesidad</label>
+              <textarea [(ngModel)]="ficha.problema" name="problema" rows="3" class="form-control" (change)="guardarFicha()"></textarea>
+            </div>
+            <div class="field">
+              <label>Objetivo general</label>
+              <textarea [(ngModel)]="ficha.objetivo_general" name="obj" rows="3" class="form-control" (change)="guardarFicha()"></textarea>
+            </div>
+            <div class="field">
+              <label>Distrito</label>
+              <input [(ngModel)]="ficha.distrito" name="distrito" class="form-control" (change)="guardarFicha()" />
+            </div>
+            <div class="field">
+              <label>Comunidad / OTB</label>
+              <input [(ngModel)]="ficha.comunidad" name="comunidad" class="form-control" (change)="guardarFicha()" />
+            </div>
+            <div class="field">
+              <label>Localización</label>
+              <input [(ngModel)]="ficha.descripcion_localizacion" name="loc" class="form-control" (change)="guardarFicha()" />
+            </div>
+            <div class="field">
+              <label>Presupuesto estimado (Bs)</label>
+              <input type="number" [(ngModel)]="ficha.presupuesto_estimado" name="pe" class="form-control" (change)="guardarFicha()" />
+            </div>
+            <div class="field">
+              <label>Presupuesto aprobado (Bs)</label>
+              <input type="number" [(ngModel)]="ficha.presupuesto_aprobado" name="pa" class="form-control" (change)="guardarFicha()" />
+            </div>
+            <div class="field">
+              <label>Tipología RM 115</label>
+              <div class="tipologia-row">
+                @if (proyecto?.tipologia_rm115) {
+                  <span class="badge">{{ service.tipologiaNombre(proyecto!.tipologia_rm115) }}</span>
+                }
+                <button class="btn btn-sm" (click)="clasificar()" [disabled]="!puedeEditar">🤖 Clasificar</button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-
+      }
+    
       <!-- ======= PASO 2: Condiciones previas (ITCP) ======= -->
-      <div *ngIf="pasoActual === 2">
-        <h3 class="step-title">Paso 2: Condiciones previas (ITCP)</h3>
-        <p class="text-secondary">Marque el estado de cada condición; las críticas bloquean la aprobación.</p>
-        <div class="semafaro">
-          <span class="chip verde">{{ condicionesResueltas }} resueltas</span>
-          <span class="chip rojo">{{ condicionesPendientes }} pendientes</span>
-        </div>
-        <div class="condiciones">
-          <div class="condicion" *ngFor="let c of condiciones" [class.recuadro-critica]="c.critica && c.estado !== 'cumple'">
-            <div class="condicion-cab">
-              <span class="badge">{{ service.condicionCategoria(c.categoria) }}</span>
-              <span class="critica" *ngIf="c.critica" title="Condición crítica">🔴</span>
-            </div>
-            <div class="condicion-titulo">{{ c.titulo }}</div>
-            <div class="condicion-fila">
-              <select [(ngModel)]="c.estado" name="est{{ c.id }}" class="form-control" (change)="guardarCondicion(c)">
-                <option *ngFor="let e of service.estadosCondicion" [value]="e">{{ etiquetaCondicion(e) }}</option>
-              </select>
-            </div>
-            <textarea *ngIf="c.estado !== 'cumple' && c.estado !== 'aprobada'" [(ngModel)]="c.hallazgo" name="h{{ c.id }}" rows="2" class="form-control" placeholder="Hallazgo / evidencia" (change)="guardarCondicion(c)"></textarea>
-            <textarea *ngIf="c.estado === 'no_aplica'" [(ngModel)]="c.justificacion_no_aplica" name="j{{ c.id }}" rows="2" class="form-control" placeholder="Justificación de no aplica" (change)="guardarCondicion(c)"></textarea>
+      @if (pasoActual === 2) {
+        <div>
+          <h3 class="step-title">Paso 2: Condiciones previas (ITCP)</h3>
+          <p class="text-secondary">Marque el estado de cada condición; las críticas bloquean la aprobación.</p>
+          <div class="semafaro">
+            <span class="chip verde">{{ condicionesResueltas }} resueltas</span>
+            <span class="chip rojo">{{ condicionesPendientes }} pendientes</span>
+          </div>
+          <div class="condiciones">
+            @for (c of condiciones; track c) {
+              <div class="condicion" [class.recuadro-critica]="c.critica && c.estado !== 'cumple'">
+                <div class="condicion-cab">
+                  <span class="badge">{{ service.condicionCategoria(c.categoria) }}</span>
+                  @if (c.critica) {
+                    <span class="critica" title="Condición crítica">🔴</span>
+                  }
+                </div>
+                <div class="condicion-titulo">{{ c.titulo }}</div>
+                <div class="condicion-fila">
+                  <select [(ngModel)]="c.estado" name="est{{ c.id }}" class="form-control" (change)="guardarCondicion(c)">
+                    @for (e of service.estadosCondicion; track e) {
+                      <option [value]="e">{{ etiquetaCondicion(e) }}</option>
+                    }
+                  </select>
+                </div>
+                @if (c.estado !== 'cumple' && c.estado !== 'aprobada') {
+                  <textarea [(ngModel)]="c.hallazgo" name="h{{ c.id }}" rows="2" class="form-control" placeholder="Hallazgo / evidencia" (change)="guardarCondicion(c)"></textarea>
+                }
+                @if (c.estado === 'no_aplica') {
+                  <textarea [(ngModel)]="c.justificacion_no_aplica" name="j{{ c.id }}" rows="2" class="form-control" placeholder="Justificación de no aplica" (change)="guardarCondicion(c)"></textarea>
+                }
+              </div>
+            }
           </div>
         </div>
-      </div>
-
+      }
+    
       <!-- ======= PASO 3: ITCP ======= -->
-      <div *ngIf="pasoActual === 3">
-        <h3 class="step-title">Paso 3: Contenido del ITCP</h3>
-        <div class="form-grid">
-          <div class="field-full">
-            <label>Justificación de la iniciativa (principios, planificación, competencias, priorización)</label>
-            <textarea [(ngModel)]="itcp.justificacion_iniciativa" name="ji" rows="4" class="form-control" (change)="guardarItcp()"></textarea>
+      @if (pasoActual === 3) {
+        <div>
+          <h3 class="step-title">Paso 3: Contenido del ITCP</h3>
+          <div class="form-grid">
+            <div class="field-full">
+              <label>Justificación de la iniciativa (principios, planificación, competencias, priorización)</label>
+              <textarea [(ngModel)]="itcp.justificacion_iniciativa" name="ji" rows="4" class="form-control" (change)="guardarItcp()"></textarea>
+            </div>
+            <div class="field-full">
+              <label>Idea del proyecto (necesidad, objetivos, beneficios, alternativas, localización)</label>
+              <textarea [(ngModel)]="itcp.idea_proyecto" name="idea" rows="4" class="form-control" (change)="guardarItcp()"></textarea>
+            </div>
+            <div class="field">
+              <label>Resultado preliminar</label>
+              <select [(ngModel)]="itcp.resultado_preliminar" name="rp" class="form-control" (change)="guardarItcp()">
+                <option value="">— Seleccionar —</option>
+                <option value="viable_edtp">Viable para elaborar EDTP</option>
+                <option value="viable_condiciones">Viable con condiciones</option>
+                <option value="no_viable">No viable</option>
+                <option value="informacion_insuficiente">Información insuficiente</option>
+              </select>
+            </div>
+            <div class="field-full">
+              <label>Conclusiones</label>
+              <textarea [(ngModel)]="itcp.conclusiones" name="concl" rows="3" class="form-control" (change)="guardarItcp()"></textarea>
+            </div>
+            <div class="field-full">
+              <label>Recomendaciones</label>
+              <textarea [(ngModel)]="itcp.recomendaciones" name="recom" rows="3" class="form-control" (change)="guardarItcp()"></textarea>
+            </div>
           </div>
-          <div class="field-full">
-            <label>Idea del proyecto (necesidad, objetivos, beneficios, alternativas, localización)</label>
-            <textarea [(ngModel)]="itcp.idea_proyecto" name="idea" rows="4" class="form-control" (change)="guardarItcp()"></textarea>
-          </div>
-          <div class="field">
-            <label>Resultado preliminar</label>
-            <select [(ngModel)]="itcp.resultado_preliminar" name="rp" class="form-control" (change)="guardarItcp()">
-              <option value="">— Seleccionar —</option>
-              <option value="viable_edtp">Viable para elaborar EDTP</option>
-              <option value="viable_condiciones">Viable con condiciones</option>
-              <option value="no_viable">No viable</option>
-              <option value="informacion_insuficiente">Información insuficiente</option>
-            </select>
-          </div>
-          <div class="field-full">
-            <label>Conclusiones</label>
-            <textarea [(ngModel)]="itcp.conclusiones" name="concl" rows="3" class="form-control" (change)="guardarItcp()"></textarea>
-          </div>
-          <div class="field-full">
-            <label>Recomendaciones</label>
-            <textarea [(ngModel)]="itcp.recomendaciones" name="recom" rows="3" class="form-control" (change)="guardarItcp()"></textarea>
+          <div class="acciones">
+            <button class="btn" (click)="validar('ITCP')" [disabled]="!puedeValidar">✔ Validar ITCP</button>
+            @if (erroresItcp.length) {
+              <div class="errores">
+                <ul>@for (e of erroresItcp; track e) {
+                  <li>{{ e }}</li>
+                }</ul>
+              </div>
+            }
           </div>
         </div>
-        <div class="acciones">
-          <button class="btn" (click)="validar('ITCP')" [disabled]="!puedeValidar">✔ Validar ITCP</button>
-          <div *ngIf="erroresItcp.length" class="errores">
-            <ul><li *ngFor="let e of erroresItcp">{{ e }}</li></ul>
-          </div>
-        </div>
-      </div>
-
+      }
+    
       <!-- ======= PASO 4: TDR ======= -->
-      <div *ngIf="pasoActual === 4">
-        <h3 class="step-title">Paso 4: TDR y presupuesto referencial del EDTP</h3>
-        <div class="form-grid">
-          <div class="field-full">
-            <label>Objetivos del estudio</label>
-            <textarea [(ngModel)]="tdr.objetivos" name="to" rows="3" class="form-control" (change)="guardarTdr()"></textarea>
+      @if (pasoActual === 4) {
+        <div>
+          <h3 class="step-title">Paso 4: TDR y presupuesto referencial del EDTP</h3>
+          <div class="form-grid">
+            <div class="field-full">
+              <label>Objetivos del estudio</label>
+              <textarea [(ngModel)]="tdr.objetivos" name="to" rows="3" class="form-control" (change)="guardarTdr()"></textarea>
+            </div>
+            <div class="field-full">
+              <label>Alcance</label>
+              <textarea [(ngModel)]="tdr.alcance" name="ta" rows="3" class="form-control" (change)="guardarTdr()"></textarea>
+            </div>
+            <div class="field-full">
+              <label>Metodología</label>
+              <textarea [(ngModel)]="tdr.metodologia" name="tm" rows="3" class="form-control" (change)="guardarTdr()"></textarea>
+            </div>
+            <div class="field">
+              <label>Duración (días)</label>
+              <input type="number" [(ngModel)]="tdr.duracion_dias" name="td" class="form-control" (change)="guardarTdr()" />
+            </div>
+            <div class="field">
+              <label>Presupuesto referencial (Bs)</label>
+              <input type="number" [(ngModel)]="tdr.presupuesto_referencial" name="tpr" class="form-control" (change)="guardarTdr()" />
+            </div>
           </div>
-          <div class="field-full">
-            <label>Alcance</label>
-            <textarea [(ngModel)]="tdr.alcance" name="ta" rows="3" class="form-control" (change)="guardarTdr()"></textarea>
+          <div class="sub-block">
+            <h4>Actividades del estudio</h4>
+            <div class="fila-form">
+              <input [(ngModel)]="actividad.codigo" name="ac" placeholder="Código" class="form-control" />
+              <input [(ngModel)]="actividad.descripcion" name="ad" placeholder="Descripción" class="form-control" />
+              <input [(ngModel)]="actividad.duracion_dias" name="add" type="number" placeholder="Días" class="form-control" />
+              <button class="btn btn-primary" (click)="agregarActividad()" [disabled]="!puedeEditar">+</button>
+            </div>
+            <ul class="mini-lista">
+              @for (a of tdr.actividades; track a) {
+                <li><span class="badge">{{ a.codigo }}</span> {{ a.descripcion }} ({{ a.duracion_dias }} días)</li>
+              }
+            </ul>
           </div>
-          <div class="field-full">
-            <label>Metodología</label>
-            <textarea [(ngModel)]="tdr.metodologia" name="tm" rows="3" class="form-control" (change)="guardarTdr()"></textarea>
-          </div>
-          <div class="field">
-            <label>Duración (días)</label>
-            <input type="number" [(ngModel)]="tdr.duracion_dias" name="td" class="form-control" (change)="guardarTdr()" />
-          </div>
-          <div class="field">
-            <label>Presupuesto referencial (Bs)</label>
-            <input type="number" [(ngModel)]="tdr.presupuesto_referencial" name="tpr" class="form-control" (change)="guardarTdr()" />
+          <div class="sub-block">
+            <h4>Presupuesto referencial (memoria de cálculo)</h4>
+            <div class="fila-form">
+              <input [(ngModel)]="item.categoria" name="ic" placeholder="Categoría" class="form-control" />
+              <input [(ngModel)]="item.descripcion" name="id" placeholder="Descripción" class="form-control" />
+              <input [(ngModel)]="item.cantidad" name="iq" type="number" placeholder="Cantidad" class="form-control" />
+              <input [(ngModel)]="item.costo_unitario" name="icu" type="number" placeholder="Costo unitario" class="form-control" />
+              <button class="btn btn-primary" (click)="agregarItem()" [disabled]="!puedeEditar">+</button>
+            </div>
+            <ul class="mini-lista">
+              @for (i of tdr.items_presupuesto; track i) {
+                <li><span class="badge">{{ i.categoria }}</span> {{ i.descripcion }} — Bs {{ i.subtotal }}</li>
+              }
+            </ul>
+            <div class="total"><strong>Total referencial: Bs {{ totalReferencial }}</strong></div>
           </div>
         </div>
-        <div class="sub-block">
-          <h4>Actividades del estudio</h4>
-          <div class="fila-form">
-            <input [(ngModel)]="actividad.codigo" name="ac" placeholder="Código" class="form-control" />
-            <input [(ngModel)]="actividad.descripcion" name="ad" placeholder="Descripción" class="form-control" />
-            <input [(ngModel)]="actividad.duracion_dias" name="add" type="number" placeholder="Días" class="form-control" />
-            <button class="btn btn-primary" (click)="agregarActividad()" [disabled]="!puedeEditar">+</button>
-          </div>
-          <ul class="mini-lista">
-            <li *ngFor="let a of tdr.actividades"><span class="badge">{{ a.codigo }}</span> {{ a.descripcion }} ({{ a.duracion_dias }} días)</li>
-          </ul>
-        </div>
-        <div class="sub-block">
-          <h4>Presupuesto referencial (memoria de cálculo)</h4>
-          <div class="fila-form">
-            <input [(ngModel)]="item.categoria" name="ic" placeholder="Categoría" class="form-control" />
-            <input [(ngModel)]="item.descripcion" name="id" placeholder="Descripción" class="form-control" />
-            <input [(ngModel)]="item.cantidad" name="iq" type="number" placeholder="Cantidad" class="form-control" />
-            <input [(ngModel)]="item.costo_unitario" name="icu" type="number" placeholder="Costo unitario" class="form-control" />
-            <button class="btn btn-primary" (click)="agregarItem()" [disabled]="!puedeEditar">+</button>
-          </div>
-          <ul class="mini-lista">
-            <li *ngFor="let i of tdr.items_presupuesto"><span class="badge">{{ i.categoria }}</span> {{ i.descripcion }} — Bs {{ i.subtotal }}</li>
-          </ul>
-          <div class="total"><strong>Total referencial: Bs {{ totalReferencial }}</strong></div>
-        </div>
-      </div>
-
+      }
+    
       <!-- ======= PASO 5: EDTP ======= -->
-      <div *ngIf="pasoActual === 5">
-        <h3 class="step-title">Paso 5: Contenido del EDTP</h3>
-        <div class="form-grid">
-          <div class="field-full">
-            <label>Resumen ejecutivo</label>
-            <textarea [(ngModel)]="edtp.resumen_ejecutivo" name="re" rows="3" class="form-control" (change)="guardarEdtp()"></textarea>
+      @if (pasoActual === 5) {
+        <div>
+          <h3 class="step-title">Paso 5: Contenido del EDTP</h3>
+          <div class="form-grid">
+            <div class="field-full">
+              <label>Resumen ejecutivo</label>
+              <textarea [(ngModel)]="edtp.resumen_ejecutivo" name="re" rows="3" class="form-control" (change)="guardarEdtp()"></textarea>
+            </div>
+            <div class="field">
+              <label>Método de evaluación</label>
+              <select [(ngModel)]="edtp.metodo_evaluacion" name="me" class="form-control" (change)="guardarEdtp()">
+                <option value="">— Seleccionar —</option>
+                <option value="costo_beneficio">Costo / Beneficio</option>
+                <option value="costo_efectividad">Costo / Efectividad</option>
+                <option value="multicriterio">Multicriterio</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Resultado de viabilidad</label>
+              <select [(ngModel)]="edtp.resultado_viabilidad" name="rv" class="form-control" (change)="guardarEdtp()">
+                <option value="">— Seleccionar —</option>
+                <option value="viable">Viable</option>
+                <option value="viable_condiciones">Viable con condiciones</option>
+                <option value="no_viable">No viable</option>
+                <option value="suspendido">Suspendido</option>
+              </select>
+            </div>
+            <div class="field-full">
+              <label>Conclusiones</label>
+              <textarea [(ngModel)]="edtp.conclusiones" name="ec" rows="3" class="form-control" (change)="guardarEdtp()"></textarea>
+            </div>
+            <div class="field-full">
+              <label>Recomendaciones</label>
+              <textarea [(ngModel)]="edtp.recomendaciones" name="er" rows="3" class="form-control" (change)="guardarEdtp()"></textarea>
+            </div>
           </div>
-          <div class="field">
-            <label>Método de evaluación</label>
-            <select [(ngModel)]="edtp.metodo_evaluacion" name="me" class="form-control" (change)="guardarEdtp()">
-              <option value="">— Seleccionar —</option>
-              <option value="costo_beneficio">Costo / Beneficio</option>
-              <option value="costo_efectividad">Costo / Efectividad</option>
-              <option value="multicriterio">Multicriterio</option>
-            </select>
-          </div>
-          <div class="field">
-            <label>Resultado de viabilidad</label>
-            <select [(ngModel)]="edtp.resultado_viabilidad" name="rv" class="form-control" (change)="guardarEdtp()">
-              <option value="">— Seleccionar —</option>
-              <option value="viable">Viable</option>
-              <option value="viable_condiciones">Viable con condiciones</option>
-              <option value="no_viable">No viable</option>
-              <option value="suspendido">Suspendido</option>
-            </select>
-          </div>
-          <div class="field-full">
-            <label>Conclusiones</label>
-            <textarea [(ngModel)]="edtp.conclusiones" name="ec" rows="3" class="form-control" (change)="guardarEdtp()"></textarea>
-          </div>
-          <div class="field-full">
-            <label>Recomendaciones</label>
-            <textarea [(ngModel)]="edtp.recomendaciones" name="er" rows="3" class="form-control" (change)="guardarEdtp()"></textarea>
+          <div class="acciones">
+            <button class="btn" (click)="validar('EDTP')" [disabled]="!puedeValidar">✔ Validar EDTP</button>
+            @if (erroresEdtp.length) {
+              <div class="errores">
+                <ul>@for (e of erroresEdtp; track e) {
+                  <li>{{ e }}</li>
+                }</ul>
+              </div>
+            }
           </div>
         </div>
-        <div class="acciones">
-          <button class="btn" (click)="validar('EDTP')" [disabled]="!puedeValidar">✔ Validar EDTP</button>
-          <div *ngIf="erroresEdtp.length" class="errores">
-            <ul><li *ngFor="let e of erroresEdtp">{{ e }}</li></ul>
-          </div>
-        </div>
-      </div>
-
+      }
+    
       <!-- ======= PASO 6: Secciones EDTP ======= -->
-      <div *ngIf="pasoActual === 6">
-        <h3 class="step-title">Paso 6: Secciones del EDTP por tipología</h3>
-        <p class="text-secondary">Complete el contenido y el estado de cada sección obligatoria.</p>
-        <div class="semafaro">
-          <span class="chip verde">{{ seccionesAprobadas }} aprobadas</span>
-          <span class="chip gris">{{ seccionesPendientes }} pendientes</span>
-        </div>
-        <div class="secciones">
-          <div class="seccion" *ngFor="let s of edtp.secciones">
-            <div class="seccion-cab">
-              <span class="badge">{{ s.codigo }}</span>
-              <strong>{{ s.titulo }}</strong>
-              <span class="chip" [class.verde]="s.estado === 'aprobado'" [class.gris]="s.estado !== 'aprobado'">{{ s.porcentaje_avance }}%</span>
-            </div>
-            <div class="seccion-fila">
-              <select [(ngModel)]="s.estado" name="es{{ s.id }}" class="form-control" (change)="guardarSeccion(s)">
-                <option *ngFor="let e of service.estadosDocumento" [value]="e">{{ etiquetaDocumento(e) }}</option>
-              </select>
-              <select [(ngModel)]="s.aplicable" name="ea{{ s.id }}" class="form-control" (change)="guardarSeccion(s)">
-                <option [ngValue]="true">Aplica</option>
-                <option [ngValue]="false">No aplica</option>
-              </select>
-            </div>
-            <textarea [(ngModel)]="s.contenido" name="sc{{ s.id }}" rows="2" class="form-control" placeholder="Contenido de la sección" (change)="guardarSeccion(s)"></textarea>
-            <input *ngIf="!s.aplicable" [(ngModel)]="s.justificacion_no_aplica" name="sj{{ s.id }}" class="form-control" placeholder="Justificación de no aplica" (change)="guardarSeccion(s)" />
+      @if (pasoActual === 6) {
+        <div>
+          <h3 class="step-title">Paso 6: Secciones del EDTP por tipología</h3>
+          <p class="text-secondary">Complete el contenido y el estado de cada sección obligatoria.</p>
+          <div class="semafaro">
+            <span class="chip verde">{{ seccionesAprobadas }} aprobadas</span>
+            <span class="chip gris">{{ seccionesPendientes }} pendientes</span>
+          </div>
+          <div class="secciones">
+            @for (s of edtp.secciones; track s) {
+              <div class="seccion">
+                <div class="seccion-cab">
+                  <span class="badge">{{ s.codigo }}</span>
+                  <strong>{{ s.titulo }}</strong>
+                  <span class="chip" [class.verde]="s.estado === 'aprobado'" [class.gris]="s.estado !== 'aprobado'">{{ s.porcentaje_avance }}%</span>
+                </div>
+                <div class="seccion-fila">
+                  <select [(ngModel)]="s.estado" name="es{{ s.id }}" class="form-control" (change)="guardarSeccion(s)">
+                    @for (e of service.estadosDocumento; track e) {
+                      <option [value]="e">{{ etiquetaDocumento(e) }}</option>
+                    }
+                  </select>
+                  <select [(ngModel)]="s.aplicable" name="ea{{ s.id }}" class="form-control" (change)="guardarSeccion(s)">
+                    <option [ngValue]="true">Aplica</option>
+                    <option [ngValue]="false">No aplica</option>
+                  </select>
+                </div>
+                <textarea [(ngModel)]="s.contenido" name="sc{{ s.id }}" rows="2" class="form-control" placeholder="Contenido de la sección" (change)="guardarSeccion(s)"></textarea>
+                @if (!s.aplicable) {
+                  <input [(ngModel)]="s.justificacion_no_aplica" name="sj{{ s.id }}" class="form-control" placeholder="Justificación de no aplica" (change)="guardarSeccion(s)" />
+                }
+              </div>
+            }
           </div>
         </div>
-      </div>
-
+      }
+    
       <!-- ======= PASO 7: Generación de documentos ======= -->
-      <div *ngIf="pasoActual === 7">
-        <h3 class="step-title">Paso 7: Generar documentos del expediente</h3>
-        <p class="text-secondary">Valide primero y genere el documento desde el expediente estructurado.</p>
-        <div class="documentos">
-          <div class="doc-card">
-            <h4>📄 ITCP — Informe Técnico de Condiciones Previas</h4>
-            <p>Condiciones: {{ condicionesResueltas }}/{{ condiciones.length }} · Conclusiones: {{ itcp.conclusiones ? '✔' : '✘' }}</p>
-            <button class="btn btn-primary" (click)="generar('ITCP')" [disabled]="!puedeValidar">Generar ITCP DOCX</button>
+      @if (pasoActual === 7) {
+        <div>
+          <h3 class="step-title">Paso 7: Generar documentos del expediente</h3>
+          <p class="text-secondary">Valide primero y genere el documento desde el expediente estructurado.</p>
+          <div class="documentos">
+            <div class="doc-card">
+              <h4>📄 ITCP — Informe Técnico de Condiciones Previas</h4>
+              <p>Condiciones: {{ condicionesResueltas }}/{{ condiciones.length }} · Conclusiones: {{ itcp.conclusiones ? '✔' : '✘' }}</p>
+              <button class="btn btn-primary" (click)="generar('ITCP')" [disabled]="!puedeValidar">Generar ITCP DOCX</button>
+            </div>
+            <div class="doc-card">
+              <h4>📄 EDTP — Estudio de Diseño Técnico de Preinversión</h4>
+              <p>Secciones aprobadas: {{ seccionesAprobadas }}/{{ edtp.secciones.length }} · Presupuesto referencial: Bs {{ tdr.presupuesto_referencial || '—' }}</p>
+              <button class="btn btn-primary" (click)="generar('EDTP')" [disabled]="!puedeValidar">Generar EDTP DOCX</button>
+            </div>
           </div>
-          <div class="doc-card">
-            <h4>📄 EDTP — Estudio de Diseño Técnico de Preinversión</h4>
-            <p>Secciones aprobadas: {{ seccionesAprobadas }}/{{ edtp.secciones.length }} · Presupuesto referencial: Bs {{ tdr.presupuesto_referencial || '—' }}</p>
-            <button class="btn btn-primary" (click)="generar('EDTP')" [disabled]="!puedeValidar">Generar EDTP DOCX</button>
-          </div>
+          @if (generados.length) {
+            <div class="historial">
+              <h4>Historial de documentos generados</h4>
+              <table class="data-table">
+                <thead>
+                  <tr><th>Tipo</th><th>Estado</th><th>Fecha</th><th>Descargar</th></tr>
+                </thead>
+                <tbody>
+                  @for (g of generados; track g) {
+                    <tr>
+                      <td>{{ g.tipo_documento }}</td>
+                      <td><span class="badge" [class.verde]="g.estado === 'completado'" [class.rojo]="g.estado === 'fallido'">{{ g.estado }}</span></td>
+                      <td>{{ g.created_at | date: 'short' }}</td>
+                      <td>
+                        @if (g.archivo_docx) {
+                          <a class="btn btn-sm" [href]="service.urlArchivo(g.archivo_docx)" target="_blank">DOCX</a>
+                        }
+                        @if (g.archivo_pdf) {
+                          <a class="btn btn-sm" [href]="service.urlArchivo(g.archivo_pdf)" target="_blank">PDF</a>
+                        }
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
         </div>
-        <div *ngIf="generados.length" class="historial">
-          <h4>Historial de documentos generados</h4>
-          <table class="data-table">
-            <thead>
-              <tr><th>Tipo</th><th>Estado</th><th>Fecha</th><th>Descargar</th></tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let g of generados">
-                <td>{{ g.tipo_documento }}</td>
-                <td><span class="badge" [class.verde]="g.estado === 'completado'" [class.rojo]="g.estado === 'fallido'">{{ g.estado }}</span></td>
-                <td>{{ g.created_at | date: 'short' }}</td>
-                <td>
-                  <a *ngIf="g.archivo_docx" class="btn btn-sm" [href]="service.urlArchivo(g.archivo_docx)" target="_blank">DOCX</a>
-                  <a *ngIf="g.archivo_pdf" class="btn btn-sm" [href]="service.urlArchivo(g.archivo_pdf)" target="_blank">PDF</a>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+      }
     </div>
-
+    
     <!-- Navegación -->
     <div class="wizard-nav">
       <button class="btn" (click)="irAPaso(pasoActual - 1)" [disabled]="pasoActual === 1">← Anterior</button>
       <span class="nav-info">Paso {{ pasoActual }} de {{ pasos.length }}</span>
       <button class="btn btn-primary" (click)="irAPaso(pasoActual + 1)" [disabled]="pasoActual === pasos.length">Siguiente →</button>
     </div>
-  `,
+    `,
   styles: [`
     .page-header { margin-bottom: 1.5rem; }
     .volver { display: inline-block; font-size: 0.8125rem; color: var(--text-secondary); text-decoration: none; margin-bottom: 0.25rem; }

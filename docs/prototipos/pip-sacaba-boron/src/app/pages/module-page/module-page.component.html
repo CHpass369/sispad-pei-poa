@@ -1,0 +1,31 @@
+<div class="page-title">
+  <div><span>{{ area }} / {{ kind }}</span><h1>{{ title }}</h1><p>Prototipo funcional del módulo. La interfaz está preparada para conectar formularios, servicios REST y reglas de negocio.</p></div>
+  <div class="actions"><button>Importar</button><button class="primary">＋ Nuevo registro</button></div>
+</div>
+
+<section class="summary-grid">
+  <div class="card summary"><span>Registros</span><strong>128</strong><small>+12 en esta gestión</small></div>
+  <div class="card summary"><span>Validados</span><strong>76%</strong><small>97 registros aprobados</small></div>
+  <div class="card summary"><span>Observaciones</span><strong>14</strong><small>Requieren atención</small></div>
+  <div class="card summary"><span>Última actualización</span><strong>Hoy</strong><small>17:42</small></div>
+</section>
+
+<section class="workspace">
+  <article class="card list-card">
+    <div class="toolbar"><div class="search">⌕ <input placeholder="Buscar por código, nombre o unidad..." /></div><button>Filtros ▾</button></div>
+    <div class="table-wrap"><table><thead><tr><th>Código</th><th>Descripción</th><th>Unidad</th><th>Presupuesto</th><th>Estado</th><th></th></tr></thead><tbody>
+      @for (row of rows; track row.code) {
+        <tr><td><code>{{ row.code }}</code></td><td><b>{{ row.name }}</b></td><td>{{ row.unit }}</td><td>{{ row.amount }}</td><td><span class="state" [class.review]="row.state === 'En revisión'" [class.draft]="row.state === 'Borrador'">{{ row.state }}</span></td><td><button class="dots">•••</button></td></tr>
+      }
+    </tbody></table></div>
+  </article>
+
+  <aside class="card inspector">
+    <span class="eyebrow">PANEL DE CONTROL</span><h3>Validación del módulo</h3>
+    <div class="check"><i>✓</i><div><strong>Estructura base</strong><span>Configuración completada</span></div></div>
+    <div class="check"><i>✓</i><div><strong>Catálogos</strong><span>Sincronizados con maestro</span></div></div>
+    <div class="check pending"><i>!</i><div><strong>Articulación</strong><span>4 registros con observación</span></div></div>
+    <div class="check"><i>✓</i><div><strong>Presupuesto</strong><span>Consistencia verificada</span></div></div>
+    <button class="validate">Ejecutar validación</button>
+  </aside>
+</section>

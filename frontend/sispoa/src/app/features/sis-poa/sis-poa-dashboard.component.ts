@@ -9,29 +9,37 @@ import { SisPoaService } from './sis-poa.service';
       <h2>SIS-POA — Dashboard Operativo</h2>
       <p class="text-secondary">Sistema de Planificación Operativa Anual (V2)</p>
     </div>
-    <div *ngIf="cargando" class="loading">Cargando indicadores...</div>
-    <div class="alert alert-error" *ngIf="error">{{ error }}</div>
-    <div class="stats-grid" *ngIf="!cargando">
-      <div class="card stat-card">
-        <div class="stat-icon">📋</div>
-        <div class="stat-value">{{ total }}</div>
-        <div class="stat-label">POAs</div>
+    @if (cargando) {
+      <div class="loading">Cargando indicadores...</div>
+    }
+    @if (error) {
+      <div class="alert alert-error">{{ error }}</div>
+    }
+    @if (!cargando) {
+      <div class="stats-grid">
+        <div class="card stat-card">
+          <div class="stat-icon">📋</div>
+          <div class="stat-value">{{ total }}</div>
+          <div class="stat-label">POAs</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-icon">✅</div>
+          <div class="stat-value">{{ aprobados }}</div>
+          <div class="stat-label">Aprobados</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-icon">✏️</div>
+          <div class="stat-value">{{ borradores }}</div>
+          <div class="stat-label">En borrador</div>
+        </div>
       </div>
-      <div class="card stat-card">
-        <div class="stat-icon">✅</div>
-        <div class="stat-value">{{ aprobados }}</div>
-        <div class="stat-label">Aprobados</div>
+    }
+    @if (!cargando) {
+      <div class="quick-actions">
+        <a routerLink="/sis-poa/poas" class="btn btn-primary">POAs</a>
       </div>
-      <div class="card stat-card">
-        <div class="stat-icon">✏️</div>
-        <div class="stat-value">{{ borradores }}</div>
-        <div class="stat-label">En borrador</div>
-      </div>
-    </div>
-    <div class="quick-actions" *ngIf="!cargando">
-      <a routerLink="/sis-poa/poas" class="btn btn-primary">POAs</a>
-    </div>
-  `,
+    }
+    `,
   styles: [`
     .page-header { margin-bottom: 1.5rem; }
     .text-secondary { color: var(--text-secondary); font-size: 0.875rem; }

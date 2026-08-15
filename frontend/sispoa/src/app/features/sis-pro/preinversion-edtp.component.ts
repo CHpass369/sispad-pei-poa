@@ -15,176 +15,224 @@ import {
       <h2>Asistente EDTP — Estudio de Diseño Técnico de Preinversión</h2>
       <p class="text-secondary">RM 115 · secciones dinámicas por tipología</p>
     </div>
-    <div *ngIf="cargando" class="loading">Cargando EDTP...</div>
-    <div class="alert alert-error" *ngIf="error">{{ error }}</div>
-    <div class="alert alert-success" *ngIf="mensaje">{{ mensaje }}</div>
-
-    <div class="card" *ngIf="edtp && !cargando">
-      <h3>Información general <span class="badge">{{ edtp.estado }}</span> v{{ edtp.version }}</h3>
-      <div class="grid">
-        <label>Resumen ejecutivo
-          <textarea [(ngModel)]="edtp.resumen_ejecutivo" name="re" rows="3" class="input" (change)="guardar()"></textarea>
-        </label>
-        <label>Método de evaluación
-          <select [(ngModel)]="edtp.metodo_evaluacion" name="me" class="input" (change)="guardar()">
-            <option value="">— Seleccionar —</option>
-            <option value="costo_beneficio">Costo / Beneficio</option>
-            <option value="costo_efectividad">Costo / Efectividad</option>
-            <option value="multicriterio">Multicriterio</option>
-          </select>
-        </label>
-        <label>Resultado de viabilidad
-          <select [(ngModel)]="edtp.resultado_viabilidad" name="rv" class="input" (change)="guardar()">
-            <option value="">— Seleccionar —</option>
-            <option value="viable">Viable</option>
-            <option value="viable_condiciones">Viable con condiciones</option>
-            <option value="no_viable">No viable</option>
-            <option value="suspendido">Suspendido</option>
-          </select>
-        </label>
-        <label>Conclusiones
-          <textarea [(ngModel)]="edtp.conclusiones" name="c" rows="3" class="input" (change)="guardar()"></textarea>
-        </label>
-        <label>Recomendaciones
-          <textarea [(ngModel)]="edtp.recomendaciones" name="r" rows="3" class="input" (change)="guardar()"></textarea>
-        </label>
+    @if (cargando) {
+      <div class="loading">Cargando EDTP...</div>
+    }
+    @if (error) {
+      <div class="alert alert-error">{{ error }}</div>
+    }
+    @if (mensaje) {
+      <div class="alert alert-success">{{ mensaje }}</div>
+    }
+    
+    @if (edtp && !cargando) {
+      <div class="card">
+        <h3>Información general <span class="badge">{{ edtp.estado }}</span> v{{ edtp.version }}</h3>
+        <div class="grid">
+          <label>Resumen ejecutivo
+            <textarea [(ngModel)]="edtp.resumen_ejecutivo" name="re" rows="3" class="input" (change)="guardar()"></textarea>
+          </label>
+          <label>Método de evaluación
+            <select [(ngModel)]="edtp.metodo_evaluacion" name="me" class="input" (change)="guardar()">
+              <option value="">— Seleccionar —</option>
+              <option value="costo_beneficio">Costo / Beneficio</option>
+              <option value="costo_efectividad">Costo / Efectividad</option>
+              <option value="multicriterio">Multicriterio</option>
+            </select>
+          </label>
+          <label>Resultado de viabilidad
+            <select [(ngModel)]="edtp.resultado_viabilidad" name="rv" class="input" (change)="guardar()">
+              <option value="">— Seleccionar —</option>
+              <option value="viable">Viable</option>
+              <option value="viable_condiciones">Viable con condiciones</option>
+              <option value="no_viable">No viable</option>
+              <option value="suspendido">Suspendido</option>
+            </select>
+          </label>
+          <label>Conclusiones
+            <textarea [(ngModel)]="edtp.conclusiones" name="c" rows="3" class="input" (change)="guardar()"></textarea>
+          </label>
+          <label>Recomendaciones
+            <textarea [(ngModel)]="edtp.recomendaciones" name="r" rows="3" class="input" (change)="guardar()"></textarea>
+          </label>
+        </div>
       </div>
-    </div>
-
-    <div class="card" *ngIf="edtp && !cargando">
-      <h3>Componentes</h3>
-      <form (ngSubmit)="agregarComponente()" class="form-inline" *ngIf="puedeEditar">
-        <input [(ngModel)]="componente.codigo" name="cc" placeholder="Código" required class="input" />
-        <input [(ngModel)]="componente.nombre" name="cn" placeholder="Nombre" required class="input" />
-        <input [(ngModel)]="componente.presupuesto" name="cp" type="number" placeholder="Presupuesto" class="input" />
-        <button type="submit" class="btn btn-primary">+ Componente</button>
-      </form>
-      <table class="data-table">
-        <tbody>
-          <tr *ngFor="let c of componentes">
-            <td><span class="badge">{{ c.codigo }}</span></td>
-            <td>{{ c.nombre }}</td>
-            <td>Bs {{ c.presupuesto }}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div class="card" *ngIf="edtp && !cargando">
-      <h3>Secciones del estudio</h3>
-      <div class="semafaro">
-        <span class="chip verde">{{ seccionesAprobadas }} aprobadas</span>
-        <span class="chip gris">{{ seccionesPendientes }} pendientes</span>
+    }
+    
+    @if (edtp && !cargando) {
+      <div class="card">
+        <h3>Componentes</h3>
+        @if (puedeEditar) {
+          <form (ngSubmit)="agregarComponente()" class="form-inline">
+            <input [(ngModel)]="componente.codigo" name="cc" placeholder="Código" required class="input" />
+            <input [(ngModel)]="componente.nombre" name="cn" placeholder="Nombre" required class="input" />
+            <input [(ngModel)]="componente.presupuesto" name="cp" type="number" placeholder="Presupuesto" class="input" />
+            <button type="submit" class="btn btn-primary">+ Componente</button>
+          </form>
+        }
+        <table class="data-table">
+          <tbody>
+            @for (c of componentes; track c) {
+              <tr>
+                <td><span class="badge">{{ c.codigo }}</span></td>
+                <td>{{ c.nombre }}</td>
+                <td>Bs {{ c.presupuesto }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
       </div>
-      <table class="data-table">
-        <thead>
-          <tr><th>Cód.</th><th>Sección</th><th>Requerida</th><th>Aplica</th><th>Estado</th><th>Contenido</th><th></th></tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let s of edtp.secciones">
-            <td><span class="badge">{{ s.codigo }}</span></td>
-            <td>{{ s.titulo }}</td>
-            <td>{{ s.requerida ? '✔' : '—' }}</td>
-            <td>
-              <select [(ngModel)]="s.aplicable" name="ap" class="input" (change)="guardarSeccion(s)">
-                <option [ngValue]="true">Sí</option>
-                <option [ngValue]="false">No</option>
-              </select>
-            </td>
-            <td>
-              <select [(ngModel)]="s.estado" name="es" class="input" (change)="guardarSeccion(s)">
-                <option *ngFor="let e of service.estadosDocumento" [value]="e">{{ etiquetaEstado(e) }}</option>
-              </select>
-            </td>
-            <td>
-              <textarea [(ngModel)]="s.contenido" name="con" rows="2" class="input" (change)="guardarSeccion(s)" placeholder="Contenido de la sección"></textarea>
-              <input *ngIf="!s.aplicable" [(ngModel)]="s.justificacion_no_aplica" name="jna" class="input" placeholder="Justificación de no aplica" (change)="guardarSeccion(s)" />
-            </td>
-            <td><span class="chip" [class.gris]="s.estado !== 'aprobado'" [class.verde]="s.estado === 'aprobado'">{{ s.porcentaje_avance }}%</span></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div class="card" *ngIf="edtp && !cargando">
-      <h3>Estudios técnicos</h3>
-      <form (ngSubmit)="agregarEstudio()" class="form-inline" *ngIf="puedeEditar">
-        <input [(ngModel)]="estudio.tipo_estudio" name="te" placeholder="Tipo (topografía, suelos...)" required class="input" />
-        <input [(ngModel)]="estudio.titulo" name="tt" placeholder="Título" required class="input" />
-        <button type="submit" class="btn btn-primary">+ Estudio</button>
-      </form>
-      <table class="data-table">
-        <tbody>
-          <tr *ngFor="let e of edtp.estudios_tecnicos">
-            <td>{{ e.tipo_estudio }}</td>
-            <td>{{ e.titulo }}</td>
-            <td>{{ e.profesional || '—' }}</td>
-            <td>
-              <select [(ngModel)]="e.estado" name="ee" class="input" (change)="actualizarEstudio(e)">
-                <option *ngFor="let st of service.estadosDocumento" [value]="st">{{ etiquetaEstado(st) }}</option>
-              </select>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div class="card" *ngIf="edtp && !cargando">
-      <h3>Costos de inversión</h3>
-      <form (ngSubmit)="agregarCosto()" class="form-inline" *ngIf="puedeEditar">
-        <input [(ngModel)]="costo.codigo" name="k" placeholder="Código" required class="input" />
-        <input [(ngModel)]="costo.descripcion" name="d" placeholder="Descripción" required class="input" />
-        <input [(ngModel)]="costo.unidad" name="u" placeholder="Unidad" required class="input" />
-        <input [(ngModel)]="costo.cantidad" name="q" type="number" placeholder="Cantidad" required class="input" />
-        <input [(ngModel)]="costo.precio_unitario" name="pu" type="number" placeholder="Precio unitario" required class="input" />
-        <button type="submit" class="btn btn-primary">+ Item costo</button>
-      </form>
-      <table class="data-table">
-        <thead>
-          <tr><th>Cód.</th><th>Descripción</th><th>Unidad</th><th>Cant.</th><th>P.U.</th><th>Subtotal</th></tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let i of edtp.items_costo">
-            <td>{{ i.codigo }}</td><td>{{ i.descripcion }}</td><td>{{ i.unidad }}</td>
-            <td>{{ i.cantidad }}</td><td>Bs {{ i.precio_unitario }}</td>
-            <td><strong>Bs {{ i.subtotal }}</strong></td>
-          </tr>
-        </tbody>
-      </table>
-      <div class="total"><strong>Total inversión: Bs {{ totalCosto }}</strong></div>
-    </div>
-
-    <div class="card" *ngIf="edtp && !cargando">
-      <h3>Financiamiento</h3>
-      <form (ngSubmit)="agregarFinanciamiento()" class="form-inline" *ngIf="puedeEditar">
-        <input [(ngModel)]="financiamiento.codigo_fuente" name="fc" placeholder="Código fuente" required class="input" />
-        <input [(ngModel)]="financiamiento.nombre_fuente" name="fn" placeholder="Nombre fuente" required class="input" />
-        <input [(ngModel)]="financiamiento.monto" name="fm" type="number" placeholder="Monto" required class="input" />
-        <button type="submit" class="btn btn-primary">+ Fuente</button>
-      </form>
-      <table class="data-table">
-        <tbody>
-          <tr *ngFor="let f of edtp.fuentes_financiamiento">
-            <td>{{ f.codigo_fuente }}</td><td>{{ f.nombre_fuente }}</td>
-            <td><strong>Bs {{ f.monto }}</strong></td><td>{{ f.confirmada ? '✅' : '—' }}</td>
-          </tr>
-        </tbody>
-      </table>
-      <div class="total"><strong>Total financiamiento: Bs {{ totalFinanciamiento }}</strong></div>
-    </div>
-
-    <div class="card" *ngIf="edtp && !cargando">
-      <div class="acciones">
-        <button class="btn" (click)="validar()" [disabled]="!puedeValidar">✔ Validar aprobación</button>
-        <button class="btn btn-primary" (click)="generar()" [disabled]="!puedeValidar">📄 Generar EDTP DOCX</button>
-        <button class="btn" (click)="aprobar()" [disabled]="!puedeValidar">✅ Marcar EDTP aprobado</button>
+    }
+    
+    @if (edtp && !cargando) {
+      <div class="card">
+        <h3>Secciones del estudio</h3>
+        <div class="semafaro">
+          <span class="chip verde">{{ seccionesAprobadas }} aprobadas</span>
+          <span class="chip gris">{{ seccionesPendientes }} pendientes</span>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr><th>Cód.</th><th>Sección</th><th>Requerida</th><th>Aplica</th><th>Estado</th><th>Contenido</th><th></th></tr>
+          </thead>
+          <tbody>
+            @for (s of edtp.secciones; track s) {
+              <tr>
+                <td><span class="badge">{{ s.codigo }}</span></td>
+                <td>{{ s.titulo }}</td>
+                <td>{{ s.requerida ? '✔' : '—' }}</td>
+                <td>
+                  <select [(ngModel)]="s.aplicable" name="ap" class="input" (change)="guardarSeccion(s)">
+                    <option [ngValue]="true">Sí</option>
+                    <option [ngValue]="false">No</option>
+                  </select>
+                </td>
+                <td>
+                  <select [(ngModel)]="s.estado" name="es" class="input" (change)="guardarSeccion(s)">
+                    @for (e of service.estadosDocumento; track e) {
+                      <option [value]="e">{{ etiquetaEstado(e) }}</option>
+                    }
+                  </select>
+                </td>
+                <td>
+                  <textarea [(ngModel)]="s.contenido" name="con" rows="2" class="input" (change)="guardarSeccion(s)" placeholder="Contenido de la sección"></textarea>
+                  @if (!s.aplicable) {
+                    <input [(ngModel)]="s.justificacion_no_aplica" name="jna" class="input" placeholder="Justificación de no aplica" (change)="guardarSeccion(s)" />
+                  }
+                </td>
+                <td><span class="chip" [class.gris]="s.estado !== 'aprobado'" [class.verde]="s.estado === 'aprobado'">{{ s.porcentaje_avance }}%</span></td>
+              </tr>
+            }
+          </tbody>
+        </table>
       </div>
-      <div *ngIf="errores.length" class="errores">
-        <strong>No aprobable:</strong>
-        <ul><li *ngFor="let e of errores">{{ e }}</li></ul>
+    }
+    
+    @if (edtp && !cargando) {
+      <div class="card">
+        <h3>Estudios técnicos</h3>
+        @if (puedeEditar) {
+          <form (ngSubmit)="agregarEstudio()" class="form-inline">
+            <input [(ngModel)]="estudio.tipo_estudio" name="te" placeholder="Tipo (topografía, suelos...)" required class="input" />
+            <input [(ngModel)]="estudio.titulo" name="tt" placeholder="Título" required class="input" />
+            <button type="submit" class="btn btn-primary">+ Estudio</button>
+          </form>
+        }
+        <table class="data-table">
+          <tbody>
+            @for (e of edtp.estudios_tecnicos; track e) {
+              <tr>
+                <td>{{ e.tipo_estudio }}</td>
+                <td>{{ e.titulo }}</td>
+                <td>{{ e.profesional || '—' }}</td>
+                <td>
+                  <select [(ngModel)]="e.estado" name="ee" class="input" (change)="actualizarEstudio(e)">
+                    @for (st of service.estadosDocumento; track st) {
+                      <option [value]="st">{{ etiquetaEstado(st) }}</option>
+                    }
+                  </select>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
       </div>
-    </div>
-  `,
+    }
+    
+    @if (edtp && !cargando) {
+      <div class="card">
+        <h3>Costos de inversión</h3>
+        @if (puedeEditar) {
+          <form (ngSubmit)="agregarCosto()" class="form-inline">
+            <input [(ngModel)]="costo.codigo" name="k" placeholder="Código" required class="input" />
+            <input [(ngModel)]="costo.descripcion" name="d" placeholder="Descripción" required class="input" />
+            <input [(ngModel)]="costo.unidad" name="u" placeholder="Unidad" required class="input" />
+            <input [(ngModel)]="costo.cantidad" name="q" type="number" placeholder="Cantidad" required class="input" />
+            <input [(ngModel)]="costo.precio_unitario" name="pu" type="number" placeholder="Precio unitario" required class="input" />
+            <button type="submit" class="btn btn-primary">+ Item costo</button>
+          </form>
+        }
+        <table class="data-table">
+          <thead>
+            <tr><th>Cód.</th><th>Descripción</th><th>Unidad</th><th>Cant.</th><th>P.U.</th><th>Subtotal</th></tr>
+          </thead>
+          <tbody>
+            @for (i of edtp.items_costo; track i) {
+              <tr>
+                <td>{{ i.codigo }}</td><td>{{ i.descripcion }}</td><td>{{ i.unidad }}</td>
+                <td>{{ i.cantidad }}</td><td>Bs {{ i.precio_unitario }}</td>
+                <td><strong>Bs {{ i.subtotal }}</strong></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        <div class="total"><strong>Total inversión: Bs {{ totalCosto }}</strong></div>
+      </div>
+    }
+    
+    @if (edtp && !cargando) {
+      <div class="card">
+        <h3>Financiamiento</h3>
+        @if (puedeEditar) {
+          <form (ngSubmit)="agregarFinanciamiento()" class="form-inline">
+            <input [(ngModel)]="financiamiento.codigo_fuente" name="fc" placeholder="Código fuente" required class="input" />
+            <input [(ngModel)]="financiamiento.nombre_fuente" name="fn" placeholder="Nombre fuente" required class="input" />
+            <input [(ngModel)]="financiamiento.monto" name="fm" type="number" placeholder="Monto" required class="input" />
+            <button type="submit" class="btn btn-primary">+ Fuente</button>
+          </form>
+        }
+        <table class="data-table">
+          <tbody>
+            @for (f of edtp.fuentes_financiamiento; track f) {
+              <tr>
+                <td>{{ f.codigo_fuente }}</td><td>{{ f.nombre_fuente }}</td>
+                <td><strong>Bs {{ f.monto }}</strong></td><td>{{ f.confirmada ? '✅' : '—' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        <div class="total"><strong>Total financiamiento: Bs {{ totalFinanciamiento }}</strong></div>
+      </div>
+    }
+    
+    @if (edtp && !cargando) {
+      <div class="card">
+        <div class="acciones">
+          <button class="btn" (click)="validar()" [disabled]="!puedeValidar">✔ Validar aprobación</button>
+          <button class="btn btn-primary" (click)="generar()" [disabled]="!puedeValidar">📄 Generar EDTP DOCX</button>
+          <button class="btn" (click)="aprobar()" [disabled]="!puedeValidar">✅ Marcar EDTP aprobado</button>
+        </div>
+        @if (errores.length) {
+          <div class="errores">
+            <strong>No aprobable:</strong>
+            <ul>@for (e of errores; track e) {
+              <li>{{ e }}</li>
+            }</ul>
+          </div>
+        }
+      </div>
+    }
+    `,
   styles: [`
     .page-header { margin-bottom: 1.5rem; }
     .volver { display: inline-block; font-size: 0.8125rem; color: var(--text-secondary); text-decoration: none; margin-bottom: 0.25rem; }

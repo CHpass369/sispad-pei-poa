@@ -23,22 +23,26 @@ import { ApiService } from '../../core/services/api.service';
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let ind of indicadores">
-            <td><strong>{{ ind.codigo }}</strong></td>
-            <td>{{ ind.nombre }}</td>
-            <td class="formula">{{ ind.formula || '—' }}</td>
-            <td>{{ ind.linea_base || '—' }}</td>
-            <td>{{ ind.meta_anual || '—' }}</td>
-            <td>{{ ind.unidad_medida_denom || '—' }}</td>
-            <td><span class="badge" [class.badge-success]="ind.activo">{{ ind.activo ? 'Activo' : 'Inactivo' }}</span></td>
-          </tr>
-          <tr *ngIf="indicadores.length === 0">
-            <td colspan="7" class="empty">No hay indicadores registrados</td>
-          </tr>
+          @for (ind of indicadores; track ind) {
+            <tr>
+              <td><strong>{{ ind.codigo }}</strong></td>
+              <td>{{ ind.nombre }}</td>
+              <td class="formula">{{ ind.formula || '—' }}</td>
+              <td>{{ ind.linea_base || '—' }}</td>
+              <td>{{ ind.meta_anual || '—' }}</td>
+              <td>{{ ind.unidad_medida_denom || '—' }}</td>
+              <td><span class="badge" [class.badge-success]="ind.activo">{{ ind.activo ? 'Activo' : 'Inactivo' }}</span></td>
+            </tr>
+          }
+          @if (indicadores.length === 0) {
+            <tr>
+              <td colspan="7" class="empty">No hay indicadores registrados</td>
+            </tr>
+          }
         </tbody>
       </table>
     </div>
-  `,
+    `,
   styles: [`
     .page-header { margin-bottom: 1rem; }
     .formula { font-family: monospace; font-size: 0.8125rem; }

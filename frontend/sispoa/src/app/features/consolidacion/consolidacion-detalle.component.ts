@@ -19,54 +19,74 @@ interface TreeNode {
       <h2>Detalle de Consolidación - UE {{ gestionId }}</h2>
       <p class="text-secondary">Jerarquía completa PDESA → PTDI → PEI → PAD → POAU</p>
     </div>
-
+    
     <div class="acciones-superior">
       <button class="btn btn-outline" (click)="expandirTodo()">Expandir Todo</button>
       <button class="btn btn-outline" (click)="colapsarTodo()">Colapsar Todo</button>
       <button class="btn btn-outline" (click)="cargarDatos()">Recargar</button>
     </div>
-
-    <div class="tree-container" *ngIf="!cargando">
-      <div *ngFor="let nodo of arbol" class="tree-node">
-        <ng-container *ngTemplateOutlet="nodeTpl; context: { $implicit: nodo, level: 0 }"></ng-container>
+    
+    @if (!cargando) {
+      <div class="tree-container">
+        @for (nodo of arbol; track nodo) {
+          <div class="tree-node">
+            <ng-container *ngTemplateOutlet="nodeTpl; context: { $implicit: nodo, level: 0 }"></ng-container>
+          </div>
+        }
+        <ng-template #nodeTpl let-nodo let-level="level">
+          <div class="tree-item" [style.margin-left.px]="level * 24"
+            [class.tipo-pdesa]="nodo.tipo === 'pdesa'"
+            [class.tipo-ptdi]="nodo.tipo === 'ptdi'"
+            [class.tipo-pei]="nodo.tipo === 'pei'"
+            [class.tipo-pad]="nodo.tipo === 'pad'"
+            [class.tipo-poau]="nodo.tipo === 'poau'">
+            @if (nodo.children.length > 0) {
+              <span class="tree-toggle" (click)="toggleNode(nodo)">
+                {{ nodo.expanded ? '▼' : '▶' }}
+              </span>
+            }
+            @if (nodo.children.length === 0) {
+              <span class="tree-toggle">&nbsp;&nbsp;&nbsp;</span>
+            }
+            <span class="badge badge-tipo" [ngClass]="'badge-' + nodo.tipo">{{ nodo.tipo | uppercase }}</span>
+            <span class="tree-nombre">{{ nodo.nombre }}</span>
+            @if (nodo.data?.avance_porcentual !== undefined) {
+              <span class="tree-avance">
+                Avance: {{ nodo.data.avance_porcentual }}%
+              </span>
+            }
+            @if (nodo.data?.estado) {
+              <span class="tree-estado">
+                <span class="badge" [ngClass]="'badge-' + nodo.data.estado">{{ nodo.data.estado }}</span>
+              </span>
+            }
+            @if (nodo.data?.monto_total !== undefined) {
+              <span class="tree-monto">
+                Bs {{ nodo.data.monto_total | number:'1.2-2' }}
+              </span>
+            }
+          </div>
+          @if (nodo.expanded && nodo.children.length > 0) {
+            <div>
+              @for (hijo of nodo.children; track hijo) {
+                <ng-container *ngTemplateOutlet="nodeTpl; context: { $implicit: hijo, level: level + 1 }"></ng-container>
+              }
+            </div>
+          }
+        </ng-template>
+        @if (arbol.length === 0) {
+          <div class="empty">No hay datos de planificación para esta UE y gestión</div>
+        }
       </div>
-
-      <ng-template #nodeTpl let-nodo let-level="level">
-        <div class="tree-item" [style.margin-left.px]="level * 24"
-             [class.tipo-pdesa]="nodo.tipo === 'pdesa'"
-             [class.tipo-ptdi]="nodo.tipo === 'ptdi'"
-             [class.tipo-pei]="nodo.tipo === 'pei'"
-             [class.tipo-pad]="nodo.tipo === 'pad'"
-             [class.tipo-poau]="nodo.tipo === 'poau'">
-          <span class="tree-toggle" *ngIf="nodo.children.length > 0" (click)="toggleNode(nodo)">
-            {{ nodo.expanded ? '▼' : '▶' }}
-          </span>
-          <span class="tree-toggle" *ngIf="nodo.children.length === 0">&nbsp;&nbsp;&nbsp;</span>
-          <span class="badge badge-tipo" [ngClass]="'badge-' + nodo.tipo">{{ nodo.tipo | uppercase }}</span>
-          <span class="tree-nombre">{{ nodo.nombre }}</span>
-          <span class="tree-avance" *ngIf="nodo.data?.avance_porcentual !== undefined">
-            Avance: {{ nodo.data.avance_porcentual }}%
-          </span>
-          <span class="tree-estado" *ngIf="nodo.data?.estado">
-            <span class="badge" [ngClass]="'badge-' + nodo.data.estado">{{ nodo.data.estado }}</span>
-          </span>
-          <span class="tree-monto" *ngIf="nodo.data?.monto_total !== undefined">
-            Bs {{ nodo.data.monto_total | number:'1.2-2' }}
-          </span>
-        </div>
-        <div *ngIf="nodo.expanded && nodo.children.length > 0">
-          <ng-container *ngFor="let hijo of nodo.children">
-            <ng-container *ngTemplateOutlet="nodeTpl; context: { $implicit: hijo, level: level + 1 }"></ng-container>
-          </ng-container>
-        </div>
-      </ng-template>
-
-      <div *ngIf="arbol.length === 0" class="empty">No hay datos de planificación para esta UE y gestión</div>
-    </div>
-
-    <div class="loading" *ngIf="cargando">Cargando jerarquía...</div>
-    <div class="alert alert-error" *ngIf="error">{{ error }}</div>
-  `,
+    }
+    
+    @if (cargando) {
+      <div class="loading">Cargando jerarquía...</div>
+    }
+    @if (error) {
+      <div class="alert alert-error">{{ error }}</div>
+    }
+    `,
   styles: [`
     .page-header { margin-bottom: 1rem; }
     .page-header h2 { font-size: 1.5rem; margin-bottom: 0.25rem; }

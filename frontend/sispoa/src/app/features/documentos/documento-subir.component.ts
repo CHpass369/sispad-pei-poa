@@ -10,22 +10,26 @@ import { DocumentosService } from './documentos.service';
       <h2>Subir Documento</h2>
       <p class="text-secondary">Adjuntar un nuevo documento al sistema</p>
     </div>
-
+    
     <div class="form-card">
       <form (ngSubmit)="subir()">
         <div class="upload-zone"
-             [class.upload-zone-active]="dragActive"
-             (dragover)="onDragOver($event)"
-             (dragleave)="onDragLeave($event)"
-             (drop)="onDrop($event)"
-             (click)="fileInput.click()">
+          [class.upload-zone-active]="dragActive"
+          (dragover)="onDragOver($event)"
+          (dragleave)="onDragLeave($event)"
+          (drop)="onDrop($event)"
+          (click)="fileInput.click()">
           <input #fileInput type="file" (change)="onFileSelect($event)" hidden>
           <div class="upload-icon">⬆</div>
-          <p *ngIf="!archivoSeleccionado">Arrastra un archivo aquí o haz clic para seleccionar</p>
-          <p *ngIf="archivoSeleccionado" class="upload-file-name">{{ archivoSeleccionado.name }}</p>
+          @if (!archivoSeleccionado) {
+            <p>Arrastra un archivo aquí o haz clic para seleccionar</p>
+          }
+          @if (archivoSeleccionado) {
+            <p class="upload-file-name">{{ archivoSeleccionado.name }}</p>
+          }
           <span class="text-secondary">Tamaño máximo: 25 MB</span>
         </div>
-
+    
         <div class="form-grid">
           <div class="field">
             <label>Tipo de Entidad *</label>
@@ -43,38 +47,42 @@ import { DocumentosService } from './documentos.service';
           <div class="field">
             <label>ID de Entidad</label>
             <input type="number" [(ngModel)]="entidadId" name="entidadId" class="form-control"
-                   placeholder="Número de identificación">
-          </div>
-          <div class="field field-full">
-            <label>Descripción</label>
-            <textarea [(ngModel)]="descripcion" name="descripcion" class="form-control" rows="3"
-                      placeholder="Descripción breve del documento"></textarea>
-          </div>
-          <div class="field field-full">
-            <label>Etiquetas</label>
-            <input [(ngModel)]="tags" name="tags" class="form-control"
-                   placeholder="Etiquetas separadas por coma">
-          </div>
+              placeholder="Número de identificación">
+            </div>
+            <div class="field field-full">
+              <label>Descripción</label>
+              <textarea [(ngModel)]="descripcion" name="descripcion" class="form-control" rows="3"
+              placeholder="Descripción breve del documento"></textarea>
+            </div>
+            <div class="field field-full">
+              <label>Etiquetas</label>
+              <input [(ngModel)]="tags" name="tags" class="form-control"
+                placeholder="Etiquetas separadas por coma">
+              </div>
+            </div>
+    
+            @if (subiendo) {
+              <div class="upload-progress">
+                <div class="progress-bar">
+                  <div class="progress-fill" [style.width.%]="progreso"></div>
+                </div>
+                <span class="text-secondary">Subiendo... {{ progreso }}%</span>
+              </div>
+            }
+    
+            <div class="form-actions">
+              <button type="button" class="btn btn-outline" (click)="cancelar()">Cancelar</button>
+              <button type="submit" class="btn btn-primary" [disabled]="!archivoSeleccionado || subiendo">
+                {{ subiendo ? 'Subiendo...' : 'Subir Documento' }}
+              </button>
+            </div>
+          </form>
         </div>
-
-        <div class="upload-progress" *ngIf="subiendo">
-          <div class="progress-bar">
-            <div class="progress-fill" [style.width.%]="progreso"></div>
-          </div>
-          <span class="text-secondary">Subiendo... {{ progreso }}%</span>
-        </div>
-
-        <div class="form-actions">
-          <button type="button" class="btn btn-outline" (click)="cancelar()">Cancelar</button>
-          <button type="submit" class="btn btn-primary" [disabled]="!archivoSeleccionado || subiendo">
-            {{ subiendo ? 'Subiendo...' : 'Subir Documento' }}
-          </button>
-        </div>
-      </form>
-    </div>
-
-    <div class="alert alert-error" *ngIf="error">{{ error }}</div>
-  `,
+    
+        @if (error) {
+          <div class="alert alert-error">{{ error }}</div>
+        }
+    `,
   styles: [`
     .page-header { margin-bottom: 1rem; }
     .page-header h2 { font-size: 1.5rem; margin-bottom: 0.25rem; }

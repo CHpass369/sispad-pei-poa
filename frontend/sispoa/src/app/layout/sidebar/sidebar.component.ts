@@ -26,89 +26,136 @@ interface NavSection {
   selector: 'app-sidebar',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <aside class="sidebar" [class.sidebar-collapsed]="collapsed" [class.sidebar-open]="mobileOpen">
-      <div class="sidebar-overlay" *ngIf="mobileOpen" (click)="toggleMobile()"></div>
-      <div class="sidebar-header">
-        <div class="logo">
-          <span class="logo-icon">G</span>
-          <div class="logo-text" *ngIf="!collapsed">
-            <strong>PIP</strong>
-            <small>Sacaba</small>
+    <aside class="sidebar" [class.collapsed]="collapsed" [class.sidebar-open]="mobileOpen">
+      @if (mobileOpen) {
+        <div class="sidebar-overlay" (click)="toggleMobile()"></div>
+      }
+      <div class="brand">
+        <div class="brand-mark">PIP</div>
+        @if (!collapsed) {
+          <div class="brand-copy">
+            <strong>PIP SACABA</strong>
+            <span>Planificación integral</span>
           </div>
-        </div>
-        <button class="collapse-btn" (click)="toggleCollapse()" title="Colapsar menú">
-          <span class="collapse-icon">{{ collapsed ? '»' : '«' }}</span>
+        }
+        <button class="collapse-btn" (click)="toggleCollapse()"
+          [attr.aria-label]="collapsed ? 'Expandir menú' : 'Contraer menú'"
+          title="Colapsar menú">
+          <lucide-angular [name]="collapsed ? 'chevron-right' : 'chevron-left'" [size]="16"></lucide-angular>
         </button>
       </div>
-      <nav class="sidebar-nav">
-        <ng-container *ngFor="let section of visibleSections">
-          <div class="nav-section" *ngIf="!collapsed">{{ section.title }}</div>
-          <a *ngFor="let item of section.items"
-             [routerLink]="item.route"
-             routerLinkActive="active"
-             class="nav-item"
-             [title]="collapsed ? item.label : ''">
-            <span class="nav-icon">{{ item.icon }}</span>
-            <span class="nav-label" *ngIf="!collapsed">{{ item.label }}</span>
-            <span class="nav-pendiente" *ngIf="item.pendiente && !collapsed" title="Módulo en desarrollo">en desarrollo</span>
-            <span class="nav-pendiente nav-v1" *ngIf="item.legacy && !collapsed" title="Módulo V1 (legacy)">V1</span>
-          </a>
-        </ng-container>
+      <nav class="nav">
+        @for (section of visibleSections; track section) {
+          @if (!collapsed) {
+            <div class="nav-label">{{ section.title }}</div>
+          }
+          @for (item of section.items; track item) {
+            <a
+              [routerLink]="item.route"
+              routerLinkActive="active"
+              class="nav-item"
+              [title]="collapsed ? item.label : ''"
+              [attr.aria-label]="item.label">
+              <span class="ico"><lucide-angular [name]="item.icon" [size]="16"></lucide-angular></span>
+              @if (!collapsed) {
+                <span>{{ item.label }}</span>
+                @if (item.pendiente) {
+                  <span class="tag" title="Módulo en desarrollo">Beta</span>
+                }
+                @if (item.legacy) {
+                  <span class="tag ok" title="Módulo V1 (legacy)">V1</span>
+                }
+              }
+            </a>
+          }
+        }
       </nav>
-      <div class="sidebar-footer" *ngIf="!collapsed">
-        <span class="version">v1.0.0</span>
-      </div>
+      @if (!collapsed) {
+        <div class="sidebar-foot">
+          <div class="status-dot"></div>
+          <div><strong>Gestión 2027</strong><span>Formulación activa</span></div>
+        </div>
+      }
     </aside>
-  `,
+    `,
   styles: [`
     .sidebar {
-      position: fixed; left: 0; top: 0; bottom: 0; width: 260px;
-      background: var(--sidebar-bg); color: var(--sidebar-text);
-      display: flex; flex-direction: column; z-index: 100; overflow-y: auto;
-      transition: width 0.2s ease;
+      position: fixed; left: 0; top: 0; bottom: 0; width: 252px;
+      background: var(--pip-green-900); color: #CFE3D6;
+      display: flex; flex-direction: column; z-index: 100;
+      transition: width .2s ease;
     }
-    .sidebar-collapsed { width: 64px; }
-    .sidebar-header {
-      padding: 1.25rem; border-bottom: 1px solid rgba(255,255,255,0.1);
-      display: flex; align-items: center; justify-content: space-between;
+    .sidebar.collapsed { width: 64px; }
+
+    .brand {
+      display: flex; align-items: center; gap: 10px;
+      padding: 18px 16px 14px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
     }
-    .logo { display: flex; align-items: center; gap: 0.75rem; }
-    .logo-icon {
-      width: 40px; height: 40px; min-width: 40px; background: var(--accent); color: white;
-      border-radius: 8px; display: flex; align-items: center; justify-content: center;
-      font-weight: 800; font-size: 1.25rem;
+    .brand-mark {
+      width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
+      background: linear-gradient(135deg, var(--pip-green-500), var(--pip-green-700));
+      display: grid; place-items: center;
+      font-family: var(--font-display); font-weight: 700; font-size: 13px; color: #fff;
+      letter-spacing: .5px;
     }
-    .logo-text strong { display: block; color: white; font-size: 1.1rem; }
-    .logo-text small { color: var(--sidebar-text); font-size: 0.75rem; }
+    .brand-copy { display: flex; flex-direction: column; min-width: 0; }
+    .brand-copy strong {
+      font-family: var(--font-display); font-size: 14px; color: #fff;
+      letter-spacing: .4px; white-space: nowrap;
+    }
+    .brand-copy span {
+      font-size: 10.5px; color: #8FB89E; text-transform: uppercase;
+      letter-spacing: .5px; white-space: nowrap;
+    }
     .collapse-btn {
-      background: none; border: none; color: var(--sidebar-text); cursor: pointer;
-      padding: 0.25rem; border-radius: 4px; font-size: 1rem; opacity: 0.6;
-      transition: opacity 0.15s;
+      margin-left: auto; background: none; border: none; color: #7FA792;
+      cursor: pointer; padding: 4px; border-radius: 6px;
+      display: grid; place-items: center;
+      transition: background .15s, color .15s;
     }
-    .collapse-btn:hover { opacity: 1; }
-    .sidebar-nav { flex: 1; padding: 0.5rem; }
-    .nav-section {
-      padding: 0.75rem 0.75rem 0.25rem; font-size: 0.625rem;
-      text-transform: uppercase; letter-spacing: 0.1em; opacity: 0.5;
+    .collapse-btn:hover { background: rgba(255,255,255,.08); color: #fff; }
+    .sidebar.collapsed .collapse-btn { margin-left: auto; }
+
+    .nav { flex: 1; overflow-y: auto; padding: 10px; }
+    .nav-label {
+      font-size: 10px; letter-spacing: 1.2px; text-transform: uppercase;
+      color: #6E9A80; padding: 14px 10px 6px; font-weight: 600; white-space: nowrap;
     }
     .nav-item {
-      display: flex; align-items: center; gap: 0.625rem;
-      padding: 0.5rem 0.75rem; border-radius: 6px; color: var(--sidebar-text);
-      transition: all 0.15s; cursor: pointer; font-size: 0.8125rem;
-      text-decoration: none;
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 10px; border-radius: 8px;
+      color: #C4D9CB; text-decoration: none; font-size: 13px; font-weight: 500;
+      transition: background .15s;
+      cursor: pointer; border: none; background: none; width: 100%; text-align: left;
+      font-family: inherit;
     }
-    .nav-item:hover { background: rgba(255,255,255,0.08); color: white; }
-    .nav-item.active { background: var(--primary-light); color: white; font-weight: 600; }
-    .nav-icon { width: 18px; text-align: center; font-size: 0.875rem; }
-    .nav-label { white-space: nowrap; }
-    .nav-pendiente {
-      margin-left: auto; font-size: 0.5625rem; text-transform: uppercase;
-      background: rgba(255,255,255,0.12); color: var(--sidebar-text);
-      padding: 0.0625rem 0.375rem; border-radius: 4px; letter-spacing: 0.05em;
+    .nav-item:hover { background: rgba(255,255,255,.06); color: #fff; }
+    .nav-item.active { background: var(--pip-green-700); color: #fff; }
+    .nav-item .ico {
+      width: 18px; text-align: center; flex-shrink: 0;
+      display: grid; place-items: center;
     }
-    .nav-pendiente.nav-v1 { background: rgba(255,193,7,0.18); color: #FFD54F; }
-    .sidebar-footer { padding: 1rem 1.25rem; border-top: 1px solid rgba(255,255,255,0.1); }
-    .version { font-size: 0.75rem; opacity: 0.5; }
+    .nav-item .tag {
+      margin-left: auto; font-size: 9.5px; font-weight: 700;
+      background: var(--pip-gold); color: var(--pip-green-900);
+      border-radius: 20px; padding: 1px 7px; letter-spacing: .3px;
+    }
+    .nav-item .tag.ok { background: var(--pip-green-500); color: #fff; }
+
+    .sidebar-foot {
+      padding: 14px 18px;
+      border-top: 1px solid rgba(255,255,255,.08);
+      font-size: 11px; color: #7FA792;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .status-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--pip-gold); flex-shrink: 0;
+    }
+    .sidebar-foot strong { display: block; color: #CFE3D6; font-size: 11.5px; }
+    .sidebar-foot span { font-size: 10px; }
+
     .sidebar-overlay { display: none; }
 
     @media (max-width: 1024px) {
@@ -116,24 +163,17 @@ interface NavSection {
         transform: translateX(-100%);
         transition: transform 0.3s ease;
       }
-      .sidebar.sidebar-open {
-        transform: translateX(0);
-      }
+      .sidebar.sidebar-open { transform: translateX(0); }
       .sidebar-overlay {
         display: block; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
         background: rgba(0,0,0,0.5); z-index: -1;
       }
-      .sidebar-collapsed { width: 260px; }
-    }
-
-    @media (min-width: 769px) and (max-width: 1280px) {
-      .sidebar { width: 64px; }
-      .sidebar .nav-label { display: none; }
-      .sidebar .sidebar-footer { display: none; }
-      .sidebar .collapse-btn { display: none; }
-      .sidebar .nav-section { display: none; }
-      .sidebar .nav-item { justify-content: center; padding: 0.625rem; }
-      .sidebar .nav-icon { width: auto; }
+      .sidebar.collapsed { width: 252px; }
+      .sidebar.collapsed .brand-copy,
+      .sidebar.collapsed .nav-label,
+      .sidebar.collapsed .nav-item span,
+      .sidebar.collapsed .sidebar-foot { display: initial; }
+      .sidebar.collapsed .nav-item .ico { width: 18px; }
     }
   `]
 })
@@ -153,75 +193,75 @@ export class SidebarComponent implements OnInit, OnDestroy {
     'sis-pe': {
       title: 'SIS-PE — Planificación Estratégica',
       items: [
-        { route: '/sis-pe/dashboard', label: 'Dashboard estratégico', icon: '◉', capacidades: ['sis_pe.instrumento.read'] },
-        { route: '/sis-pe/instrumentos', label: 'Instrumentos', icon: '▤', capacidades: ['sis_pe.instrumento.read'] },
-        { route: '/sis-pe/diagnostico', label: 'Diagnóstico', icon: '▤', capacidades: ['sis_pe.instrumento.read'], pendiente: true },
-        { route: '/articulador', label: 'PAD', icon: '▤', roles: ['superadmin', 'tecnico_admin', 'planificador'], legacy: true },
-        { route: '/sis-pe/pei', label: 'PEI', icon: '▤', capacidades: ['sis_pe.instrumento.read'], pendiente: true },
-        { route: '/articulacion', label: 'Articulación', icon: '⇄', roles: ['superadmin', 'tecnico_admin', 'planificador'], legacy: true },
-        { route: '/matrices-pad', label: 'Matrices PAD', icon: '▦', capacidades: ['sis_pe.instrumento.read'] },
-        { route: '/indicadores', label: 'Indicadores', icon: '⊡', roles: ['superadmin', 'tecnico_admin', 'planificador'], legacy: true },
-        { route: '/territorio', label: 'Territorio', icon: '◈', roles: ['superadmin', 'tecnico_admin'], legacy: true },
-        { route: '/sis-pe/seguimiento', label: 'Seguimiento estratégico', icon: '◷', capacidades: ['sis_pe.instrumento.read'], pendiente: true },
-        { route: '/evaluacion', label: 'Evaluación', icon: '✓', roles: ['superadmin', 'tecnico_admin', 'evaluador'], legacy: true },
+        { route: '/sis-pe/dashboard', label: 'Dashboard estratégico', icon: 'gauge', capacidades: ['sis_pe.instrumento.read'] },
+        { route: '/sis-pe/instrumentos', label: 'Instrumentos', icon: 'file-text', capacidades: ['sis_pe.instrumento.read'] },
+        { route: '/sis-pe/diagnostico', label: 'Diagnóstico', icon: 'clipboard-list', capacidades: ['sis_pe.instrumento.read'], pendiente: true },
+        { route: '/articulador', label: 'PAD', icon: 'landmark', roles: ['superadmin', 'tecnico_admin', 'planificador'], legacy: true },
+        { route: '/sis-pe/pei', label: 'PEI', icon: 'compass', capacidades: ['sis_pe.instrumento.read'], pendiente: true },
+        { route: '/articulacion', label: 'Articulación', icon: 'network', roles: ['superadmin', 'tecnico_admin', 'planificador'], legacy: true },
+        { route: '/matrices-pad', label: 'Matrices PAD', icon: 'layout-grid', capacidades: ['sis_pe.instrumento.read'] },
+        { route: '/indicadores', label: 'Indicadores', icon: 'chart-column', roles: ['superadmin', 'tecnico_admin', 'planificador'], legacy: true },
+        { route: '/territorio', label: 'Territorio', icon: 'map-pin', roles: ['superadmin', 'tecnico_admin'], legacy: true },
+        { route: '/sis-pe/seguimiento', label: 'Seguimiento estratégico', icon: 'activity', capacidades: ['sis_pe.instrumento.read'], pendiente: true },
+        { route: '/evaluacion', label: 'Evaluación', icon: 'circle-check', roles: ['superadmin', 'tecnico_admin', 'evaluador'], legacy: true },
       ],
     },
     'sis-poa': {
       title: 'SIS-POA — Planificación Operativa',
       items: [
-        { route: '/sis-poa/dashboard', label: 'Dashboard operativo', icon: '◉', capacidades: ['sis_poa.formulate'] },
-        { route: '/sis-poa/poas', label: 'POA', icon: '▤', capacidades: ['sis_poa.formulate'] },
-        { route: '/poau', label: 'POAU', icon: '▤', roles: ['superadmin', 'tecnico_admin', 'jefe_ue', 'director'], legacy: true },
-        { route: '/recursos', label: 'Recursos', icon: '⊞', roles: ['superadmin', 'tecnico_admin'], legacy: true },
-        { route: '/sis-poa/techos', label: 'Techos', icon: '⊡', capacidades: ['sis_poa.formulate'] },
-        { route: '/sis-poa/presupuesto', label: 'Presupuesto', icon: '⊞', capacidades: ['sis_poa.formulate'] },
-        { route: '/sis-poa/budget/gestion-fiscal', label: 'Gestión Fiscal', icon: '🗓️', capacidades: ['sis_poa.formulate'] },
-        { route: '/sis-poa/budget/techo-directivo', label: 'Techo Directivo', icon: '⊡', capacidades: ['sis_poa.formulate'] },
-        { route: '/sis-poa/budget/categorias-programaticas', label: 'Categorías Programáticas', icon: '▤', capacidades: ['sis_poa.formulate'] },
-        { route: '/sis-poa/budget/distribucion', label: 'Distribución Presupuestaria', icon: '◔', capacidades: ['sis_poa.formulate'] },
-        { route: '/sis-poa/budget/distribucion-territorial', label: 'Distribución Territorial', icon: '◈', capacidades: ['sis_poa.budget.manage', 'sis_poa.formulate'] },
-        { route: '/sis-poa/budget/importaciones', label: 'Importaciones', icon: '⤒', capacidades: ['sis_poa.budget.import', 'sis_poa.formulate'] },
-        { route: '/sis-poa/budget/reformulaciones', label: 'Reformulaciones', icon: '⇄', capacidades: ['sis_poa.budget.reform', 'sis_poa.formulate'] },
-        { route: '/sis-poa/budget/auditoria', label: 'Auditoría', icon: '🔍', capacidades: ['sis_poa.budget.audit_read'] },
-        { route: '/planificacion/formulacion', label: 'Formulación POA', icon: '✎', roles: ['superadmin', 'tecnico_admin', 'planificador'], legacy: true },
-        { route: '/seguimiento', label: 'Seguimiento', icon: '◷', roles: ['superadmin', 'tecnico_admin', 'jefe_ue', 'director', 'tecnico'], legacy: true },
-        { route: '/modificaciones', label: 'Modificaciones', icon: '✎', roles: ['superadmin', 'tecnico_admin'], legacy: true },
-        { route: '/consolidacion', label: 'Consolidación', icon: '⊞', roles: ['superadmin', 'tecnico_admin'], legacy: true },
+        { route: '/sis-poa/dashboard', label: 'Dashboard operativo', icon: 'gauge', capacidades: ['sis_poa.formulate'] },
+        { route: '/sis-poa/poas', label: 'POA', icon: 'calendar-days', capacidades: ['sis_poa.formulate'] },
+        { route: '/poau', label: 'POAU', icon: 'list-todo', roles: ['superadmin', 'tecnico_admin', 'jefe_ue', 'director'], legacy: true },
+        { route: '/recursos', label: 'Recursos', icon: 'boxes', roles: ['superadmin', 'tecnico_admin'], legacy: true },
+        { route: '/sis-poa/techos', label: 'Techos', icon: 'banknote', capacidades: ['sis_poa.formulate'] },
+        { route: '/sis-poa/presupuesto', label: 'Presupuesto', icon: 'wallet', capacidades: ['sis_poa.formulate'] },
+        { route: '/sis-poa/budget/gestion-fiscal', label: 'Gestión Fiscal', icon: 'coins', capacidades: ['sis_poa.formulate'] },
+        { route: '/sis-poa/budget/techo-directivo', label: 'Techo Directivo', icon: 'chart-bar', capacidades: ['sis_poa.formulate'] },
+        { route: '/sis-poa/budget/categorias-programaticas', label: 'Categorías Programáticas', icon: 'list-tree', capacidades: ['sis_poa.formulate'] },
+        { route: '/sis-poa/budget/distribucion', label: 'Distribución Presupuestaria', icon: 'chart-pie', capacidades: ['sis_poa.formulate'] },
+        { route: '/sis-poa/budget/distribucion-territorial', label: 'Distribución Territorial', icon: 'map', capacidades: ['sis_poa.budget.manage', 'sis_poa.formulate'] },
+        { route: '/sis-poa/budget/importaciones', label: 'Importaciones', icon: 'download', capacidades: ['sis_poa.budget.import', 'sis_poa.formulate'] },
+        { route: '/sis-poa/budget/reformulaciones', label: 'Reformulaciones', icon: 'refresh-cw', capacidades: ['sis_poa.budget.reform', 'sis_poa.formulate'] },
+        { route: '/sis-poa/budget/auditoria', label: 'Auditoría', icon: 'scan-search', capacidades: ['sis_poa.budget.audit_read'] },
+        { route: '/planificacion/formulacion', label: 'Formulación POA', icon: 'pen-line', roles: ['superadmin', 'tecnico_admin', 'planificador'], legacy: true },
+        { route: '/seguimiento', label: 'Seguimiento', icon: 'activity', roles: ['superadmin', 'tecnico_admin', 'jefe_ue', 'director', 'tecnico'], legacy: true },
+        { route: '/modificaciones', label: 'Modificaciones', icon: 'pencil-ruler', roles: ['superadmin', 'tecnico_admin'], legacy: true },
+        { route: '/consolidacion', label: 'Consolidación', icon: 'layers', roles: ['superadmin', 'tecnico_admin'], legacy: true },
       ],
     },
     'sis-pro': {
       title: 'SIS-PRO — Ciclo del Proyecto',
       items: [
-        { route: '/sis-pro/dashboard', label: 'Dashboard proyectos', icon: '◉', capacidades: ['sis_pro.project.read'] },
-        { route: '/sis-pro/proyectos', label: 'Cartera', icon: '▤', capacidades: ['sis_pro.project.read'] },
-        { route: '/inversion', label: 'Proyectos de Inversión', icon: '▤', roles: ['superadmin', 'tecnico_admin', 'planificador'], legacy: true },
-        { route: '/sis-pro/preinversion', label: 'Preinversión', icon: '▤', capacidades: ['sis_pro.project.read'] },
-        { route: '/sis-pro/preinversion/inventario', label: 'Inventario documental', icon: '📚', capacidades: ['sis_pro.project.read'] },
-        { route: '/sis-pro/formulacion', label: 'Formulación', icon: '▤', capacidades: ['sis_pro.project.read'], pendiente: true },
-        { route: '/sis-pro/contratacion', label: 'Contratación', icon: '⇄', capacidades: ['sis_pro.project.read'], pendiente: true },
-        { route: '/sis-pro/ejecucion', label: 'Ejecución', icon: '◷', capacidades: ['sis_pro.project.read'], pendiente: true },
-        { route: '/sis-pro/supervision', label: 'Supervisión', icon: '◈', capacidades: ['sis_pro.project.read'], pendiente: true },
-        { route: '/sis-pro/seguimiento', label: 'Seguimiento', icon: '◷', capacidades: ['sis_pro.project.read'], pendiente: true },
+        { route: '/sis-pro/dashboard', label: 'Dashboard proyectos', icon: 'gauge', capacidades: ['sis_pro.project.read'] },
+        { route: '/sis-pro/proyectos', label: 'Cartera', icon: 'briefcase', capacidades: ['sis_pro.project.read'] },
+        { route: '/inversion', label: 'Proyectos de Inversión', icon: 'hard-hat', roles: ['superadmin', 'tecnico_admin', 'planificador'], legacy: true },
+        { route: '/sis-pro/preinversion', label: 'Preinversión', icon: 'drafting-compass', capacidades: ['sis_pro.project.read'] },
+        { route: '/sis-pro/preinversion/inventario', label: 'Inventario documental', icon: 'folder-open', capacidades: ['sis_pro.project.read'] },
+        { route: '/sis-pro/formulacion', label: 'Formulación', icon: 'file-pen-line', capacidades: ['sis_pro.project.read'], pendiente: true },
+        { route: '/sis-pro/contratacion', label: 'Contratación', icon: 'handshake', capacidades: ['sis_pro.project.read'], pendiente: true },
+        { route: '/sis-pro/ejecucion', label: 'Ejecución', icon: 'play', capacidades: ['sis_pro.project.read'], pendiente: true },
+        { route: '/sis-pro/supervision', label: 'Supervisión', icon: 'eye', capacidades: ['sis_pro.project.read'], pendiente: true },
+        { route: '/sis-pro/seguimiento', label: 'Seguimiento', icon: 'activity', capacidades: ['sis_pro.project.read'], pendiente: true },
       ],
     },
   };
 
   /** Módulos de administración de la plataforma (§18.1 — se muestran siempre). */
   private administracionMenu: NavSection = {
-    title: 'PLATAFORMA / ADMINISTRACIÓN',
+    title: 'TRANSVERSAL',
     items: [
-      { route: '/admin-usuarios', label: 'Usuarios y permisos', icon: '👤', roles: ['superadmin', 'tecnico_admin'] },
-      { route: '/organizacion', label: 'Organización', icon: '🏢', roles: ['superadmin', 'tecnico_admin'] },
-      { route: '/gestion', label: 'Gestiones / periodos', icon: '🗓️', roles: ['superadmin', 'tecnico_admin'] },
-      { route: '/catalogos', label: 'Catálogos', icon: '📚', roles: ['superadmin', 'tecnico_admin'] },
-      { route: '/normativa', label: 'Normativa', icon: '📜', roles: ['superadmin', 'tecnico_admin'] },
-      { route: '/documentos', label: 'Documentos', icon: '📁', roles: ['superadmin', 'tecnico_admin'] },
-      { route: '/auditoria', label: 'Auditoría', icon: '🔍', roles: ['superadmin', 'tecnico_admin'] },
-      { route: '/reportes', label: 'Reportes', icon: '📈' },
-      { route: '/territorio/mapa', label: 'Mapa inversiones', icon: '🗺️' },
-      { route: '/workflow', label: 'Revisiones', icon: '⇄', roles: ['superadmin', 'tecnico_admin', 'jefe_ue', 'director'] },
-      { route: '/workflow/observaciones', label: 'Observaciones', icon: '◈', roles: ['superadmin', 'tecnico_admin', 'jefe_ue', 'director'] },
-      { route: '/workflow/aprobaciones', label: 'Aprobaciones', icon: '✓', roles: ['superadmin', 'tecnico_admin'] },
+      { route: '/admin-usuarios', label: 'Usuarios y permisos', icon: 'users', roles: ['superadmin', 'tecnico_admin'] },
+      { route: '/organizacion', label: 'Organización', icon: 'building-2', roles: ['superadmin', 'tecnico_admin'] },
+      { route: '/gestion', label: 'Gestiones / periodos', icon: 'calendar-range', roles: ['superadmin', 'tecnico_admin'] },
+      { route: '/catalogos', label: 'Catálogos', icon: 'book-open', roles: ['superadmin', 'tecnico_admin'] },
+      { route: '/normativa', label: 'Normativa', icon: 'scroll-text', roles: ['superadmin', 'tecnico_admin'] },
+      { route: '/documentos', label: 'Documentos', icon: 'folder', roles: ['superadmin', 'tecnico_admin'] },
+      { route: '/auditoria', label: 'Auditoría', icon: 'scan-search', roles: ['superadmin', 'tecnico_admin'] },
+      { route: '/reportes', label: 'Reportes', icon: 'chart-spline' },
+      { route: '/territorio/mapa', label: 'Mapa inversiones', icon: 'map-pinned' },
+      { route: '/workflow', label: 'Revisiones', icon: 'workflow', roles: ['superadmin', 'tecnico_admin', 'jefe_ue', 'director'] },
+      { route: '/workflow/observaciones', label: 'Observaciones', icon: 'circle-alert', roles: ['superadmin', 'tecnico_admin', 'jefe_ue', 'director'] },
+      { route: '/workflow/aprobaciones', label: 'Aprobaciones', icon: 'badge-check', roles: ['superadmin', 'tecnico_admin'] },
     ],
   };
 
@@ -274,7 +314,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
       this.visibleSections = [
         {
           title: 'SISTEMAS',
-          items: [{ route: '/sistemas', label: 'Selección de sistemas', icon: '🏠' }],
+          items: [{ route: '/sistemas', label: 'Selección de sistemas', icon: 'home' }],
         },
         { title: sistema.title, items },
         this.administracionMenu,
@@ -284,11 +324,11 @@ export class SidebarComponent implements OnInit, OnDestroy {
 
     this.visibleSections = [
       {
-        title: 'PRINCIPAL',
+        title: 'PLATAFORMA',
         items: [
-          { route: '/sistemas', label: 'Selección de sistemas', icon: '🏠' },
-          { route: '/dashboard', label: 'Dashboard', icon: '◉' },
-          { route: '/notificaciones', label: 'Notificaciones', icon: '🔔' },
+          { route: '/sistemas', label: 'Selección de sistemas', icon: 'home' },
+          { route: '/dashboard', label: 'Dashboard', icon: 'gauge' },
+          { route: '/notificaciones', label: 'Notificaciones', icon: 'bell' },
         ],
       },
       this.administracionMenu,

@@ -1,5 +1,5 @@
 import { Component, Input, Output, EventEmitter } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { UnidadOrganizacional } from './models/unidad.model';
 
 @Component({

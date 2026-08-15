@@ -19,25 +19,27 @@ import { AuthService } from '../../core/services/auth.service';
           <div class="field">
             <label>Correo electrónico</label>
             <input formControlName="email" type="email" class="form-control"
-                   placeholder="usuario@gamsacaba.gob.bo" autocomplete="email">
+              placeholder="usuario@gamsacaba.gob.bo" autocomplete="email">
+            </div>
+            <div class="field">
+              <label>Contraseña</label>
+              <input formControlName="password" type="password" class="form-control"
+                placeholder="••••••••" autocomplete="current-password">
+              </div>
+              @if (error) {
+                <p class="error-msg">{{ error }}</p>
+              }
+              <button type="submit" class="btn btn-primary btn-block"
+                [disabled]="loginForm.invalid || loading">
+                {{ loading ? 'Ingresando...' : 'Ingresar' }}
+              </button>
+            </form>
+            <div class="login-footer">
+              <small>Gobierno Autónomo Municipal de Sacaba</small>
+            </div>
           </div>
-          <div class="field">
-            <label>Contraseña</label>
-            <input formControlName="password" type="password" class="form-control"
-                   placeholder="••••••••" autocomplete="current-password">
-          </div>
-          <p *ngIf="error" class="error-msg">{{ error }}</p>
-          <button type="submit" class="btn btn-primary btn-block"
-                  [disabled]="loginForm.invalid || loading">
-            {{ loading ? 'Ingresando...' : 'Ingresar' }}
-          </button>
-        </form>
-        <div class="login-footer">
-          <small>Gobierno Autónomo Municipal de Sacaba</small>
         </div>
-      </div>
-    </div>
-  `,
+    `,
   styles: [`
     .login-page {
       min-height: 100vh; display: flex; align-items: center; justify-content: center;
@@ -91,7 +93,7 @@ export class LoginComponent {
     this.error = '';
     this.cdr.markForCheck();
     this.auth.login(this.loginForm.value as any).subscribe({
-      next: () => this.router.navigate(['/dashboard']),
+      next: () => this.router.navigate(['/sistemas']),
       error: (err) => {
         this.error = err.message || 'Credenciales inválidas';
         this.loading = false;

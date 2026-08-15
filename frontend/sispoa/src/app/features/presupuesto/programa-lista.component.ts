@@ -10,7 +10,7 @@ import { ApiService } from '../../core/services/api.service';
         <h2>Programas Presupuestarios</h2>
         <p class="text-secondary">Catálogo de programas con sus montos asignados</p>
       </div>
-
+    
       <!-- Search -->
       <div class="search-bar">
         <input
@@ -18,50 +18,60 @@ import { ApiService } from '../../core/services/api.service';
           placeholder="Buscar por código o nombre..."
           (input)="onSearch($event)"
           class="search-input"
-        />
+          />
+        </div>
+    
+        <!-- Loading -->
+        @if (!items && !error) {
+          <div class="loading">
+            <p>Cargando programas...</p>
+          </div>
+        }
+    
+        <!-- Error -->
+        @if (error) {
+          <div class="alert alert-error">
+            {{ error }}
+          </div>
+        }
+    
+        <!-- Table -->
+        @if (items) {
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>Código</th>
+                  <th>Programa</th>
+                  <th>Presupuesto (Bs)</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (p of filteredItems; track p) {
+                  <tr>
+                    <td><strong>{{ p.codigo }}</strong></td>
+                    <td>{{ p.nombre }}</td>
+                    <td>{{ p.presupuesto | number:'1.2-2' }}</td>
+                    <td>
+                      <span class="badge" [class.badge-ok]="p.activo"
+                        [class.badge-muted]="!p.activo">
+                        {{ p.activo ? 'Activo' : 'Inactivo' }}
+                      </span>
+                    </td>
+                  </tr>
+                }
+                @if (filteredItems.length === 0) {
+                  <tr>
+                    <td colspan="4" class="empty">No se encontraron programas</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
       </div>
-
-      <!-- Loading -->
-      <div class="loading" *ngIf="!items && !error">
-        <p>Cargando programas...</p>
-      </div>
-
-      <!-- Error -->
-      <div class="alert alert-error" *ngIf="error">
-        {{ error }}
-      </div>
-
-      <!-- Table -->
-      <div class="table-responsive" *ngIf="items">
-        <table>
-          <thead>
-            <tr>
-              <th>Código</th>
-              <th>Programa</th>
-              <th>Presupuesto (Bs)</th>
-              <th>Estado</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let p of filteredItems">
-              <td><strong>{{ p.codigo }}</strong></td>
-              <td>{{ p.nombre }}</td>
-              <td>{{ p.presupuesto | number:'1.2-2' }}</td>
-              <td>
-                <span class="badge" [class.badge-ok]="p.activo"
-                      [class.badge-muted]="!p.activo">
-                  {{ p.activo ? 'Activo' : 'Inactivo' }}
-                </span>
-              </td>
-            </tr>
-            <tr *ngIf="filteredItems.length === 0">
-              <td colspan="4" class="empty">No se encontraron programas</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  `,
+    `,
   styles: [`
     .page-header { margin-bottom: 1.5rem; }
     .page-header h2 { font-size: 1.5rem; margin-bottom: 0.25rem; }

@@ -9,34 +9,42 @@ import { SisProService } from './sis-pro.service';
       <h2>SIS-PRO — Dashboard de Proyectos</h2>
       <p class="text-secondary">Sistema de Gestión del Ciclo del Proyecto (V2)</p>
     </div>
-    <div *ngIf="cargando" class="loading">Cargando indicadores...</div>
-    <div class="alert alert-error" *ngIf="error">{{ error }}</div>
-    <div class="stats-grid" *ngIf="!cargando">
-      <div class="card stat-card">
-        <div class="stat-icon">🚧</div>
-        <div class="stat-value">{{ total }}</div>
-        <div class="stat-label">Proyectos</div>
+    @if (cargando) {
+      <div class="loading">Cargando indicadores...</div>
+    }
+    @if (error) {
+      <div class="alert alert-error">{{ error }}</div>
+    }
+    @if (!cargando) {
+      <div class="stats-grid">
+        <div class="card stat-card">
+          <div class="stat-icon">🚧</div>
+          <div class="stat-value">{{ total }}</div>
+          <div class="stat-label">Proyectos</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-icon">📐</div>
+          <div class="stat-value">{{ enPreinversion }}</div>
+          <div class="stat-label">En preinversión</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-icon">🔨</div>
+          <div class="stat-value">{{ enEjecucion }}</div>
+          <div class="stat-label">En ejecución</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-icon">✅</div>
+          <div class="stat-value">{{ cerrados }}</div>
+          <div class="stat-label">Cerrados</div>
+        </div>
       </div>
-      <div class="card stat-card">
-        <div class="stat-icon">📐</div>
-        <div class="stat-value">{{ enPreinversion }}</div>
-        <div class="stat-label">En preinversión</div>
+    }
+    @if (!cargando) {
+      <div class="quick-actions">
+        <a routerLink="/sis-pro/proyectos" class="btn btn-primary">Cartera de proyectos</a>
       </div>
-      <div class="card stat-card">
-        <div class="stat-icon">🔨</div>
-        <div class="stat-value">{{ enEjecucion }}</div>
-        <div class="stat-label">En ejecución</div>
-      </div>
-      <div class="card stat-card">
-        <div class="stat-icon">✅</div>
-        <div class="stat-value">{{ cerrados }}</div>
-        <div class="stat-label">Cerrados</div>
-      </div>
-    </div>
-    <div class="quick-actions" *ngIf="!cargando">
-      <a routerLink="/sis-pro/proyectos" class="btn btn-primary">Cartera de proyectos</a>
-    </div>
-  `,
+    }
+    `,
   styles: [`
     .page-header { margin-bottom: 1.5rem; }
     .text-secondary { color: var(--text-secondary); font-size: 0.875rem; }

@@ -14,124 +14,156 @@ import {
       <h2>Asistente TDR — Términos de Referencia del EDTP</h2>
       <p class="text-secondary">Parte B del ITCP · presupuesto referencial con memorias de cálculo</p>
     </div>
-    <div *ngIf="cargando" class="loading">Cargando TDR...</div>
-    <div class="alert alert-error" *ngIf="error">{{ error }}</div>
-    <div class="alert alert-success" *ngIf="mensaje">{{ mensaje }}</div>
-
-    <div class="card" *ngIf="tdr && !cargando">
-      <h3>Información general <span class="badge">{{ tdr.estado }}</span> v{{ tdr.version }}</h3>
-      <div class="grid">
-        <label>Justificación
-          <textarea [(ngModel)]="tdr.justificacion" name="j" rows="2" class="input" (change)="guardar()"></textarea>
-        </label>
-        <label>Objetivos
-          <textarea [(ngModel)]="tdr.objetivos" name="o" rows="2" class="input" (change)="guardar()"></textarea>
-        </label>
-        <label>Alcance
-          <textarea [(ngModel)]="tdr.alcance" name="a" rows="2" class="input" (change)="guardar()"></textarea>
-        </label>
-        <label>Actores y responsabilidades
-          <textarea [(ngModel)]="tdr.actores_responsabilidades" name="ar" rows="2" class="input" (change)="guardar()"></textarea>
-        </label>
-        <label>Metodología
-          <textarea [(ngModel)]="tdr.metodologia" name="m" rows="2" class="input" (change)="guardar()"></textarea>
-        </label>
-        <div class="fila">
-          <label>Duración (días)
-            <input type="number" [(ngModel)]="tdr.duracion_dias" name="d" class="input" (change)="guardar()" />
+    @if (cargando) {
+      <div class="loading">Cargando TDR...</div>
+    }
+    @if (error) {
+      <div class="alert alert-error">{{ error }}</div>
+    }
+    @if (mensaje) {
+      <div class="alert alert-success">{{ mensaje }}</div>
+    }
+    
+    @if (tdr && !cargando) {
+      <div class="card">
+        <h3>Información general <span class="badge">{{ tdr.estado }}</span> v{{ tdr.version }}</h3>
+        <div class="grid">
+          <label>Justificación
+            <textarea [(ngModel)]="tdr.justificacion" name="j" rows="2" class="input" (change)="guardar()"></textarea>
           </label>
-          <label>Presupuesto referencial (Bs)
-            <input type="number" [(ngModel)]="tdr.presupuesto_referencial" name="pr" class="input" (change)="guardar()" />
+          <label>Objetivos
+            <textarea [(ngModel)]="tdr.objetivos" name="o" rows="2" class="input" (change)="guardar()"></textarea>
           </label>
+          <label>Alcance
+            <textarea [(ngModel)]="tdr.alcance" name="a" rows="2" class="input" (change)="guardar()"></textarea>
+          </label>
+          <label>Actores y responsabilidades
+            <textarea [(ngModel)]="tdr.actores_responsabilidades" name="ar" rows="2" class="input" (change)="guardar()"></textarea>
+          </label>
+          <label>Metodología
+            <textarea [(ngModel)]="tdr.metodologia" name="m" rows="2" class="input" (change)="guardar()"></textarea>
+          </label>
+          <div class="fila">
+            <label>Duración (días)
+              <input type="number" [(ngModel)]="tdr.duracion_dias" name="d" class="input" (change)="guardar()" />
+            </label>
+            <label>Presupuesto referencial (Bs)
+              <input type="number" [(ngModel)]="tdr.presupuesto_referencial" name="pr" class="input" (change)="guardar()" />
+            </label>
+          </div>
         </div>
       </div>
-    </div>
-
-    <div class="card" *ngIf="tdr && !cargando">
-      <h3>Actividades</h3>
-      <form (ngSubmit)="agregarActividad()" class="form-inline" *ngIf="puedeEditar">
-        <input [(ngModel)]="actividad.codigo" name="ac" placeholder="Código" required class="input" />
-        <input [(ngModel)]="actividad.descripcion" name="ad" placeholder="Descripción" required class="input" />
-        <input [(ngModel)]="actividad.duracion_dias" name="add" type="number" placeholder="Días" class="input" />
-        <button type="submit" class="btn btn-primary">+ Actividad</button>
-      </form>
-      <table class="data-table">
-        <tbody>
-          <tr *ngFor="let a of tdr.actividades">
-            <td><span class="badge">{{ a.codigo }}</span></td>
-            <td>{{ a.descripcion }}</td>
-            <td>{{ a.duracion_dias }} días</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div class="card" *ngIf="tdr && !cargando">
-      <h3>Productos</h3>
-      <form (ngSubmit)="agregarProducto()" class="form-inline" *ngIf="puedeEditar">
-        <input [(ngModel)]="producto.codigo" name="pc" placeholder="Código" required class="input" />
-        <input [(ngModel)]="producto.nombre" name="pn" placeholder="Nombre" required class="input" />
-        <input [(ngModel)]="producto.dia_entrega" name="pd" type="number" placeholder="Día entrega" class="input" />
-        <button type="submit" class="btn btn-primary">+ Producto</button>
-      </form>
-      <table class="data-table">
-        <tbody>
-          <tr *ngFor="let p of tdr.productos">
-            <td><span class="badge">{{ p.codigo }}</span></td>
-            <td>{{ p.nombre }}</td>
-            <td>día {{ p.dia_entrega }}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div class="card" *ngIf="tdr && !cargando">
-      <h3>Personal técnico</h3>
-      <form (ngSubmit)="agregarPersonal()" class="form-inline" *ngIf="puedeEditar">
-        <input [(ngModel)]="personal.rol" name="prr" placeholder="Rol" required class="input" />
-        <input [(ngModel)]="personal.cantidad" name="prc" type="number" placeholder="Cantidad" class="input" />
-        <input [(ngModel)]="personal.meses" name="prm" type="number" placeholder="Meses" class="input" />
-        <input [(ngModel)]="personal.tarifa_mensual" name="prt" type="number" placeholder="Tarifa mensual" class="input" />
-        <button type="submit" class="btn btn-primary">+ Personal</button>
-      </form>
-      <table class="data-table">
-        <thead>
-          <tr><th>Rol</th><th>Cant.</th><th>Meses</th><th>Tarifa</th><th>Subtotal</th></tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let p of tdr.personal">
-            <td>{{ p.rol }}</td><td>{{ p.cantidad }}</td><td>{{ p.meses }}</td>
-            <td>Bs {{ p.tarifa_mensual }}</td><td><strong>Bs {{ p.subtotal }}</strong></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div class="card" *ngIf="tdr && !cargando">
-      <h3>Presupuesto referencial</h3>
-      <form (ngSubmit)="agregarItem()" class="form-inline" *ngIf="puedeEditar">
-        <input [(ngModel)]="item.categoria" name="ic" placeholder="Categoría" required class="input" />
-        <input [(ngModel)]="item.descripcion" name="id" placeholder="Descripción" required class="input" />
-        <input [(ngModel)]="item.cantidad" name="iq" type="number" placeholder="Cantidad" class="input" />
-        <input [(ngModel)]="item.unidad" name="iu" placeholder="Unidad" class="input" />
-        <input [(ngModel)]="item.costo_unitario" name="icu" type="number" placeholder="Costo unitario" class="input" />
-        <button type="submit" class="btn btn-primary">+ Item</button>
-      </form>
-      <table class="data-table">
-        <thead>
-          <tr><th>Categoría</th><th>Descripción</th><th>Cant.</th><th>Unidad</th><th>C.U.</th><th>Subtotal</th></tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let i of tdr.items_presupuesto">
-            <td>{{ i.categoria }}</td><td>{{ i.descripcion }}</td><td>{{ i.cantidad }}</td>
-            <td>{{ i.unidad }}</td><td>Bs {{ i.costo_unitario }}</td>
-            <td><strong>Bs {{ i.subtotal }}</strong></td>
-          </tr>
-        </tbody>
-      </table>
-      <div class="total"><strong>Total referencial: Bs {{ totalReferencial }}</strong></div>
-    </div>
-  `,
+    }
+    
+    @if (tdr && !cargando) {
+      <div class="card">
+        <h3>Actividades</h3>
+        @if (puedeEditar) {
+          <form (ngSubmit)="agregarActividad()" class="form-inline">
+            <input [(ngModel)]="actividad.codigo" name="ac" placeholder="Código" required class="input" />
+            <input [(ngModel)]="actividad.descripcion" name="ad" placeholder="Descripción" required class="input" />
+            <input [(ngModel)]="actividad.duracion_dias" name="add" type="number" placeholder="Días" class="input" />
+            <button type="submit" class="btn btn-primary">+ Actividad</button>
+          </form>
+        }
+        <table class="data-table">
+          <tbody>
+            @for (a of tdr.actividades; track a) {
+              <tr>
+                <td><span class="badge">{{ a.codigo }}</span></td>
+                <td>{{ a.descripcion }}</td>
+                <td>{{ a.duracion_dias }} días</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+    
+    @if (tdr && !cargando) {
+      <div class="card">
+        <h3>Productos</h3>
+        @if (puedeEditar) {
+          <form (ngSubmit)="agregarProducto()" class="form-inline">
+            <input [(ngModel)]="producto.codigo" name="pc" placeholder="Código" required class="input" />
+            <input [(ngModel)]="producto.nombre" name="pn" placeholder="Nombre" required class="input" />
+            <input [(ngModel)]="producto.dia_entrega" name="pd" type="number" placeholder="Día entrega" class="input" />
+            <button type="submit" class="btn btn-primary">+ Producto</button>
+          </form>
+        }
+        <table class="data-table">
+          <tbody>
+            @for (p of tdr.productos; track p) {
+              <tr>
+                <td><span class="badge">{{ p.codigo }}</span></td>
+                <td>{{ p.nombre }}</td>
+                <td>día {{ p.dia_entrega }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+    
+    @if (tdr && !cargando) {
+      <div class="card">
+        <h3>Personal técnico</h3>
+        @if (puedeEditar) {
+          <form (ngSubmit)="agregarPersonal()" class="form-inline">
+            <input [(ngModel)]="personal.rol" name="prr" placeholder="Rol" required class="input" />
+            <input [(ngModel)]="personal.cantidad" name="prc" type="number" placeholder="Cantidad" class="input" />
+            <input [(ngModel)]="personal.meses" name="prm" type="number" placeholder="Meses" class="input" />
+            <input [(ngModel)]="personal.tarifa_mensual" name="prt" type="number" placeholder="Tarifa mensual" class="input" />
+            <button type="submit" class="btn btn-primary">+ Personal</button>
+          </form>
+        }
+        <table class="data-table">
+          <thead>
+            <tr><th>Rol</th><th>Cant.</th><th>Meses</th><th>Tarifa</th><th>Subtotal</th></tr>
+          </thead>
+          <tbody>
+            @for (p of tdr.personal; track p) {
+              <tr>
+                <td>{{ p.rol }}</td><td>{{ p.cantidad }}</td><td>{{ p.meses }}</td>
+                <td>Bs {{ p.tarifa_mensual }}</td><td><strong>Bs {{ p.subtotal }}</strong></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+    
+    @if (tdr && !cargando) {
+      <div class="card">
+        <h3>Presupuesto referencial</h3>
+        @if (puedeEditar) {
+          <form (ngSubmit)="agregarItem()" class="form-inline">
+            <input [(ngModel)]="item.categoria" name="ic" placeholder="Categoría" required class="input" />
+            <input [(ngModel)]="item.descripcion" name="id" placeholder="Descripción" required class="input" />
+            <input [(ngModel)]="item.cantidad" name="iq" type="number" placeholder="Cantidad" class="input" />
+            <input [(ngModel)]="item.unidad" name="iu" placeholder="Unidad" class="input" />
+            <input [(ngModel)]="item.costo_unitario" name="icu" type="number" placeholder="Costo unitario" class="input" />
+            <button type="submit" class="btn btn-primary">+ Item</button>
+          </form>
+        }
+        <table class="data-table">
+          <thead>
+            <tr><th>Categoría</th><th>Descripción</th><th>Cant.</th><th>Unidad</th><th>C.U.</th><th>Subtotal</th></tr>
+          </thead>
+          <tbody>
+            @for (i of tdr.items_presupuesto; track i) {
+              <tr>
+                <td>{{ i.categoria }}</td><td>{{ i.descripcion }}</td><td>{{ i.cantidad }}</td>
+                <td>{{ i.unidad }}</td><td>Bs {{ i.costo_unitario }}</td>
+                <td><strong>Bs {{ i.subtotal }}</strong></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        <div class="total"><strong>Total referencial: Bs {{ totalReferencial }}</strong></div>
+      </div>
+    }
+    `,
   styles: [`
     .page-header { margin-bottom: 1.5rem; }
     .volver { display: inline-block; font-size: 0.8125rem; color: var(--text-secondary); text-decoration: none; margin-bottom: 0.25rem; }

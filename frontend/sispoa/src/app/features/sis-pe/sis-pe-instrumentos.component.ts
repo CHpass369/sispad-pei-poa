@@ -10,53 +10,69 @@ import { InstrumentoV2, MetodologiaV2, SisPeService } from './sis-pe.service';
       <h2>Instrumentos de Planificación</h2>
       <p class="text-secondary">Kernel estratégico V2 (SIS-PE)</p>
     </div>
-
-    <div class="alert alert-error" *ngIf="error">{{ error }}</div>
-    <div class="alert alert-success" *ngIf="mensaje">{{ mensaje }}</div>
-
-    <form *ngIf="puedeCrear" (ngSubmit)="crear()" class="form-inline">
-      <input [(ngModel)]="form.codigo" name="codigo" placeholder="Código" required class="input" />
-      <input [(ngModel)]="form.nombre" name="nombre" placeholder="Nombre" required class="input" />
-      <input [(ngModel)]="form.periodo_inicio" name="pi" type="number" placeholder="Inicio" required class="input" />
-      <input [(ngModel)]="form.periodo_fin" name="pf" type="number" placeholder="Fin" required class="input" />
-      <button type="submit" class="btn btn-primary">+ Crear</button>
-    </form>
-
-    <div *ngIf="cargando" class="loading">Cargando instrumentos...</div>
-
-    <table class="data-table" *ngIf="!cargando">
-      <thead>
-        <tr>
-          <th>Código</th>
-          <th>Nombre</th>
-          <th>Tipo</th>
-          <th>Período</th>
-          <th>Estado</th>
-          <th>Versiones</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let inst of instrumentos">
-          <td>{{ inst.codigo }}</td>
-          <td>{{ inst.nombre }}</td>
-          <td>{{ inst.tipo_nombre }}</td>
-          <td>{{ inst.periodo_inicio }}–{{ inst.periodo_fin }}</td>
-          <td><span class="badge">{{ inst.estado }}</span></td>
-          <td>{{ inst.versiones_count }}</td>
-          <td>
-            <button class="btn btn-sm" (click)="crearVersion(inst)" *ngIf="puedeEditar">
-              + Versión
-            </button>
-            <a class="btn btn-sm" [routerLink]="['/sis-pe/versiones', inst.id]">Versiones</a>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-    <div *ngIf="!cargando && instrumentos.length === 0" class="empty">
-      No hay instrumentos registrados
-    </div>
-  `,
+    
+    @if (error) {
+      <div class="alert alert-error">{{ error }}</div>
+    }
+    @if (mensaje) {
+      <div class="alert alert-success">{{ mensaje }}</div>
+    }
+    
+    @if (puedeCrear) {
+      <form (ngSubmit)="crear()" class="form-inline">
+        <input [(ngModel)]="form.codigo" name="codigo" placeholder="Código" required class="input" />
+        <input [(ngModel)]="form.nombre" name="nombre" placeholder="Nombre" required class="input" />
+        <input [(ngModel)]="form.periodo_inicio" name="pi" type="number" placeholder="Inicio" required class="input" />
+        <input [(ngModel)]="form.periodo_fin" name="pf" type="number" placeholder="Fin" required class="input" />
+        <button type="submit" class="btn btn-primary">+ Crear</button>
+      </form>
+    }
+    
+    @if (cargando) {
+      <div class="loading">Cargando instrumentos...</div>
+    }
+    
+    @if (!cargando) {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Código</th>
+            <th>Nombre</th>
+            <th>Tipo</th>
+            <th>Período</th>
+            <th>Estado</th>
+            <th>Versiones</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (inst of instrumentos; track inst) {
+            <tr>
+              <td>{{ inst.codigo }}</td>
+              <td>{{ inst.nombre }}</td>
+              <td>{{ inst.tipo_nombre }}</td>
+              <td>{{ inst.periodo_inicio }}–{{ inst.periodo_fin }}</td>
+              <td><span class="badge">{{ inst.estado }}</span></td>
+              <td>{{ inst.versiones_count }}</td>
+              <td>
+                @if (puedeEditar) {
+                  <button class="btn btn-sm" (click)="crearVersion(inst)">
+                    + Versión
+                  </button>
+                }
+                <a class="btn btn-sm" [routerLink]="['/sis-pe/versiones', inst.id]">Versiones</a>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+    @if (!cargando && instrumentos.length === 0) {
+      <div class="empty">
+        No hay instrumentos registrados
+      </div>
+    }
+    `,
   styles: [`
     .page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
     .text-secondary { color: var(--text-secondary); font-size: 0.875rem; }

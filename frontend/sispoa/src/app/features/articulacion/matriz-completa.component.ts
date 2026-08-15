@@ -1,5 +1,5 @@
 import { Component, OnInit, ViewChild, ChangeDetectionStrategy } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import {
   NodoArbol,
@@ -12,7 +12,7 @@ import { MatrizCompletaTreeComponent } from './matriz-completa-tree.component';
 @Component({
   selector: 'app-matriz-completa',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatrizCompletaTreeComponent],
+  imports: [FormsModule, MatrizCompletaTreeComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="matriz-page">
@@ -22,7 +22,7 @@ import { MatrizCompletaTreeComponent } from './matriz-completa-tree.component';
           Cadena PGDESA → PDESA → PAD → PEI → POA
         </p>
       </div>
-
+    
       <!-- Filters & controls -->
       <div class="card filtros-card">
         <div class="filtros">
@@ -32,8 +32,10 @@ import { MatrizCompletaTreeComponent } from './matriz-completa-tree.component';
               [(ngModel)]="gestion"
               class="form-control"
               (change)="cargarArbol()"
-            >
-              <option *ngFor="let g of gestionesDisponibles" [value]="g">{{ g }}</option>
+              >
+              @for (g of gestionesDisponibles; track g) {
+                <option [value]="g">{{ g }}</option>
+              }
             </select>
           </div>
           <div class="field">
@@ -41,14 +43,16 @@ import { MatrizCompletaTreeComponent } from './matriz-completa-tree.component';
             <button
               class="btn btn-sm btn-outline-secondary"
               (click)="toggleTodos()"
-            >
+              >
               {{ todosExpandidos ? '🔽 Colapsar todo' : '▶ Expandir todo' }}
             </button>
           </div>
-          <div class="field stats" *ngIf="!cargando && !error && totalNodos > 0">
-            <label>&nbsp;</label>
-            <span class="badge badge-info">{{ totalNodos }} nodos en la gestión</span>
-          </div>
+          @if (!cargando && !error && totalNodos > 0) {
+            <div class="field stats">
+              <label>&nbsp;</label>
+              <span class="badge badge-info">{{ totalNodos }} nodos en la gestión</span>
+            </div>
+          }
           <div class="field export-field">
             <label>&nbsp;</label>
             <button class="btn btn-sm btn-outline-success" (click)="exportarXLSX()">
@@ -57,51 +61,58 @@ import { MatrizCompletaTreeComponent } from './matriz-completa-tree.component';
           </div>
         </div>
       </div>
-
+    
       <!-- Loading state -->
-      <div *ngIf="cargando" class="card estado-card">
-        <div class="estado-content">
-          <div class="spinner"></div>
-          <span>Cargando árbol de articulación completa...</span>
-        </div>
-      </div>
-
-      <!-- Error state -->
-      <div *ngIf="!cargando && error" class="card estado-card error">
-        <div class="estado-content">
-          <span class="error-icon">⚠</span>
-          <div>
-            <strong>Error al cargar datos</strong>
-            <p class="error-detail">{{ errorMensaje }}</p>
-            <button class="btn btn-sm btn-primary" (click)="cargarArbol()">Reintentar</button>
+      @if (cargando) {
+        <div class="card estado-card">
+          <div class="estado-content">
+            <div class="spinner"></div>
+            <span>Cargando árbol de articulación completa...</span>
           </div>
         </div>
-      </div>
-
+      }
+    
+      <!-- Error state -->
+      @if (!cargando && error) {
+        <div class="card estado-card error">
+          <div class="estado-content">
+            <span class="error-icon">⚠</span>
+            <div>
+              <strong>Error al cargar datos</strong>
+              <p class="error-detail">{{ errorMensaje }}</p>
+              <button class="btn btn-sm btn-primary" (click)="cargarArbol()">Reintentar</button>
+            </div>
+          </div>
+        </div>
+      }
+    
       <!-- Empty state -->
-      <div
-        *ngIf="!cargando && !error && (!arbolData || arbolData.length === 0)"
-        class="card estado-card"
-      >
-        <div class="estado-content">
-          <span>No se encontraron nodos de planificación para la gestión {{ gestion }}</span>
+      @if (!cargando && !error && (!arbolData || arbolData.length === 0)) {
+        <div
+          class="card estado-card"
+          >
+          <div class="estado-content">
+            <span>No se encontraron nodos de planificación para la gestión {{ gestion }}</span>
+          </div>
         </div>
-      </div>
-
+      }
+    
       <!-- Tree -->
-      <div *ngIf="!cargando && !error && arbolData && arbolData.length > 0" class="card table-card">
-        <div class="table-scroll">
-          <app-matriz-completa-tree
-            #treeComponent
-            [nodos]="arbolData"
-            [level]="0"
-            [resultadosPad]="resultadosPad"
-            (bridgeUpdated)="onBridgeUpdated()"
-          ></app-matriz-completa-tree>
+      @if (!cargando && !error && arbolData && arbolData.length > 0) {
+        <div class="card table-card">
+          <div class="table-scroll">
+            <app-matriz-completa-tree
+              #treeComponent
+              [nodos]="arbolData"
+              [level]="0"
+              [resultadosPad]="resultadosPad"
+              (bridgeUpdated)="onBridgeUpdated()"
+            ></app-matriz-completa-tree>
+          </div>
         </div>
-      </div>
+      }
     </div>
-  `,
+    `,
   styles: [
     `
     .matriz-page { padding-bottom: 2rem; }

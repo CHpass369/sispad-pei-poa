@@ -10,40 +10,56 @@ import { ProyectoV2, SisProService } from './sis-pro.service';
       <h2>Cartera de Proyectos</h2>
       <p class="text-secondary">SIS-PRO V2 — ciclo del proyecto</p>
     </div>
-    <div class="alert alert-error" *ngIf="error">{{ error }}</div>
-    <div class="alert alert-success" *ngIf="mensaje">{{ mensaje }}</div>
-
-    <form *ngIf="puedeCrear" (ngSubmit)="crear()" class="form-inline">
-      <input [(ngModel)]="form.codigo_interno" name="ci" placeholder="Código interno" required class="input" />
-      <input [(ngModel)]="form.nombre" name="n" placeholder="Nombre" required class="input" />
-      <input [(ngModel)]="form.gestion" name="g" type="number" placeholder="Gestión" required class="input" />
-      <input [(ngModel)]="form.costo_total" name="ct" type="number" placeholder="Costo total" class="input" />
-      <button type="submit" class="btn btn-primary">+ Proyecto</button>
-    </form>
-
-    <div *ngIf="cargando" class="loading">Cargando proyectos...</div>
-    <table class="data-table" *ngIf="!cargando">
-      <thead>
-        <tr><th>Código</th><th>Nombre</th><th>Gestión</th><th>Fase</th><th>Costo</th><th>Saldo</th><th></th></tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let proy of proyectos">
-          <td>{{ proy.codigo_interno }}</td>
-          <td>{{ proy.nombre }}</td>
-          <td>{{ proy.gestion }}</td>
-          <td><span class="badge">{{ proy.fase }}</span></td>
-          <td>Bs {{ proy.costo_total }}</td>
-          <td>
-            <button class="btn btn-sm" *ngIf="puedeValidar && proy.fase !== 'evaluacion'" (click)="avanzar(proy)">
-              ➜ avanzar fase
-            </button>
-            <a class="btn btn-sm" [routerLink]="['/sis-pro/proyectos', proy.id]">Detalle</a>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-    <div *ngIf="!cargando && proyectos.length === 0" class="empty">No hay proyectos registrados</div>
-  `,
+    @if (error) {
+      <div class="alert alert-error">{{ error }}</div>
+    }
+    @if (mensaje) {
+      <div class="alert alert-success">{{ mensaje }}</div>
+    }
+    
+    @if (puedeCrear) {
+      <form (ngSubmit)="crear()" class="form-inline">
+        <input [(ngModel)]="form.codigo_interno" name="ci" placeholder="Código interno" required class="input" />
+        <input [(ngModel)]="form.nombre" name="n" placeholder="Nombre" required class="input" />
+        <input [(ngModel)]="form.gestion" name="g" type="number" placeholder="Gestión" required class="input" />
+        <input [(ngModel)]="form.costo_total" name="ct" type="number" placeholder="Costo total" class="input" />
+        <button type="submit" class="btn btn-primary">+ Proyecto</button>
+      </form>
+    }
+    
+    @if (cargando) {
+      <div class="loading">Cargando proyectos...</div>
+    }
+    @if (!cargando) {
+      <table class="data-table">
+        <thead>
+          <tr><th>Código</th><th>Nombre</th><th>Gestión</th><th>Fase</th><th>Costo</th><th>Saldo</th><th></th></tr>
+        </thead>
+        <tbody>
+          @for (proy of proyectos; track proy) {
+            <tr>
+              <td>{{ proy.codigo_interno }}</td>
+              <td>{{ proy.nombre }}</td>
+              <td>{{ proy.gestion }}</td>
+              <td><span class="badge">{{ proy.fase }}</span></td>
+              <td>Bs {{ proy.costo_total }}</td>
+              <td>
+                @if (puedeValidar && proy.fase !== 'evaluacion') {
+                  <button class="btn btn-sm" (click)="avanzar(proy)">
+                    ➜ avanzar fase
+                  </button>
+                }
+                <a class="btn btn-sm" [routerLink]="['/sis-pro/proyectos', proy.id]">Detalle</a>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+    @if (!cargando && proyectos.length === 0) {
+      <div class="empty">No hay proyectos registrados</div>
+    }
+    `,
   styles: [`
     .page-header { margin-bottom: 1.5rem; }
     .text-secondary { color: var(--text-secondary); font-size: 0.875rem; }

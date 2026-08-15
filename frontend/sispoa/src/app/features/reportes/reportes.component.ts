@@ -18,76 +18,89 @@ interface TipoReporte {
         <h2>Reportes</h2>
         <p class="text-secondary">Generación de reportes del POA</p>
       </div>
-
+    
       <div class="reportes-grid">
         <!-- Tipo de Reporte -->
         <div class="card">
           <h3>Tipo de Reporte</h3>
           <div class="opciones">
-            <label class="opcion" *ngFor="let t of tipos" [class.selected]="tipoSeleccionado === t.id">
-              <input
-                type="radio"
-                name="tipo"
-                [value]="t.id"
-                [(ngModel)]="tipoSeleccionado"
-                (change)="onTipoChange()"
-              />
-              <span class="opcion-label">{{ t.label }}</span>
-            </label>
+            @for (t of tipos; track t) {
+              <label class="opcion" [class.selected]="tipoSeleccionado === t.id">
+                <input
+                  type="radio"
+                  name="tipo"
+                  [value]="t.id"
+                  [(ngModel)]="tipoSeleccionado"
+                  (change)="onTipoChange()"
+                  />
+                  <span class="opcion-label">{{ t.label }}</span>
+                </label>
+              }
+            </div>
+          </div>
+    
+          <!-- Formato -->
+          <div class="card">
+            <h3>Formato</h3>
+            <div class="opciones">
+              @for (f of formatosDisponibles; track f) {
+                <label
+                  class="opcion"
+                  [class.selected]="formatoSeleccionado === f"
+                  >
+                  <input
+                    type="radio"
+                    name="formato"
+                    [value]="f"
+                    [(ngModel)]="formatoSeleccionado"
+                    />
+                    <span class="opcion-label">{{ f.toUpperCase() }}</span>
+                  </label>
+                }
+              </div>
+              @if (formatosDisponibles.length === 0) {
+                <p class="text-secondary hint">
+                  Seleccione un tipo de reporte primero
+                </p>
+              }
+            </div>
+    
+            <!-- Preview / Download -->
+            <div class="card card-action">
+              <h3>Descargar</h3>
+              <p class="text-secondary">
+                {{ tipoSeleccionado ? (tipoLabel) : 'Seleccione un tipo de reporte' }}
+                {{ formatoSeleccionado ? ('- Formato ' + formatoSeleccionado.toUpperCase()) : '' }}
+              </p>
+    
+              <button
+                class="btn btn-primary btn-download"
+                [disabled]="!tipoSeleccionado || !formatoSeleccionado || descargando"
+                (click)="descargar()"
+                >
+                @if (!descargando) {
+                  <span>Descargar</span>
+                }
+                @if (descargando) {
+                  <span>Descargando...</span>
+                }
+              </button>
+    
+              @if (error) {
+                <div class="alert alert-error">
+                  {{ error }}
+                </div>
+              }
+    
+              @if (successMsg) {
+                <div class="alert alert-success">
+                  {{ successMsg }}
+                </div>
+              }
+            </div>
           </div>
         </div>
-
-        <!-- Formato -->
-        <div class="card">
-          <h3>Formato</h3>
-          <div class="opciones">
-            <label
-              class="opcion"
-              *ngFor="let f of formatosDisponibles"
-              [class.selected]="formatoSeleccionado === f"
-            >
-              <input
-                type="radio"
-                name="formato"
-                [value]="f"
-                [(ngModel)]="formatoSeleccionado"
-              />
-              <span class="opcion-label">{{ f.toUpperCase() }}</span>
-            </label>
-          </div>
-          <p class="text-secondary hint" *ngIf="formatosDisponibles.length === 0">
-            Seleccione un tipo de reporte primero
-          </p>
-        </div>
-
-        <!-- Preview / Download -->
-        <div class="card card-action">
-          <h3>Descargar</h3>
-          <p class="text-secondary">
-            {{ tipoSeleccionado ? (tipoLabel) : 'Seleccione un tipo de reporte' }}
-            {{ formatoSeleccionado ? ('- Formato ' + formatoSeleccionado.toUpperCase()) : '' }}
-          </p>
-
-          <button
-            class="btn btn-primary btn-download"
-            [disabled]="!tipoSeleccionado || !formatoSeleccionado || descargando"
-            (click)="descargar()"
-          >
-            <span *ngIf="!descargando">Descargar</span>
-            <span *ngIf="descargando">Descargando...</span>
-          </button>
-
-          <div class="alert alert-error" *ngIf="error">
-            {{ error }}
-          </div>
-
-          <div class="alert alert-success" *ngIf="successMsg">
-            {{ successMsg }}
-          </div>
-        </div>
-      </div>
-    </div>
-  `,
+    `,
   styles: [`
     .page-header { margin-bottom: 1.5rem; }
     .page-header h2 { font-size: 1.5rem; margin-bottom: 0.25rem; }

@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { BehaviorSubject, of } from 'rxjs';
+import { LucideAngularModule, Home, Gauge, Bell, FileText, ClipboardList, Landmark, Compass, Network, LayoutGrid, ChartColumn, MapPin, Activity, CircleCheck, CalendarDays, ListTodo, Boxes, Banknote, Wallet, Coins, ChartBar, ListTree, ChartPie, Map, Download, RefreshCw, ScanSearch, PenLine, PencilRuler, Layers, Briefcase, HardHat, DraftingCompass, FolderOpen, FilePenLine, Handshake, Play, Eye, Users, Building2, CalendarRange, BookOpen, ScrollText, Folder, ChartSpline, MapPinned, Workflow, CircleAlert, BadgeCheck, ChevronLeft, ChevronRight } from 'lucide-angular';
 import { SidebarComponent } from './sidebar.component';
 import { AuthService } from '../../core/services/auth.service';
 import { PermissionsService } from '../../core/services/permissions.service';
@@ -35,7 +36,18 @@ describe('SidebarComponent', () => {
 
     await TestBed.configureTestingModule({
       declarations: [SidebarComponent],
-      imports: [RouterModule],
+      imports: [
+        RouterModule,
+        LucideAngularModule.pick({
+          Home, Gauge, Bell, FileText, ClipboardList, Landmark, Compass, Network, LayoutGrid,
+          ChartColumn, MapPin, Activity, CircleCheck, CalendarDays, ListTodo, Boxes, Banknote,
+          Wallet, Coins, ChartBar, ListTree, ChartPie, Map, Download, RefreshCw, ScanSearch,
+          PenLine, PencilRuler, Layers, Briefcase, HardHat, DraftingCompass, FolderOpen,
+          FilePenLine, Handshake, Play, Eye, Users, Building2, CalendarRange, BookOpen,
+          ScrollText, Folder, ChartSpline, MapPinned, Workflow, CircleAlert, BadgeCheck,
+          ChevronLeft, ChevronRight,
+        }),
+      ],
       providers: [
         { provide: AuthService, useValue: authSpy },
         { provide: PermissionsService, useValue: permissionsSpy },

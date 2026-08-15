@@ -13,46 +13,62 @@ import {
       <h2>POA {{ poa?.codigo }}</h2>
       <p class="text-secondary">{{ poa?.nombre }} — gestión {{ poa?.gestion }}</p>
     </div>
-    <div *ngIf="cargando" class="loading">Cargando POA...</div>
-    <div class="alert alert-error" *ngIf="error">{{ error }}</div>
-
-    <div class="card" *ngIf="resumen && !cargando">
-      <h3>Presupuesto</h3>
-      <div class="info-grid">
-        <div><strong>Financiero programado:</strong> Bs {{ resumen.financiera.programado }}</div>
-        <div><strong>Financiero ejecutado:</strong> Bs {{ resumen.financiera.ejecutado }}</div>
-        <div><strong>Físico:</strong> {{ resumen.fisica.programado }} / {{ resumen.fisica.ejecutado }}</div>
-        <div><strong>Actividades:</strong> {{ resumen.actividades }}</div>
+    @if (cargando) {
+      <div class="loading">Cargando POA...</div>
+    }
+    @if (error) {
+      <div class="alert alert-error">{{ error }}</div>
+    }
+    
+    @if (resumen && !cargando) {
+      <div class="card">
+        <h3>Presupuesto</h3>
+        <div class="info-grid">
+          <div><strong>Financiero programado:</strong> Bs {{ resumen.financiera.programado }}</div>
+          <div><strong>Financiero ejecutado:</strong> Bs {{ resumen.financiera.ejecutado }}</div>
+          <div><strong>Físico:</strong> {{ resumen.fisica.programado }} / {{ resumen.fisica.ejecutado }}</div>
+          <div><strong>Actividades:</strong> {{ resumen.actividades }}</div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-sm" (click)="verificarTecho()">Validar techo</button>
+        </div>
+        @if (techo) {
+          <div class="techo {{ techo.excede ? 'excede' : 'ok' }}">
+            {{ techo.mensaje }} (techo: Bs {{ techo.techo }} | formulado: Bs {{ techo.formulado }})
+          </div>
+        }
       </div>
-      <div class="actions">
-        <button class="btn btn-sm" (click)="verificarTecho()">Validar techo</button>
+    }
+    
+    @if (!cargando && poa) {
+      <div class="card">
+        <h3>Acciones de corto plazo</h3>
+        @if (puedeFormular) {
+          <form (ngSubmit)="crearAccion()" class="form-inline">
+            <input [(ngModel)]="accionForm.codigo" name="ac" placeholder="Código" required class="input" />
+            <input [(ngModel)]="accionForm.nombre" name="an" placeholder="Nombre" required class="input" />
+            <button type="submit" class="btn btn-primary">+ Acción</button>
+          </form>
+        }
+        <table class="data-table">
+          <thead><tr><th>Código</th><th>Nombre</th><th>Nodo PEI</th><th>Estado</th></tr></thead>
+          <tbody>
+            @for (accion of acciones; track accion) {
+              <tr>
+                <td>{{ accion.codigo }}</td>
+                <td>{{ accion.nombre }}</td>
+                <td>{{ accion.nodo_pei_codigo || '—' }}</td>
+                <td><span class="badge">{{ accion.estado }}</span></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        @if (acciones.length === 0) {
+          <div class="empty">Sin acciones registradas</div>
+        }
       </div>
-      <div *ngIf="techo" class="techo {{ techo.excede ? 'excede' : 'ok' }}">
-        {{ techo.mensaje }} (techo: Bs {{ techo.techo }} | formulado: Bs {{ techo.formulado }})
-      </div>
-    </div>
-
-    <div class="card" *ngIf="!cargando && poa">
-      <h3>Acciones de corto plazo</h3>
-      <form *ngIf="puedeFormular" (ngSubmit)="crearAccion()" class="form-inline">
-        <input [(ngModel)]="accionForm.codigo" name="ac" placeholder="Código" required class="input" />
-        <input [(ngModel)]="accionForm.nombre" name="an" placeholder="Nombre" required class="input" />
-        <button type="submit" class="btn btn-primary">+ Acción</button>
-      </form>
-      <table class="data-table">
-        <thead><tr><th>Código</th><th>Nombre</th><th>Nodo PEI</th><th>Estado</th></tr></thead>
-        <tbody>
-          <tr *ngFor="let accion of acciones">
-            <td>{{ accion.codigo }}</td>
-            <td>{{ accion.nombre }}</td>
-            <td>{{ accion.nodo_pei_codigo || '—' }}</td>
-            <td><span class="badge">{{ accion.estado }}</span></td>
-          </tr>
-        </tbody>
-      </table>
-      <div *ngIf="acciones.length === 0" class="empty">Sin acciones registradas</div>
-    </div>
-  `,
+    }
+    `,
   styles: [`
     .page-header { margin-bottom: 1.5rem; }
     .text-secondary { color: var(--text-secondary); font-size: 0.875rem; }

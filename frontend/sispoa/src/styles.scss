@@ -1,42 +1,91 @@
-/* PIP Sacaba - Tema institucional verde */
+/* ============ PIP — PIEL INSTITUCIONAL (prototipo fusionado) ============ */
 :root {
-  --primary: #1B5E3B;
-  --primary-light: #2E7D4F;
-  --primary-dark: #0D3B24;
-  --accent: #C7952E;
+  /* Tokens núcleo */
+  --pip-ink: #132019;
+  --pip-ink-soft: #4A5B51;
+  --pip-green-900: #0C2E1D;
+  --pip-green-800: #103D26;
+  --pip-green-700: #155E3A;
+  --pip-green-500: #2E8B57;
+  --pip-green-100: #E2F0E7;
+  --pip-gold: #C9972E;
+  --pip-gold-soft: #F5EAD2;
+  --pip-surface: #F4F7F4;
+  --pip-card: #FFFFFF;
+  --pip-line: #DEE7E0;
+  --pip-danger: #C0392B;
+  --pip-warn: #B9770E;
+  --font-display: 'Space Grotesk', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+  --radius: 12px;
+  --shadow: 0 1px 2px rgba(19,32,25,.05), 0 8px 24px rgba(19,32,25,.06);
+
+  /* Acentos por sistema */
+  --pe: #DCEEFF; --pe-ink: #0F4C81;
+  --poa: #E2F0E7; --poa-ink: #155E3A;
+  --pro: #FFE9E2; --pro-ink: #9A3B1F;
+  --tra: #EFE9FC; --tra-ink: #5B3B9A;
+
+  /* ============ Compatibilidad: variables legacy mapeadas a PIP ============ */
+  --primary: var(--pip-green-700);
+  --primary-light: var(--pip-green-500);
+  --primary-dark: var(--pip-green-900);
+  --accent: var(--pip-gold);
   --accent-light: #E0B854;
-  --warn: #C62828;
-  --bg: #F5F7F5;
-  --surface: #FFFFFF;
-  --text: #1A1A1A;
-  --text-secondary: #5A5D5A;
-  --border: #DDE1DD;
-  --sidebar-bg: #0D3B24;
-  --sidebar-text: #C8E6D0;
-  --header-bg: #FFFFFF;
+  --warn: var(--pip-danger);
+  --bg: var(--pip-surface);
+  --surface: var(--pip-card);
+  --text: var(--pip-ink);
+  --text-primary: var(--pip-ink);
+  --text-secondary: var(--pip-ink-soft);
+  --border: var(--pip-line);
+  --sidebar-bg: var(--pip-green-900);
+  --sidebar-text: #C4D9CB;
+  --header-bg: var(--pip-card);
   --success: #2E7D32;
   --info: #1565C0;
+  --background: var(--pip-surface);
+  --hover: #EDF1EE;
+  --card-accent: var(--pip-green-500);
+  --primary-bg: var(--pip-green-100);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
-html, body {
-  height: 100%;
-  font-family: 'Inter', -apple-system, sans-serif;
+html, body { height: 100%; }
+
+body {
+  font-family: var(--font-body);
   font-size: 14px;
-  color: var(--text);
-  background: var(--bg);
+  line-height: 1.55;
+  color: var(--pip-ink);
+  background: var(--pip-surface);
   -webkit-font-smoothing: antialiased;
+}
+
+a:focus-visible, button:focus-visible, input:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--pip-green-500);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 a { color: var(--primary); text-decoration: none; }
 a:hover { color: var(--primary-light); }
 
 h1, h2, h3, h4 {
-  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-family: var(--font-display);
   font-weight: 700;
   line-height: 1.2;
 }
+
+.mono { font-family: var(--font-mono); }
+
+/* Scrollbar sutil */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #C6D2CA; border-radius: 20px; border: 2px solid var(--pip-surface); }
+::-webkit-scrollbar-thumb:hover { background: var(--pip-green-500); }
 
 .container {
   max-width: 1200px;
@@ -58,7 +107,7 @@ h1, h2, h3, h4 {
   padding: 0.625rem 1.25rem;
   border: none;
   border-radius: 6px;
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-body);
   font-weight: 500;
   font-size: 0.875rem;
   cursor: pointer;
@@ -83,14 +132,14 @@ h1, h2, h3, h4 {
   padding: 0.625rem 0.75rem;
   border: 1px solid var(--border);
   border-radius: 6px;
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-body);
   font-size: 0.875rem;
   transition: border-color 0.2s;
 }
 .form-control:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(27, 94, 59, 0.1);
+  box-shadow: 0 0 0 3px rgba(21, 94, 58, 0.1);
 }
 
 table {
@@ -122,3 +171,7 @@ th {
 .badge-warning { background: #FFF8E1; color: #F57F17; }
 .badge-danger { background: #FFEBEE; color: #C62828; }
 .badge-info { background: #E3F2FD; color: #1565C0; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}

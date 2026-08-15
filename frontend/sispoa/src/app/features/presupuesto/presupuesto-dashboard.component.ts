@@ -10,72 +10,82 @@ import { ApiService } from '../../core/services/api.service';
         <h2>Dashboard Presupuestario {{ gestion }}</h2>
         <p class="text-secondary">Resumen de ejecución presupuestaria por programa</p>
       </div>
-
+    
       <!-- Loading -->
-      <div class="loading" *ngIf="!data && !error">
-        <p>Cargando datos presupuestarios...</p>
-      </div>
-
+      @if (!data && !error) {
+        <div class="loading">
+          <p>Cargando datos presupuestarios...</p>
+        </div>
+      }
+    
       <!-- Error -->
-      <div class="alert alert-error" *ngIf="error">
-        {{ error }}
-      </div>
-
+      @if (error) {
+        <div class="alert alert-error">
+          {{ error }}
+        </div>
+      }
+    
       <!-- Financial Cards -->
-      <div class="finance-grid" *ngIf="data">
-        <div class="finance-card">
-          <span class="finance-label">Techo Presupuestario</span>
-          <span class="finance-value">Bs {{ data.techo | number:'1.2-2' }}</span>
-        </div>
-        <div class="finance-card highlight">
-          <span class="finance-label">Formulado</span>
-          <span class="finance-value">Bs {{ data.formulado | number:'1.2-2' }}</span>
-        </div>
-        <div class="finance-card" [class.text-warn]="data.saldo > 0">
-          <span class="finance-label">Saldo por formular</span>
-          <span class="finance-value">Bs {{ data.saldo | number:'1.2-2' }}</span>
-        </div>
-        <div class="finance-card">
-          <span class="finance-label">% Avance</span>
-          <span class="finance-value">{{ data.porcentaje_avance }}%</span>
-          <div class="progress-bar">
-            <div class="progress-fill" [style.width.%]="data.porcentaje_avance"></div>
+      @if (data) {
+        <div class="finance-grid">
+          <div class="finance-card">
+            <span class="finance-label">Techo Presupuestario</span>
+            <span class="finance-value">Bs {{ data.techo | number:'1.2-2' }}</span>
+          </div>
+          <div class="finance-card highlight">
+            <span class="finance-label">Formulado</span>
+            <span class="finance-value">Bs {{ data.formulado | number:'1.2-2' }}</span>
+          </div>
+          <div class="finance-card" [class.text-warn]="data.saldo > 0">
+            <span class="finance-label">Saldo por formular</span>
+            <span class="finance-value">Bs {{ data.saldo | number:'1.2-2' }}</span>
+          </div>
+          <div class="finance-card">
+            <span class="finance-label">% Avance</span>
+            <span class="finance-value">{{ data.porcentaje_avance }}%</span>
+            <div class="progress-bar">
+              <div class="progress-fill" [style.width.%]="data.porcentaje_avance"></div>
+            </div>
           </div>
         </div>
-      </div>
-
+      }
+    
       <!-- Programas Table -->
-      <div class="section" *ngIf="data?.programas?.length">
-        <h3>Programas Presupuestarios</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>Código</th>
-              <th>Programa</th>
-              <th>Presupuesto (Bs)</th>
-              <th>Techo (Bs)</th>
-              <th>% Avance</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let p of data.programas">
-              <td><strong>{{ p.codigo }}</strong></td>
-              <td>{{ p.nombre }}</td>
-              <td>{{ p.presupuesto | number:'1.2-2' }}</td>
-              <td>{{ p.techo | number:'1.2-2' }}</td>
-              <td>
-                <span class="badge" [class.badge-ok]="p.porcentaje >= 90"
+      @if (data?.programas?.length) {
+        <div class="section">
+          <h3>Programas Presupuestarios</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Programa</th>
+                <th>Presupuesto (Bs)</th>
+                <th>Techo (Bs)</th>
+                <th>% Avance</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (p of data.programas; track p) {
+                <tr>
+                  <td><strong>{{ p.codigo }}</strong></td>
+                  <td>{{ p.nombre }}</td>
+                  <td>{{ p.presupuesto | number:'1.2-2' }}</td>
+                  <td>{{ p.techo | number:'1.2-2' }}</td>
+                  <td>
+                    <span class="badge" [class.badge-ok]="p.porcentaje >= 90"
                       [class.badge-warn]="p.porcentaje > 0 && p.porcentaje < 90"
                       [class.badge-danger]="p.porcentaje === 0">
-                  {{ p.porcentaje }}%
-                </span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+                      {{ p.porcentaje }}%
+                    </span>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
     </div>
-  `,
+    `,
   styles: [`
     .page-header { margin-bottom: 1.5rem; }
     .page-header h2 { font-size: 1.5rem; margin-bottom: 0.25rem; }

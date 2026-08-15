@@ -2,8 +2,10 @@
   <h2>Reformulaciones Presupuestarias</h2>
   <div class="acciones">
     <select class="input" [ngModel]="gestionSeleccionada" (ngModelChange)="seleccionarGestion($event)"
-            style="width:auto">
-      <option *ngFor="let g of gestiones" [ngValue]="g.id">{{ g.anio }} — {{ g.estado_display }}</option>
+      style="width:auto">
+      @for (g of gestiones; track g) {
+        <option [ngValue]="g.id">{{ g.anio }} — {{ g.estado_display }}</option>
+      }
     </select>
     <button class="btn btn-primary" (click)="mostrarFormulario ? (mostrarFormulario = false) : abrirFormulario()">
       {{ mostrarFormulario ? 'Cancelar' : '+ Nueva reformulación' }}
@@ -11,167 +13,211 @@
   </div>
 </div>
 
-<div class="alert-error" *ngIf="error">{{ error }}</div>
-<div class="alert-success" *ngIf="mensaje">{{ mensaje }}</div>
+@if (error) {
+  <div class="alert-error">{{ error }}</div>
+}
+@if (mensaje) {
+  <div class="alert-success">{{ mensaje }}</div>
+}
 
 <!-- Formulario nueva reformulación -->
-<div class="seccion" *ngIf="mostrarFormulario && gestionSeleccionada">
-  <h3>Nueva reformulación</h3>
-  <div class="form-grid">
-    <div class="campo">
-      <label>Tipo de reformulación *</label>
-      <select class="input" [(ngModel)]="nueva.tipo">
-        <option *ngFor="let t of tiposReform" [ngValue]="t">{{ t.replace('_', ' ') }}</option>
-      </select>
-    </div>
-    <div class="campo" style="grid-column: span 2;">
-      <label>Motivo *</label>
-      <input class="input" [(ngModel)]="nueva.motivo" placeholder="Motivo de la reformulación" />
-    </div>
-  </div>
-
+@if (mostrarFormulario && gestionSeleccionada) {
   <div class="seccion">
-    <h3>Movimientos</h3>
-    <div class="fila-mov" *ngFor="let f of filasMovimientos; let i = index">
+    <h3>Nueva reformulación</h3>
+    <div class="form-grid">
       <div class="campo">
-        <label>Tipo *</label>
-        <select class="input" [(ngModel)]="f.tipo">
-          <option *ngFor="let t of tiposMovimiento" [ngValue]="t">{{ t.replace('_', ' ') }}</option>
+        <label>Tipo de reformulación *</label>
+        <select class="input" [(ngModel)]="nueva.tipo">
+          @for (t of tiposReform; track t) {
+            <option [ngValue]="t">{{ t.replace('_', ' ') }}</option>
+          }
         </select>
       </div>
-      <div class="campo">
-        <label>Apertura origen</label>
-        <select class="input" [(ngModel)]="f.apertura_origen">
-          <option [ngValue]="null">—</option>
-          <option *ngFor="let a of aperturas" [ngValue]="a.id">{{ a.denominacion }}</option>
-        </select>
-      </div>
-      <div class="campo">
-        <label>Apertura destino</label>
-        <select class="input" [(ngModel)]="f.apertura_destino">
-          <option [ngValue]="null">—</option>
-          <option *ngFor="let a of aperturas" [ngValue]="a.id">{{ a.denominacion }}</option>
-        </select>
-      </div>
-      <div class="campo">
-        <label>Fuente *</label>
-        <select class="input" [(ngModel)]="f.fuente">
-          <option [ngValue]="null">—</option>
-          <option *ngFor="let fu of opciones?.fuentes || []" [ngValue]="fu.id">{{ fu.codigo }} · {{ fu.denominacion }}</option>
-        </select>
-      </div>
-      <div class="campo">
-        <label>Organismo</label>
-        <select class="input" [(ngModel)]="f.organismo">
-          <option [ngValue]="null">—</option>
-          <option *ngFor="let o of opciones?.organismos || []" [ngValue]="o.id">{{ o.codigo }} · {{ o.denominacion }}</option>
-        </select>
-      </div>
-      <div class="campo">
-        <label>Monto (Bs) *</label>
-        <input class="input" type="number" step="0.01" min="0.01" [(ngModel)]="f.monto" />
-      </div>
-      <div class="campo">
-        <button class="btn btn-sm" (click)="quitarMovimiento(i)">Quitar</button>
+      <div class="campo" style="grid-column: span 2;">
+        <label>Motivo *</label>
+        <input class="input" [(ngModel)]="nueva.motivo" placeholder="Motivo de la reformulación" />
       </div>
     </div>
-    <button class="btn btn-sm" (click)="agregarMovimiento()">+ Agregar movimiento</button>
-    <div class="acciones" style="margin-top: 0.75rem;">
-      <button class="btn btn-primary" (click)="guardarReform()" [disabled]="guardando">
-        {{ guardando ? 'Guardando…' : 'Crear reformulación' }}
-      </button>
+    <div class="seccion">
+      <h3>Movimientos</h3>
+      @for (f of filasMovimientos; track f; let i = $index) {
+        <div class="fila-mov">
+          <div class="campo">
+            <label>Tipo *</label>
+            <select class="input" [(ngModel)]="f.tipo">
+              @for (t of tiposMovimiento; track t) {
+                <option [ngValue]="t">{{ t.replace('_', ' ') }}</option>
+              }
+            </select>
+          </div>
+          <div class="campo">
+            <label>Apertura origen</label>
+            <select class="input" [(ngModel)]="f.apertura_origen">
+              <option [ngValue]="null">—</option>
+              @for (a of aperturas; track a) {
+                <option [ngValue]="a.id">{{ a.denominacion }}</option>
+              }
+            </select>
+          </div>
+          <div class="campo">
+            <label>Apertura destino</label>
+            <select class="input" [(ngModel)]="f.apertura_destino">
+              <option [ngValue]="null">—</option>
+              @for (a of aperturas; track a) {
+                <option [ngValue]="a.id">{{ a.denominacion }}</option>
+              }
+            </select>
+          </div>
+          <div class="campo">
+            <label>Fuente *</label>
+            <select class="input" [(ngModel)]="f.fuente">
+              <option [ngValue]="null">—</option>
+              @for (fu of opciones?.fuentes || []; track fu) {
+                <option [ngValue]="fu.id">{{ fu.codigo }} · {{ fu.denominacion }}</option>
+              }
+            </select>
+          </div>
+          <div class="campo">
+            <label>Organismo</label>
+            <select class="input" [(ngModel)]="f.organismo">
+              <option [ngValue]="null">—</option>
+              @for (o of opciones?.organismos || []; track o) {
+                <option [ngValue]="o.id">{{ o.codigo }} · {{ o.denominacion }}</option>
+              }
+            </select>
+          </div>
+          <div class="campo">
+            <label>Monto (Bs) *</label>
+            <input class="input" type="number" step="0.01" min="0.01" [(ngModel)]="f.monto" />
+          </div>
+          <div class="campo">
+            <button class="btn btn-sm" (click)="quitarMovimiento(i)">Quitar</button>
+          </div>
+        </div>
+      }
+      <button class="btn btn-sm" (click)="agregarMovimiento()">+ Agregar movimiento</button>
+      <div class="acciones" style="margin-top: 0.75rem;">
+        <button class="btn btn-primary" (click)="guardarReform()" [disabled]="guardando">
+          {{ guardando ? 'Guardando…' : 'Crear reformulación' }}
+        </button>
+      </div>
     </div>
   </div>
-</div>
+}
 
 <!-- Lista de reformulaciones -->
 <div class="seccion">
   <h3>Reformulaciones de la gestión</h3>
-  <div class="loading" *ngIf="cargando">Cargando…</div>
-  <table class="data-table" *ngIf="!cargando && reforms.length > 0">
-    <thead>
-      <tr>
-        <th>#</th>
-        <th>Tipo</th>
-        <th>Estado</th>
-        <th>Motivo</th>
-        <th>Solicitada por</th>
-        <th>Mov.</th>
-        <th>Aplicada</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr *ngFor="let r of reforms" class="fila-seleccionable"
-          [class.fila-seleccionada]="seleccionada?.id === r.id"
-          (click)="verDetalle(r)">
-        <td>{{ r.id }}</td>
-        <td>{{ r.tipo_display }}</td>
-        <td><span class="badge {{ badges()[r.estado] }}">{{ r.estado_display }}</span></td>
-        <td>{{ r.motivo }}</td>
-        <td>{{ r.solicitada_por_email }}</td>
-        <td>{{ r.movimientos.length }}</td>
-        <td>{{ (r.fecha_aplicacion | date: 'short') || '—' }}</td>
-      </tr>
-    </tbody>
-  </table>
-  <div class="empty" *ngIf="!cargando && reforms.length === 0">
-    Sin reformulaciones para la gestión seleccionada.
-  </div>
+  @if (cargando) {
+    <div class="loading">Cargando…</div>
+  }
+  @if (!cargando && reforms.length > 0) {
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Tipo</th>
+          <th>Estado</th>
+          <th>Motivo</th>
+          <th>Solicitada por</th>
+          <th>Mov.</th>
+          <th>Aplicada</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (r of reforms; track r) {
+          <tr class="fila-seleccionable"
+            [class.fila-seleccionada]="seleccionada?.id === r.id"
+            (click)="verDetalle(r)">
+            <td>{{ r.id }}</td>
+            <td>{{ r.tipo_display }}</td>
+            <td><span class="badge {{ badges()[r.estado] }}">{{ r.estado_display }}</span></td>
+            <td>{{ r.motivo }}</td>
+            <td>{{ r.solicitada_por_email }}</td>
+            <td>{{ r.movimientos.length }}</td>
+            <td>{{ (r.fecha_aplicacion | date: 'short') || '—' }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+  @if (!cargando && reforms.length === 0) {
+    <div class="empty">
+      Sin reformulaciones para la gestión seleccionada.
+    </div>
+  }
 </div>
 
 <!-- Detalle y acciones de la seleccionada -->
-<div class="seccion" *ngIf="seleccionada">
-  <h3>
-    Reformulación #{{ seleccionada.id }} —
-    <span class="badge {{ badges()[seleccionada.estado] }}">{{ seleccionada.estado_display }}</span>
-  </h3>
-  <div class="acciones">
-    <button class="btn btn-primary" *ngIf="puedeEnviar()" (click)="enviar()" [disabled]="guardando">
-      Enviar a revisión
-    </button>
-    <button class="btn btn-sm" *ngIf="puedeRevisar()" (click)="revisar()" [disabled]="guardando">
-      Observar
-    </button>
-    <button class="btn btn-success" *ngIf="puedeAprobar()" (click)="aprobar()" [disabled]="guardando">
-      Aprobar
-    </button>
-    <button class="btn btn-danger" *ngIf="puedeRechazar()" (click)="rechazar()" [disabled]="guardando">
-      Rechazar
-    </button>
-    <button class="btn btn-success" *ngIf="puedeAplicar()" (click)="aplicar()" [disabled]="guardando">
-      Aplicar
-    </button>
+@if (seleccionada) {
+  <div class="seccion">
+    <h3>
+      Reformulación #{{ seleccionada.id }} —
+      <span class="badge {{ badges()[seleccionada.estado] }}">{{ seleccionada.estado_display }}</span>
+    </h3>
+    <div class="acciones">
+      @if (puedeEnviar()) {
+        <button class="btn btn-primary" (click)="enviar()" [disabled]="guardando">
+          Enviar a revisión
+        </button>
+      }
+      @if (puedeRevisar()) {
+        <button class="btn btn-sm" (click)="revisar()" [disabled]="guardando">
+          Observar
+        </button>
+      }
+      @if (puedeAprobar()) {
+        <button class="btn btn-success" (click)="aprobar()" [disabled]="guardando">
+          Aprobar
+        </button>
+      }
+      @if (puedeRechazar()) {
+        <button class="btn btn-danger" (click)="rechazar()" [disabled]="guardando">
+          Rechazar
+        </button>
+      }
+      @if (puedeAplicar()) {
+        <button class="btn btn-success" (click)="aplicar()" [disabled]="guardando">
+          Aplicar
+        </button>
+      }
+    </div>
+    <table class="data-table" style="margin-top: 0.75rem;">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Tipo</th>
+          <th>Origen</th>
+          <th>Destino</th>
+          <th>Fuente</th>
+          <th class="monto-celda">Monto</th>
+          <th>Saldos (antes → después)</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (m of seleccionada.movimientos; track m) {
+          <tr>
+            <td>{{ m.id }}</td>
+            <td>{{ m.tipo_display }}</td>
+            <td>{{ m.apertura_origen_detalle ? m.apertura_origen_detalle.denominacion : '—' }}</td>
+            <td>{{ m.apertura_destino_detalle ? m.apertura_destino_detalle.denominacion : '—' }}</td>
+            <td>{{ m.fuente_detalle ? m.fuente_detalle.codigo + ' · ' + m.fuente_detalle.denominacion : '—' }}</td>
+            <td class="monto-celda">{{ m.monto | moneda }}</td>
+            <td>
+              @if (m.saldo_antes !== null) {
+                <span class="detalle-saldos">
+                  <span class="antes">{{ m.saldo_antes | moneda }}</span>
+                  <span>→</span>
+                  <span class="despues">{{ m.saldo_despues | moneda }}</span>
+                </span>
+              }
+              @if (m.saldo_antes === null) {
+                <span class="empty" style="padding: 0;">No aplicada</span>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
   </div>
-
-  <table class="data-table" style="margin-top: 0.75rem;">
-    <thead>
-      <tr>
-        <th>#</th>
-        <th>Tipo</th>
-        <th>Origen</th>
-        <th>Destino</th>
-        <th>Fuente</th>
-        <th class="monto-celda">Monto</th>
-        <th>Saldos (antes → después)</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr *ngFor="let m of seleccionada.movimientos">
-        <td>{{ m.id }}</td>
-        <td>{{ m.tipo_display }}</td>
-        <td>{{ m.apertura_origen_detalle ? m.apertura_origen_detalle.denominacion : '—' }}</td>
-        <td>{{ m.apertura_destino_detalle ? m.apertura_destino_detalle.denominacion : '—' }}</td>
-        <td>{{ m.fuente_detalle ? m.fuente_detalle.codigo + ' · ' + m.fuente_detalle.denominacion : '—' }}</td>
-        <td class="monto-celda">{{ m.monto | moneda }}</td>
-        <td>
-          <span class="detalle-saldos" *ngIf="m.saldo_antes !== null">
-            <span class="antes">{{ m.saldo_antes | moneda }}</span>
-            <span>→</span>
-            <span class="despues">{{ m.saldo_despues | moneda }}</span>
-          </span>
-          <span *ngIf="m.saldo_antes === null" class="empty" style="padding: 0;">No aplicada</span>
-        </td>
-      </tr>
-    </tbody>
-  </table>
-</div>
+}

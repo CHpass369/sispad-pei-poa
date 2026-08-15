@@ -10,48 +10,58 @@ import { ModificacionesService, SolicitudModificacion } from './modificaciones.s
       <h2>Solicitudes de Modificación</h2>
       <p class="text-secondary">Gestión de modificaciones al plan</p>
     </div>
-
+    
     <div class="acciones-superior">
       <div class="field">
         <input [(ngModel)]="busqueda" (keyup.enter)="cargar()" class="form-control"
-               placeholder="Buscar solicitudes...">
+          placeholder="Buscar solicitudes...">
+        </div>
+        <button class="btn btn-primary" (click)="nueva()">+ Nueva Solicitud</button>
       </div>
-      <button class="btn btn-primary" (click)="nueva()">+ Nueva Solicitud</button>
-    </div>
-
-    <div class="table-container" *ngIf="!cargando">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Tipo</th>
-            <th>Entidad</th>
-            <th>Solicitado por</th>
-            <th>Estado</th>
-            <th>Fecha</th>
-            <th>Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let s of solicitudes">
-            <td>{{ s.tipo }}</td>
-            <td>{{ s.entidad }}</td>
-            <td>{{ s.solicitado_por_nombre || s.solicitado_por }}</td>
-            <td>
-              <span class="badge" [ngClass]="'badge-' + s.estado">{{ s.estado }}</span>
-            </td>
-            <td>{{ s.fecha_solicitud | date:'dd/MM/yyyy' }}</td>
-            <td>
-              <button class="btn btn-sm btn-outline" (click)="verDetalle(s)">Ver Detalle</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-      <div *ngIf="solicitudes.length === 0" class="empty">No hay solicitudes de modificación</div>
-    </div>
-
-    <div class="loading" *ngIf="cargando">Cargando solicitudes...</div>
-    <div class="alert alert-error" *ngIf="error">{{ error }}</div>
-  `,
+    
+      @if (!cargando) {
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Tipo</th>
+                <th>Entidad</th>
+                <th>Solicitado por</th>
+                <th>Estado</th>
+                <th>Fecha</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (s of solicitudes; track s) {
+                <tr>
+                  <td>{{ s.tipo }}</td>
+                  <td>{{ s.entidad }}</td>
+                  <td>{{ s.solicitado_por_nombre || s.solicitado_por }}</td>
+                  <td>
+                    <span class="badge" [ngClass]="'badge-' + s.estado">{{ s.estado }}</span>
+                  </td>
+                  <td>{{ s.fecha_solicitud | date:'dd/MM/yyyy' }}</td>
+                  <td>
+                    <button class="btn btn-sm btn-outline" (click)="verDetalle(s)">Ver Detalle</button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+          @if (solicitudes.length === 0) {
+            <div class="empty">No hay solicitudes de modificación</div>
+          }
+        </div>
+      }
+    
+      @if (cargando) {
+        <div class="loading">Cargando solicitudes...</div>
+      }
+      @if (error) {
+        <div class="alert alert-error">{{ error }}</div>
+      }
+    `,
   styles: [`
     .page-header { margin-bottom: 1rem; }
     .page-header h2 { font-size: 1.5rem; margin-bottom: 0.25rem; }

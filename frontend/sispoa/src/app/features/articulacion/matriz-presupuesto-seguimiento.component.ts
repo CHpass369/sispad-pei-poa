@@ -17,114 +17,122 @@ import {
           Seguimiento presupuestario con ejecución financiera, física e indicadores de eficacia
         </p>
       </div>
-
+    
       <div class="card filtros-card">
         <div class="filtros">
           <div class="field">
             <label>Buscar (ID cadena)</label>
             <input [(ngModel)]="filtroTexto" class="form-control" placeholder="ID cadena..."
-                   (input)="aplicarFiltros()">
-          </div>
-          <div class="field">
-            <label>Gestión</label>
-            <select [(ngModel)]="filtroGestion" class="form-control" (change)="aplicarFiltros()">
-              <option value="">Todas</option>
-              <option *ngFor="let g of gestiones" [value]="g">{{ g }}</option>
-            </select>
-          </div>
-          <div class="field">
-            <label>Estado</label>
-            <select [(ngModel)]="filtroEstado" class="form-control" (change)="aplicarFiltros()">
-              <option value="">Todos</option>
-              <option value="REFERENCIAL">Referencial</option>
-              <option value="EJECUTADO">Ejecutado</option>
-            </select>
-          </div>
-          <div class="field">
-            <label>&nbsp;</label>
-            <span class="badge badge-info">Mostrando {{ filtrados.length }} de {{ seguimientos.length }} registros</span>
-          </div>
-          <div class="field export-field">
-            <label>&nbsp;</label>
-            <a routerLink="./nuevo" class="btn btn-sm btn-primary">+ Nueva</a>
-          </div>
-          <div class="field export-field">
-            <label>&nbsp;</label>
-            <button class="btn btn-sm btn-outline-success" (click)="exportarXLSX()">
-              ⬇ Exportar XLSX
-            </button>
+              (input)="aplicarFiltros()">
+            </div>
+            <div class="field">
+              <label>Gestión</label>
+              <select [(ngModel)]="filtroGestion" class="form-control" (change)="aplicarFiltros()">
+                <option value="">Todas</option>
+                @for (g of gestiones; track g) {
+                  <option [value]="g">{{ g }}</option>
+                }
+              </select>
+            </div>
+            <div class="field">
+              <label>Estado</label>
+              <select [(ngModel)]="filtroEstado" class="form-control" (change)="aplicarFiltros()">
+                <option value="">Todos</option>
+                <option value="REFERENCIAL">Referencial</option>
+                <option value="EJECUTADO">Ejecutado</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>&nbsp;</label>
+              <span class="badge badge-info">Mostrando {{ filtrados.length }} de {{ seguimientos.length }} registros</span>
+            </div>
+            <div class="field export-field">
+              <label>&nbsp;</label>
+              <a routerLink="./nuevo" class="btn btn-sm btn-primary">+ Nueva</a>
+            </div>
+            <div class="field export-field">
+              <label>&nbsp;</label>
+              <button class="btn btn-sm btn-outline-success" (click)="exportarXLSX()">
+                ⬇ Exportar XLSX
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-
-      <div class="card table-card">
-        <div class="table-scroll">
-          <table class="matriz-table">
-            <thead>
-              <tr>
-                <th>ID Cadena</th>
-                <th>Acción POA</th>
-                <th>Operación</th>
-                <th>Actividad</th>
-                <th>Cat. Programática</th>
-                <th>DA</th>
-                <th>UE</th>
-                <th>Programa</th>
-                <th>Presup. Inicial</th>
-                <th>Modificaciones</th>
-                <th>Presup. Vigente</th>
-                <th>Ejec. Financiera</th>
-                <th>% Ejec. Fin.</th>
-                <th>Meta Física</th>
-                <th>Ejec. Física</th>
-                <th>% Ejec. Fís.</th>
-                <th>Eficacia</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let item of filtrados">
-                <td><span class="codigo">{{ item.id_cadena }}</span></td>
-                <td class="cell-desc">{{ item.accion_poa_nombre || '—' }}</td>
-                <td class="cell-desc">{{ item.operacion_nombre || '—' }}</td>
-                <td class="cell-desc">{{ item.actividad_nombre || '—' }}</td>
-                <td>{{ item.categoria_programatica || '—' }}</td>
-                <td>{{ item.da || '—' }}</td>
-                <td>{{ item.ue || '—' }}</td>
-                <td class="cell-desc">{{ item.programa || '—' }}</td>
-                <td class="num">{{ item.presupuesto_inicial | number:'1.2-2' }}</td>
-                <td class="num">{{ item.modificaciones | number:'1.2-2' }}</td>
-                <td class="num"><strong>{{ item.presupuesto_vigente | number:'1.2-2' }}</strong></td>
-                <td class="num">{{ item.ejecutado_total | number:'1.2-2' }}</td>
-                <td class="num">
-                  <span [class.text-success]="item.porcentaje_ejecucion_financiera >= 80"
+    
+        <div class="card table-card">
+          <div class="table-scroll">
+            <table class="matriz-table">
+              <thead>
+                <tr>
+                  <th>ID Cadena</th>
+                  <th>Acción POA</th>
+                  <th>Operación</th>
+                  <th>Actividad</th>
+                  <th>Cat. Programática</th>
+                  <th>DA</th>
+                  <th>UE</th>
+                  <th>Programa</th>
+                  <th>Presup. Inicial</th>
+                  <th>Modificaciones</th>
+                  <th>Presup. Vigente</th>
+                  <th>Ejec. Financiera</th>
+                  <th>% Ejec. Fin.</th>
+                  <th>Meta Física</th>
+                  <th>Ejec. Física</th>
+                  <th>% Ejec. Fís.</th>
+                  <th>Eficacia</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of filtrados; track item) {
+                  <tr>
+                    <td><span class="codigo">{{ item.id_cadena }}</span></td>
+                    <td class="cell-desc">{{ item.accion_poa_nombre || '—' }}</td>
+                    <td class="cell-desc">{{ item.operacion_nombre || '—' }}</td>
+                    <td class="cell-desc">{{ item.actividad_nombre || '—' }}</td>
+                    <td>{{ item.categoria_programatica || '—' }}</td>
+                    <td>{{ item.da || '—' }}</td>
+                    <td>{{ item.ue || '—' }}</td>
+                    <td class="cell-desc">{{ item.programa || '—' }}</td>
+                    <td class="num">{{ item.presupuesto_inicial | number:'1.2-2' }}</td>
+                    <td class="num">{{ item.modificaciones | number:'1.2-2' }}</td>
+                    <td class="num"><strong>{{ item.presupuesto_vigente | number:'1.2-2' }}</strong></td>
+                    <td class="num">{{ item.ejecutado_total | number:'1.2-2' }}</td>
+                    <td class="num">
+                      <span [class.text-success]="item.porcentaje_ejecucion_financiera >= 80"
                         [class.text-warning]="item.porcentaje_ejecucion_financiera >= 50 && item.porcentaje_ejecucion_financiera < 80"
                         [class.text-danger]="item.porcentaje_ejecucion_financiera < 50">
-                    {{ item.porcentaje_ejecucion_financiera != null ? (item.porcentaje_ejecucion_financiera + '%') : '—' }}
-                  </span>
-                </td>
-                <td class="num">{{ item.meta_fisica != null ? item.meta_fisica : '—' }}</td>
-                <td class="num">{{ item.ejecucion_fisica != null ? item.ejecucion_fisica : '—' }}</td>
-                <td class="num">{{ item.porcentaje_ejecucion_fisica != null ? (item.porcentaje_ejecucion_fisica + '%') : '—' }}</td>
-                <td class="num">
-                  <span [class.text-success]="item.eficacia >= 80"
+                        {{ item.porcentaje_ejecucion_financiera != null ? (item.porcentaje_ejecucion_financiera + '%') : '—' }}
+                      </span>
+                    </td>
+                    <td class="num">{{ item.meta_fisica != null ? item.meta_fisica : '—' }}</td>
+                    <td class="num">{{ item.ejecucion_fisica != null ? item.ejecucion_fisica : '—' }}</td>
+                    <td class="num">{{ item.porcentaje_ejecucion_fisica != null ? (item.porcentaje_ejecucion_fisica + '%') : '—' }}</td>
+                    <td class="num">
+                      <span [class.text-success]="item.eficacia >= 80"
                         [class.text-warning]="item.eficacia >= 50 && item.eficacia < 80"
                         [class.text-danger]="item.eficacia < 50">
-                    {{ item.eficacia != null ? (item.eficacia + '%') : '—' }}
-                  </span>
-                </td>
-              </tr>
-              <tr *ngIf="cargando">
-                <td colspan="17" class="empty-cell">Cargando datos...</td>
-              </tr>
-              <tr *ngIf="!cargando && filtrados.length === 0">
-                <td colspan="17" class="empty-cell">No se encontraron registros de seguimiento</td>
-              </tr>
-            </tbody>
-          </table>
+                        {{ item.eficacia != null ? (item.eficacia + '%') : '—' }}
+                      </span>
+                    </td>
+                  </tr>
+                }
+                @if (cargando) {
+                  <tr>
+                    <td colspan="17" class="empty-cell">Cargando datos...</td>
+                  </tr>
+                }
+                @if (!cargando && filtrados.length === 0) {
+                  <tr>
+                    <td colspan="17" class="empty-cell">No se encontraron registros de seguimiento</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
-    </div>
-  `,
+    `,
   styles: [`
     .matriz-page { padding-bottom: 2rem; }
     .page-header { margin-bottom: 1rem; }

@@ -12,90 +12,114 @@ import {
       <h2>Inventario Documental — Preinversión</h2>
       <p class="text-secondary">Seleccione un proyecto y genere el ITCP o EDTP desde su expediente</p>
     </div>
-    <div class="alert alert-error" *ngIf="error">{{ error }}</div>
-    <div class="alert alert-success" *ngIf="mensaje">{{ mensaje }}</div>
-
-    <div class="card" *ngIf="proyectos.length && !cargando">
-      <h3>1. Seleccionar proyecto</h3>
-      <div class="toolbar">
-        <label>Gestión
-          <input type="number" [(ngModel)]="filtro.gestion" (change)="cargarProyectos()" class="input" />
-        </label>
-        <label>Tipología
-          <select [(ngModel)]="filtro.tipologia_rm115" (change)="cargarProyectos()" class="input">
-            <option value="">Todas</option>
-            <option value="I">I — Empresarial Productivo</option>
-            <option value="II">II — Apoyo Productivo</option>
-            <option value="III">III — Desarrollo Social</option>
-            <option value="IV">IV — Fortalecimiento Institucional</option>
-            <option value="V">V — Investigación y Tecnología</option>
-          </select>
-        </label>
+    @if (error) {
+      <div class="alert alert-error">{{ error }}</div>
+    }
+    @if (mensaje) {
+      <div class="alert alert-success">{{ mensaje }}</div>
+    }
+    
+    @if (proyectos.length && !cargando) {
+      <div class="card">
+        <h3>1. Seleccionar proyecto</h3>
+        <div class="toolbar">
+          <label>Gestión
+            <input type="number" [(ngModel)]="filtro.gestion" (change)="cargarProyectos()" class="input" />
+          </label>
+          <label>Tipología
+            <select [(ngModel)]="filtro.tipologia_rm115" (change)="cargarProyectos()" class="input">
+              <option value="">Todas</option>
+              <option value="I">I — Empresarial Productivo</option>
+              <option value="II">II — Apoyo Productivo</option>
+              <option value="III">III — Desarrollo Social</option>
+              <option value="IV">IV — Fortalecimiento Institucional</option>
+              <option value="V">V — Investigación y Tecnología</option>
+            </select>
+          </label>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr><th></th><th>Código</th><th>Proyecto</th><th>Tipología</th><th>Estado</th><th>Madurez</th></tr>
+          </thead>
+          <tbody>
+            @for (p of proyectos; track p) {
+              <tr
+                [class.fila-seleccionada]="seleccionado?.id === p.id"
+                (click)="seleccionar(p)" class="fila">
+                <td><input type="radio" [checked]="seleccionado?.id === p.id" (change)="seleccionar(p)" /></td>
+                <td>{{ p.codigo_interno }}</td>
+                <td>{{ p.nombre }}</td>
+                <td><span class="badge">{{ p.tipologia_rm115 || '—' }}</span></td>
+                <td><span class="badge estado">{{ service.etiquetaEstadoExpediente(p.estado_preinversion) }}</span></td>
+                <td>{{ p.puntaje_madurez }}%</td>
+              </tr>
+            }
+          </tbody>
+        </table>
       </div>
-      <table class="data-table">
-        <thead>
-          <tr><th></th><th>Código</th><th>Proyecto</th><th>Tipología</th><th>Estado</th><th>Madurez</th></tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let p of proyectos"
-              [class.fila-seleccionada]="seleccionado?.id === p.id"
-              (click)="seleccionar(p)" class="fila">
-            <td><input type="radio" [checked]="seleccionado?.id === p.id" (change)="seleccionar(p)" /></td>
-            <td>{{ p.codigo_interno }}</td>
-            <td>{{ p.nombre }}</td>
-            <td><span class="badge">{{ p.tipologia_rm115 || '—' }}</span></td>
-            <td><span class="badge estado">{{ service.etiquetaEstadoExpediente(p.estado_preinversion) }}</span></td>
-            <td>{{ p.puntaje_madurez }}%</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <div *ngIf="!cargando && proyectos.length === 0" class="empty">No hay proyectos. Créelos desde la cartera.</div>
-
-    <div class="card" *ngIf="seleccionado">
-      <h3>2. Generar documentos — {{ seleccionado.codigo_interno }}</h3>
-      <p class="text-secondary">
-        ITCP: <span class="badge">{{ itcpEstado }}</span> ·
-        EDTP: <span class="badge">{{ edtpEstado }}</span>
-      </p>
-      <div class="botones">
-        <button class="btn btn-primary" (click)="inicializar('itcp')" [disabled]="!puedeEditar" *ngIf="!tieneItcp">
-          🚀 Inicializar ITCP
-        </button>
-        <button class="btn btn-primary" (click)="generar('ITCP')" [disabled]="!puedeValidar">
-          📄 Generar ITCP DOCX
-        </button>
-        <button class="btn btn-primary" (click)="inicializar('edtp')" [disabled]="!puedeEditar" *ngIf="!tieneEdtp">
-          🚀 Inicializar EDTP
-        </button>
-        <button class="btn btn-primary" (click)="generar('EDTP')" [disabled]="!puedeValidar">
-          📄 Generar EDTP DOCX
-        </button>
-        <a class="btn" [routerLink]="['/sis-pro/preinversion', seleccionado.id, 'wizard']">Wizard de llenado →</a>
+    }
+    @if (!cargando && proyectos.length === 0) {
+      <div class="empty">No hay proyectos. Créelos desde la cartera.</div>
+    }
+    
+    @if (seleccionado) {
+      <div class="card">
+        <h3>2. Generar documentos — {{ seleccionado.codigo_interno }}</h3>
+        <p class="text-secondary">
+          ITCP: <span class="badge">{{ itcpEstado }}</span> ·
+          EDTP: <span class="badge">{{ edtpEstado }}</span>
+        </p>
+        <div class="botones">
+          @if (!tieneItcp) {
+            <button class="btn btn-primary" (click)="inicializar('itcp')" [disabled]="!puedeEditar">
+              🚀 Inicializar ITCP
+            </button>
+          }
+          <button class="btn btn-primary" (click)="generar('ITCP')" [disabled]="!puedeValidar">
+            📄 Generar ITCP DOCX
+          </button>
+          @if (!tieneEdtp) {
+            <button class="btn btn-primary" (click)="inicializar('edtp')" [disabled]="!puedeEditar">
+              🚀 Inicializar EDTP
+            </button>
+          }
+          <button class="btn btn-primary" (click)="generar('EDTP')" [disabled]="!puedeValidar">
+            📄 Generar EDTP DOCX
+          </button>
+          <a class="btn" [routerLink]="['/sis-pro/preinversion', seleccionado.id, 'wizard']">Wizard de llenado →</a>
+        </div>
       </div>
-    </div>
-
-    <div class="card" *ngIf="historial.length">
-      <h3>3. Historial de documentos generados</h3>
-      <table class="data-table">
-        <thead>
-          <tr><th>Proyecto</th><th>Tipo</th><th>Estado</th><th>Fecha</th><th>Descargar</th></tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let g of historial">
-            <td>{{ proyectoNombre(g.proyecto) }}</td>
-            <td>{{ g.tipo_documento }}</td>
-            <td><span class="badge" [class.verde]="g.estado === 'completado'" [class.rojo]="g.estado === 'fallido'">{{ g.estado }}</span></td>
-            <td>{{ g.created_at | date: 'short' }}</td>
-            <td>
-              <a *ngIf="g.archivo_docx" class="btn btn-sm" [href]="service.urlArchivo(g.archivo_docx)" target="_blank">DOCX</a>
-              <a *ngIf="g.archivo_pdf" class="btn btn-sm" [href]="service.urlArchivo(g.archivo_pdf)" target="_blank">PDF</a>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  `,
+    }
+    
+    @if (historial.length) {
+      <div class="card">
+        <h3>3. Historial de documentos generados</h3>
+        <table class="data-table">
+          <thead>
+            <tr><th>Proyecto</th><th>Tipo</th><th>Estado</th><th>Fecha</th><th>Descargar</th></tr>
+          </thead>
+          <tbody>
+            @for (g of historial; track g) {
+              <tr>
+                <td>{{ proyectoNombre(g.proyecto) }}</td>
+                <td>{{ g.tipo_documento }}</td>
+                <td><span class="badge" [class.verde]="g.estado === 'completado'" [class.rojo]="g.estado === 'fallido'">{{ g.estado }}</span></td>
+                <td>{{ g.created_at | date: 'short' }}</td>
+                <td>
+                  @if (g.archivo_docx) {
+                    <a class="btn btn-sm" [href]="service.urlArchivo(g.archivo_docx)" target="_blank">DOCX</a>
+                  }
+                  @if (g.archivo_pdf) {
+                    <a class="btn btn-sm" [href]="service.urlArchivo(g.archivo_pdf)" target="_blank">PDF</a>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+    `,
   styles: [`
     .page-header { margin-bottom: 1.5rem; }
     .text-secondary { color: var(--text-secondary); font-size: 0.875rem; }

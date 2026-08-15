@@ -10,47 +10,57 @@ import { ApiService } from '../../core/services/api.service';
         <h2>Líneas Presupuestarias</h2>
         <p class="text-secondary">Detalle de líneas con llave presupuestaria completa</p>
       </div>
-
+    
       <!-- Loading -->
-      <div class="loading" *ngIf="!items && !error">
-        <p>Cargando líneas presupuestarias...</p>
-      </div>
-
+      @if (!items && !error) {
+        <div class="loading">
+          <p>Cargando líneas presupuestarias...</p>
+        </div>
+      }
+    
       <!-- Error -->
-      <div class="alert alert-error" *ngIf="error">
-        {{ error }}
-      </div>
-
+      @if (error) {
+        <div class="alert alert-error">
+          {{ error }}
+        </div>
+      }
+    
       <!-- Table -->
-      <div class="table-responsive" *ngIf="items">
-        <table>
-          <thead>
-            <tr>
-              <th>Programa</th>
-              <th>Proyecto</th>
-              <th>Actividad</th>
-              <th>Fuente</th>
-              <th>Objeto Gasto</th>
-              <th>Importe (Bs)</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let l of items">
-              <td>{{ l.programa_codigo }} - {{ l.programa }}</td>
-              <td>{{ l.proyecto_codigo }} - {{ l.proyecto }}</td>
-              <td>{{ l.actividad_codigo }} - {{ l.actividad }}</td>
-              <td>{{ l.fuente_codigo }} - {{ l.fuente }}</td>
-              <td>{{ l.objeto_gasto_codigo }} - {{ l.objeto_gasto }}</td>
-              <td class="text-right">{{ l.importe | number:'1.2-2' }}</td>
-            </tr>
-            <tr *ngIf="items.length === 0">
-              <td colspan="6" class="empty">No se encontraron líneas presupuestarias</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      @if (items) {
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Programa</th>
+                <th>Proyecto</th>
+                <th>Actividad</th>
+                <th>Fuente</th>
+                <th>Objeto Gasto</th>
+                <th>Importe (Bs)</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (l of items; track l) {
+                <tr>
+                  <td>{{ l.programa_codigo }} - {{ l.programa }}</td>
+                  <td>{{ l.proyecto_codigo }} - {{ l.proyecto }}</td>
+                  <td>{{ l.actividad_codigo }} - {{ l.actividad }}</td>
+                  <td>{{ l.fuente_codigo }} - {{ l.fuente }}</td>
+                  <td>{{ l.objeto_gasto_codigo }} - {{ l.objeto_gasto }}</td>
+                  <td class="text-right">{{ l.importe | number:'1.2-2' }}</td>
+                </tr>
+              }
+              @if (items.length === 0) {
+                <tr>
+                  <td colspan="6" class="empty">No se encontraron líneas presupuestarias</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
     </div>
-  `,
+    `,
   styles: [`
     .page-header { margin-bottom: 1.5rem; }
     .page-header h2 { font-size: 1.5rem; margin-bottom: 0.25rem; }

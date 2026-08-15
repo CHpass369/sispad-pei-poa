@@ -11,132 +11,150 @@ import { Router } from '@angular/router';
         <h2>Nueva Asignación de Objeto de Gasto</h2>
         <p class="text-secondary">Asigne un objeto de gasto a una actividad</p>
       </div>
-
-      <div class="alert alert-success" *ngIf="mensajeExito">{{ mensajeExito }}</div>
-      <div class="alert alert-danger" *ngIf="mensajeError">{{ mensajeError }}</div>
-
+    
+      @if (mensajeExito) {
+        <div class="alert alert-success">{{ mensajeExito }}</div>
+      }
+      @if (mensajeError) {
+        <div class="alert alert-danger">{{ mensajeError }}</div>
+      }
+    
       <div class="card form-card">
         <h3 class="step-title">Datos de la Asignación</h3>
-
+    
         <div class="form-grid">
           <!-- Actividad -->
           <div class="field-full">
             <label>Actividad *</label>
             <select [(ngModel)]="form.actividad" class="form-control">
               <option value="">Seleccionar actividad...</option>
-              <option *ngFor="let a of actividades" [value]="a.id">
-                {{ a.codigo_actividad }} — {{ a.denominacion }}
-                <ng-container *ngIf="a.operacion_nombre">({{ a.operacion_nombre }})</ng-container>
-              </option>
+              @for (a of actividades; track a) {
+                <option [value]="a.id">
+                  {{ a.codigo_actividad }} — {{ a.denominacion }}
+                  @if (a.operacion_nombre) {
+                    ({{ a.operacion_nombre }})
+                  }
+                </option>
+              }
             </select>
           </div>
-
+    
           <!-- Gestión -->
           <div class="field">
             <label>Gestión *</label>
             <select [(ngModel)]="form.gestion" class="form-control">
               <option value="">Seleccionar...</option>
-              <option *ngFor="let g of gestiones" [value]="g">{{ g }}</option>
+              @for (g of gestiones; track g) {
+                <option [value]="g">{{ g }}</option>
+              }
             </select>
           </div>
           <div class="field">
             <label>Código Asignación</label>
             <input [(ngModel)]="form.codigo_asignacion" class="form-control" placeholder="Ej: ASIG-001">
           </div>
-
+    
           <!-- Objeto de Gasto -->
           <div class="field-full">
             <label>Objeto de Gasto *</label>
             <div class="search-select">
               <input [(ngModel)]="busquedaObjeto" class="form-control" placeholder="Buscar objeto de gasto..."
-                     (input)="filtrarObjetos()" (focus)="filtrarObjetos()">
-              <div class="search-results" *ngIf="busquedaObjeto && objetosFiltrados.length > 0">
-                <div *ngFor="let obj of objetosFiltrados" class="search-item" (click)="seleccionarObjeto(obj)">
-                  <span class="obj-codigo">{{ obj.codigo || obj.cod_objeto_gasto }}</span>
-                  <span class="obj-desc">{{ obj.descripcion || obj.denominacion }}</span>
+                (input)="filtrarObjetos()" (focus)="filtrarObjetos()">
+                @if (busquedaObjeto && objetosFiltrados.length > 0) {
+                  <div class="search-results">
+                    @for (obj of objetosFiltrados; track obj) {
+                      <div class="search-item" (click)="seleccionarObjeto(obj)">
+                        <span class="obj-codigo">{{ obj.codigo || obj.cod_objeto_gasto }}</span>
+                        <span class="obj-desc">{{ obj.descripcion || obj.denominacion }}</span>
+                      </div>
+                    }
+                  </div>
+                }
+                @if (busquedaObjeto && objetosFiltrados.length === 0 && objetosCargados) {
+                  <div class="search-results empty">
+                    Sin resultados
+                  </div>
+                }
+              </div>
+              @if (objetoSeleccionado) {
+                <div class="selected-objeto">
+                  <span class="badge badge-success">{{ objetoSeleccionado.codigo || objetoSeleccionado.cod_objeto_gasto }}</span>
+                  <span>{{ objetoSeleccionado.descripcion || objetoSeleccionado.denominacion }}</span>
+                  <button class="btn btn-xs btn-outline" (click)="limpiarObjeto()">✕</button>
                 </div>
-              </div>
-              <div class="search-results empty" *ngIf="busquedaObjeto && objetosFiltrados.length === 0 && objetosCargados">
-                Sin resultados
-              </div>
+              }
             </div>
-            <div class="selected-objeto" *ngIf="objetoSeleccionado">
-              <span class="badge badge-success">{{ objetoSeleccionado.codigo || objetoSeleccionado.cod_objeto_gasto }}</span>
-              <span>{{ objetoSeleccionado.descripcion || objetoSeleccionado.denominacion }}</span>
-              <button class="btn btn-xs btn-outline" (click)="limpiarObjeto()">✕</button>
+    
+            <!-- Grupo y Tipo -->
+            <div class="field">
+              <label>Grupo de Gasto</label>
+              <select [(ngModel)]="form.grupo_gasto" class="form-control">
+                <option value="">Seleccionar...</option>
+                <option value="SERVICIOS_PERSONALES">Servicios Personales</option>
+                <option value="SERVICIOS_NO_PERSONALES">Servicios No Personales</option>
+                <option value="MATERIALES Y SUMINISTROS">Materiales y Suministros</option>
+                <option value="ACTIVOS_REALES">Activos Reales</option>
+                <option value="TRANSFERENCIAS">Transferencias</option>
+                <option value="DEUDA">Deuda</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Tipo de Gasto</label>
+              <select [(ngModel)]="form.tipo_gasto" class="form-control">
+                <option value="">Seleccionar...</option>
+                <option value="CORRIENTE">Corriente</option>
+                <option value="INVERSION">Inversión</option>
+              </select>
+            </div>
+    
+            <!-- Fuente y Organismo -->
+            <div class="field">
+              <label>Fuente de Financiamiento</label>
+              <select [(ngModel)]="form.fuente_financiamiento" class="form-control">
+                <option value="">Seleccionar...</option>
+                <option value="TGN">TGN - Tesoro General de la Nación</option>
+                <option value="HIPC">HIPC - Alivio Deuda</option>
+                <option value="IDH">IDH - Impuesto Directo Hidrocarburos</option>
+                <option value="RECURSOS_PROPIOS">Recursos Propios</option>
+                <option value="DONACION">Donación</option>
+                <option value="CREDITO">Crédito</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Organismo Financiador</label>
+              <input [(ngModel)]="form.organismo_financiador" class="form-control" placeholder="Ej: Gobierno Municipal">
+            </div>
+    
+            <!-- Monto -->
+            <div class="field">
+              <label>Monto Programado (Bs.) *</label>
+              <input type="number" step="0.01" [(ngModel)]="form.monto_programado" class="form-control" placeholder="0.00">
+            </div>
+            <div class="field">
+              <label>Monto Vigente (Bs.)</label>
+              <input type="number" step="0.01" [(ngModel)]="form.monto_vigente" class="form-control" placeholder="0.00">
+            </div>
+    
+            <!-- Justificación y Memoria -->
+            <div class="field-full">
+              <label>Justificación</label>
+              <textarea [(ngModel)]="form.justificacion" class="form-control" rows="2" placeholder="Justificación de la asignación"></textarea>
+            </div>
+            <div class="field-full">
+              <label>Memoria de Cálculo</label>
+              <textarea [(ngModel)]="form.memoria_calculo" class="form-control" rows="3" placeholder="Detalle del cálculo del monto programado"></textarea>
             </div>
           </div>
-
-          <!-- Grupo y Tipo -->
-          <div class="field">
-            <label>Grupo de Gasto</label>
-            <select [(ngModel)]="form.grupo_gasto" class="form-control">
-              <option value="">Seleccionar...</option>
-              <option value="SERVICIOS_PERSONALES">Servicios Personales</option>
-              <option value="SERVICIOS_NO_PERSONALES">Servicios No Personales</option>
-              <option value="MATERIALES Y SUMINISTROS">Materiales y Suministros</option>
-              <option value="ACTIVOS_REALES">Activos Reales</option>
-              <option value="TRANSFERENCIAS">Transferencias</option>
-              <option value="DEUDA">Deuda</option>
-            </select>
+    
+          <div class="form-nav">
+            <button class="btn btn-outline" (click)="cancelar()">← Cancelar</button>
+            <button class="btn btn-primary btn-guardar" (click)="guardar()" [disabled]="guardando">
+              {{ guardando ? 'Guardando...' : '💾 Guardar Asignación' }}
+            </button>
           </div>
-          <div class="field">
-            <label>Tipo de Gasto</label>
-            <select [(ngModel)]="form.tipo_gasto" class="form-control">
-              <option value="">Seleccionar...</option>
-              <option value="CORRIENTE">Corriente</option>
-              <option value="INVERSION">Inversión</option>
-            </select>
-          </div>
-
-          <!-- Fuente y Organismo -->
-          <div class="field">
-            <label>Fuente de Financiamiento</label>
-            <select [(ngModel)]="form.fuente_financiamiento" class="form-control">
-              <option value="">Seleccionar...</option>
-              <option value="TGN">TGN - Tesoro General de la Nación</option>
-              <option value="HIPC">HIPC - Alivio Deuda</option>
-              <option value="IDH">IDH - Impuesto Directo Hidrocarburos</option>
-              <option value="RECURSOS_PROPIOS">Recursos Propios</option>
-              <option value="DONACION">Donación</option>
-              <option value="CREDITO">Crédito</option>
-            </select>
-          </div>
-          <div class="field">
-            <label>Organismo Financiador</label>
-            <input [(ngModel)]="form.organismo_financiador" class="form-control" placeholder="Ej: Gobierno Municipal">
-          </div>
-
-          <!-- Monto -->
-          <div class="field">
-            <label>Monto Programado (Bs.) *</label>
-            <input type="number" step="0.01" [(ngModel)]="form.monto_programado" class="form-control" placeholder="0.00">
-          </div>
-          <div class="field">
-            <label>Monto Vigente (Bs.)</label>
-            <input type="number" step="0.01" [(ngModel)]="form.monto_vigente" class="form-control" placeholder="0.00">
-          </div>
-
-          <!-- Justificación y Memoria -->
-          <div class="field-full">
-            <label>Justificación</label>
-            <textarea [(ngModel)]="form.justificacion" class="form-control" rows="2" placeholder="Justificación de la asignación"></textarea>
-          </div>
-          <div class="field-full">
-            <label>Memoria de Cálculo</label>
-            <textarea [(ngModel)]="form.memoria_calculo" class="form-control" rows="3" placeholder="Detalle del cálculo del monto programado"></textarea>
-          </div>
-        </div>
-
-        <div class="form-nav">
-          <button class="btn btn-outline" (click)="cancelar()">← Cancelar</button>
-          <button class="btn btn-primary btn-guardar" (click)="guardar()" [disabled]="guardando">
-            {{ guardando ? 'Guardando...' : '💾 Guardar Asignación' }}
-          </button>
         </div>
       </div>
-    </div>
-  `,
+    `,
   styles: [`
     .form-page { padding-bottom: 2rem; max-width: 800px; margin: 0 auto; }
     .page-header { margin-bottom: 1rem; }

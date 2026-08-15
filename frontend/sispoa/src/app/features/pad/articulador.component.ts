@@ -10,216 +10,257 @@ import { ApiService } from '../../core/services/api.service';
         <h1>ARTICULADOR PAD — GUÍA OFICIAL</h1>
         <p>Construcción jerárquica PGDESA → PDESA → PDS → PAD → PEI → POA</p>
       </div>
-
+    
       <!-- BARRA DE PROGRESO (10 pasos) -->
       <div class="progress-bar-horizontal">
-        <div *ngFor="let nv of niveles; let i = index" class="progress-step"
-             [class.completed]="paso > i" [class.active]="paso === i" (click)="irAPaso(i)">
-          <div class="step-circle">{{ paso > i ? '✓' : i + 1 }}</div>
-          <div class="step-label">{{ nv.sigla }}</div>
-        </div>
-      </div>
-
-      <!-- PASO 0: PGDESA -->
-      <div *ngIf="paso === 0" class="step-content card">
-        <h3>Paso 1: Eje PGDESA — Impacto Nacional</h3>
-        <p>Seleccione el Eje del Plan General de Desarrollo Económico y Social</p>
-        <div class="select-cards">
-          <div *ngFor="let eje of ejesPgdesa" class="select-card"
-               [class.selected]="m.pgdesa?.codigo === eje.codigo" (click)="selPgdesa(eje)">
-            <div class="card-cod">Eje {{ eje.codigo }}</div>
-            <div class="card-nombre">{{ eje.nombre }}</div>
-            <div class="card-desc">{{ eje.descripcion }}</div>
+        @for (nv of niveles; track nv; let i = $index) {
+          <div class="progress-step"
+            [class.completed]="paso > i" [class.active]="paso === i" (click)="irAPaso(i)">
+            <div class="step-circle">{{ paso > i ? '✓' : i + 1 }}</div>
+            <div class="step-label">{{ nv.sigla }}</div>
           </div>
-        </div>
-        <div class="field"><label>Objetivo de Impacto PGDESA</label>
+        }
+      </div>
+    
+      <!-- PASO 0: PGDESA -->
+      @if (paso === 0) {
+        <div class="step-content card">
+          <h3>Paso 1: Eje PGDESA — Impacto Nacional</h3>
+          <p>Seleccione el Eje del Plan General de Desarrollo Económico y Social</p>
+          <div class="select-cards">
+            @for (eje of ejesPgdesa; track eje) {
+              <div class="select-card"
+                [class.selected]="m.pgdesa?.codigo === eje.codigo" (click)="selPgdesa(eje)">
+                <div class="card-cod">Eje {{ eje.codigo }}</div>
+                <div class="card-nombre">{{ eje.nombre }}</div>
+                <div class="card-desc">{{ eje.descripcion }}</div>
+              </div>
+            }
+          </div>
+          <div class="field"><label>Objetivo de Impacto PGDESA</label>
           <textarea [(ngModel)]="m.pgdesa_objetivo" class="form-control" rows="2" placeholder="Copie el objetivo de impacto del PGDESA..."></textarea>
         </div>
         <div class="step-nav"><button class="btn btn-primary" [disabled]="!m.pgdesa" (click)="paso=1">Siguiente</button></div>
       </div>
-
-      <!-- PASO 1: PDESA -->
-      <div *ngIf="paso === 1" class="step-content card">
+    }
+    
+    <!-- PASO 1: PDESA -->
+    @if (paso === 1) {
+      <div class="step-content card">
         <h3>Paso 2: Componente PDESA — Efecto Nacional</h3>
         <p>Eje: <strong>{{ m.pgdesa?.nombre }}</strong></p>
         <div class="select-cards">
-          <div *ngFor="let c of m.pgdesa?.componentes || []" class="select-card"
-               [class.selected]="m.pdesa?.codigo === c.codigo" (click)="selPdesa(c)">
-            <div class="card-cod">{{ c.codigo }}</div>
-            <div class="card-nombre">{{ c.nombre }}</div>
-          </div>
+          @for (c of m.pgdesa?.componentes || []; track c) {
+            <div class="select-card"
+              [class.selected]="m.pdesa?.codigo === c.codigo" (click)="selPdesa(c)">
+              <div class="card-cod">{{ c.codigo }}</div>
+              <div class="card-nombre">{{ c.nombre }}</div>
+            </div>
+          }
         </div>
         <div class="field"><label>Objetivo de Efecto PDESA</label>
-          <textarea [(ngModel)]="m.pdesa_objetivo" class="form-control" rows="2"></textarea>
-        </div>
-        <div class="step-nav">
-          <button class="btn btn-outline" (click)="paso=0">← Anterior</button>
-          <button class="btn btn-primary" [disabled]="!m.pdesa" (click)="paso=2">Siguiente</button>
-        </div>
+        <textarea [(ngModel)]="m.pdesa_objetivo" class="form-control" rows="2"></textarea>
       </div>
-
-      <!-- PASO 2: ACUERDOS INTERNACIONALES (ODS + NDC + NDT + 30/30) -->
-      <div *ngIf="paso === 2" class="step-content card">
+      <div class="step-nav">
+        <button class="btn btn-outline" (click)="paso=0">← Anterior</button>
+        <button class="btn btn-primary" [disabled]="!m.pdesa" (click)="paso=2">Siguiente</button>
+      </div>
+    </div>
+    }
+    
+    <!-- PASO 2: ACUERDOS INTERNACIONALES (ODS + NDC + NDT + 30/30) -->
+    @if (paso === 2) {
+      <div class="step-content card">
         <h3>Paso 3: Acuerdos Internacionales</h3>
         <p>Articule con ODS, NDC, NDT y Compromisos 30/30</p>
         <div class="form-3col">
           <div class="field"><label>ODS (Objetivo Desarrollo Sostenible)</label>
-            <select [(ngModel)]="m.ods" class="form-control">
-              <option value="">Seleccione ODS...</option>
-              <option *ngFor="let o of odsList" [value]="o.cod+'. '+o.nombre">{{ o.cod }} — {{ o.nombre }}</option>
-            </select>
-          </div>
-          <div class="field"><label>Meta NDC (Cambio Climático)</label>
-            <input [(ngModel)]="m.ndc" class="form-control" placeholder="Ej: 6 — Alumbrado LED">
-          </div>
-          <div class="field"><label>Principio NDT (Degradación Tierras)</label>
-            <input [(ngModel)]="m.ndt" class="form-control" placeholder="Ej: 4 — Agricultura climáticamente inteligente">
-          </div>
+          <select [(ngModel)]="m.ods" class="form-control">
+            <option value="">Seleccione ODS...</option>
+            @for (o of odsList; track o) {
+              <option [value]="o.cod+'. '+o.nombre">{{ o.cod }} — {{ o.nombre }}</option>
+            }
+          </select>
         </div>
-        <div class="field"><label>Compromisos 30/30</label>
-          <textarea [(ngModel)]="m.comp3030" class="form-control" rows="2" placeholder="Describa el compromiso..."></textarea>
-        </div>
-        <div class="step-nav">
-          <button class="btn btn-outline" (click)="paso=1">← Anterior</button>
-          <button class="btn btn-primary" (click)="paso=3">Siguiente → PDS</button>
-        </div>
+        <div class="field"><label>Meta NDC (Cambio Climático)</label>
+        <input [(ngModel)]="m.ndc" class="form-control" placeholder="Ej: 6 — Alumbrado LED">
       </div>
-
-      <!-- PASO 3: PDS (Sectorial) -->
-      <div *ngIf="paso === 3" class="step-content card">
+      <div class="field"><label>Principio NDT (Degradación Tierras)</label>
+      <input [(ngModel)]="m.ndt" class="form-control" placeholder="Ej: 4 — Agricultura climáticamente inteligente">
+    </div>
+    </div>
+    <div class="field"><label>Compromisos 30/30</label>
+    <textarea [(ngModel)]="m.comp3030" class="form-control" rows="2" placeholder="Describa el compromiso..."></textarea>
+    </div>
+    <div class="step-nav">
+      <button class="btn btn-outline" (click)="paso=1">← Anterior</button>
+      <button class="btn btn-primary" (click)="paso=3">Siguiente → PDS</button>
+    </div>
+    </div>
+    }
+    
+    <!-- PASO 3: PDS (Sectorial) -->
+    @if (paso === 3) {
+      <div class="step-content card">
         <h3>Paso 4: Resultado Sectorial — PDS</h3>
         <div class="form-2col">
           <div class="field"><label>Código Sector</label>
-            <select [(ngModel)]="m.sector_cod" class="form-control" (change)="onSectorChange()">
-              <option value="">Seleccione...</option>
-              <option *ngFor="let s of sectores" [value]="s.codigo">{{ s.codigo }} — {{ s.nombre }}</option>
-            </select>
-          </div>
-          <div class="field"><label>Nombre del Sector</label><input [(ngModel)]="m.sector_nombre" class="form-control" readonly></div>
+          <select [(ngModel)]="m.sector_cod" class="form-control" (change)="onSectorChange()">
+            <option value="">Seleccione...</option>
+            @for (s of sectores; track s) {
+              <option [value]="s.codigo">{{ s.codigo }} — {{ s.nombre }}</option>
+            }
+          </select>
         </div>
-        <div class="form-2col">
-          <div class="field"><label>Código Resultado PDS</label><input [(ngModel)]="m.pds_cod" class="form-control" placeholder="Ej: 5.1"></div>
-          <div class="field"><label>Resultado Sectorial PDS</label>
-            <textarea [(ngModel)]="m.pds_resultado" class="form-control" rows="2" placeholder="Describa el resultado sectorial..."></textarea>
-          </div>
-        </div>
-        <div class="step-nav">
-          <button class="btn btn-outline" (click)="paso=2">← Anterior</button>
-          <button class="btn btn-primary" [disabled]="!m.sector_cod" (click)="paso=4">Siguiente → PAD</button>
-        </div>
+        <div class="field"><label>Nombre del Sector</label><input [(ngModel)]="m.sector_nombre" class="form-control" readonly></div>
       </div>
-
-      <!-- PASO 4: PAD - DATOS GENERALES (Código Geográfico + ETA) -->
-      <div *ngIf="paso === 4" class="step-content card">
+      <div class="form-2col">
+        <div class="field"><label>Código Resultado PDS</label><input [(ngModel)]="m.pds_cod" class="form-control" placeholder="Ej: 5.1"></div>
+        <div class="field"><label>Resultado Sectorial PDS</label>
+        <textarea [(ngModel)]="m.pds_resultado" class="form-control" rows="2" placeholder="Describa el resultado sectorial..."></textarea>
+      </div>
+    </div>
+    <div class="step-nav">
+      <button class="btn btn-outline" (click)="paso=2">← Anterior</button>
+      <button class="btn btn-primary" [disabled]="!m.sector_cod" (click)="paso=4">Siguiente → PAD</button>
+    </div>
+    </div>
+    }
+    
+    <!-- PASO 4: PAD - DATOS GENERALES (Código Geográfico + ETA) -->
+    @if (paso === 4) {
+      <div class="step-content card">
         <h3>Paso 5: Datos Generales del PAD</h3>
         <div class="form-2col">
           <div class="field"><label>Código Geográfico</label>
-            <input [(ngModel)]="m.cod_geografico" class="form-control" placeholder="Ej: 1102">
-            <small>Según clasificador presupuestario</small>
-          </div>
-          <div class="field"><label>Denominación ETA</label>
-            <input [(ngModel)]="m.denominacion_eta" class="form-control" value="Gobierno Autónomo Municipal de Sacaba">
-          </div>
+          <input [(ngModel)]="m.cod_geografico" class="form-control" placeholder="Ej: 1102">
+          <small>Según clasificador presupuestario</small>
         </div>
-        <div class="step-nav">
-          <button class="btn btn-outline" (click)="paso=3">← Anterior</button>
-          <button class="btn btn-primary" (click)="paso=5">Siguiente → Política</button>
-        </div>
+        <div class="field"><label>Denominación ETA</label>
+        <input [(ngModel)]="m.denominacion_eta" class="form-control" value="Gobierno Autónomo Municipal de Sacaba">
       </div>
-
-      <!-- PASO 5: PAD - POLÍTICA -->
-      <div *ngIf="paso === 5" class="step-content card">
+    </div>
+    <div class="step-nav">
+      <button class="btn btn-outline" (click)="paso=3">← Anterior</button>
+      <button class="btn btn-primary" (click)="paso=5">Siguiente → Política</button>
+    </div>
+    </div>
+    }
+    
+    <!-- PASO 5: PAD - POLÍTICA -->
+    @if (paso === 5) {
+      <div class="step-content card">
         <h3>Paso 6: Política del PAD</h3>
         <div class="inline-actions"><button class="btn btn-accent btn-sm" (click)="crearPolitica()">+ Nueva Política</button></div>
         <div class="select-cards">
-          <div *ngFor="let p of politicas" class="select-card"
-               [class.selected]="m.politica?.id === p.id" (click)="selPolitica(p)">
-            <div class="card-cod">{{ p.codigo }}</div>
-            <div class="card-nombre">{{ p.nombre }}</div>
-          </div>
+          @for (p of politicas; track p) {
+            <div class="select-card"
+              [class.selected]="m.politica?.id === p.id" (click)="selPolitica(p)">
+              <div class="card-cod">{{ p.codigo }}</div>
+              <div class="card-nombre">{{ p.nombre }}</div>
+            </div>
+          }
         </div>
         <div class="step-nav">
           <button class="btn btn-outline" (click)="paso=4">← Anterior</button>
           <button class="btn btn-primary" [disabled]="!m.politica" (click)="paso=6">Siguiente</button>
         </div>
       </div>
-
-      <!-- PASO 6: PAD - LINEAMIENTO -->
-      <div *ngIf="paso === 6" class="step-content card">
+    }
+    
+    <!-- PASO 6: PAD - LINEAMIENTO -->
+    @if (paso === 6) {
+      <div class="step-content card">
         <h3>Paso 7: Lineamiento Estratégico</h3>
         <p>Política: <strong>{{ m.politica?.nombre }}</strong></p>
         <div class="inline-actions"><button class="btn btn-accent btn-sm" (click)="crearLineamiento()">+ Nuevo Lineamiento</button></div>
         <div class="select-cards">
-          <div *ngFor="let l of lineamientosFiltrados" class="select-card"
-               [class.selected]="m.lineamiento?.id === l.id" (click)="selLineamiento(l)">
-            <div class="card-cod">{{ l.codigo }}</div>
-            <div class="card-nombre">{{ l.nombre }}</div>
-          </div>
+          @for (l of lineamientosFiltrados; track l) {
+            <div class="select-card"
+              [class.selected]="m.lineamiento?.id === l.id" (click)="selLineamiento(l)">
+              <div class="card-cod">{{ l.codigo }}</div>
+              <div class="card-nombre">{{ l.nombre }}</div>
+            </div>
+          }
         </div>
         <div class="step-nav">
           <button class="btn btn-outline" (click)="paso=5">← Anterior</button>
           <button class="btn btn-primary" [disabled]="!m.lineamiento" (click)="paso=7">Siguiente</button>
         </div>
       </div>
-
-      <!-- PASO 7: PAD - RESULTADO TERRITORIAL (MATRIZ A COMPLETA) -->
-      <div *ngIf="paso === 7" class="step-content card">
+    }
+    
+    <!-- PASO 7: PAD - RESULTADO TERRITORIAL (MATRIZ A COMPLETA) -->
+    @if (paso === 7) {
+      <div class="step-content card">
         <h3>Paso 8: Resultado Territorial — Matriz A</h3>
         <div class="form-2col">
           <div class="field"><label>Código Resultado PAD</label>
-            <input [(ngModel)]="form.cod_res" class="form-control" placeholder="1102.1.1"></div>
+          <input [(ngModel)]="form.cod_res" class="form-control" placeholder="1102.1.1"></div>
           <div class="field"><label>Sector</label>
-            <select [(ngModel)]="form.sector_id" class="form-control">
-              <option *ngFor="let s of sectores" [value]="s.id">{{ s.codigo }} — {{ s.nombre }}</option>
-            </select>
-          </div>
+          <select [(ngModel)]="form.sector_id" class="form-control">
+            @for (s of sectores; track s) {
+              <option [value]="s.id">{{ s.codigo }} — {{ s.nombre }}</option>
+            }
+          </select>
         </div>
-        <div class="field"><label>Resultado Territorial</label>
-          <textarea [(ngModel)]="form.resultado" class="form-control" rows="2" placeholder="Cambio esperado en el territorio..."></textarea>
-        </div>
-        <h4>Producto Territorial</h4>
-        <div class="form-2col">
-          <div class="field"><label>Código Producto</label><input [(ngModel)]="form.prod_cod" class="form-control"></div>
-          <div class="field"><label>Producto Territorial (bien/servicio)</label><input [(ngModel)]="form.prod_nom" class="form-control"></div>
-        </div>
-        <div class="form-2col">
-          <div class="field"><label>Territorialización (lugar)</label><input [(ngModel)]="form.territorio" class="form-control" placeholder="Distrito, comunidad, OTB..."></div>
-          <div class="field"><label>Responsable</label><input [(ngModel)]="form.responsable" class="form-control" placeholder="Entidad ejecutora"></div>
-        </div>
-        <h4>Indicador</h4>
-        <div class="form-2col">
-          <div class="field"><label>Indicador</label><input [(ngModel)]="form.indicador" class="form-control"></div>
-          <div class="field"><label>Fórmula</label><input [(ngModel)]="form.formula" class="form-control" placeholder="Ej: (Ejecutado/Programado)*100"></div>
-        </div>
-        <div class="form-3col">
-          <div class="field"><label>Línea Base</label><input [(ngModel)]="form.lb" type="number" class="form-control"></div>
-          <div class="field"><label>Meta 2030</label><input [(ngModel)]="form.meta" type="number" class="form-control"></div>
-          <div class="field"><label>Unidad Medida</label><input [(ngModel)]="form.unidad" class="form-control" placeholder="% / Nro / etc."></div>
-        </div>
-        <h4>Programación Quinquenal</h4>
-        <div class="prog-grid">
-          <div *ngFor="let a of anos" class="field">
-            <label>{{ a }}</label>
-            <input [(ngModel)]="form.prog_fis[a]" class="form-control" placeholder="Física">
-            <input [(ngModel)]="form.prog_fin[a]" class="form-control" placeholder="Bs">
-          </div>
-        </div>
-        <div class="step-nav">
-          <button class="btn btn-outline" (click)="paso=6">← Anterior</button>
-          <button class="btn btn-primary" [disabled]="!form.cod_res" (click)="guardarResultado()">Guardar y continuar</button>
-        </div>
-        <div *ngIf="msg" class="msg-box" [class.error]="msgClass==='error'" [class.exito]="msgClass==='exito'">{{ msg }}</div>
       </div>
-
-      <!-- PASO 8: PEI -->
-      <div *ngIf="paso === 8" class="step-content card">
+      <div class="field"><label>Resultado Territorial</label>
+      <textarea [(ngModel)]="form.resultado" class="form-control" rows="2" placeholder="Cambio esperado en el territorio..."></textarea>
+    </div>
+    <h4>Producto Territorial</h4>
+    <div class="form-2col">
+      <div class="field"><label>Código Producto</label><input [(ngModel)]="form.prod_cod" class="form-control"></div>
+      <div class="field"><label>Producto Territorial (bien/servicio)</label><input [(ngModel)]="form.prod_nom" class="form-control"></div>
+    </div>
+    <div class="form-2col">
+      <div class="field"><label>Territorialización (lugar)</label><input [(ngModel)]="form.territorio" class="form-control" placeholder="Distrito, comunidad, OTB..."></div>
+      <div class="field"><label>Responsable</label><input [(ngModel)]="form.responsable" class="form-control" placeholder="Entidad ejecutora"></div>
+    </div>
+    <h4>Indicador</h4>
+    <div class="form-2col">
+      <div class="field"><label>Indicador</label><input [(ngModel)]="form.indicador" class="form-control"></div>
+      <div class="field"><label>Fórmula</label><input [(ngModel)]="form.formula" class="form-control" placeholder="Ej: (Ejecutado/Programado)*100"></div>
+    </div>
+    <div class="form-3col">
+      <div class="field"><label>Línea Base</label><input [(ngModel)]="form.lb" type="number" class="form-control"></div>
+      <div class="field"><label>Meta 2030</label><input [(ngModel)]="form.meta" type="number" class="form-control"></div>
+      <div class="field"><label>Unidad Medida</label><input [(ngModel)]="form.unidad" class="form-control" placeholder="% / Nro / etc."></div>
+    </div>
+    <h4>Programación Quinquenal</h4>
+    <div class="prog-grid">
+      @for (a of anos; track a) {
+        <div class="field">
+          <label>{{ a }}</label>
+          <input [(ngModel)]="form.prog_fis[a]" class="form-control" placeholder="Física">
+          <input [(ngModel)]="form.prog_fin[a]" class="form-control" placeholder="Bs">
+        </div>
+      }
+    </div>
+    <div class="step-nav">
+      <button class="btn btn-outline" (click)="paso=6">← Anterior</button>
+      <button class="btn btn-primary" [disabled]="!form.cod_res" (click)="guardarResultado()">Guardar y continuar</button>
+    </div>
+    @if (msg) {
+      <div class="msg-box" [class.error]="msgClass==='error'" [class.exito]="msgClass==='exito'">{{ msg }}</div>
+    }
+    </div>
+    }
+    
+    <!-- PASO 8: PEI -->
+    @if (paso === 8) {
+      <div class="step-content card">
         <h3>Paso 9: Articular con el PEI</h3>
         <div class="bifurcacion">
           <div class="bif-card">
             <h4>Usar AMP existente</h4>
-            <select [(ngModel)]="ampSel" class="form-control" size="3" *ngIf="amps.length>0">
-              <option *ngFor="let a of amps" [value]="a.id">{{ a.codigo }}</option>
-            </select>
+            @if (amps.length>0) {
+              <select [(ngModel)]="ampSel" class="form-control" size="3">
+                @for (a of amps; track a) {
+                  <option [value]="a.id">{{ a.codigo }}</option>
+                }
+              </select>
+            }
             <button class="btn btn-primary btn-sm" (click)="vincularAmp(ampSel)">Vincular</button>
           </div>
           <div class="bif-card" (click)="crearAmp()">
@@ -232,16 +273,22 @@ import { ApiService } from '../../core/services/api.service';
           <button class="btn btn-primary" (click)="paso=9">Siguiente → POA</button>
         </div>
       </div>
-
-      <!-- PASO 9: POA -->
-      <div *ngIf="paso === 9" class="step-content card">
+    }
+    
+    <!-- PASO 9: POA -->
+    @if (paso === 9) {
+      <div class="step-content card">
         <h3>Paso 10: Articular con el POA</h3>
         <div class="bifurcacion">
           <div class="bif-card">
             <h4>Vincular ACP existente</h4>
-            <select [(ngModel)]="acpSel" class="form-control" size="3" *ngIf="acps.length>0">
-              <option *ngFor="let a of acps" [value]="a.id">{{ a.codigo }} ({{ a.gestion }})</option>
-            </select>
+            @if (acps.length>0) {
+              <select [(ngModel)]="acpSel" class="form-control" size="3">
+                @for (a of acps; track a) {
+                  <option [value]="a.id">{{ a.codigo }} ({{ a.gestion }})</option>
+                }
+              </select>
+            }
             <button class="btn btn-primary btn-sm" (click)="vincularAcp(acpSel)">Vincular</button>
           </div>
           <div class="bif-card" (click)="crearAcp()">
@@ -254,121 +301,148 @@ import { ApiService } from '../../core/services/api.service';
           <button class="btn btn-success" (click)="finalizar()">✓ Finalizar Articulación</button>
         </div>
       </div>
-
-      <!-- VISTA PREVIA: MATRIZ A (formato oficial) -->
-      <div class="matriz-vista card" *ngIf="paso >= 0">
+    }
+    
+    <!-- VISTA PREVIA: MATRIZ A (formato oficial) -->
+    @if (paso >= 0) {
+      <div class="matriz-vista card">
         <div class="matriz-tabs">
           <button class="btn" [class.btn-primary]="vistaMatriz==='a'" (click)="vistaMatriz='a'">MATRIZ A</button>
           <button class="btn" [class.btn-primary]="vistaMatriz==='b'" (click)="vistaMatriz='b'">MATRIZ B</button>
         </div>
-
         <!-- MATRIZ A -->
-        <div *ngIf="vistaMatriz==='a'" class="matriz-scroll">
-          <h3>MATRIZ A — Planificación PAD</h3>
-          <table class="mz">
-            <thead>
-              <tr>
-                <th>SECTOR</th><th>CÓD. GEOGR.</th><th>POLÍTICA</th><th>CÓD. LIN.</th><th>LINEAMIENTO ESTRATÉGICO</th>
-                <th>CÓD. RES. TERR.</th><th>RESULTADO TERRITORIAL</th><th>CÓD. PROD.</th><th>PRODUCTO</th>
-                <th>TERRITORIALIZACIÓN</th><th>RESPONSABLE</th><th>INDICADOR</th><th>FÓRMULA</th>
-                <th>L. BASE</th><th>META 2030</th>
-                <th *ngFor="let a of anos">PROG. FÍS. {{a}}</th>
-                <th *ngFor="let a of anos">PROG. FIN. {{a}}</th>
-                <th>FINANCIAMIENTO</th>
-                <th>PRESUP. TOTAL</th>
-              </tr>
-            </thead>
-            <tbody>
-              <!-- Fila Resultado -->
-              <tr class="fila-resultado" *ngIf="form.resultado">
-                <td>{{ sectorNombre }}</td><td>{{ m.cod_geografico }}</td>
-                <td>{{ m.politica?.nombre||'-' }}</td><td>{{ m.lineamiento?.codigo||'-' }}</td>
-                <td>{{ m.lineamiento?.nombre||'-' }}</td>
-                <td><strong>{{ form.cod_res||'-' }}</strong></td>
-                <td>{{ form.resultado }}</td>
-                <td>—</td><td>—</td><td>—</td><td>{{ form.responsable||'-' }}</td>
-                <td>{{ form.indicador||'-' }}</td><td>{{ form.formula||'-' }}</td>
-                <td>{{ form.lb }}</td><td>{{ form.meta }}</td>
-                <td *ngFor="let a of anos">{{ form.prog_fis[a]||'-' }}</td>
-                <td *ngFor="let a of anos">{{ form.prog_fin[a]||'-' }}</td>
-                <td>{{ tieneFinanciamiento() }}</td>
-                <td>{{ presupuestoTotal() }}</td>
-              </tr>
-              <!-- Fila Producto -->
-              <tr class="fila-producto" *ngIf="form.prod_nom">
-                <td>{{ sectorNombre }}</td><td>{{ m.cod_geografico }}</td>
-                <td>{{ m.politica?.nombre||'-' }}</td><td>{{ m.lineamiento?.codigo||'-' }}</td>
-                <td>{{ m.lineamiento?.nombre||'-' }}</td>
-                <td>—</td><td>—</td>
-                <td><strong>{{ form.prod_cod||'-' }}</strong></td>
-                <td>{{ form.prod_nom }}</td>
-                <td>{{ form.territorio||'-' }}</td><td>{{ form.responsable||'-' }}</td>
-                <td>{{ form.indicador||'-' }}</td><td>{{ form.formula||'-' }}</td>
-                <td>—</td><td>{{ form.meta||'-' }}</td>
-                <td *ngFor="let a of anos">{{ form.prog_fis[a]||'-' }}</td>
-                <td *ngFor="let a of anos">{{ form.prog_fin[a]||'-' }}</td>
-                <td>{{ tieneFinanciamiento() }}</td>
-                <td>{{ presupuestoTotal() }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
+        @if (vistaMatriz==='a') {
+          <div class="matriz-scroll">
+            <h3>MATRIZ A — Planificación PAD</h3>
+            <table class="mz">
+              <thead>
+                <tr>
+                  <th>SECTOR</th><th>CÓD. GEOGR.</th><th>POLÍTICA</th><th>CÓD. LIN.</th><th>LINEAMIENTO ESTRATÉGICO</th>
+                  <th>CÓD. RES. TERR.</th><th>RESULTADO TERRITORIAL</th><th>CÓD. PROD.</th><th>PRODUCTO</th>
+                  <th>TERRITORIALIZACIÓN</th><th>RESPONSABLE</th><th>INDICADOR</th><th>FÓRMULA</th>
+                  <th>L. BASE</th><th>META 2030</th>
+                  @for (a of anos; track a) {
+                    <th>PROG. FÍS. {{a}}</th>
+                  }
+                  @for (a of anos; track a) {
+                    <th>PROG. FIN. {{a}}</th>
+                  }
+                  <th>FINANCIAMIENTO</th>
+                  <th>PRESUP. TOTAL</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- Fila Resultado -->
+                @if (form.resultado) {
+                  <tr class="fila-resultado">
+                    <td>{{ sectorNombre }}</td><td>{{ m.cod_geografico }}</td>
+                    <td>{{ m.politica?.nombre||'-' }}</td><td>{{ m.lineamiento?.codigo||'-' }}</td>
+                    <td>{{ m.lineamiento?.nombre||'-' }}</td>
+                    <td><strong>{{ form.cod_res||'-' }}</strong></td>
+                    <td>{{ form.resultado }}</td>
+                    <td>—</td><td>—</td><td>—</td><td>{{ form.responsable||'-' }}</td>
+                    <td>{{ form.indicador||'-' }}</td><td>{{ form.formula||'-' }}</td>
+                    <td>{{ form.lb }}</td><td>{{ form.meta }}</td>
+                    @for (a of anos; track a) {
+                      <td>{{ form.prog_fis[a]||'-' }}</td>
+                    }
+                    @for (a of anos; track a) {
+                      <td>{{ form.prog_fin[a]||'-' }}</td>
+                    }
+                    <td>{{ tieneFinanciamiento() }}</td>
+                    <td>{{ presupuestoTotal() }}</td>
+                  </tr>
+                }
+                <!-- Fila Producto -->
+                @if (form.prod_nom) {
+                  <tr class="fila-producto">
+                    <td>{{ sectorNombre }}</td><td>{{ m.cod_geografico }}</td>
+                    <td>{{ m.politica?.nombre||'-' }}</td><td>{{ m.lineamiento?.codigo||'-' }}</td>
+                    <td>{{ m.lineamiento?.nombre||'-' }}</td>
+                    <td>—</td><td>—</td>
+                    <td><strong>{{ form.prod_cod||'-' }}</strong></td>
+                    <td>{{ form.prod_nom }}</td>
+                    <td>{{ form.territorio||'-' }}</td><td>{{ form.responsable||'-' }}</td>
+                    <td>{{ form.indicador||'-' }}</td><td>{{ form.formula||'-' }}</td>
+                    <td>—</td><td>{{ form.meta||'-' }}</td>
+                    @for (a of anos; track a) {
+                      <td>{{ form.prog_fis[a]||'-' }}</td>
+                    }
+                    @for (a of anos; track a) {
+                      <td>{{ form.prog_fin[a]||'-' }}</td>
+                    }
+                    <td>{{ tieneFinanciamiento() }}</td>
+                    <td>{{ presupuestoTotal() }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
         <!-- MATRIZ B -->
-        <div *ngIf="vistaMatriz==='b'" class="matriz-scroll">
-          <h3>MATRIZ B — Articulación SIPEB</h3>
-          <table class="mz">
-            <thead>
-              <tr>
-                <th colspan="4">PLANIFICACIÓN NACIONAL</th>
-                <th colspan="4">ACUERDOS INTERNACIONALES</th>
-                <th colspan="4">PLANIFICACIÓN SECTORIAL</th>
-                <th colspan="14">PLANIFICACIÓN TERRITORIAL</th>
-              </tr>
-              <tr>
-                <th>CÓD. EJE PGDESA</th><th>OBJETIVO IMPACTO</th><th>CÓD. COMP. PDESA</th><th>OBJETIVO EFECTO</th>
-                <th>ODS</th><th>NDC</th><th>NDT</th><th>30/30</th>
-                <th>CÓD. SECTOR</th><th>SECTOR</th><th>CÓD. RES. PDS</th><th>RESULTADO PDS</th>
-                <th>CÓD. GEOGR.</th><th>ETA</th><th>CÓD. LIN.</th><th>LINEAMIENTO</th>
-                <th>CÓD. RES. TERR.</th><th>RESULTADO TERRITORIAL</th>
-                <th>INDICADOR</th><th>FÓRMULA</th><th>L. BASE</th><th>META 2030</th>
-                <th *ngFor="let a of anos">PROG. {{a}}</th>
-                <th>PRESUP. REF.</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngIf="m.pgdesa || form.resultado">
-                <td>{{ m.pgdesa?.codigo||'-' }}</td>
-                <td>{{ m.pgdesa_objetivo||m.pgdesa?.nombre||'-' }}</td>
-                <td>{{ m.pdesa?.codigo||'-' }}</td>
-                <td>{{ m.pdesa_objetivo||m.pdesa?.nombre||'-' }}</td>
-                <td>{{ m.ods||'-' }}</td>
-                <td>{{ m.ndc||'-' }}</td>
-                <td>{{ m.ndt||'-' }}</td>
-                <td>{{ m.comp3030||'-' }}</td>
-                <td>{{ m.sector_cod||'-' }}</td>
-                <td>{{ m.sector_nombre||'-' }}</td>
-                <td>{{ m.pds_cod||'-' }}</td>
-                <td>{{ m.pds_resultado||'-' }}</td>
-                <td>{{ m.cod_geografico||'-' }}</td>
-                <td>{{ m.denominacion_eta||'-' }}</td>
-                <td>{{ m.lineamiento?.codigo||'-' }}</td>
-                <td>{{ m.lineamiento?.nombre||'-' }}</td>
-                <td><strong>{{ form.cod_res||'-' }}</strong></td>
-                <td>{{ form.resultado||'-' }}</td>
-                <td>{{ form.indicador||'-' }}</td>
-                <td>{{ form.formula||'-' }}</td>
-                <td>{{ form.lb||'-' }}</td>
-                <td>{{ form.meta||'-' }}</td>
-                <td *ngFor="let a of anos">{{ form.prog_fis[a]||'-' }}</td>
-                <td>{{ presupuestoReferencial() }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        @if (vistaMatriz==='b') {
+          <div class="matriz-scroll">
+            <h3>MATRIZ B — Articulación SIPEB</h3>
+            <table class="mz">
+              <thead>
+                <tr>
+                  <th colspan="4">PLANIFICACIÓN NACIONAL</th>
+                  <th colspan="4">ACUERDOS INTERNACIONALES</th>
+                  <th colspan="4">PLANIFICACIÓN SECTORIAL</th>
+                  <th colspan="14">PLANIFICACIÓN TERRITORIAL</th>
+                </tr>
+                <tr>
+                  <th>CÓD. EJE PGDESA</th><th>OBJETIVO IMPACTO</th><th>CÓD. COMP. PDESA</th><th>OBJETIVO EFECTO</th>
+                  <th>ODS</th><th>NDC</th><th>NDT</th><th>30/30</th>
+                  <th>CÓD. SECTOR</th><th>SECTOR</th><th>CÓD. RES. PDS</th><th>RESULTADO PDS</th>
+                  <th>CÓD. GEOGR.</th><th>ETA</th><th>CÓD. LIN.</th><th>LINEAMIENTO</th>
+                  <th>CÓD. RES. TERR.</th><th>RESULTADO TERRITORIAL</th>
+                  <th>INDICADOR</th><th>FÓRMULA</th><th>L. BASE</th><th>META 2030</th>
+                  @for (a of anos; track a) {
+                    <th>PROG. {{a}}</th>
+                  }
+                  <th>PRESUP. REF.</th>
+                </tr>
+              </thead>
+              <tbody>
+                @if (m.pgdesa || form.resultado) {
+                  <tr>
+                    <td>{{ m.pgdesa?.codigo||'-' }}</td>
+                    <td>{{ m.pgdesa_objetivo||m.pgdesa?.nombre||'-' }}</td>
+                    <td>{{ m.pdesa?.codigo||'-' }}</td>
+                    <td>{{ m.pdesa_objetivo||m.pdesa?.nombre||'-' }}</td>
+                    <td>{{ m.ods||'-' }}</td>
+                    <td>{{ m.ndc||'-' }}</td>
+                    <td>{{ m.ndt||'-' }}</td>
+                    <td>{{ m.comp3030||'-' }}</td>
+                    <td>{{ m.sector_cod||'-' }}</td>
+                    <td>{{ m.sector_nombre||'-' }}</td>
+                    <td>{{ m.pds_cod||'-' }}</td>
+                    <td>{{ m.pds_resultado||'-' }}</td>
+                    <td>{{ m.cod_geografico||'-' }}</td>
+                    <td>{{ m.denominacion_eta||'-' }}</td>
+                    <td>{{ m.lineamiento?.codigo||'-' }}</td>
+                    <td>{{ m.lineamiento?.nombre||'-' }}</td>
+                    <td><strong>{{ form.cod_res||'-' }}</strong></td>
+                    <td>{{ form.resultado||'-' }}</td>
+                    <td>{{ form.indicador||'-' }}</td>
+                    <td>{{ form.formula||'-' }}</td>
+                    <td>{{ form.lb||'-' }}</td>
+                    <td>{{ form.meta||'-' }}</td>
+                    @for (a of anos; track a) {
+                      <td>{{ form.prog_fis[a]||'-' }}</td>
+                    }
+                    <td>{{ presupuestoReferencial() }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
       </div>
+    }
     </div>
-  `,
+    `,
   styles: [`
     .art-full { max-width: 1200px; margin:0 auto; padding-bottom:2rem; }
     .art-header h1 { font-size:1.35rem; color:var(--primary); }

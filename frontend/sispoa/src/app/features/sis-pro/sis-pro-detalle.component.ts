@@ -11,58 +11,84 @@ import {
   template: `
     <div class="page-header">
       <h2>{{ proyecto?.codigo_interno }} — {{ proyecto?.nombre }}</h2>
-      <p class="text-secondary" *ngIf="proyecto">Fase: <span class="badge">{{ proyecto.fase }}</span></p>
+      @if (proyecto) {
+        <p class="text-secondary">Fase: <span class="badge">{{ proyecto.fase }}</span></p>
+      }
     </div>
-    <div *ngIf="cargando" class="loading">Cargando proyecto...</div>
-    <div class="alert alert-error" *ngIf="error">{{ error }}</div>
-
-    <div class="card" *ngIf="presupuesto && !cargando">
-      <h3>Presupuesto</h3>
-      <div class="info-grid">
-        <div><strong>Costo total:</strong> Bs {{ presupuesto.costo_total }}</div>
-        <div><strong>Ejecutado:</strong> Bs {{ presupuesto.ejecucion_acumulada }}</div>
-        <div><strong>Saldo:</strong> Bs {{ presupuesto.saldo }}</div>
+    @if (cargando) {
+      <div class="loading">Cargando proyecto...</div>
+    }
+    @if (error) {
+      <div class="alert alert-error">{{ error }}</div>
+    }
+    
+    @if (presupuesto && !cargando) {
+      <div class="card">
+        <h3>Presupuesto</h3>
+        <div class="info-grid">
+          <div><strong>Costo total:</strong> Bs {{ presupuesto.costo_total }}</div>
+          <div><strong>Ejecutado:</strong> Bs {{ presupuesto.ejecucion_acumulada }}</div>
+          <div><strong>Saldo:</strong> Bs {{ presupuesto.saldo }}</div>
+        </div>
       </div>
-    </div>
-
-    <div class="card" *ngIf="cadena.length && !cargando">
-      <h3>Cadena ascendente</h3>
-      <div class="cadena">
-        <span *ngFor="let paso of cadena; let i = index" class="paso">
-          <span class="tipo">{{ paso.tipo }}</span> {{ paso.codigo }}
-          <span *ngIf="i < cadena.length - 1" class="flecha">→</span>
-        </span>
+    }
+    
+    @if (cadena.length && !cargando) {
+      <div class="card">
+        <h3>Cadena ascendente</h3>
+        <div class="cadena">
+          @for (paso of cadena; track paso; let i = $index) {
+            <span class="paso">
+              <span class="tipo">{{ paso.tipo }}</span> {{ paso.codigo }}
+              @if (i < cadena.length - 1) {
+                <span class="flecha">→</span>
+              }
+            </span>
+          }
+        </div>
       </div>
-    </div>
-
-    <div class="card" *ngIf="!cargando && proyecto">
-      <h3>Condiciones previas</h3>
-      <form *ngIf="puedeEditar" (ngSubmit)="crearCondicion()" class="form-inline">
-        <input [(ngModel)]="condicionForm" name="cd" placeholder="Descripción" required class="input" />
-        <button type="submit" class="btn btn-primary">+ Condición</button>
-      </form>
-      <ul class="lista">
-        <li *ngFor="let c of condiciones">{{ c.cumplida ? '✅' : '⬜' }} {{ c.descripcion }}</li>
-      </ul>
-    </div>
-
-    <div class="card" *ngIf="!cargando && proyecto">
-      <h3>Documentos técnicos</h3>
-      <form *ngIf="puedeEditar" (ngSubmit)="crearDocumento()" class="form-inline">
-        <select [(ngModel)]="docTipo" name="dt" class="input">
-          <option value="itcp">ITCP</option>
-          <option value="edtp">EDTP</option>
-          <option value="expediente">Expediente</option>
-          <option value="otro">Otro</option>
-        </select>
-        <input [(ngModel)]="docNombre" name="dn" placeholder="Nombre" required class="input" />
-        <button type="submit" class="btn btn-primary">+ Documento</button>
-      </form>
-      <ul class="lista">
-        <li *ngFor="let d of documentos">{{ d.tipo }} — {{ d.nombre }} ({{ d.estado }})</li>
-      </ul>
-    </div>
-  `,
+    }
+    
+    @if (!cargando && proyecto) {
+      <div class="card">
+        <h3>Condiciones previas</h3>
+        @if (puedeEditar) {
+          <form (ngSubmit)="crearCondicion()" class="form-inline">
+            <input [(ngModel)]="condicionForm" name="cd" placeholder="Descripción" required class="input" />
+            <button type="submit" class="btn btn-primary">+ Condición</button>
+          </form>
+        }
+        <ul class="lista">
+          @for (c of condiciones; track c) {
+            <li>{{ c.cumplida ? '✅' : '⬜' }} {{ c.descripcion }}</li>
+          }
+        </ul>
+      </div>
+    }
+    
+    @if (!cargando && proyecto) {
+      <div class="card">
+        <h3>Documentos técnicos</h3>
+        @if (puedeEditar) {
+          <form (ngSubmit)="crearDocumento()" class="form-inline">
+            <select [(ngModel)]="docTipo" name="dt" class="input">
+              <option value="itcp">ITCP</option>
+              <option value="edtp">EDTP</option>
+              <option value="expediente">Expediente</option>
+              <option value="otro">Otro</option>
+            </select>
+            <input [(ngModel)]="docNombre" name="dn" placeholder="Nombre" required class="input" />
+            <button type="submit" class="btn btn-primary">+ Documento</button>
+          </form>
+        }
+        <ul class="lista">
+          @for (d of documentos; track d) {
+            <li>{{ d.tipo }} — {{ d.nombre }} ({{ d.estado }})</li>
+          }
+        </ul>
+      </div>
+    }
+    `,
   styles: [`
     .page-header { margin-bottom: 1.5rem; }
     .text-secondary { color: var(--text-secondary); font-size: 0.875rem; }

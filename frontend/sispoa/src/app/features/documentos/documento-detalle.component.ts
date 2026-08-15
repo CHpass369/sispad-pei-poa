@@ -6,69 +6,83 @@ import { DocumentosService, Documento } from './documentos.service';
   standalone: false,
   selector: 'app-documento-detalle',
   template: `
-    <div class="page-header" *ngIf="documento">
-      <h2>{{ documento.nombre }}</h2>
-      <p class="text-secondary">Detalle del documento</p>
-    </div>
-
-    <div class="detalle-layout" *ngIf="documento">
-      <div class="preview-panel card">
-        <div class="preview-content" *ngIf="esImagen()">
-          <img [src]="documento.archivo_url || documento.archivo" alt="{{ documento.nombre }}">
+    @if (documento) {
+      <div class="page-header">
+        <h2>{{ documento.nombre }}</h2>
+        <p class="text-secondary">Detalle del documento</p>
+      </div>
+    }
+    
+    @if (documento) {
+      <div class="detalle-layout">
+        <div class="preview-panel card">
+          @if (esImagen()) {
+            <div class="preview-content">
+              <img [src]="documento.archivo_url || documento.archivo" alt="{{ documento.nombre }}">
+            </div>
+          }
+          @if (!esImagen()) {
+            <div class="preview-content preview-icon">
+              <span class="file-icon">{{ iconoArchivo() }}</span>
+              <span class="file-type">{{ documento.tipo }}</span>
+            </div>
+          }
         </div>
-        <div class="preview-content preview-icon" *ngIf="!esImagen()">
-          <span class="file-icon">{{ iconoArchivo() }}</span>
-          <span class="file-type">{{ documento.tipo }}</span>
+        <div class="info-panel">
+          <div class="card info-card">
+            <h3>Metadatos</h3>
+            <div class="info-row">
+              <label>Nombre</label>
+              <span>{{ documento.nombre }}</span>
+            </div>
+            <div class="info-row">
+              <label>Tipo</label>
+              <span class="badge badge-info">{{ documento.tipo }}</span>
+            </div>
+            <div class="info-row">
+              <label>Entidad Asociada</label>
+              <span>{{ documento.entidad_descripcion || '-' }}</span>
+            </div>
+            <div class="info-row">
+              <label>Tamaño</label>
+              <span>{{ formatTamano(documento.tamano) }}</span>
+            </div>
+            <div class="info-row">
+              <label>Fecha Subida</label>
+              <span>{{ documento.fecha_subida | date:'dd/MM/yyyy HH:mm' }}</span>
+            </div>
+            <div class="info-row">
+              <label>Subido Por</label>
+              <span>{{ documento.subido_por }}</span>
+            </div>
+            @if (documento.descripcion) {
+              <div class="info-row">
+                <label>Descripción</label>
+                <span>{{ documento.descripcion }}</span>
+              </div>
+            }
+            @if (documento.tags) {
+              <div class="info-row">
+                <label>Etiquetas</label>
+                <span>{{ documento.tags }}</span>
+              </div>
+            }
+          </div>
+          <div class="acciones-panel">
+            <button class="btn btn-primary" (click)="descargar()">⬇ Descargar</button>
+            <button class="btn btn-danger" (click)="eliminar()">✕ Eliminar</button>
+          </div>
         </div>
       </div>
-
-      <div class="info-panel">
-        <div class="card info-card">
-          <h3>Metadatos</h3>
-          <div class="info-row">
-            <label>Nombre</label>
-            <span>{{ documento.nombre }}</span>
-          </div>
-          <div class="info-row">
-            <label>Tipo</label>
-            <span class="badge badge-info">{{ documento.tipo }}</span>
-          </div>
-          <div class="info-row">
-            <label>Entidad Asociada</label>
-            <span>{{ documento.entidad_descripcion || '-' }}</span>
-          </div>
-          <div class="info-row">
-            <label>Tamaño</label>
-            <span>{{ formatTamano(documento.tamano) }}</span>
-          </div>
-          <div class="info-row">
-            <label>Fecha Subida</label>
-            <span>{{ documento.fecha_subida | date:'dd/MM/yyyy HH:mm' }}</span>
-          </div>
-          <div class="info-row">
-            <label>Subido Por</label>
-            <span>{{ documento.subido_por }}</span>
-          </div>
-          <div class="info-row" *ngIf="documento.descripcion">
-            <label>Descripción</label>
-            <span>{{ documento.descripcion }}</span>
-          </div>
-          <div class="info-row" *ngIf="documento.tags">
-            <label>Etiquetas</label>
-            <span>{{ documento.tags }}</span>
-          </div>
-        </div>
-
-        <div class="acciones-panel">
-          <button class="btn btn-primary" (click)="descargar()">⬇ Descargar</button>
-          <button class="btn btn-danger" (click)="eliminar()">✕ Eliminar</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="loading" *ngIf="cargando">Cargando detalle...</div>
-    <div class="alert alert-error" *ngIf="error">{{ error }}</div>
-  `,
+    }
+    
+    @if (cargando) {
+      <div class="loading">Cargando detalle...</div>
+    }
+    @if (error) {
+      <div class="alert alert-error">{{ error }}</div>
+    }
+    `,
   styles: [`
     .page-header { margin-bottom: 1.5rem; }
     .page-header h2 { font-size: 1.5rem; margin-bottom: 0.25rem; }

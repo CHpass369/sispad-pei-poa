@@ -11,18 +11,28 @@ export interface Breadcrumb {
   standalone: false,
   selector: 'app-breadcrumbs',
   template: `
-    <nav class="breadcrumbs" *ngIf="breadcrumbs.length > 0">
-      <ol class="breadcrumbs-list">
-        <li *ngFor="let crumb of breadcrumbs; let last = last"
-            class="breadcrumbs-item"
-            [class.breadcrumbs-active]="last">
-          <a *ngIf="!last" [routerLink]="crumb.url" class="breadcrumbs-link">{{ crumb.label }}</a>
-          <span *ngIf="last" class="breadcrumbs-current">{{ crumb.label }}</span>
-          <span *ngIf="!last" class="breadcrumbs-separator">/</span>
-        </li>
-      </ol>
-    </nav>
-  `,
+    @if (breadcrumbs.length > 0) {
+      <nav class="breadcrumbs">
+        <ol class="breadcrumbs-list">
+          @for (crumb of breadcrumbs; track crumb; let last = $last) {
+            <li
+              class="breadcrumbs-item"
+              [class.breadcrumbs-active]="last">
+              @if (!last) {
+                <a [routerLink]="crumb.url" class="breadcrumbs-link">{{ crumb.label }}</a>
+              }
+              @if (last) {
+                <span class="breadcrumbs-current">{{ crumb.label }}</span>
+              }
+              @if (!last) {
+                <span class="breadcrumbs-separator">/</span>
+              }
+            </li>
+          }
+        </ol>
+      </nav>
+    }
+    `,
   styles: [`
     .breadcrumbs {
       padding: 0.5rem 0;

@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
-import { MatrizCompletaService, NodoArbol } from './matriz-completa.service';
+import { MatrizCompletaService } from './matriz-completa.service';
+import { NodoArbol } from './matrices-contracts';
 import { MatrizCompletaTreeComponent } from './matriz-completa-tree.component';
 
 describe('MatrizCompletaTreeComponent', () => {

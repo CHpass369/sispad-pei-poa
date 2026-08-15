@@ -11,41 +11,51 @@ import { Router } from '@angular/router';
         <h2>Nuevo Seguimiento Presupuestario</h2>
         <p class="text-secondary">Registre el seguimiento presupuestario de una actividad</p>
       </div>
-
-      <div class="alert alert-success" *ngIf="mensajeExito">{{ mensajeExito }}</div>
-      <div class="alert alert-danger" *ngIf="mensajeError">{{ mensajeError }}</div>
-
+    
+      @if (mensajeExito) {
+        <div class="alert alert-success">{{ mensajeExito }}</div>
+      }
+      @if (mensajeError) {
+        <div class="alert alert-danger">{{ mensajeError }}</div>
+      }
+    
       <div class="card form-card">
         <h3 class="step-title">Datos del Seguimiento</h3>
-
+    
         <div class="form-grid">
           <!-- Seleccionar Actividad desde árbol M3 -->
           <div class="field-full">
             <label>Actividad *</label>
             <select [(ngModel)]="form.actividad" class="form-control">
               <option value="">Seleccionar actividad...</option>
-              <option *ngFor="let a of actividades" [value]="a.id">
-                {{ a.codigo_actividad }} — {{ a.denominacion }}
-                <ng-container *ngIf="a.operacion_nombre">({{ a.operacion_nombre }})</ng-container>
-              </option>
+              @for (a of actividades; track a) {
+                <option [value]="a.id">
+                  {{ a.codigo_actividad }} — {{ a.denominacion }}
+                  @if (a.operacion_nombre) {
+                    ({{ a.operacion_nombre }})
+                  }
+                </option>
+              }
             </select>
           </div>
-
+    
           <!-- Gestión -->
           <div class="field">
             <label>Gestión *</label>
             <select [(ngModel)]="form.gestion" class="form-control">
               <option value="">Seleccionar...</option>
-              <option *ngFor="let g of gestiones" [value]="g">{{ g }}</option>
+              @for (g of gestiones; track g) {
+                <option [value]="g">{{ g }}</option>
+              }
             </select>
           </div>
           <div class="field">
             <label>Fecha de Actualización</label>
             <input type="date" [(ngModel)]="form.fecha_actualizacion" class="form-control">
           </div>
-
+    
           <h4 class="section-subtitle">Presupuesto</h4>
-
+    
           <div class="field">
             <label>Presupuesto Inicial (Bs.)</label>
             <input type="number" step="0.01" [(ngModel)]="form.presupuesto_inicial" class="form-control" placeholder="0.00">
@@ -62,19 +72,21 @@ import { Router } from '@angular/router';
             <label>Devengado Total (Bs.)</label>
             <input type="number" step="0.01" [(ngModel)]="form.devengado_total" class="form-control" placeholder="0.00">
           </div>
-
+    
           <h4 class="section-subtitle">Ejecución Mensual (Devengado)</h4>
           <div class="field-full">
             <div class="mensual-grid">
-              <div class="field" *ngFor="let m of meses; let i = index">
-                <label>{{ m }}</label>
-                <input type="number" step="0.01" [(ngModel)]="form['ejecucion_' + (i + 1)]" class="form-control" placeholder="0.00">
-              </div>
+              @for (m of meses; track m; let i = $index) {
+                <div class="field">
+                  <label>{{ m }}</label>
+                  <input type="number" step="0.01" [(ngModel)]="form['ejecucion_' + (i + 1)]" class="form-control" placeholder="0.00">
+                </div>
+              }
             </div>
           </div>
-
+    
           <h4 class="section-subtitle">Ejecución Física</h4>
-
+    
           <div class="field">
             <label>Meta Física</label>
             <input type="number" step="0.01" [(ngModel)]="form.meta_fisica" class="form-control" placeholder="Meta">
@@ -91,20 +103,20 @@ import { Router } from '@angular/router';
             <label>Eficacia (%)</label>
             <input type="number" step="0.01" [(ngModel)]="form.eficacia" class="form-control" placeholder="% eficacia">
           </div>
-
+    
           <!-- Acción correctiva -->
           <div class="field-full">
             <label>Acción Correctiva</label>
             <textarea [(ngModel)]="form.accion_correctiva" class="form-control" rows="2" placeholder="Acciones correctivas implementadas"></textarea>
           </div>
-
+    
           <!-- Evidencia -->
           <div class="field-full">
             <label>Evidencia / Observaciones</label>
             <textarea [(ngModel)]="form.evidencia" class="form-control" rows="2" placeholder="Evidencias, observaciones o notas"></textarea>
           </div>
         </div>
-
+    
         <div class="form-nav">
           <button class="btn btn-outline" (click)="cancelar()">← Cancelar</button>
           <button class="btn btn-primary btn-guardar" (click)="guardar()" [disabled]="guardando">
@@ -113,7 +125,7 @@ import { Router } from '@angular/router';
         </div>
       </div>
     </div>
-  `,
+    `,
   styles: [`
     .form-page { padding-bottom: 2rem; max-width: 800px; margin: 0 auto; }
     .page-header { margin-bottom: 1rem; }

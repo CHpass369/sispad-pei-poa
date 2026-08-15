@@ -19,18 +19,22 @@ import { MatricesPadService } from './matrices-pad.service';
         </div>
         <div class="header-actions">
           <span class="badge" [class.badge-success]="materializada"
-                [class.badge-warning]="!materializada">
+            [class.badge-warning]="!materializada">
             {{ materializada ? 'Materializada' : 'Borrador' }}
           </span>
-          <span class="badge badge-info" *ngIf="!cargando && filas.length">
-            {{ filas.length }} fila(s)
-          </span>
+          @if (!cargando && filas.length) {
+            <span class="badge badge-info">
+              {{ filas.length }} fila(s)
+            </span>
+          }
           <a routerLink="/matrices-pad" class="btn btn-sm btn-outline">← Volver</a>
         </div>
       </div>
-
-      <div class="alert alert-danger" *ngIf="mensajeError">{{ mensajeError }}</div>
-
+    
+      @if (mensajeError) {
+        <div class="alert alert-danger">{{ mensajeError }}</div>
+      }
+    
       <div class="card table-card">
         <div class="table-scroll">
           <table class="matriz-table">
@@ -51,54 +55,68 @@ import { MatricesPadService } from './matrices-pad.service';
                 <th>Unidad</th>
                 <th>Línea Base</th>
                 <th>Meta 2030</th>
-                <th *ngFor="let y of quinquenio" class="pf-col">Prog. Física {{ y }}</th>
+                @for (y of quinquenio; track y) {
+                  <th class="pf-col">Prog. Física {{ y }}</th>
+                }
                 <th>¿Financ.?</th>
                 <th>Presupuesto Total</th>
-                <th *ngFor="let y of quinquenio" class="pf-col">Ppto. {{ y }}</th>
+                @for (y of quinquenio; track y) {
+                  <th class="pf-col">Ppto. {{ y }}</th>
+                }
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let f of filas"
+              @for (f of filas; track f) {
+                <tr
                   [class.fila-producto]="f.tipo_fila === 'producto'">
-                <td class="sticky-col">{{ f.sector || '—' }}</td>
-                <td><span class="codigo">{{ f.cod_geografico || '—' }}</span></td>
-                <td class="cell-desc">{{ f.politica || '—' }}</td>
-                <td><span class="codigo">{{ f.cod_lineamiento_pad || '—' }}</span></td>
-                <td><span class="codigo">{{ f.codigo_resultado_pad || '—' }}</span></td>
-                <td class="cell-desc">{{ f.resultado_pad || '—' }}</td>
-                <td><span class="codigo">{{ f.codigo_producto_pad || '—' }}</span></td>
-                <td class="cell-desc">{{ f.producto_pad || '—' }}</td>
-                <td class="cell-desc">{{ f.territorializacion || '—' }}</td>
-                <td class="cell-desc">{{ f.responsable_pad || '—' }}</td>
-                <td class="cell-desc">{{ f.indicador || '—' }}</td>
-                <td class="cell-desc">{{ f.formula || '—' }}</td>
-                <td>{{ f.unidad_medida || '—' }}</td>
-                <td class="num">{{ f.linea_base !== '' ? f.linea_base : '—' }}</td>
-                <td class="num">{{ f.meta_2030 !== '' ? f.meta_2030 : '—' }}</td>
-                <td class="num" *ngFor="let y of quinquenio">{{ f['pf_' + y] !== '' ? f['pf_' + y] : '—' }}</td>
-                <td>
-                  <span class="badge" [class.badge-success]="f.cuenta_con_financiamiento"
-                        [class.badge-muted]="!f.cuenta_con_financiamiento">
-                    {{ f.cuenta_con_financiamiento ? 'SÍ' : 'NO' }}
-                  </span>
-                </td>
-                <td class="num">{{ f.presupuesto_total !== '' ? f.presupuesto_total : '—' }}</td>
-                <td class="num" *ngFor="let y of quinquenio">{{ f['presupuesto_' + y] !== '' ? f['presupuesto_' + y] : '—' }}</td>
-              </tr>
-              <tr *ngIf="cargando">
-                <td colspan="27" class="empty-cell">Cargando Matriz A...</td>
-              </tr>
-              <tr *ngIf="!cargando && filas.length === 0">
-                <td colspan="27" class="empty-cell">
-                  Sin datos para mostrar. Complete el wizard o materialice la matriz.
-                </td>
-              </tr>
+                  <td class="sticky-col">{{ f.sector || '—' }}</td>
+                  <td><span class="codigo">{{ f.cod_geografico || '—' }}</span></td>
+                  <td class="cell-desc">{{ f.politica || '—' }}</td>
+                  <td><span class="codigo">{{ f.cod_lineamiento_pad || '—' }}</span></td>
+                  <td><span class="codigo">{{ f.codigo_resultado_pad || '—' }}</span></td>
+                  <td class="cell-desc">{{ f.resultado_pad || '—' }}</td>
+                  <td><span class="codigo">{{ f.codigo_producto_pad || '—' }}</span></td>
+                  <td class="cell-desc">{{ f.producto_pad || '—' }}</td>
+                  <td class="cell-desc">{{ f.territorializacion || '—' }}</td>
+                  <td class="cell-desc">{{ f.responsable_pad || '—' }}</td>
+                  <td class="cell-desc">{{ f.indicador || '—' }}</td>
+                  <td class="cell-desc">{{ f.formula || '—' }}</td>
+                  <td>{{ f.unidad_medida || '—' }}</td>
+                  <td class="num">{{ f.linea_base !== '' ? f.linea_base : '—' }}</td>
+                  <td class="num">{{ f.meta_2030 !== '' ? f.meta_2030 : '—' }}</td>
+                  @for (y of quinquenio; track y) {
+                    <td class="num">{{ f['pf_' + y] !== '' ? f['pf_' + y] : '—' }}</td>
+                  }
+                  <td>
+                    <span class="badge" [class.badge-success]="f.cuenta_con_financiamiento"
+                      [class.badge-muted]="!f.cuenta_con_financiamiento">
+                      {{ f.cuenta_con_financiamiento ? 'SÍ' : 'NO' }}
+                    </span>
+                  </td>
+                  <td class="num">{{ f.presupuesto_total !== '' ? f.presupuesto_total : '—' }}</td>
+                  @for (y of quinquenio; track y) {
+                    <td class="num">{{ f['presupuesto_' + y] !== '' ? f['presupuesto_' + y] : '—' }}</td>
+                  }
+                </tr>
+              }
+              @if (cargando) {
+                <tr>
+                  <td colspan="27" class="empty-cell">Cargando Matriz A...</td>
+                </tr>
+              }
+              @if (!cargando && filas.length === 0) {
+                <tr>
+                  <td colspan="27" class="empty-cell">
+                    Sin datos para mostrar. Complete el wizard o materialice la matriz.
+                  </td>
+                </tr>
+              }
             </tbody>
           </table>
         </div>
       </div>
     </div>
-  `,
+    `,
   styles: [`
     .matriz-page { padding-bottom: 2rem; }
     .page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }

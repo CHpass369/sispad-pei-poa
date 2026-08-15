@@ -9,48 +9,59 @@ import { PortalPublicoService, IndicadorPublico } from './portal-publico.service
       <h2>Indicadores Públicos</h2>
       <p class="text-secondary">Indicadores de desempeño institucional - Vista de solo lectura</p>
     </div>
-
+    
     <div class="acciones-superior">
       <div class="field">
         <input [(ngModel)]="busqueda" (keyup.enter)="cargar()" class="form-control"
-               placeholder="Buscar indicadores...">
+          placeholder="Buscar indicadores...">
+        </div>
+        <select [(ngModel)]="filtroTipo" (change)="cargar()" class="form-control">
+          <option value="">Todos los tipos</option>
+          <option value="eficiencia">Eficiencia</option>
+          <option value="efectividad">Efectividad</option>
+          <option value="calidad">Calidad</option>
+          <option value="productividad">Productividad</option>
+        </select>
       </div>
-      <select [(ngModel)]="filtroTipo" (change)="cargar()" class="form-control">
-        <option value="">Todos los tipos</option>
-        <option value="eficiencia">Eficiencia</option>
-        <option value="efectividad">Efectividad</option>
-        <option value="calidad">Calidad</option>
-        <option value="productividad">Productividad</option>
-      </select>
-    </div>
-
-    <div class="indicadores-grid" *ngIf="!cargando">
-      <div class="card indicador-card" *ngFor="let ind of indicadoresFiltrados">
-        <div class="indicador-header">
-          <span class="badge badge-tipo">{{ ind.tipo || 'General' }}</span>
-          <span class="indicador-avance">{{ ind.avance_porcentual || 0 }}%</span>
+    
+      @if (!cargando) {
+        <div class="indicadores-grid">
+          @for (ind of indicadoresFiltrados; track ind) {
+            <div class="card indicador-card">
+              <div class="indicador-header">
+                <span class="badge badge-tipo">{{ ind.tipo || 'General' }}</span>
+                <span class="indicador-avance">{{ ind.avance_porcentual || 0 }}%</span>
+              </div>
+              <h4 class="indicador-nombre">{{ ind.nombre }}</h4>
+              <p class="indicador-desc">{{ ind.descripcion }}</p>
+              <div class="indicador-meta">
+                <span>Meta: {{ ind.meta }} {{ ind.unidad_medida }}</span>
+                <span>Actual: {{ ind.valor_actual }} {{ ind.unidad_medida }}</span>
+              </div>
+              <div class="progress-bar">
+                <div class="progress-fill" [style.width.%]="ind.avance_porcentual || 0"
+                  [class.fill-ok]="(ind.avance_porcentual || 0) >= 80"
+                  [class.fill-warn]="(ind.avance_porcentual || 0) >= 40 && (ind.avance_porcentual || 0) < 80"
+                [class.fill-danger]="(ind.avance_porcentual || 0) < 40"></div>
+              </div>
+              @if (ind.fuente) {
+                <div class="indicador-fuente">Fuente: {{ ind.fuente }}</div>
+              }
+            </div>
+          }
+          @if (indicadoresFiltrados.length === 0) {
+            <div class="empty">No se encontraron indicadores</div>
+          }
         </div>
-        <h4 class="indicador-nombre">{{ ind.nombre }}</h4>
-        <p class="indicador-desc">{{ ind.descripcion }}</p>
-        <div class="indicador-meta">
-          <span>Meta: {{ ind.meta }} {{ ind.unidad_medida }}</span>
-          <span>Actual: {{ ind.valor_actual }} {{ ind.unidad_medida }}</span>
-        </div>
-        <div class="progress-bar">
-          <div class="progress-fill" [style.width.%]="ind.avance_porcentual || 0"
-               [class.fill-ok]="(ind.avance_porcentual || 0) >= 80"
-               [class.fill-warn]="(ind.avance_porcentual || 0) >= 40 && (ind.avance_porcentual || 0) < 80"
-               [class.fill-danger]="(ind.avance_porcentual || 0) < 40"></div>
-        </div>
-        <div class="indicador-fuente" *ngIf="ind.fuente">Fuente: {{ ind.fuente }}</div>
-      </div>
-
-      <div *ngIf="indicadoresFiltrados.length === 0" class="empty">No se encontraron indicadores</div>
-    </div>
-
-    <div class="loading" *ngIf="cargando">Cargando indicadores...</div>
-    <div class="alert alert-error" *ngIf="error">{{ error }}</div>
-  `,
+      }
+    
+      @if (cargando) {
+        <div class="loading">Cargando indicadores...</div>
+      }
+      @if (error) {
+        <div class="alert alert-error">{{ error }}</div>
+      }
+    `,
   styles: [`
     .page-header { margin-bottom: 1rem; }
     .page-header h2 { font-size: 1.5rem; margin-bottom: 0.25rem; }

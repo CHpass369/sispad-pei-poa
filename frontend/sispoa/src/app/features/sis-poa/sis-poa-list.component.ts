@@ -10,34 +10,48 @@ import { PoaV2, SisPoaService } from './sis-poa.service';
       <h2>POAs Institucionales</h2>
       <p class="text-secondary">SIS-POA V2 — jerarquía canónica</p>
     </div>
-    <div class="alert alert-error" *ngIf="error">{{ error }}</div>
-    <div class="alert alert-success" *ngIf="mensaje">{{ mensaje }}</div>
-
-    <form *ngIf="puedeFormular" (ngSubmit)="crear()" class="form-inline">
-      <input [(ngModel)]="form.gestion" name="gestion" type="number" placeholder="Gestión" required class="input" />
-      <input [(ngModel)]="form.codigo" name="codigo" placeholder="Código" required class="input" />
-      <input [(ngModel)]="form.nombre" name="nombre" placeholder="Nombre" required class="input" />
-      <button type="submit" class="btn btn-primary">+ Crear POA</button>
-    </form>
-
-    <div *ngIf="cargando" class="loading">Cargando POAs...</div>
-    <table class="data-table" *ngIf="!cargando">
-      <thead>
-        <tr><th>Código</th><th>Nombre</th><th>Gestión</th><th>Estado</th><th>PEI</th><th></th></tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let poa of poas">
-          <td>{{ poa.codigo }}</td>
-          <td>{{ poa.nombre }}</td>
-          <td>{{ poa.gestion }}</td>
-          <td><span class="badge">{{ poa.estado }}</span></td>
-          <td>{{ poa.version_pei ? '✓' : '—' }}</td>
-          <td><a class="btn btn-sm" [routerLink]="['/sis-poa/poas', poa.id]">Detalle</a></td>
-        </tr>
-      </tbody>
-    </table>
-    <div *ngIf="!cargando && poas.length === 0" class="empty">No hay POAs registrados</div>
-  `,
+    @if (error) {
+      <div class="alert alert-error">{{ error }}</div>
+    }
+    @if (mensaje) {
+      <div class="alert alert-success">{{ mensaje }}</div>
+    }
+    
+    @if (puedeFormular) {
+      <form (ngSubmit)="crear()" class="form-inline">
+        <input [(ngModel)]="form.gestion" name="gestion" type="number" placeholder="Gestión" required class="input" />
+        <input [(ngModel)]="form.codigo" name="codigo" placeholder="Código" required class="input" />
+        <input [(ngModel)]="form.nombre" name="nombre" placeholder="Nombre" required class="input" />
+        <button type="submit" class="btn btn-primary">+ Crear POA</button>
+      </form>
+    }
+    
+    @if (cargando) {
+      <div class="loading">Cargando POAs...</div>
+    }
+    @if (!cargando) {
+      <table class="data-table">
+        <thead>
+          <tr><th>Código</th><th>Nombre</th><th>Gestión</th><th>Estado</th><th>PEI</th><th></th></tr>
+        </thead>
+        <tbody>
+          @for (poa of poas; track poa) {
+            <tr>
+              <td>{{ poa.codigo }}</td>
+              <td>{{ poa.nombre }}</td>
+              <td>{{ poa.gestion }}</td>
+              <td><span class="badge">{{ poa.estado }}</span></td>
+              <td>{{ poa.version_pei ? '✓' : '—' }}</td>
+              <td><a class="btn btn-sm" [routerLink]="['/sis-poa/poas', poa.id]">Detalle</a></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+    @if (!cargando && poas.length === 0) {
+      <div class="empty">No hay POAs registrados</div>
+    }
+    `,
   styles: [`
     .page-header { margin-bottom: 1.5rem; }
     .text-secondary { color: var(--text-secondary); font-size: 0.875rem; }

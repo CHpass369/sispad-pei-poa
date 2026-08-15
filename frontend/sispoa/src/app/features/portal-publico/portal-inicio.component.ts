@@ -16,32 +16,34 @@ import { PortalPublicoService, EstadisticasResumen } from './portal-publico.serv
           <p class="hero-desc">Plataforma institucional para la gestión de la planificación estratégica, presupuestaria y de seguimiento.</p>
         </div>
       </div>
-
-      <div class="stats-section" *ngIf="!cargando">
-        <div class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-icon">📋</div>
-            <div class="stat-valor">{{ resumen.total_planes || 0 }}</div>
-            <div class="stat-label">Planes Registrados</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-icon">💰</div>
-            <div class="stat-valor">Bs {{ resumen.total_presupuesto | number:'1.0-0' }}</div>
-            <div class="stat-label">Presupuesto Total</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-icon">📊</div>
-            <div class="stat-valor">{{ resumen.total_indicadores || 0 }}</div>
-            <div class="stat-label">Indicadores</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-icon">✅</div>
-            <div class="stat-valor">{{ resumen.indicadores_cumplidos || 0 }}</div>
-            <div class="stat-label">Indicadores Cumplidos</div>
+    
+      @if (!cargando) {
+        <div class="stats-section">
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-icon">📋</div>
+              <div class="stat-valor">{{ resumen.total_planes || 0 }}</div>
+              <div class="stat-label">Planes Registrados</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon">💰</div>
+              <div class="stat-valor">Bs {{ resumen.total_presupuesto | number:'1.0-0' }}</div>
+              <div class="stat-label">Presupuesto Total</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon">📊</div>
+              <div class="stat-valor">{{ resumen.total_indicadores || 0 }}</div>
+              <div class="stat-label">Indicadores</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon">✅</div>
+              <div class="stat-valor">{{ resumen.indicadores_cumplidos || 0 }}</div>
+              <div class="stat-label">Indicadores Cumplidos</div>
+            </div>
           </div>
         </div>
-      </div>
-
+      }
+    
       <div class="info-section">
         <div class="info-card">
           <h3>Planificación Estratégica</h3>
@@ -60,7 +62,7 @@ import { PortalPublicoService, EstadisticasResumen } from './portal-publico.serv
         </div>
       </div>
     </div>
-  `,
+    `,
   styles: [`
     .hero-section { background: linear-gradient(135deg, var(--primary, #1a237e) 0%, var(--primary-dark, #0d1642) 100%); color: white; padding: 3rem 2rem; text-align: center; border-radius: 12px; margin-bottom: 2rem; }
     .hero-content { max-width: 700px; margin: 0 auto; }

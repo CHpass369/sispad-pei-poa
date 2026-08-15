@@ -50,78 +50,94 @@ export interface CadenaMapa {
         </div>
         <div class="header-actions">
           <span class="badge" [class.badge-success]="materializada"
-                [class.badge-warning]="!materializada">
+            [class.badge-warning]="!materializada">
             {{ materializada ? 'Materializada' : 'Borrador' }}
           </span>
-          <span class="badge badge-info" *ngIf="!cargando && cadenas.length">
-            {{ cadenas.length }} cadena(s)
-          </span>
+          @if (!cargando && cadenas.length) {
+            <span class="badge badge-info">
+              {{ cadenas.length }} cadena(s)
+            </span>
+          }
           <a routerLink="../" class="btn btn-sm btn-outline">← Matriz B</a>
         </div>
       </div>
-
-      <div class="alert alert-danger" *ngIf="mensajeError">{{ mensajeError }}</div>
-
-      <div class="card mapa-card" *ngIf="!cargando && cadenas.length">
-        <!-- Selector de cadena -->
-        <div class="mapa-controles">
-          <label class="control-label">Mostrar:</label>
-          <select class="form-control select-cadena" [(ngModel)]="seleccion"
-                  (ngModelChange)="cdr.detectChanges()">
-            <option [ngValue]="null">Todas las cadenas ({{ cadenas.length }})</option>
-            <option *ngFor="let c of cadenas; let i = index" [ngValue]="i">
-              {{ i + 1 }}. {{ c.titulo }}
-            </option>
-          </select>
-          <button type="button" class="btn btn-sm btn-outline" (click)="verTodas()">Ver todas</button>
-          <span class="control-note" *ngIf="seleccion !== null">
-            Cadena {{ (seleccion ?? 0) + 1 }} de {{ cadenas.length }}
-          </span>
-        </div>
-
-        <!-- Cadenas apiladas (scroll horizontal) -->
-        <div class="mapa-scroll">
-          <div class="mapa-todas" [class.mapa-sola]="seleccion !== null">
-            <div class="mapa-cadena" *ngFor="let cadena of cadenasVisibles; let ci = index">
-              <div class="cadena-titulo" *ngIf="seleccion === null">
-                Cadena {{ ci + 1 }} — <span class="codigo">{{ cadena.titulo }}</span>
-              </div>
-              <div class="cadena-nodos">
-                <ng-container *ngFor="let nodo of cadena.nodos; let ni = index">
-                  <div class="nodo nivel-{{ nodo.nivel }}">
-                    <div class="nodo-cab">{{ nodo.titulo }}</div>
-                    <div class="nodo-codigo">{{ nodo.codigo || '—' }}</div>
-                    <div class="nodo-detalle">{{ nodo.detalle || '—' }}</div>
+    
+      @if (mensajeError) {
+        <div class="alert alert-danger">{{ mensajeError }}</div>
+      }
+    
+      @if (!cargando && cadenas.length) {
+        <div class="card mapa-card">
+          <!-- Selector de cadena -->
+          <div class="mapa-controles">
+            <label class="control-label">Mostrar:</label>
+            <select class="form-control select-cadena" [(ngModel)]="seleccion"
+              (ngModelChange)="cdr.detectChanges()">
+              <option [ngValue]="null">Todas las cadenas ({{ cadenas.length }})</option>
+              @for (c of cadenas; track c; let i = $index) {
+                <option [ngValue]="i">
+                  {{ i + 1 }}. {{ c.titulo }}
+                </option>
+              }
+            </select>
+            <button type="button" class="btn btn-sm btn-outline" (click)="verTodas()">Ver todas</button>
+            @if (seleccion !== null) {
+              <span class="control-note">
+                Cadena {{ (seleccion ?? 0) + 1 }} de {{ cadenas.length }}
+              </span>
+            }
+          </div>
+          <!-- Cadenas apiladas (scroll horizontal) -->
+          <div class="mapa-scroll">
+            <div class="mapa-todas" [class.mapa-sola]="seleccion !== null">
+              @for (cadena of cadenasVisibles; track cadena; let ci = $index) {
+                <div class="mapa-cadena">
+                  @if (seleccion === null) {
+                    <div class="cadena-titulo">
+                      Cadena {{ ci + 1 }} — <span class="codigo">{{ cadena.titulo }}</span>
+                    </div>
+                  }
+                  <div class="cadena-nodos">
+                    @for (nodo of cadena.nodos; track nodo; let ni = $index) {
+                      <div class="nodo nivel-{{ nodo.nivel }}">
+                        <div class="nodo-cab">{{ nodo.titulo }}</div>
+                        <div class="nodo-codigo">{{ nodo.codigo || '—' }}</div>
+                        <div class="nodo-detalle">{{ nodo.detalle || '—' }}</div>
+                      </div>
+                      @if (ni < cadena.nodos.length - 1) {
+                        <div class="conector">
+                          <div class="conector-linea"></div>
+                        </div>
+                      }
+                    }
                   </div>
-                  <div class="conector" *ngIf="ni < cadena.nodos.length - 1">
-                    <div class="conector-linea"></div>
-                  </div>
-                </ng-container>
-              </div>
+                </div>
+              }
             </div>
           </div>
+          <!-- Leyenda de niveles -->
+          <div class="mapa-leyenda">
+            <span class="leyenda-item nivel-1-dot">1. PGDESA</span>
+            <span class="leyenda-item nivel-2-dot">2. PDESA</span>
+            <span class="leyenda-item nivel-3-dot">3. Acuerdos</span>
+            <span class="leyenda-item nivel-4-dot">4. Sector</span>
+            <span class="leyenda-item nivel-5-dot">5. Territorio</span>
+            <span class="leyenda-item nivel-6-dot">6. Resultado PAD</span>
+            <span class="leyenda-item nivel-7-dot">7. Productos</span>
+          </div>
         </div>
-
-        <!-- Leyenda de niveles -->
-        <div class="mapa-leyenda">
-          <span class="leyenda-item nivel-1-dot">1. PGDESA</span>
-          <span class="leyenda-item nivel-2-dot">2. PDESA</span>
-          <span class="leyenda-item nivel-3-dot">3. Acuerdos</span>
-          <span class="leyenda-item nivel-4-dot">4. Sector</span>
-          <span class="leyenda-item nivel-5-dot">5. Territorio</span>
-          <span class="leyenda-item nivel-6-dot">6. Resultado PAD</span>
-          <span class="leyenda-item nivel-7-dot">7. Productos</span>
+      }
+    
+      @if (!cargando && cadenas.length === 0) {
+        <div class="card mapa-card">
+          <p class="empty-state">
+            Sin cadenas para mostrar. Complete el wizard y materialice la Matriz B
+            (o registre resultados y productos en el paso 6 del wizard).
+          </p>
         </div>
-      </div>
-
-      <div class="card mapa-card" *ngIf="!cargando && cadenas.length === 0">
-        <p class="empty-state">
-          Sin cadenas para mostrar. Complete el wizard y materialice la Matriz B
-          (o registre resultados y productos en el paso 6 del wizard).
-        </p>
-      </div>
+      }
     </div>
-  `,
+    `,
   styles: [`
     .mapa-page { padding-bottom: 2rem; }
     .page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }

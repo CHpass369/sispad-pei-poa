@@ -54,125 +54,149 @@ export function buildOperacionTree(rows: any[]): {
           Despliegue jerárquico: Operación → Actividad → Tarea con programación mensual
         </p>
       </div>
-
+    
       <div class="card filtros-card">
         <div class="filtros">
           <div class="field">
             <label>Buscar</label>
             <input [(ngModel)]="filtro" class="form-control" placeholder="Código o denominación..."
-                   (input)="aplicarFiltro()">
-          </div>
-          <div class="field">
-            <label>Estado</label>
-            <select [(ngModel)]="filtroEstado" class="form-control" (change)="aplicarFiltro()">
-              <option value="">Todos</option>
-              <option value="REFERENCIAL">Referencial</option>
-              <option value="ENVIADO">Enviado</option>
-              <option value="APROBADO">Aprobado</option>
-              <option value="OBSERVADO">Observado</option>
-            </select>
-          </div>
-          <div class="field">
-            <label>&nbsp;</label>
-            <span class="badge badge-info">{{ stats.ops }} ops · {{ stats.acts }} acts · {{ stats.tars }} tars</span>
-          </div>
-          <div class="field export-field">
-            <label>&nbsp;</label>
-            <a routerLink="./nuevo" class="btn btn-sm btn-primary">+ Nueva</a>
-          </div>
-          <div class="field export-field">
-            <label>&nbsp;</label>
-            <button class="btn btn-sm btn-outline-success" (click)="exportarXLSX()">
-              ⬇ Exportar XLSX
-            </button>
+              (input)="aplicarFiltro()">
+            </div>
+            <div class="field">
+              <label>Estado</label>
+              <select [(ngModel)]="filtroEstado" class="form-control" (change)="aplicarFiltro()">
+                <option value="">Todos</option>
+                <option value="REFERENCIAL">Referencial</option>
+                <option value="ENVIADO">Enviado</option>
+                <option value="APROBADO">Aprobado</option>
+                <option value="OBSERVADO">Observado</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>&nbsp;</label>
+              <span class="badge badge-info">{{ stats.ops }} ops · {{ stats.acts }} acts · {{ stats.tars }} tars</span>
+            </div>
+            <div class="field export-field">
+              <label>&nbsp;</label>
+              <a routerLink="./nuevo" class="btn btn-sm btn-primary">+ Nueva</a>
+            </div>
+            <div class="field export-field">
+              <label>&nbsp;</label>
+              <button class="btn btn-sm btn-outline-success" (click)="exportarXLSX()">
+                ⬇ Exportar XLSX
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-
-      <div class="card table-card">
-        <div class="table-scroll">
-          <table class="matriz-table">
-            <thead>
-              <tr>
-                <th style="width:30px"></th>
-                <th>Código</th>
-                <th>Denominación</th>
-                <th>Tipo</th>
-                <th>Responsable</th>
-                <th>Meta Anual</th>
-                <th>Unidad</th>
-                <th>Inicio</th>
-                <th>Fin</th>
-                <th>Estado</th>
-              </tr>
-            </thead>
-            <tbody>
-              <ng-container *ngFor="let op of operacionesFiltradas">
-                <tr class="fila-op" (click)="op.expandida = !op.expandida">
-                  <td class="toggle-cell">
-                    <span class="toggle-icon" [class.expandido]="op.expandida">▶</span>
-                  </td>
-                  <td><span class="codigo">{{ op.data.codigo_operacion }}</span></td>
-                  <td class="cell-desc"><strong>{{ op.data.denominacion }}</strong></td>
-                  <td>{{ op.data.tipo_operacion || '—' }}</td>
-                  <td>{{ op.data.responsable || '—' }}</td>
-                  <td class="num">{{ op.data.meta_anual != null ? op.data.meta_anual : '—' }}</td>
-                  <td>{{ op.data.unidad_medida || '—' }}</td>
-                  <td>{{ op.data.fecha_inicio || '—' }}</td>
-                  <td>{{ op.data.fecha_fin || '—' }}</td>
-                  <td>
-                    <span class="badge"
-                          [class.badge-info]="op.data.estado==='REFERENCIAL'"
-                          [class.badge-warning]="op.data.estado==='ENVIADO'"
-                          [class.badge-success]="op.data.estado==='APROBADO'"
-                          [class.badge-danger]="op.data.estado==='OBSERVADO'">{{ op.data.estado }}</span>
-                  </td>
+    
+        <div class="card table-card">
+          <div class="table-scroll">
+            <table class="matriz-table">
+              <thead>
+                <tr>
+                  <th style="width:30px"></th>
+                  <th>Código</th>
+                  <th>Denominación</th>
+                  <th>Tipo</th>
+                  <th>Responsable</th>
+                  <th>Meta Anual</th>
+                  <th>Unidad</th>
+                  <th>Inicio</th>
+                  <th>Fin</th>
+                  <th>Estado</th>
                 </tr>
-                <ng-container *ngIf="op.expandida">
-                  <tr *ngFor="let act of op.actividades" class="fila-act">
-                    <td></td>
-                    <td class="act-td" colspan="9">
-                      <div class="jerarquia-wrapper">
-                        <div class="act-header" (click)="act.expandida = !act.expandida">
-                          <span class="toggle-icon sub" [class.expandido]="act.expandida">▶</span>
-                          <span class="codigo-sub">{{ act.data.codigo_actividad }}</span>
-                          <span class="act-nombre"><strong>{{ act.data.denominacion }}</strong></span>
-                          <span class="act-meta">Meta: {{ act.data.meta_anual || '—' }} {{ act.data.unidad_medida || '' }}</span>
-                          <span class="badge badge-info" *ngIf="act.data.estado==='REFERENCIAL'">{{ act.data.estado }}</span>
-                          <span class="badge badge-success" *ngIf="act.data.estado!=='REFERENCIAL'">{{ act.data.estado }}</span>
-                        </div>
-                        <div *ngIf="act.expandida && act.tareas.length > 0" class="tareas-list">
-                          <div *ngFor="let t of act.tareas" class="tarea-item">
-                            <span class="codigo-tar">{{ t.codigo_tarea }}</span>
-                            <span class="tar-nombre">{{ t.denominacion }}</span>
-                            <span class="tar-resp">{{ t.responsable || '—' }}</span>
-                            <span class="tar-fechas">{{ t.fecha_inicio || '—' }} → {{ t.fecha_fin || '—' }}</span>
-                            <span *ngIf="t.metas != null" class="tar-meta">Meta: {{ t.metas }}</span>
-                            <span class="badge badge-info" *ngIf="t.estado==='REFERENCIAL'">{{ t.estado }}</span>
-                            <span class="badge badge-success" *ngIf="t.estado!=='REFERENCIAL'">{{ t.estado }}</span>
-                          </div>
-                          <div *ngIf="act.tareas.length === 0" class="tarea-item empty">Sin tareas</div>
-                        </div>
-                        <div *ngIf="act.expandida && act.tareas.length === 0" class="tareas-list">
-                          <div class="tarea-item empty">Sin tareas registradas</div>
-                        </div>
-                      </div>
+              </thead>
+              <tbody>
+                @for (op of operacionesFiltradas; track op) {
+                  <tr class="fila-op" (click)="op.expandida = !op.expandida">
+                    <td class="toggle-cell">
+                      <span class="toggle-icon" [class.expandido]="op.expandida">▶</span>
+                    </td>
+                    <td><span class="codigo">{{ op.data.codigo_operacion }}</span></td>
+                    <td class="cell-desc"><strong>{{ op.data.denominacion }}</strong></td>
+                    <td>{{ op.data.tipo_operacion || '—' }}</td>
+                    <td>{{ op.data.responsable || '—' }}</td>
+                    <td class="num">{{ op.data.meta_anual != null ? op.data.meta_anual : '—' }}</td>
+                    <td>{{ op.data.unidad_medida || '—' }}</td>
+                    <td>{{ op.data.fecha_inicio || '—' }}</td>
+                    <td>{{ op.data.fecha_fin || '—' }}</td>
+                    <td>
+                      <span class="badge"
+                        [class.badge-info]="op.data.estado==='REFERENCIAL'"
+                        [class.badge-warning]="op.data.estado==='ENVIADO'"
+                        [class.badge-success]="op.data.estado==='APROBADO'"
+                      [class.badge-danger]="op.data.estado==='OBSERVADO'">{{ op.data.estado }}</span>
                     </td>
                   </tr>
-                </ng-container>
-              </ng-container>
-              <tr *ngIf="cargando">
-                <td colspan="10" class="empty-cell">Cargando datos...</td>
-              </tr>
-              <tr *ngIf="!cargando && operacionesFiltradas.length === 0">
-                <td colspan="10" class="empty-cell">No se encontraron operaciones</td>
-              </tr>
-            </tbody>
-          </table>
+                  @if (op.expandida) {
+                    @for (act of op.actividades; track act) {
+                      <tr class="fila-act">
+                        <td></td>
+                        <td class="act-td" colspan="9">
+                          <div class="jerarquia-wrapper">
+                            <div class="act-header" (click)="act.expandida = !act.expandida">
+                              <span class="toggle-icon sub" [class.expandido]="act.expandida">▶</span>
+                              <span class="codigo-sub">{{ act.data.codigo_actividad }}</span>
+                              <span class="act-nombre"><strong>{{ act.data.denominacion }}</strong></span>
+                              <span class="act-meta">Meta: {{ act.data.meta_anual || '—' }} {{ act.data.unidad_medida || '' }}</span>
+                              @if (act.data.estado==='REFERENCIAL') {
+                                <span class="badge badge-info">{{ act.data.estado }}</span>
+                              }
+                              @if (act.data.estado!=='REFERENCIAL') {
+                                <span class="badge badge-success">{{ act.data.estado }}</span>
+                              }
+                            </div>
+                            @if (act.expandida && act.tareas.length > 0) {
+                              <div class="tareas-list">
+                                @for (t of act.tareas; track t) {
+                                  <div class="tarea-item">
+                                    <span class="codigo-tar">{{ t.codigo_tarea }}</span>
+                                    <span class="tar-nombre">{{ t.denominacion }}</span>
+                                    <span class="tar-resp">{{ t.responsable || '—' }}</span>
+                                    <span class="tar-fechas">{{ t.fecha_inicio || '—' }} → {{ t.fecha_fin || '—' }}</span>
+                                    @if (t.metas != null) {
+                                      <span class="tar-meta">Meta: {{ t.metas }}</span>
+                                    }
+                                    @if (t.estado==='REFERENCIAL') {
+                                      <span class="badge badge-info">{{ t.estado }}</span>
+                                    }
+                                    @if (t.estado!=='REFERENCIAL') {
+                                      <span class="badge badge-success">{{ t.estado }}</span>
+                                    }
+                                  </div>
+                                }
+                                @if (act.tareas.length === 0) {
+                                  <div class="tarea-item empty">Sin tareas</div>
+                                }
+                              </div>
+                            }
+                            @if (act.expandida && act.tareas.length === 0) {
+                              <div class="tareas-list">
+                                <div class="tarea-item empty">Sin tareas registradas</div>
+                              </div>
+                            }
+                          </div>
+                        </td>
+                      </tr>
+                    }
+                  }
+                }
+                @if (cargando) {
+                  <tr>
+                    <td colspan="10" class="empty-cell">Cargando datos...</td>
+                  </tr>
+                }
+                @if (!cargando && operacionesFiltradas.length === 0) {
+                  <tr>
+                    <td colspan="10" class="empty-cell">No se encontraron operaciones</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
-    </div>
-  `,
+    `,
   styles: [`
     .matriz-page { padding-bottom: 2rem; }
     .page-header { margin-bottom: 1rem; }

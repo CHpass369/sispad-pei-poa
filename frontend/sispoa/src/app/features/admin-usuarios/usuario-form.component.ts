@@ -10,57 +10,65 @@ import { AdminUsuariosService, AdminUsuario, AdminRol } from './admin-usuarios.s
       <h2>{{ esEdicion ? 'Editar Usuario' : 'Nuevo Usuario' }}</h2>
       <p class="text-secondary">{{ esEdicion ? 'Actualizar datos y roles del usuario' : 'Crear un nuevo usuario en el sistema' }}</p>
     </div>
-
-    <div class="form-card" *ngIf="!cargando">
-      <form (ngSubmit)="guardar()">
-        <div class="form-grid">
-          <div class="field">
-            <label>Email *</label>
-            <input type="email" [(ngModel)]="usuario.email" name="email" class="form-control" required>
+    
+    @if (!cargando) {
+      <div class="form-card">
+        <form (ngSubmit)="guardar()">
+          <div class="form-grid">
+            <div class="field">
+              <label>Email *</label>
+              <input type="email" [(ngModel)]="usuario.email" name="email" class="form-control" required>
+            </div>
+            <div class="field">
+              <label>Nombre</label>
+              <input [(ngModel)]="usuario.first_name" name="first_name" class="form-control">
+            </div>
+            <div class="field">
+              <label>Apellido</label>
+              <input [(ngModel)]="usuario.last_name" name="last_name" class="form-control">
+            </div>
+            <div class="field">
+              <label>Estado</label>
+              <select [(ngModel)]="usuario.is_active" name="is_active" class="form-control">
+                <option [ngValue]="true">Activo</option>
+                <option [ngValue]="false">Inactivo</option>
+              </select>
+            </div>
           </div>
-          <div class="field">
-            <label>Nombre</label>
-            <input [(ngModel)]="usuario.first_name" name="first_name" class="form-control">
-          </div>
-          <div class="field">
-            <label>Apellido</label>
-            <input [(ngModel)]="usuario.last_name" name="last_name" class="form-control">
-          </div>
-          <div class="field">
-            <label>Estado</label>
-            <select [(ngModel)]="usuario.is_active" name="is_active" class="form-control">
-              <option [ngValue]="true">Activo</option>
-              <option [ngValue]="false">Inactivo</option>
-            </select>
-          </div>
+          <div class="field field-full">
+            <label>Roles</label>
+            <div class="roles-grid">
+              @for (rol of rolesDisponibles; track rol) {
+                <label class="checkbox-label">
+                  <input type="checkbox" [checked]="isSelected(rol.id)"
+                    (change)="toggleRol(rol.id)"/>
+                    <span>{{ rol.name }}</span>
+                  </label>
+                }
+              </div>
+              @if (rolesDisponibles.length === 0) {
+                <div class="text-secondary">
+                  No hay roles disponibles
+                </div>
+              }
+            </div>
+            <div class="form-actions">
+              <button type="button" class="btn btn-outline" (click)="cancelar()">Cancelar</button>
+              <button type="submit" class="btn btn-primary" [disabled]="guardando">
+                {{ guardando ? 'Guardando...' : 'Guardar' }}
+              </button>
+            </div>
+          </form>
         </div>
-
-        <div class="field field-full">
-          <label>Roles</label>
-          <div class="roles-grid">
-            <label *ngFor="let rol of rolesDisponibles" class="checkbox-label">
-              <input type="checkbox" [checked]="isSelected(rol.id)"
-                     (change)="toggleRol(rol.id)"/>
-              <span>{{ rol.name }}</span>
-            </label>
-          </div>
-          <div *ngIf="rolesDisponibles.length === 0" class="text-secondary">
-            No hay roles disponibles
-          </div>
-        </div>
-
-        <div class="form-actions">
-          <button type="button" class="btn btn-outline" (click)="cancelar()">Cancelar</button>
-          <button type="submit" class="btn btn-primary" [disabled]="guardando">
-            {{ guardando ? 'Guardando...' : 'Guardar' }}
-          </button>
-        </div>
-      </form>
-    </div>
-
-    <div class="loading" *ngIf="cargando">Cargando datos...</div>
-    <div class="alert alert-error" *ngIf="error">{{ error }}</div>
-  `,
+      }
+    
+      @if (cargando) {
+        <div class="loading">Cargando datos...</div>
+      }
+      @if (error) {
+        <div class="alert alert-error">{{ error }}</div>
+      }
+    `,
   styles: [`
     .page-header { margin-bottom: 1rem; }
     .page-header h2 { font-size: 1.5rem; margin-bottom: 0.25rem; }

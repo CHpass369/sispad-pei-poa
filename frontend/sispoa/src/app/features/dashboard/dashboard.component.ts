@@ -14,66 +14,72 @@ import { ApiService } from '../../core/services/api.service';
           <p class="text-secondary">{{ fechaActual | date:'fullDate' }}</p>
         </div>
         <div class="header-right">
-          <span class="badge badge-role" *ngIf="rolLabel">{{ rolLabel }}</span>
+          @if (rolLabel) {
+            <span class="badge badge-role">{{ rolLabel }}</span>
+          }
           <div class="notif-bell" routerLink="/notificaciones">
-            🔔 <span class="notif-count" *ngIf="notifCount > 0">{{ notifCount }}</span>
+            🔔 @if (notifCount > 0) {
+            <span class="notif-count">{{ notifCount }}</span>
+          }
+        </div>
+      </div>
+    </div>
+    
+    @if (cargando) {
+      <div class="loading">Cargando dashboard...</div>
+    }
+    @if (error) {
+      <div class="alert alert-error">{{ error }}</div>
+    }
+    
+    @if (!cargando && kpis) {
+      <!-- Admin KPIs -->
+      <div class="stats-grid">
+        <div class="card stat-card">
+          <div class="stat-icon">💰</div>
+          <div class="stat-value">Bs {{ kpis.presupuesto_total | number:'1.0-0' }}</div>
+          <div class="stat-label">Presupuesto Total</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-icon">📊</div>
+          <div class="stat-value">{{ kpis.avance || 0 }}%</div>
+          <div class="stat-label">Ejecución Global</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-icon">⏳</div>
+          <div class="stat-value">{{ kpis.aprobaciones_pendientes || 0 }}</div>
+          <div class="stat-label">Aprobaciones Pendientes</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-icon">⚠️</div>
+          <div class="stat-value">{{ kpis.alertas_count || 0 }}</div>
+          <div class="stat-label">Alertas Activas</div>
+        </div>
+      </div>
+      <!-- Quick Actions -->
+      <div class="quick-actions">
+        <h3>Acciones Rápidas</h3>
+        <div class="actions-grid">
+          <a routerLink="/planificacion" class="card action-card"><span>📝 Planificación</span></a>
+          <a routerLink="/seguimiento" class="card action-card"><span>📊 Seguimiento</span></a>
+          <a routerLink="/reportes" class="card action-card"><span>📈 Reportes</span></a>
+          <a routerLink="/consolidacion" class="card action-card"><span>🔗 Consolidación</span></a>
+        </div>
+      </div>
+      <!-- Profile Card -->
+      <div class="card profile-card">
+        <h3>Mi Perfil</h3>
+        <div class="profile-info">
+          <div class="profile-avatar">{{ userName.charAt(0) }}</div>
+          <div class="profile-details">
+            <strong>{{ userName }}</strong>
+            <span>{{ userEmail }}</span>
           </div>
         </div>
       </div>
-
-      <div *ngIf="cargando" class="loading">Cargando dashboard...</div>
-      <div class="alert alert-error" *ngIf="error">{{ error }}</div>
-
-      <ng-container *ngIf="!cargando && kpis">
-        <!-- Admin KPIs -->
-        <div class="stats-grid">
-          <div class="card stat-card">
-            <div class="stat-icon">💰</div>
-            <div class="stat-value">Bs {{ kpis.presupuesto_total | number:'1.0-0' }}</div>
-            <div class="stat-label">Presupuesto Total</div>
-          </div>
-          <div class="card stat-card">
-            <div class="stat-icon">📊</div>
-            <div class="stat-value">{{ kpis.avance || 0 }}%</div>
-            <div class="stat-label">Ejecución Global</div>
-          </div>
-          <div class="card stat-card">
-            <div class="stat-icon">⏳</div>
-            <div class="stat-value">{{ kpis.aprobaciones_pendientes || 0 }}</div>
-            <div class="stat-label">Aprobaciones Pendientes</div>
-          </div>
-          <div class="card stat-card">
-            <div class="stat-icon">⚠️</div>
-            <div class="stat-value">{{ kpis.alertas_count || 0 }}</div>
-            <div class="stat-label">Alertas Activas</div>
-          </div>
-        </div>
-
-        <!-- Quick Actions -->
-        <div class="quick-actions">
-          <h3>Acciones Rápidas</h3>
-          <div class="actions-grid">
-            <a routerLink="/planificacion" class="card action-card"><span>📝 Planificación</span></a>
-            <a routerLink="/seguimiento" class="card action-card"><span>📊 Seguimiento</span></a>
-            <a routerLink="/reportes" class="card action-card"><span>📈 Reportes</span></a>
-            <a routerLink="/consolidacion" class="card action-card"><span>🔗 Consolidación</span></a>
-          </div>
-        </div>
-
-        <!-- Profile Card -->
-        <div class="card profile-card">
-          <h3>Mi Perfil</h3>
-          <div class="profile-info">
-            <div class="profile-avatar">{{ userName.charAt(0) }}</div>
-            <div class="profile-details">
-              <strong>{{ userName }}</strong>
-              <span>{{ userEmail }}</span>
-            </div>
-          </div>
-        </div>
-      </ng-container>
+    }
     </div>
-  `,
+    `,
   styles: [`
     .page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
     .header-left h2 { font-size: 1.5rem; margin-bottom: 0.25rem; }

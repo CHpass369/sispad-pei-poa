@@ -6,13 +6,17 @@ import { LayoutModule } from '../layout/layout.module';
 import { AuthGuard } from '../core/guards/auth.guard';
 
 const routes: Routes = [
+  { path: '', redirectTo: 'sistemas', pathMatch: 'full' },
+  {
+    path: 'sistemas',
+    canActivate: [AuthGuard],
+    loadChildren: () => import('../features/sistemas/sistemas.module').then(m => m.SistemasModule),
+  },
   {
     path: '',
     component: LayoutComponent,
     canActivate: [AuthGuard],
     children: [
-      { path: '', redirectTo: 'sistemas', pathMatch: 'full' },
-      { path: 'sistemas', loadChildren: () => import('../features/sistemas/sistemas.module').then(m => m.SistemasModule) },
       { path: 'dashboard', loadChildren: () => import('../features/dashboard/dashboard.module').then(m => m.DashboardModule) },
       { path: 'sis-pe', loadChildren: () => import('../features/sis-pe/sis-pe.module').then(m => m.SisPeModule) },
       { path: 'sis-poa', loadChildren: () => import('../features/sis-poa/sis-poa.module').then(m => m.SisPoaModule) },

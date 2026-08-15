@@ -36,453 +36,540 @@ import {
           Matriz A / Matriz B).
         </p>
       </div>
-
+    
       <!-- Barra de progreso -->
       <div class="stepper">
-        <div class="step" *ngFor="let s of pasos; let i = index"
-             [class.active]="pasoActual === i + 1"
-             [class.completed]="pasoActual > i + 1"
-             (click)="irAPaso(i + 1)">
-          <div class="step-circle">{{ pasoActual > i + 1 ? '✓' : i + 1 }}</div>
-          <div class="step-label">{{ s }}</div>
-        </div>
+        @for (s of pasos; track s; let i = $index) {
+          <div class="step"
+            [class.active]="pasoActual === i + 1"
+            [class.completed]="pasoActual > i + 1"
+            (click)="irAPaso(i + 1)">
+            <div class="step-circle">{{ pasoActual > i + 1 ? '✓' : i + 1 }}</div>
+            <div class="step-label">{{ s }}</div>
+          </div>
+        }
       </div>
-
+    
       <!-- Mensajes -->
-      <div class="alert alert-success" *ngIf="mensajeExito">{{ mensajeExito }}</div>
-      <div class="alert alert-danger" *ngIf="mensajeError">{{ mensajeError }}</div>
-
+      @if (mensajeExito) {
+        <div class="alert alert-success">{{ mensajeExito }}</div>
+      }
+      @if (mensajeError) {
+        <div class="alert alert-danger">{{ mensajeError }}</div>
+      }
+    
       <div class="card form-card">
         <!-- ======= PASO 1: Planificación Nacional ======= -->
-        <div *ngIf="pasoActual === 1">
-          <h3 class="step-title">Paso 1: Planificación Nacional</h3>
-          <p class="field-hint">Matriz B — bloques A-D: Eje PGDESA (impacto) → Componente PDESA (efecto).</p>
-          <div class="form-grid">
-            <div class="field">
-              <label>Eje PGDESA</label>
-              <select [(ngModel)]="form.eje" class="form-control" (change)="onEjeChange()">
-                <option [ngValue]="null">Seleccionar...</option>
-                <option *ngFor="let eje of catalogoEjes" [ngValue]="eje">
-                  {{ eje.codigo }} - {{ eje.denominacion }}
-                </option>
-              </select>
-            </div>
-            <div class="field">
-              <label>Objetivo de Impacto</label>
-              <textarea #taImpacto [(ngModel)]="form.objetivo_impacto" readonly class="form-control textarea-auto"
-                rows="2" placeholder="Objetivo de impacto del PGDESA (autollenado al elegir el eje)"
-                (input)="autoAjustarTextarea($event)" (change)="autoAjustarTextarea($event)"></textarea>
-            </div>
-            <div class="field">
-              <label>Componente PDESA</label>
-              <select [(ngModel)]="form.componente" class="form-control" (change)="onComponenteChange()">
-                <option [ngValue]="null">Seleccionar...</option>
-                <option *ngFor="let comp of componentesFiltrados" [ngValue]="comp">
-                  {{ comp.codigo }} - {{ comp.denominacion }}
-                </option>
-              </select>
-            </div>
-            <div class="field">
-              <label>Objetivo de Efecto</label>
-              <textarea #taEfecto [(ngModel)]="form.objetivo_efecto" readonly class="form-control textarea-auto"
-                rows="2" placeholder="Efecto esperado del PDESA (autollenado al elegir el componente)"
-                (input)="autoAjustarTextarea($event)" (change)="autoAjustarTextarea($event)"></textarea>
-            </div>
-          </div>
-        </div>
-
-        <!-- ======= PASO 2: Acuerdos Internacionales ======= -->
-        <div *ngIf="pasoActual === 2">
-          <h3 class="step-title">Paso 2: Acuerdos Internacionales</h3>
-          <p class="field-hint">Matriz B — bloques E-H: ODS → NDC → NDT → Compromisos 30/30 (KMGBF).</p>
-          <div class="form-grid">
-            <div class="field">
-              <label>ODS (Objetivos de Desarrollo Sostenible)</label>
-              <select [(ngModel)]="form.ods" class="form-control">
-                <option [ngValue]="null">Seleccionar...</option>
-                <option [ngValue]="'N/A'">No aplica</option>
-                <option *ngFor="let ods of catalogoODS" [ngValue]="ods">
-                  ODS {{ ods.codigo }} - {{ ods.denominacion || ods.nombre }}
-                </option>
-              </select>
-            </div>
-            <div class="field">
-              <label>NDC (Contribución Nacional Determinada)</label>
-              <select [(ngModel)]="form.ndc" class="form-control">
-                <option [ngValue]="null">Seleccionar...</option>
-                <option [ngValue]="'N/A'">No aplica</option>
-                <option *ngFor="let ndc of catalogoNDC" [ngValue]="ndc">
-                  {{ ndc.codigo }} - {{ ndc.denominacion }}
-                </option>
-              </select>
-            </div>
-            <div class="field">
-              <label>NDT (Principios de Navegación para el Desarrollo)</label>
-              <select [(ngModel)]="form.ndt" class="form-control">
-                <option [ngValue]="null">Seleccionar...</option>
-                <option [ngValue]="'N/A'">No aplica</option>
-                <option *ngFor="let ndt of catalogoNDT" [ngValue]="ndt">
-                  {{ ndt.codigo }} - {{ ndt.denominacion }}
-                </option>
-              </select>
-            </div>
-            <div class="field">
-              <label>Compromisos 30/30 (KMGBF)</label>
-              <select [(ngModel)]="form.kmgbf" class="form-control">
-                <option [ngValue]="null">Seleccionar...</option>
-                <option [ngValue]="'N/A'">No aplica</option>
-                <option *ngFor="let kmgbf of catalogo3030" [ngValue]="kmgbf">
-                  {{ kmgbf.codigo }} - {{ kmgbf.denominacion }}
-                </option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <!-- ======= PASO 3: Planificación Sectorial ======= -->
-        <div *ngIf="pasoActual === 3">
-          <h3 class="step-title">Paso 3: Planificación Sectorial</h3>
-          <p class="field-hint">Matriz B — bloques I-L: sector del clasificador presupuestario → resultado sectorial del PDS.</p>
-          <div class="form-grid">
-            <div class="field">
-              <label>Sector (economía plural)</label>
-              <select [(ngModel)]="form.sector" class="form-control" (change)="onSectorChange()">
-                <option [ngValue]="null">Seleccionar sector...</option>
-                <option *ngFor="let sec of catalogoSectores" [ngValue]="sec">
-                  {{ sec.codigo }} - {{ sec.denominacion }}
-                </option>
-              </select>
-            </div>
-            <div class="field">
-              <label>Resultado Sectorial (PDS)</label>
-              <select [(ngModel)]="form.resultado_sectorial" class="form-control">
-                <option [ngValue]="null">Seleccionar...</option>
-                <option *ngFor="let rs of resultadosSectorialesFiltrados" [ngValue]="rs">
-                  {{ rs.codigo }} - {{ rs.denominacion }}
-                </option>
-              </select>
-            </div>
-            <div class="field-full text-secondary" *ngIf="resultadosSectorialesFiltrados.length === 0">
-              No hay resultados sectoriales para este sector; puede continuar sin seleccionar.
-            </div>
-          </div>
-        </div>
-
-        <!-- ======= PASO 4: Contexto Territorial ======= -->
-        <div *ngIf="pasoActual === 4">
-          <h3 class="step-title">Paso 4: Contexto Territorial</h3>
-          <p class="field-hint">Matriz A — columnas B-C / Matriz B M-N: código geográfico (clasificador CGEO INE) + ETA + política.</p>
-          <div class="form-grid">
-            <div class="field">
-              <label>Código Geográfico (CGEO)</label>
-              <select [(ngModel)]="form.cgeo" class="form-control" (change)="onCgeoChange()">
-                <option [ngValue]="null">Seleccionar...</option>
-                <option *ngFor="let e of catalogoEntidadesTerritoriales" [ngValue]="e">
-                  {{ e.codigo }} - {{ e.denominacion }} ({{ e.nivel }})
-                </option>
-              </select>
-            </div>
-            <div class="field">
-              <label>ETA (Estructura Territorial de Apoyo)</label>
-              <input [(ngModel)]="form.eta" class="form-control" placeholder="Denominación de la ETA">
-            </div>
-            <div class="field-full">
-              <label>Política (directriz territorial)</label>
-              <textarea [(ngModel)]="form.politica" class="form-control" rows="2"
-                        placeholder="Directriz territorial (columna C de la Matriz A)"></textarea>
-            </div>
-          </div>
-        </div>
-
-        <!-- ======= PASO 5: Lineamiento Estratégico PAD ======= -->
-        <div *ngIf="pasoActual === 5">
-          <h3 class="step-title">Paso 5: Lineamiento Estratégico PAD</h3>
-          <p class="field-hint">Matriz A — columnas D-E; guía 4.3: el lineamiento es el primer elemento a registrar.</p>
-          <div class="form-grid">
-            <div class="field-full">
-              <label>Lineamiento Estratégico (cascada: componente PDESA del paso 1)</label>
-              <select [(ngModel)]="form.lineamiento" class="form-control" (change)="onLineamientoChange()">
-                <option [ngValue]="null">Seleccionar...</option>
-                <option *ngFor="let ll of lineamientosFiltrados" [ngValue]="ll">
-                  {{ ll.codigo }} - {{ ll.denominacion }}
-                </option>
-              </select>
-              <span class="text-secondary" *ngIf="!form.componente">Primero seleccione el componente PDESA en el paso 1.</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- ======= PASO 6: Resultados y Productos PAD (tabla jerárquica) ======= -->
-        <div *ngIf="pasoActual === 6">
-          <h3 class="step-title">Paso 6: Resultados y Productos PAD</h3>
-          <p class="field-hint">
-            Matriz A — columnas F-K y U: cada resultado (código
-            <span class="codigo">CGEO.lineamiento.correlativo</span>) puede tener
-            VARIOS productos (código
-            <span class="codigo">CGEO.lineamiento.resultado.correlativo</span>).
-            Edición inline tipo Excel: los códigos se autogeneran en vivo y cada
-            cambio se guarda automáticamente (sección "resultados", lista completa).
-          </p>
-
-          <app-tabla-jerarquica
-            [resultados]="form.resultados"
-            [cgeo]="form.cgeo"
-            [lineamiento]="form.lineamiento"
-            [correlativoBase]="correlativoBase()"
-            (cambio)="onColeccionCambio()">
-          </app-tabla-jerarquica>
-        </div>
-
-        <!-- ======= PASO 7: Códigos autogenerados (resumen) ======= -->
-        <div *ngIf="pasoActual === 7">
-          <h3 class="step-title">Paso 7: Códigos PAD autogenerados</h3>
-          <p class="field-hint">
-            Los códigos compuestos se generan por el sistema: resultado
-            <span class="codigo">CGEO.lineamiento.correlativo</span> y producto
-            <span class="codigo">CGEO.lineamiento.resultado.correlativo</span>.
-            Revise la colección antes de completar los indicadores.
-          </p>
-          <div class="resumen-card" *ngIf="form.resultados.length === 0">
-            <p>No hay resultados cargados. Regrese al paso 6 y agregue al menos un resultado con sus productos.</p>
-          </div>
-          <div class="resumen-card" *ngFor="let res of form.resultados; let i = index">
-            <h4>Resultado {{ i + 1 }} <span class="codigo">{{ codigoResultado(i) || '—' }}</span></h4>
-            <p class="resumen-desc">{{ res.denominacion || 'Sin denominación' }}</p>
-            <table class="mini-table" *ngIf="res.productos.length">
-              <thead>
-                <tr><th>Código</th><th>Producto</th><th>Responsable</th><th>Financ.</th></tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let prod of res.productos; let j = index">
-                  <td><span class="codigo">{{ codigoProducto(i, j) || '—' }}</span></td>
-                  <td>{{ prod.denominacion || '—' }}</td>
-                  <td>{{ prod.responsable || '—' }}</td>
-                  <td>{{ prod.cuenta_con_financiamiento ? 'SÍ' : 'NO' }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- ======= PASO 8: Indicadores por Resultado ======= -->
-        <div *ngIf="pasoActual === 8">
-          <h3 class="step-title">Paso 8: Indicadores por Resultado PAD</h3>
-          <p class="field-hint">Matriz A — columnas L-T (fila de resultado): indicador, fórmula, unidad, línea base, meta 2030 y programación física 2026-2030.</p>
-          <div class="resumen-card" *ngFor="let res of form.resultados; let i = index">
-            <h4>Resultado {{ i + 1 }} <span class="codigo">{{ codigoResultado(i) || '—' }}</span>
-              <span class="resumen-desc">— {{ res.denominacion || 'Sin denominación' }}</span>
-            </h4>
+        @if (pasoActual === 1) {
+          <div>
+            <h3 class="step-title">Paso 1: Planificación Nacional</h3>
+            <p class="field-hint">Matriz B — bloques A-D: Eje PGDESA (impacto) → Componente PDESA (efecto).</p>
             <div class="form-grid">
-              <div class="field-full">
-                <label>Indicador</label>
-                <textarea [(ngModel)]="res.indicador.indicador" class="form-control" rows="1"
-                          placeholder="Variable de medición del resultado PAD"></textarea>
-              </div>
-              <div class="field-full">
-                <label>Fórmula</label>
-                <input [(ngModel)]="res.indicador.formula" class="form-control"
-                       placeholder="Ej: TCSEE = (N° viviendas con energía / total viviendas) * 100">
-              </div>
               <div class="field">
-                <label>Unidad de Medida</label>
-                <select [(ngModel)]="res.indicador.unidad_medida" class="form-control">
-                  <option value="">Seleccionar...</option>
-                  <option *ngFor="let um of catalogoUnidades" [value]="um.denominacion">
-                    {{ um.denominacion }}
-                  </option>
+                <label>Eje PGDESA</label>
+                <select [(ngModel)]="form.eje" class="form-control" (change)="onEjeChange()">
+                  <option [ngValue]="null">Seleccionar...</option>
+                  @for (eje of catalogoEjes; track eje) {
+                    <option [ngValue]="eje">
+                      {{ eje.codigo }} - {{ eje.denominacion }}
+                    </option>
+                  }
                 </select>
               </div>
               <div class="field">
-                <label>Línea Base</label>
-                <input type="number" step="0.01" [(ngModel)]="res.indicador.linea_base"
-                       class="form-control" placeholder="Valor línea base">
+                <label>Objetivo de Impacto</label>
+                <textarea #taImpacto [(ngModel)]="form.objetivo_impacto" readonly class="form-control textarea-auto"
+                  rows="2" placeholder="Objetivo de impacto del PGDESA (autollenado al elegir el eje)"
+                (input)="autoAjustarTextarea($event)" (change)="autoAjustarTextarea($event)"></textarea>
               </div>
               <div class="field">
-                <label>Meta 2030</label>
-                <input type="number" step="0.01" [(ngModel)]="res.indicador.meta_2030"
-                       class="form-control" placeholder="Meta al 2030">
+                <label>Componente PDESA</label>
+                <select [(ngModel)]="form.componente" class="form-control" (change)="onComponenteChange()">
+                  <option [ngValue]="null">Seleccionar...</option>
+                  @for (comp of componentesFiltrados; track comp) {
+                    <option [ngValue]="comp">
+                      {{ comp.codigo }} - {{ comp.denominacion }}
+                    </option>
+                  }
+                </select>
               </div>
-            </div>
-            <h5 class="section-subtitle">Programación Física 2026-2030</h5>
-            <div class="quinquenio-grid">
-              <div class="field" *ngFor="let year of quinquenio">
-                <label>{{ year }}</label>
-                <input type="number" step="0.01"
-                       [(ngModel)]="res.programacion_fisica[year]"
-                       class="form-control" [placeholder]="'Meta ' + year"
-                       (input)="onProgramacionFisicaChange()">
+              <div class="field">
+                <label>Objetivo de Efecto</label>
+                <textarea #taEfecto [(ngModel)]="form.objetivo_efecto" readonly class="form-control textarea-auto"
+                  rows="2" placeholder="Efecto esperado del PDESA (autollenado al elegir el componente)"
+                (input)="autoAjustarTextarea($event)" (change)="autoAjustarTextarea($event)"></textarea>
               </div>
-            </div>
-            <div class="total-auto">
-              <strong>Total programación física (quinquenio):</strong>
-              <span class="total-valor">{{ sumaAnual(res.programacion_fisica) }}</span>
             </div>
           </div>
-        </div>
-
-        <!-- ======= PASO 9: Indicadores por Producto ======= -->
-        <div *ngIf="pasoActual === 9">
-          <h3 class="step-title">Paso 9: Indicadores por Producto PAD</h3>
-          <p class="field-hint">Matriz A — columnas L-T (fila de producto): cada producto tiene su propio indicador, fórmula, unidad, línea base, meta 2030 y programación física 2026-2030.</p>
-          <div class="resumen-card" *ngFor="let res of form.resultados; let i = index">
-            <h4>Resultado {{ i + 1 }} <span class="codigo">{{ codigoResultado(i) || '—' }}</span></h4>
-            <div class="producto-card" *ngFor="let prod of res.productos; let j = index">
-              <h5>Producto {{ j + 1 }} <span class="codigo">{{ codigoProducto(i, j) || '—' }}</span>
-                <span class="resumen-desc">— {{ prod.denominacion || 'Sin denominación' }}</span>
-              </h5>
+        }
+    
+        <!-- ======= PASO 2: Acuerdos Internacionales ======= -->
+        @if (pasoActual === 2) {
+          <div>
+            <h3 class="step-title">Paso 2: Acuerdos Internacionales</h3>
+            <p class="field-hint">Matriz B — bloques E-H: ODS → NDC → NDT → Compromisos 30/30 (KMGBF).</p>
+            <div class="form-grid">
+              <div class="field">
+                <label>ODS (Objetivos de Desarrollo Sostenible)</label>
+                <select [(ngModel)]="form.ods" class="form-control">
+                  <option [ngValue]="null">Seleccionar...</option>
+                  <option [ngValue]="'N/A'">No aplica</option>
+                  @for (ods of catalogoODS; track ods) {
+                    <option [ngValue]="ods">
+                      ODS {{ ods.codigo }} - {{ ods.denominacion || ods.nombre }}
+                    </option>
+                  }
+                </select>
+              </div>
+              <div class="field">
+                <label>NDC (Contribución Nacional Determinada)</label>
+                <select [(ngModel)]="form.ndc" class="form-control">
+                  <option [ngValue]="null">Seleccionar...</option>
+                  <option [ngValue]="'N/A'">No aplica</option>
+                  @for (ndc of catalogoNDC; track ndc) {
+                    <option [ngValue]="ndc">
+                      {{ ndc.codigo }} - {{ ndc.denominacion }}
+                    </option>
+                  }
+                </select>
+              </div>
+              <div class="field">
+                <label>NDT (Principios de Navegación para el Desarrollo)</label>
+                <select [(ngModel)]="form.ndt" class="form-control">
+                  <option [ngValue]="null">Seleccionar...</option>
+                  <option [ngValue]="'N/A'">No aplica</option>
+                  @for (ndt of catalogoNDT; track ndt) {
+                    <option [ngValue]="ndt">
+                      {{ ndt.codigo }} - {{ ndt.denominacion }}
+                    </option>
+                  }
+                </select>
+              </div>
+              <div class="field">
+                <label>Compromisos 30/30 (KMGBF)</label>
+                <select [(ngModel)]="form.kmgbf" class="form-control">
+                  <option [ngValue]="null">Seleccionar...</option>
+                  <option [ngValue]="'N/A'">No aplica</option>
+                  @for (kmgbf of catalogo3030; track kmgbf) {
+                    <option [ngValue]="kmgbf">
+                      {{ kmgbf.codigo }} - {{ kmgbf.denominacion }}
+                    </option>
+                  }
+                </select>
+              </div>
+            </div>
+          </div>
+        }
+    
+        <!-- ======= PASO 3: Planificación Sectorial ======= -->
+        @if (pasoActual === 3) {
+          <div>
+            <h3 class="step-title">Paso 3: Planificación Sectorial</h3>
+            <p class="field-hint">Matriz B — bloques I-L: sector del clasificador presupuestario → resultado sectorial del PDS.</p>
+            <div class="form-grid">
+              <div class="field">
+                <label>Sector (economía plural)</label>
+                <select [(ngModel)]="form.sector" class="form-control" (change)="onSectorChange()">
+                  <option [ngValue]="null">Seleccionar sector...</option>
+                  @for (sec of catalogoSectores; track sec) {
+                    <option [ngValue]="sec">
+                      {{ sec.codigo }} - {{ sec.denominacion }}
+                    </option>
+                  }
+                </select>
+              </div>
+              <div class="field">
+                <label>Resultado Sectorial (PDS)</label>
+                <select [(ngModel)]="form.resultado_sectorial" class="form-control">
+                  <option [ngValue]="null">Seleccionar...</option>
+                  @for (rs of resultadosSectorialesFiltrados; track rs) {
+                    <option [ngValue]="rs">
+                      {{ rs.codigo }} - {{ rs.denominacion }}
+                    </option>
+                  }
+                </select>
+              </div>
+              @if (resultadosSectorialesFiltrados.length === 0) {
+                <div class="field-full text-secondary">
+                  No hay resultados sectoriales para este sector; puede continuar sin seleccionar.
+                </div>
+              }
+            </div>
+          </div>
+        }
+    
+        <!-- ======= PASO 4: Contexto Territorial ======= -->
+        @if (pasoActual === 4) {
+          <div>
+            <h3 class="step-title">Paso 4: Contexto Territorial</h3>
+            <p class="field-hint">Matriz A — columnas B-C / Matriz B M-N: código geográfico (clasificador CGEO INE) + ETA + política.</p>
+            <div class="form-grid">
+              <div class="field">
+                <label>Código Geográfico (CGEO)</label>
+                <select [(ngModel)]="form.cgeo" class="form-control" (change)="onCgeoChange()">
+                  <option [ngValue]="null">Seleccionar...</option>
+                  @for (e of catalogoEntidadesTerritoriales; track e) {
+                    <option [ngValue]="e">
+                      {{ e.codigo }} - {{ e.denominacion }} ({{ e.nivel }})
+                    </option>
+                  }
+                </select>
+              </div>
+              <div class="field">
+                <label>ETA (Estructura Territorial de Apoyo)</label>
+                <input [(ngModel)]="form.eta" class="form-control" placeholder="Denominación de la ETA">
+              </div>
+              <div class="field-full">
+                <label>Política (directriz territorial)</label>
+                <textarea [(ngModel)]="form.politica" class="form-control" rows="2"
+                placeholder="Directriz territorial (columna C de la Matriz A)"></textarea>
+              </div>
+            </div>
+          </div>
+        }
+    
+        <!-- ======= PASO 5: Lineamiento Estratégico PAD ======= -->
+        @if (pasoActual === 5) {
+          <div>
+            <h3 class="step-title">Paso 5: Lineamiento Estratégico PAD</h3>
+            <p class="field-hint">Matriz A — columnas D-E; guía 4.3: el lineamiento es el primer elemento a registrar.</p>
+            <div class="form-grid">
+              <div class="field-full">
+                <label>Lineamiento Estratégico (cascada: componente PDESA del paso 1)</label>
+                <select [(ngModel)]="form.lineamiento" class="form-control" (change)="onLineamientoChange()">
+                  <option [ngValue]="null">Seleccionar...</option>
+                  @for (ll of lineamientosFiltrados; track ll) {
+                    <option [ngValue]="ll">
+                      {{ ll.codigo }} - {{ ll.denominacion }}
+                    </option>
+                  }
+                </select>
+                @if (!form.componente) {
+                  <span class="text-secondary">Primero seleccione el componente PDESA en el paso 1.</span>
+                }
+              </div>
+            </div>
+          </div>
+        }
+    
+        <!-- ======= PASO 6: Resultados y Productos PAD (tabla jerárquica) ======= -->
+        @if (pasoActual === 6) {
+          <div>
+            <h3 class="step-title">Paso 6: Resultados y Productos PAD</h3>
+            <p class="field-hint">
+              Matriz A — columnas F-K y U: cada resultado (código
+              <span class="codigo">CGEO.lineamiento.correlativo</span>) puede tener
+              VARIOS productos (código
+              <span class="codigo">CGEO.lineamiento.resultado.correlativo</span>).
+              Edición inline tipo Excel: los códigos se autogeneran en vivo y cada
+              cambio se guarda automáticamente (sección "resultados", lista completa).
+            </p>
+            <app-tabla-jerarquica
+              [resultados]="form.resultados"
+              [cgeo]="form.cgeo"
+              [lineamiento]="form.lineamiento"
+              [correlativoBase]="correlativoBase()"
+              (cambio)="onColeccionCambio()">
+            </app-tabla-jerarquica>
+          </div>
+        }
+    
+        <!-- ======= PASO 7: Códigos autogenerados (resumen) ======= -->
+        @if (pasoActual === 7) {
+          <div>
+            <h3 class="step-title">Paso 7: Códigos PAD autogenerados</h3>
+            <p class="field-hint">
+              Los códigos compuestos se generan por el sistema: resultado
+              <span class="codigo">CGEO.lineamiento.correlativo</span> y producto
+              <span class="codigo">CGEO.lineamiento.resultado.correlativo</span>.
+              Revise la colección antes de completar los indicadores.
+            </p>
+            @if (form.resultados.length === 0) {
+              <div class="resumen-card">
+                <p>No hay resultados cargados. Regrese al paso 6 y agregue al menos un resultado con sus productos.</p>
+              </div>
+            }
+            @for (res of form.resultados; track res; let i = $index) {
+              <div class="resumen-card">
+                <h4>Resultado {{ i + 1 }} <span class="codigo">{{ codigoResultado(i) || '—' }}</span></h4>
+                <p class="resumen-desc">{{ res.denominacion || 'Sin denominación' }}</p>
+                @if (res.productos.length) {
+                  <table class="mini-table">
+                    <thead>
+                      <tr><th>Código</th><th>Producto</th><th>Responsable</th><th>Financ.</th></tr>
+                    </thead>
+                    <tbody>
+                      @for (prod of res.productos; track prod; let j = $index) {
+                        <tr>
+                          <td><span class="codigo">{{ codigoProducto(i, j) || '—' }}</span></td>
+                          <td>{{ prod.denominacion || '—' }}</td>
+                          <td>{{ prod.responsable || '—' }}</td>
+                          <td>{{ prod.cuenta_con_financiamiento ? 'SÍ' : 'NO' }}</td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                }
+              </div>
+            }
+          </div>
+        }
+    
+        <!-- ======= PASO 8: Indicadores por Resultado ======= -->
+        @if (pasoActual === 8) {
+          <div>
+            <h3 class="step-title">Paso 8: Indicadores por Resultado PAD</h3>
+            <p class="field-hint">Matriz A — columnas L-T (fila de resultado): indicador, fórmula, unidad, línea base, meta 2030 y programación física 2026-2030.</p>
+            @for (res of form.resultados; track res; let i = $index) {
+              <div class="resumen-card">
+                <h4>Resultado {{ i + 1 }} <span class="codigo">{{ codigoResultado(i) || '—' }}</span>
+                <span class="resumen-desc">— {{ res.denominacion || 'Sin denominación' }}</span>
+              </h4>
               <div class="form-grid">
                 <div class="field-full">
                   <label>Indicador</label>
-                  <textarea [(ngModel)]="prod.indicador.indicador" class="form-control" rows="1"
-                            placeholder="Variable de medición del producto PAD"></textarea>
+                  <textarea [(ngModel)]="res.indicador.indicador" class="form-control" rows="1"
+                  placeholder="Variable de medición del resultado PAD"></textarea>
                 </div>
                 <div class="field-full">
                   <label>Fórmula</label>
-                  <input [(ngModel)]="prod.indicador.formula" class="form-control"
-                         placeholder="Ej: NV = N° de viviendas conectadas">
+                  <input [(ngModel)]="res.indicador.formula" class="form-control"
+                    placeholder="Ej: TCSEE = (N° viviendas con energía / total viviendas) * 100">
+                  </div>
+                  <div class="field">
+                    <label>Unidad de Medida</label>
+                    <select [(ngModel)]="res.indicador.unidad_medida" class="form-control">
+                      <option value="">Seleccionar...</option>
+                      @for (um of catalogoUnidades; track um) {
+                        <option [value]="um.denominacion">
+                          {{ um.denominacion }}
+                        </option>
+                      }
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label>Línea Base</label>
+                    <input type="number" step="0.01" [(ngModel)]="res.indicador.linea_base"
+                      class="form-control" placeholder="Valor línea base">
+                    </div>
+                    <div class="field">
+                      <label>Meta 2030</label>
+                      <input type="number" step="0.01" [(ngModel)]="res.indicador.meta_2030"
+                        class="form-control" placeholder="Meta al 2030">
+                      </div>
+                    </div>
+                    <h5 class="section-subtitle">Programación Física 2026-2030</h5>
+                    <div class="quinquenio-grid">
+                      @for (year of quinquenio; track year) {
+                        <div class="field">
+                          <label>{{ year }}</label>
+                          <input type="number" step="0.01"
+                            [(ngModel)]="res.programacion_fisica[year]"
+                            class="form-control" [placeholder]="'Meta ' + year"
+                            (input)="onProgramacionFisicaChange()">
+                          </div>
+                        }
+                      </div>
+                      <div class="total-auto">
+                        <strong>Total programación física (quinquenio):</strong>
+                        <span class="total-valor">{{ sumaAnual(res.programacion_fisica) }}</span>
+                      </div>
+                    </div>
+                  }
                 </div>
-                <div class="field">
-                  <label>Unidad de Medida</label>
-                  <select [(ngModel)]="prod.indicador.unidad_medida" class="form-control">
-                    <option value="">Seleccionar...</option>
-                    <option *ngFor="let um of catalogoUnidades" [value]="um.denominacion">
-                      {{ um.denominacion }}
-                    </option>
-                  </select>
-                </div>
-                <div class="field">
-                  <label>Línea Base</label>
-                  <input type="number" step="0.01" [(ngModel)]="prod.indicador.linea_base"
-                         class="form-control" placeholder="Valor línea base">
-                </div>
-                <div class="field">
-                  <label>Meta 2030</label>
-                  <input type="number" step="0.01" [(ngModel)]="prod.indicador.meta_2030"
-                         class="form-control" placeholder="Meta al 2030">
-                </div>
-              </div>
-              <h5 class="section-subtitle">Programación Física 2026-2030</h5>
-              <div class="quinquenio-grid">
-                <div class="field" *ngFor="let year of quinquenio">
-                  <label>{{ year }}</label>
-                  <input type="number" step="0.01"
-                         [(ngModel)]="prod.programacion_fisica[year]"
-                         class="form-control" [placeholder]="'Meta ' + year"
-                         (input)="onProgramacionFisicaChange()">
-                </div>
-              </div>
-              <div class="total-auto">
-                <strong>Total programación física (quinquenio):</strong>
-                <span class="total-valor">{{ sumaAnual(prod.programacion_fisica) }}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ======= PASO 10: Programación Financiera ======= -->
-        <div *ngIf="pasoActual === 10">
-          <h3 class="step-title">Paso 10: Programación Financiera</h3>
-          <p class="field-hint">
-            Matriz A — columnas V-AA / Matriz B AB-AG: presupuesto total PAD (referencial) y anual 2026-2030,
-            en bolivianos SIN decimales, POR RESULTADO y POR PRODUCTO.
-          </p>
-          <div class="resumen-card" *ngFor="let res of form.resultados; let i = index">
-            <h4>Resultado {{ i + 1 }} <span class="codigo">{{ codigoResultado(i) || '—' }}</span></h4>
-            <div class="form-grid">
-              <div class="field">
-                <label>Presupuesto Total Resultado (Bs.) — autosuma</label>
-                <input type="number" step="1" min="0" readonly
-                       [value]="sumaAnual(res.presupuesto_anual)"
-                       class="form-control total-readonly" placeholder="Se calcula automáticamente">
-              </div>
-            </div>
-            <div class="quinquenio-grid">
-              <div class="field" *ngFor="let year of quinquenio">
-                <label>Resultado {{ year }} (Bs.)</label>
-                <input type="number" step="1" min="0"
-                       [(ngModel)]="res.presupuesto_anual[year]"
-                       class="form-control" [placeholder]="'Bs. ' + year"
-                       (input)="onPresupuestoChange()">
-              </div>
-            </div>
-            <div class="total-auto">
-              <strong>Total resultado (quinquenio):</strong>
-              <span class="total-valor">Bs {{ sumaAnual(res.presupuesto_anual) }}</span>
-            </div>
-            <div class="producto-card" *ngFor="let prod of res.productos; let j = index">
-              <h5>Producto {{ j + 1 }} <span class="codigo">{{ codigoProducto(i, j) || '—' }}</span></h5>
-              <div class="form-grid">
-                <div class="field">
-                  <label>Presupuesto Total Producto (Bs.) — autosuma</label>
-                  <input type="number" step="1" min="0" readonly
-                         [value]="sumaAnual(prod.presupuesto_anual)"
-                         class="form-control total-readonly" placeholder="Se calcula automáticamente">
-                </div>
-              </div>
-              <div class="quinquenio-grid">
-                <div class="field" *ngFor="let year of quinquenio">
-                  <label>Producto {{ year }} (Bs.)</label>
-                  <input type="number" step="1" min="0"
-                         [(ngModel)]="prod.presupuesto_anual[year]"
-                         class="form-control" [placeholder]="'Bs. ' + year"
-                         (input)="onPresupuestoChange()">
-                </div>
-              </div>
-              <div class="total-auto">
-                <strong>Total producto (quinquenio):</strong>
-                <span class="total-valor">Bs {{ sumaAnual(prod.presupuesto_anual) }}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ======= PASO 11: Revisión y Guardado ======= -->
-        <div *ngIf="pasoActual === 11">
-          <h3 class="step-title">Paso 11: Revisión y Guardado</h3>
-          <div class="resumen-card">
-            <p>
-              Revise los datos antes de materializar. La operación crea, en una sola
-              transacción atómica, UN Resultado PAD por cada resultado de la colección
-              y UN Producto PAD por cada producto, cada uno con su indicador.
-            </p>
-            <div class="resumen-grid">
-              <div class="resumen-item"><strong>Eje PGDESA:</strong> {{ form.eje ? form.eje.codigo + ' - ' + form.eje.denominacion : '—' }}</div>
-              <div class="resumen-item"><strong>Componente PDESA:</strong> {{ form.componente ? form.componente.codigo + ' - ' + form.componente.denominacion : '—' }}</div>
-              <div class="resumen-item"><strong>ODS:</strong> {{ form.ods ? 'ODS ' + form.ods.codigo : '—' }}</div>
-              <div class="resumen-item"><strong>NDC:</strong> {{ form.ndc ? form.ndc.codigo : '—' }}</div>
-              <div class="resumen-item"><strong>NDT:</strong> {{ form.ndt ? form.ndt.codigo : '—' }}</div>
-              <div class="resumen-item"><strong>30/30:</strong> {{ form.kmgbf ? form.kmgbf.codigo : '—' }}</div>
-              <div class="resumen-item"><strong>Sector:</strong> {{ form.sector ? form.sector.codigo + ' - ' + form.sector.denominacion : '—' }}</div>
-              <div class="resumen-item"><strong>Resultado Sectorial:</strong> {{ form.resultado_sectorial ? form.resultado_sectorial.codigo + ' - ' + form.resultado_sectorial.denominacion : '—' }}</div>
-              <div class="resumen-item"><strong>CGEO:</strong> {{ form.cgeo ? form.cgeo.codigo + ' - ' + form.cgeo.denominacion : '—' }}</div>
-              <div class="resumen-item"><strong>ETA:</strong> {{ form.eta || '—' }}</div>
-              <div class="resumen-item"><strong>Política:</strong> {{ form.politica || '—' }}</div>
-              <div class="resumen-item"><strong>Lineamiento PAD:</strong> {{ form.lineamiento ? form.lineamiento.codigo + ' - ' + form.lineamiento.denominacion : '—' }}</div>
-              <div class="resumen-item"><strong>Resultados:</strong> {{ form.resultados.length }} ({{ totalProductos() }} productos, {{ totalFilas() }} filas en la matriz)</div>
-              <div class="resumen-item" *ngFor="let res of form.resultados; let i = index">
-                <strong>R{{ i + 1 }} {{ codigoResultado(i) }}:</strong> {{ res.denominacion || '—' }}
-                <span class="text-secondary">({{ res.productos.length }} producto(s))</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Navegación -->
-        <div class="form-nav">
-          <button class="btn btn-outline" (click)="pasoAnterior()" [disabled]="pasoActual === 1">
-            ← Anterior
-          </button>
-          <span class="step-counter">Paso {{ pasoActual }} de 11</span>
-          <button class="btn btn-primary" (click)="pasoSiguiente()" *ngIf="pasoActual < 11" [disabled]="guardandoSeccion">
-            {{ guardandoSeccion ? 'Guardando...' : 'Siguiente →' }}
-          </button>
-          <button class="btn btn-primary btn-guardar" (click)="materializar()" *ngIf="pasoActual === 11" [disabled]="materializando">
-            {{ materializando ? 'Materializando...' : '💾 Materializar Matriz PAD' }}
-          </button>
-        </div>
-      </div>
-    </div>
-  `,
+              }
+    
+              <!-- ======= PASO 9: Indicadores por Producto ======= -->
+              @if (pasoActual === 9) {
+                <div>
+                  <h3 class="step-title">Paso 9: Indicadores por Producto PAD</h3>
+                  <p class="field-hint">Matriz A — columnas L-T (fila de producto): cada producto tiene su propio indicador, fórmula, unidad, línea base, meta 2030 y programación física 2026-2030.</p>
+                  @for (res of form.resultados; track res; let i = $index) {
+                    <div class="resumen-card">
+                      <h4>Resultado {{ i + 1 }} <span class="codigo">{{ codigoResultado(i) || '—' }}</span></h4>
+                      @for (prod of res.productos; track prod; let j = $index) {
+                        <div class="producto-card">
+                          <h5>Producto {{ j + 1 }} <span class="codigo">{{ codigoProducto(i, j) || '—' }}</span>
+                          <span class="resumen-desc">— {{ prod.denominacion || 'Sin denominación' }}</span>
+                        </h5>
+                        <div class="form-grid">
+                          <div class="field-full">
+                            <label>Indicador</label>
+                            <textarea [(ngModel)]="prod.indicador.indicador" class="form-control" rows="1"
+                            placeholder="Variable de medición del producto PAD"></textarea>
+                          </div>
+                          <div class="field-full">
+                            <label>Fórmula</label>
+                            <input [(ngModel)]="prod.indicador.formula" class="form-control"
+                              placeholder="Ej: NV = N° de viviendas conectadas">
+                            </div>
+                            <div class="field">
+                              <label>Unidad de Medida</label>
+                              <select [(ngModel)]="prod.indicador.unidad_medida" class="form-control">
+                                <option value="">Seleccionar...</option>
+                                @for (um of catalogoUnidades; track um) {
+                                  <option [value]="um.denominacion">
+                                    {{ um.denominacion }}
+                                  </option>
+                                }
+                              </select>
+                            </div>
+                            <div class="field">
+                              <label>Línea Base</label>
+                              <input type="number" step="0.01" [(ngModel)]="prod.indicador.linea_base"
+                                class="form-control" placeholder="Valor línea base">
+                              </div>
+                              <div class="field">
+                                <label>Meta 2030</label>
+                                <input type="number" step="0.01" [(ngModel)]="prod.indicador.meta_2030"
+                                  class="form-control" placeholder="Meta al 2030">
+                                </div>
+                              </div>
+                              <h5 class="section-subtitle">Programación Física 2026-2030</h5>
+                              <div class="quinquenio-grid">
+                                @for (year of quinquenio; track year) {
+                                  <div class="field">
+                                    <label>{{ year }}</label>
+                                    <input type="number" step="0.01"
+                                      [(ngModel)]="prod.programacion_fisica[year]"
+                                      class="form-control" [placeholder]="'Meta ' + year"
+                                      (input)="onProgramacionFisicaChange()">
+                                    </div>
+                                  }
+                                </div>
+                                <div class="total-auto">
+                                  <strong>Total programación física (quinquenio):</strong>
+                                  <span class="total-valor">{{ sumaAnual(prod.programacion_fisica) }}</span>
+                                </div>
+                              </div>
+                            }
+                          </div>
+                        }
+                      </div>
+                    }
+    
+                    <!-- ======= PASO 10: Programación Financiera ======= -->
+                    @if (pasoActual === 10) {
+                      <div>
+                        <h3 class="step-title">Paso 10: Programación Financiera</h3>
+                        <p class="field-hint">
+                          Matriz A — columnas V-AA / Matriz B AB-AG: presupuesto total PAD (referencial) y anual 2026-2030,
+                          en bolivianos SIN decimales, POR RESULTADO y POR PRODUCTO.
+                        </p>
+                        @for (res of form.resultados; track res; let i = $index) {
+                          <div class="resumen-card">
+                            <h4>Resultado {{ i + 1 }} <span class="codigo">{{ codigoResultado(i) || '—' }}</span></h4>
+                            <div class="form-grid">
+                              <div class="field">
+                                <label>Presupuesto Total Resultado (Bs.) — autosuma</label>
+                                <input type="number" step="1" min="0" readonly
+                                  [value]="sumaAnual(res.presupuesto_anual)"
+                                  class="form-control total-readonly" placeholder="Se calcula automáticamente">
+                                </div>
+                              </div>
+                              <div class="quinquenio-grid">
+                                @for (year of quinquenio; track year) {
+                                  <div class="field">
+                                    <label>Resultado {{ year }} (Bs.)</label>
+                                    <input type="number" step="1" min="0"
+                                      [(ngModel)]="res.presupuesto_anual[year]"
+                                      class="form-control" [placeholder]="'Bs. ' + year"
+                                      (input)="onPresupuestoChange()">
+                                    </div>
+                                  }
+                                </div>
+                                <div class="total-auto">
+                                  <strong>Total resultado (quinquenio):</strong>
+                                  <span class="total-valor">Bs {{ sumaAnual(res.presupuesto_anual) }}</span>
+                                </div>
+                                @for (prod of res.productos; track prod; let j = $index) {
+                                  <div class="producto-card">
+                                    <h5>Producto {{ j + 1 }} <span class="codigo">{{ codigoProducto(i, j) || '—' }}</span></h5>
+                                    <div class="form-grid">
+                                      <div class="field">
+                                        <label>Presupuesto Total Producto (Bs.) — autosuma</label>
+                                        <input type="number" step="1" min="0" readonly
+                                          [value]="sumaAnual(prod.presupuesto_anual)"
+                                          class="form-control total-readonly" placeholder="Se calcula automáticamente">
+                                        </div>
+                                      </div>
+                                      <div class="quinquenio-grid">
+                                        @for (year of quinquenio; track year) {
+                                          <div class="field">
+                                            <label>Producto {{ year }} (Bs.)</label>
+                                            <input type="number" step="1" min="0"
+                                              [(ngModel)]="prod.presupuesto_anual[year]"
+                                              class="form-control" [placeholder]="'Bs. ' + year"
+                                              (input)="onPresupuestoChange()">
+                                            </div>
+                                          }
+                                        </div>
+                                        <div class="total-auto">
+                                          <strong>Total producto (quinquenio):</strong>
+                                          <span class="total-valor">Bs {{ sumaAnual(prod.presupuesto_anual) }}</span>
+                                        </div>
+                                      </div>
+                                    }
+                                  </div>
+                                }
+                              </div>
+                            }
+    
+                            <!-- ======= PASO 11: Revisión y Guardado ======= -->
+                            @if (pasoActual === 11) {
+                              <div>
+                                <h3 class="step-title">Paso 11: Revisión y Guardado</h3>
+                                <div class="resumen-card">
+                                  <p>
+                                    Revise los datos antes de materializar. La operación crea, en una sola
+                                    transacción atómica, UN Resultado PAD por cada resultado de la colección
+                                    y UN Producto PAD por cada producto, cada uno con su indicador.
+                                  </p>
+                                  <div class="resumen-grid">
+                                    <div class="resumen-item"><strong>Eje PGDESA:</strong> {{ form.eje ? form.eje.codigo + ' - ' + form.eje.denominacion : '—' }}</div>
+                                    <div class="resumen-item"><strong>Componente PDESA:</strong> {{ form.componente ? form.componente.codigo + ' - ' + form.componente.denominacion : '—' }}</div>
+                                    <div class="resumen-item"><strong>ODS:</strong> {{ form.ods ? 'ODS ' + form.ods.codigo : '—' }}</div>
+                                    <div class="resumen-item"><strong>NDC:</strong> {{ form.ndc ? form.ndc.codigo : '—' }}</div>
+                                    <div class="resumen-item"><strong>NDT:</strong> {{ form.ndt ? form.ndt.codigo : '—' }}</div>
+                                    <div class="resumen-item"><strong>30/30:</strong> {{ form.kmgbf ? form.kmgbf.codigo : '—' }}</div>
+                                    <div class="resumen-item"><strong>Sector:</strong> {{ form.sector ? form.sector.codigo + ' - ' + form.sector.denominacion : '—' }}</div>
+                                    <div class="resumen-item"><strong>Resultado Sectorial:</strong> {{ form.resultado_sectorial ? form.resultado_sectorial.codigo + ' - ' + form.resultado_sectorial.denominacion : '—' }}</div>
+                                    <div class="resumen-item"><strong>CGEO:</strong> {{ form.cgeo ? form.cgeo.codigo + ' - ' + form.cgeo.denominacion : '—' }}</div>
+                                    <div class="resumen-item"><strong>ETA:</strong> {{ form.eta || '—' }}</div>
+                                    <div class="resumen-item"><strong>Política:</strong> {{ form.politica || '—' }}</div>
+                                    <div class="resumen-item"><strong>Lineamiento PAD:</strong> {{ form.lineamiento ? form.lineamiento.codigo + ' - ' + form.lineamiento.denominacion : '—' }}</div>
+                                    <div class="resumen-item"><strong>Resultados:</strong> {{ form.resultados.length }} ({{ totalProductos() }} productos, {{ totalFilas() }} filas en la matriz)</div>
+                                    @for (res of form.resultados; track res; let i = $index) {
+                                      <div class="resumen-item">
+                                        <strong>R{{ i + 1 }} {{ codigoResultado(i) }}:</strong> {{ res.denominacion || '—' }}
+                                        <span class="text-secondary">({{ res.productos.length }} producto(s))</span>
+                                      </div>
+                                    }
+                                  </div>
+                                </div>
+                              </div>
+                            }
+    
+                            <!-- Navegación -->
+                            <div class="form-nav">
+                              <button class="btn btn-outline" (click)="pasoAnterior()" [disabled]="pasoActual === 1">
+                                ← Anterior
+                              </button>
+                              <span class="step-counter">Paso {{ pasoActual }} de 11</span>
+                              @if (pasoActual < 11) {
+                                <button class="btn btn-primary" (click)="pasoSiguiente()" [disabled]="guardandoSeccion">
+                                  {{ guardandoSeccion ? 'Guardando...' : 'Siguiente →' }}
+                                </button>
+                              }
+                              @if (pasoActual === 11) {
+                                <button class="btn btn-primary btn-guardar" (click)="materializar()" [disabled]="materializando">
+                                  {{ materializando ? 'Materializando...' : '💾 Materializar Matriz PAD' }}
+                                </button>
+                              }
+                            </div>
+                          </div>
+                        </div>
+    `,
   styles: [`
     .form-page { padding-bottom: 2rem; max-width: 1280px; margin: 0 auto; }
     .page-header { margin-bottom: 1.25rem; }

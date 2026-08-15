@@ -24,9 +24,11 @@ import {
           <a routerLink="nuevo" class="btn btn-primary">+ Nueva Matriz PAD</a>
         </div>
       </div>
-
-      <div class="alert alert-danger" *ngIf="mensajeError">{{ mensajeError }}</div>
-
+    
+      @if (mensajeError) {
+        <div class="alert alert-danger">{{ mensajeError }}</div>
+      }
+    
       <div class="card table-card">
         <div class="table-scroll">
           <table class="matriz-table">
@@ -40,42 +42,48 @@ import {
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let b of borradores">
-                <td>{{ b.gestion }}</td>
-                <td>
-                  <span class="badge"
-                        [class.badge-success]="b.estado === 'COMPLETO'"
-                        [class.badge-warning]="b.estado === 'BORRADOR'">
-                    {{ b.estado }}
-                  </span>
-                </td>
-                <td>{{ b.created_at ? (b.created_at | date: 'dd/MM/yyyy HH:mm') : '—' }}</td>
-                <td>
-                  <span class="codigo">{{ b.id_resultado_pad ? (b.id_resultado_pad | slice: 0: 8) : '—' }}</span>
-                </td>
-                <td class="actions-col">
-                  <a [routerLink]="['nuevo', b.id]" class="btn btn-sm btn-outline">Continuar</a>
-                  <a [routerLink]="[b.id, 'matriz-a']" class="btn btn-sm btn-outline">Matriz A</a>
-                  <a [routerLink]="[b.id, 'matriz-b']" class="btn btn-sm btn-outline">Matriz B</a>
-                  <button class="btn btn-sm btn-danger-ghost" (click)="eliminar(b)" [disabled]="b.estado === 'COMPLETO'">
-                    Eliminar
-                  </button>
-                </td>
-              </tr>
-              <tr *ngIf="cargando">
-                <td colspan="5" class="empty-cell">Cargando borradores...</td>
-              </tr>
-              <tr *ngIf="!cargando && borradores.length === 0">
-                <td colspan="5" class="empty-cell">
-                  No hay matrices PAD. Cree una nueva con "+ Nueva Matriz PAD".
-                </td>
-              </tr>
+              @for (b of borradores; track b) {
+                <tr>
+                  <td>{{ b.gestion }}</td>
+                  <td>
+                    <span class="badge"
+                      [class.badge-success]="b.estado === 'COMPLETO'"
+                      [class.badge-warning]="b.estado === 'BORRADOR'">
+                      {{ b.estado }}
+                    </span>
+                  </td>
+                  <td>{{ b.created_at ? (b.created_at | date: 'dd/MM/yyyy HH:mm') : '—' }}</td>
+                  <td>
+                    <span class="codigo">{{ b.id_resultado_pad ? (b.id_resultado_pad | slice: 0: 8) : '—' }}</span>
+                  </td>
+                  <td class="actions-col">
+                    <a [routerLink]="['nuevo', b.id]" class="btn btn-sm btn-outline">Continuar</a>
+                    <a [routerLink]="[b.id, 'matriz-a']" class="btn btn-sm btn-outline">Matriz A</a>
+                    <a [routerLink]="[b.id, 'matriz-b']" class="btn btn-sm btn-outline">Matriz B</a>
+                    <button class="btn btn-sm btn-danger-ghost" (click)="eliminar(b)" [disabled]="b.estado === 'COMPLETO'">
+                      Eliminar
+                    </button>
+                  </td>
+                </tr>
+              }
+              @if (cargando) {
+                <tr>
+                  <td colspan="5" class="empty-cell">Cargando borradores...</td>
+                </tr>
+              }
+              @if (!cargando && borradores.length === 0) {
+                <tr>
+                  <td colspan="5" class="empty-cell">
+                    No hay matrices PAD. Cree una nueva con "+ Nueva Matriz PAD".
+                  </td>
+                </tr>
+              }
             </tbody>
           </table>
         </div>
       </div>
     </div>
-  `,
+    `,
   styles: [`
     .mpx-page { padding-bottom: 2rem; }
     .page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1.25rem; }

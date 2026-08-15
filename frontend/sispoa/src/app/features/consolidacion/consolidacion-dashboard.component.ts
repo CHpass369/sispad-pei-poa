@@ -9,109 +9,121 @@ import { ConsolidacionService, ConsolidacionUE } from './consolidacion.service';
       <h2>Consolidación de Planificación</h2>
       <p class="text-secondary">Estado de consolidación por Unidad Ejecutora</p>
     </div>
-
+    
     <div class="acciones-superior">
       <div class="field">
         <input [(ngModel)]="busqueda" (keyup.enter)="cargar()" class="form-control"
-               placeholder="Buscar por nombre de UE...">
+          placeholder="Buscar por nombre de UE...">
+        </div>
+        <button class="btn btn-outline" (click)="cargar()">Recargar</button>
       </div>
-      <button class="btn btn-outline" (click)="cargar()">Recargar</button>
-    </div>
-
-    <div class="resumen-grid" *ngIf="!cargando && consolidaciones.length > 0">
-      <div class="card resumen-item">
-        <div class="resumen-valor">{{ consolidaciones.length }}</div>
-        <div class="resumen-label">Total UEs</div>
-      </div>
-      <div class="card resumen-item verde">
-        <div class="resumen-valor">{{ uesCompletas }}</div>
-        <div class="resumen-label">Completas</div>
-      </div>
-      <div class="card resumen-item amarillo">
-        <div class="resumen-valor">{{ uesEnCurso }}</div>
-        <div class="resumen-label">En Curso</div>
-      </div>
-      <div class="card resumen-item rojo">
-        <div class="resumen-valor">{{ uesPendientes }}</div>
-        <div class="resumen-label">Pendientes</div>
-      </div>
-    </div>
-
-    <div class="table-container" *ngIf="!cargando">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Unidad Ejecutora</th>
-            <th>PEI</th>
-            <th>PAD</th>
-            <th>POA</th>
-            <th>POAU</th>
-            <th>Estado General</th>
-            <th>Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let c of consolidacionesFiltradas">
-            <td><strong>{{ c.ue_nombre }}</strong></td>
-            <td>
-              <div class="progress-cell">
-                <div class="progress-bar">
-                  <div class="progress-fill" [style.width.%]="c.pei_porcentaje"
-                       [class.fill-ok]="c.pei_porcentaje >= 80"
-                       [class.fill-warn]="c.pei_porcentaje >= 40 && c.pei_porcentaje < 80"
-                       [class.fill-danger]="c.pei_porcentaje < 40"></div>
-                </div>
-                <span class="progress-text">{{ c.pei_porcentaje }}%</span>
-              </div>
-            </td>
-            <td>
-              <div class="progress-cell">
-                <div class="progress-bar">
-                  <div class="progress-fill" [style.width.%]="c.pad_porcentaje"
-                       [class.fill-ok]="c.pad_porcentaje >= 80"
-                       [class.fill-warn]="c.pad_porcentaje >= 40 && c.pad_porcentaje < 80"
-                       [class.fill-danger]="c.pad_porcentaje < 40"></div>
-                </div>
-                <span class="progress-text">{{ c.pad_porcentaje }}%</span>
-              </div>
-            </td>
-            <td>
-              <div class="progress-cell">
-                <div class="progress-bar">
-                  <div class="progress-fill" [style.width.%]="c.poa_porcentaje"
-                       [class.fill-ok]="c.poa_porcentaje >= 80"
-                       [class.fill-warn]="c.poa_porcentaje >= 40 && c.poa_porcentaje < 80"
-                       [class.fill-danger]="c.poa_porcentaje < 40"></div>
-                </div>
-                <span class="progress-text">{{ c.poa_porcentaje }}%</span>
-              </div>
-            </td>
-            <td>
-              <div class="progress-cell">
-                <div class="progress-bar">
-                  <div class="progress-fill" [style.width.%]="c.poau_porcentaje"
-                       [class.fill-ok]="c.poau_porcentaje >= 80"
-                       [class.fill-warn]="c.poau_porcentaje >= 40 && c.poau_porcentaje < 80"
-                       [class.fill-danger]="c.poau_porcentaje < 40"></div>
-                </div>
-                <span class="progress-text">{{ c.poau_porcentaje }}%</span>
-              </div>
-            </td>
-            <td>
-              <span class="badge" [ngClass]="'badge-' + c.estado_general">{{ c.estado_general }}</span>
-            </td>
-            <td>
-              <button class="btn btn-sm btn-outline" (click)="verDetalle(c)">Ver Detalle</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-      <div *ngIf="consolidacionesFiltradas.length === 0" class="empty">No se encontraron unidades ejecutoras</div>
-    </div>
-
-    <div class="loading" *ngIf="cargando">Cargando consolidación...</div>
-    <div class="alert alert-error" *ngIf="error">{{ error }}</div>
-  `,
+    
+      @if (!cargando && consolidaciones.length > 0) {
+        <div class="resumen-grid">
+          <div class="card resumen-item">
+            <div class="resumen-valor">{{ consolidaciones.length }}</div>
+            <div class="resumen-label">Total UEs</div>
+          </div>
+          <div class="card resumen-item verde">
+            <div class="resumen-valor">{{ uesCompletas }}</div>
+            <div class="resumen-label">Completas</div>
+          </div>
+          <div class="card resumen-item amarillo">
+            <div class="resumen-valor">{{ uesEnCurso }}</div>
+            <div class="resumen-label">En Curso</div>
+          </div>
+          <div class="card resumen-item rojo">
+            <div class="resumen-valor">{{ uesPendientes }}</div>
+            <div class="resumen-label">Pendientes</div>
+          </div>
+        </div>
+      }
+    
+      @if (!cargando) {
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Unidad Ejecutora</th>
+                <th>PEI</th>
+                <th>PAD</th>
+                <th>POA</th>
+                <th>POAU</th>
+                <th>Estado General</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (c of consolidacionesFiltradas; track c) {
+                <tr>
+                  <td><strong>{{ c.ue_nombre }}</strong></td>
+                  <td>
+                    <div class="progress-cell">
+                      <div class="progress-bar">
+                        <div class="progress-fill" [style.width.%]="c.pei_porcentaje"
+                          [class.fill-ok]="c.pei_porcentaje >= 80"
+                          [class.fill-warn]="c.pei_porcentaje >= 40 && c.pei_porcentaje < 80"
+                        [class.fill-danger]="c.pei_porcentaje < 40"></div>
+                      </div>
+                      <span class="progress-text">{{ c.pei_porcentaje }}%</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="progress-cell">
+                      <div class="progress-bar">
+                        <div class="progress-fill" [style.width.%]="c.pad_porcentaje"
+                          [class.fill-ok]="c.pad_porcentaje >= 80"
+                          [class.fill-warn]="c.pad_porcentaje >= 40 && c.pad_porcentaje < 80"
+                        [class.fill-danger]="c.pad_porcentaje < 40"></div>
+                      </div>
+                      <span class="progress-text">{{ c.pad_porcentaje }}%</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="progress-cell">
+                      <div class="progress-bar">
+                        <div class="progress-fill" [style.width.%]="c.poa_porcentaje"
+                          [class.fill-ok]="c.poa_porcentaje >= 80"
+                          [class.fill-warn]="c.poa_porcentaje >= 40 && c.poa_porcentaje < 80"
+                        [class.fill-danger]="c.poa_porcentaje < 40"></div>
+                      </div>
+                      <span class="progress-text">{{ c.poa_porcentaje }}%</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="progress-cell">
+                      <div class="progress-bar">
+                        <div class="progress-fill" [style.width.%]="c.poau_porcentaje"
+                          [class.fill-ok]="c.poau_porcentaje >= 80"
+                          [class.fill-warn]="c.poau_porcentaje >= 40 && c.poau_porcentaje < 80"
+                        [class.fill-danger]="c.poau_porcentaje < 40"></div>
+                      </div>
+                      <span class="progress-text">{{ c.poau_porcentaje }}%</span>
+                    </div>
+                  </td>
+                  <td>
+                    <span class="badge" [ngClass]="'badge-' + c.estado_general">{{ c.estado_general }}</span>
+                  </td>
+                  <td>
+                    <button class="btn btn-sm btn-outline" (click)="verDetalle(c)">Ver Detalle</button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+          @if (consolidacionesFiltradas.length === 0) {
+            <div class="empty">No se encontraron unidades ejecutoras</div>
+          }
+        </div>
+      }
+    
+      @if (cargando) {
+        <div class="loading">Cargando consolidación...</div>
+      }
+      @if (error) {
+        <div class="alert alert-error">{{ error }}</div>
+      }
+    `,
   styles: [`
     .page-header { margin-bottom: 1rem; }
     .page-header h2 { font-size: 1.5rem; margin-bottom: 0.25rem; }

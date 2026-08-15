@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { ApiService } from '../../core/services/api.service';
 import { UnidadOrganizacional } from './models/unidad.model';
 

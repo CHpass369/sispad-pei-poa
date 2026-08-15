@@ -11,25 +11,31 @@ import { Router } from '@angular/router';
         <h2>Nueva Articulación PEI → POA</h2>
         <p class="text-secondary">Cree una Acción POA vinculada a un Producto PEI</p>
       </div>
-
-      <div class="alert alert-success" *ngIf="mensajeExito">{{ mensajeExito }}</div>
-      <div class="alert alert-danger" *ngIf="mensajeError">{{ mensajeError }}</div>
-
+    
+      @if (mensajeExito) {
+        <div class="alert alert-success">{{ mensajeExito }}</div>
+      }
+      @if (mensajeError) {
+        <div class="alert alert-danger">{{ mensajeError }}</div>
+      }
+    
       <div class="card form-card">
         <h3 class="step-title">Datos de la Acción POA</h3>
-
+    
         <div class="form-grid">
           <!-- Producto PEI -->
           <div class="field-full">
             <label>Producto PEI *</label>
             <select [(ngModel)]="form.producto_pei" class="form-control">
               <option value="">Seleccionar producto PEI...</option>
-              <option *ngFor="let p of productosPEI" [value]="p.id">
-                {{ p.codigo_producto }} — {{ p.denominacion }}
-              </option>
+              @for (p of productosPEI; track p) {
+                <option [value]="p.id">
+                  {{ p.codigo_producto }} — {{ p.denominacion }}
+                </option>
+              }
             </select>
           </div>
-
+    
           <!-- Código Acción POA -->
           <div class="field">
             <label>Código Acción POA *</label>
@@ -39,22 +45,24 @@ import { Router } from '@angular/router';
             <label>Gestión *</label>
             <select [(ngModel)]="form.gestion" class="form-control">
               <option value="">Seleccionar...</option>
-              <option *ngFor="let g of gestiones" [value]="g">{{ g }}</option>
+              @for (g of gestiones; track g) {
+                <option [value]="g">{{ g }}</option>
+              }
             </select>
           </div>
-
+    
           <!-- Denominación -->
           <div class="field-full">
             <label>Denominación *</label>
             <textarea [(ngModel)]="form.denominacion" class="form-control" rows="3" placeholder="Descripción de la acción POA"></textarea>
           </div>
-
+    
           <!-- Resultado esperado -->
           <div class="field-full">
             <label>Resultado Esperado</label>
             <textarea [(ngModel)]="form.resultado_esperado" class="form-control" rows="2" placeholder="Resultado esperado de la acción"></textarea>
           </div>
-
+    
           <!-- Indicador -->
           <div class="field-full">
             <label>Indicador</label>
@@ -79,7 +87,7 @@ import { Router } from '@angular/router';
               <option value="Proyecto">Proyecto</option>
             </select>
           </div>
-
+    
           <!-- Línea base y meta -->
           <div class="field">
             <label>Línea Base</label>
@@ -89,7 +97,7 @@ import { Router } from '@angular/router';
             <label>Meta Gestión</label>
             <input type="number" step="0.01" [(ngModel)]="form.meta_gestion" class="form-control" placeholder="Meta de la gestión">
           </div>
-
+    
           <!-- Responsable -->
           <div class="field">
             <label>Código REACP</label>
@@ -99,7 +107,7 @@ import { Router } from '@angular/router';
             <label>Cargo Responsable</label>
             <input [(ngModel)]="form.cargo_responsable" class="form-control" placeholder="Ej: Jefe de Unidad">
           </div>
-
+    
           <!-- Fechas -->
           <div class="field">
             <label>Fecha Inicio</label>
@@ -109,7 +117,7 @@ import { Router } from '@angular/router';
             <label>Fecha Fin</label>
             <input type="date" [(ngModel)]="form.fecha_fin" class="form-control">
           </div>
-
+    
           <!-- Tipo operación -->
           <div class="field">
             <label>Tipo de Operación</label>
@@ -123,7 +131,7 @@ import { Router } from '@angular/router';
             <label>Categoría Programática</label>
             <input [(ngModel)]="form.categoria_programatica" class="form-control" placeholder="Cat. programática">
           </div>
-
+    
           <!-- Programa y Proyecto -->
           <div class="field">
             <label>Programa</label>
@@ -133,13 +141,13 @@ import { Router } from '@angular/router';
             <label>Proyecto SISIN</label>
             <input [(ngModel)]="form.proyecto_sisin" class="form-control" placeholder="Código SISIN">
           </div>
-
+    
           <!-- Actividad presupuestaria -->
           <div class="field-full">
             <label>Actividad Presupuestaria</label>
             <input [(ngModel)]="form.actividad_presupuestaria" class="form-control" placeholder="Actividad presupuestaria">
           </div>
-
+    
           <!-- Presupuesto -->
           <div class="field">
             <label>Presupuesto Programado (Bs.) *</label>
@@ -149,7 +157,7 @@ import { Router } from '@angular/router';
             <label>Fuente de Financiamiento</label>
             <input [(ngModel)]="form.fuente_financiamiento" class="form-control" placeholder="Ej: TGN, HIPC, etc.">
           </div>
-
+    
           <!-- Organismo -->
           <div class="field">
             <label>Organismo Financiador</label>
@@ -159,14 +167,14 @@ import { Router } from '@angular/router';
             <label>Medio de Verificación</label>
             <input [(ngModel)]="form.medio_verificacion" class="form-control" placeholder="Medio de verificación">
           </div>
-
+    
           <!-- Riesgo -->
           <div class="field-full">
             <label>Riesgo</label>
             <textarea [(ngModel)]="form.riesgo" class="form-control" rows="2" placeholder="Identificación de riesgos"></textarea>
           </div>
         </div>
-
+    
         <div class="form-nav">
           <button class="btn btn-outline" (click)="cancelar()">← Cancelar</button>
           <button class="btn btn-primary btn-guardar" (click)="guardar()" [disabled]="guardando">
@@ -175,7 +183,7 @@ import { Router } from '@angular/router';
         </div>
       </div>
     </div>
-  `,
+    `,
   styles: [`
     .form-page { padding-bottom: 2rem; max-width: 800px; margin: 0 auto; }
     .page-header { margin-bottom: 1rem; }

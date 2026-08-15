@@ -6,7 +6,7 @@ import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { NodoArbol } from './matrices-contracts';
 import { MatrizCompletaService } from './matriz-completa.service';
@@ -36,32 +36,35 @@ const NIVEL_LABELS: Record<string, string> = {
 @Component({
   selector: 'app-matriz-completa-tree',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <table class="matriz-tree-table" [class.is-root]="level === 0">
-      <thead *ngIf="level === 0">
-        <tr>
-          <th class="th-codigo">Código</th>
-          <th class="th-nivel">Nivel</th>
-          <th class="th-nombre">Nombre</th>
-          <th class="th-plan">Plan</th>
-          <th class="th-acciones">Articulación PAD</th>
-        </tr>
-      </thead>
+      @if (level === 0) {
+        <thead>
+          <tr>
+            <th class="th-codigo">Código</th>
+            <th class="th-nivel">Nivel</th>
+            <th class="th-nombre">Nombre</th>
+            <th class="th-plan">Plan</th>
+            <th class="th-acciones">Articulación PAD</th>
+          </tr>
+        </thead>
+      }
       <tbody>
-        <ng-container *ngFor="let nodo of nodos; trackBy: trackByFn">
+        @for (nodo of nodos; track trackByFn($index, nodo)) {
           <!-- Main row -->
           <tr class="tr-nodo" [class.tr-expanded]="nodo._expanded">
             <td class="td-codigo" [style.padding-left.px]="24 + level * 24">
-              <button
-                *ngIf="nodo.hijos && nodo.hijos.length > 0"
-                class="btn-expand"
-                (click)="toggle(nodo); $event.stopPropagation()"
-                [title]="nodo._expanded ? 'Colapsar' : 'Expandir'"
-              >
-                {{ nodo._expanded ? '▼' : '▶' }}
-              </button>
+              @if (nodo.hijos && nodo.hijos.length > 0) {
+                <button
+                  class="btn-expand"
+                  (click)="toggle(nodo); $event.stopPropagation()"
+                  [title]="nodo._expanded ? 'Colapsar' : 'Expandir'"
+                  >
+                  {{ nodo._expanded ? '▼' : '▶' }}
+                </button>
+              }
               <span
                 class="codigo"
                 [class.no-children]="!nodo.hijos || nodo.hijos.length === 0"
@@ -76,86 +79,97 @@ const NIVEL_LABELS: Record<string, string> = {
             <td class="td-nombre">
               <span class="nombre-text">{{ nodo.nombre }}</span>
               <!-- Articulaciones chips -->
-              <div *ngIf="nodo.articulaciones && nodo.articulaciones.length > 0" class="artic-chips">
-                <span
-                  *ngFor="let art of nodo.articulaciones"
-                  class="chip"
-                  [title]="art.nombre"
-                >🔗 {{ art.codigo_completo }} · {{ art.tipo_plan?.toUpperCase() }}</span>
-              </div>
+              @if (nodo.articulaciones && nodo.articulaciones.length > 0) {
+                <div class="artic-chips">
+                  @for (art of nodo.articulaciones; track art) {
+                    <span
+                      class="chip"
+                      [title]="art.nombre"
+                    >🔗 {{ art.codigo_completo }} · {{ art.tipo_plan?.toUpperCase() }}</span>
+                  }
+                </div>
+              }
             </td>
             <td class="td-plan">{{ nodo.plan_nombre || '—' }}</td>
             <td class="td-acciones">
-              <button
-                *ngIf="nodo.nivel === 'accion'"
-                class="btn-articular"
-                (click)="iniciarEdicion(nodo); $event.stopPropagation()"
-              >
-                ⚡ Articular
-              </button>
-            </td>
-          </tr>
-
-          <!-- Inline edit picker -->
-          <tr *ngIf="editandoId === nodo.id" class="tr-picker">
-            <td [attr.colspan]="5" class="td-picker">
-              <div class="picker-container">
-                <div class="picker-header">
-                  <strong>Articular PDESA Acción → Resultado PAD</strong>
-                  <button class="btn-cerrar" (click)="cancelarEdicion()">✕</button>
-                </div>
-                <div class="picker-search">
-                  <input
-                    [(ngModel)]="searchTerm"
-                    (input)="filtrarResultados()"
-                    class="form-control picker-input"
-                    placeholder="Buscar resultado PAD por código o denominación..."
-                    autofocus
-                  />
-                </div>
-                <div class="picker-results" *ngIf="!pickerCargando; else pickerLoading">
-                  <div
-                    *ngIf="resultadosFiltrados.length === 0"
-                    class="picker-empty"
-                  >No se encontraron resultados PAD</div>
-                  <div
-                    *ngFor="let r of resultadosFiltrados"
-                    class="picker-item"
-                    [class.picker-item-selected]="nodo._padSeleccionado === r.id"
-                    (click)="seleccionarResultado(nodo, r)"
+              @if (nodo.nivel === 'accion') {
+                <button
+                  class="btn-articular"
+                  (click)="iniciarEdicion(nodo); $event.stopPropagation()"
                   >
-                    <span class="picker-item-codigo">{{ r.codigo_resultado || r.codigo || '—' }}</span>
-                    <span class="picker-item-nombre">{{ r.denominacion || r.nombre || '—' }}</span>
-                    <span *ngIf="nodo._padSeleccionado === r.id" class="picker-item-check">✓</span>
-                  </div>
-                </div>
-                <ng-template #pickerLoading>
-                  <div class="picker-loader">Cargando resultados PAD...</div>
-                </ng-template>
-                <div *ngIf="mensajeFeedback" class="picker-feedback" [class.success]="feedbackTipo === 'success'" [class.error]="feedbackTipo === 'error'">
-                  {{ mensajeFeedback }}
-                </div>
-              </div>
+                  ⚡ Articular
+                </button>
+              }
             </td>
           </tr>
-
-          <!-- Children (recursive) -->
-          <ng-container *ngIf="nodo._expanded && nodo.hijos && nodo.hijos.length > 0">
-            <tr class="tr-children">
-              <td [attr.colspan]="5" class="td-children">
-                <app-matriz-completa-tree
-                  [nodos]="nodo.hijos!"
-                  [level]="level + 1"
-                  [resultadosPad]="resultadosPad"
-                  (bridgeUpdated)="onBridgeUpdated($event)"
-                ></app-matriz-completa-tree>
-              </td>
-            </tr>
-          </ng-container>
-        </ng-container>
-      </tbody>
-    </table>
-  `,
+          <!-- Inline edit picker -->
+          @if (editandoId === nodo.id) {
+            <tr class="tr-picker">
+              <td [attr.colspan]="5" class="td-picker">
+                <div class="picker-container">
+                  <div class="picker-header">
+                    <strong>Articular PDESA Acción → Resultado PAD</strong>
+                    <button class="btn-cerrar" (click)="cancelarEdicion()">✕</button>
+                  </div>
+                  <div class="picker-search">
+                    <input
+                      [(ngModel)]="searchTerm"
+                      (input)="filtrarResultados()"
+                      class="form-control picker-input"
+                      placeholder="Buscar resultado PAD por código o denominación..."
+                      autofocus
+                      />
+                    </div>
+                    @if (!pickerCargando) {
+                      <div class="picker-results">
+                        @if (resultadosFiltrados.length === 0) {
+                          <div
+                            class="picker-empty"
+                          >No se encontraron resultados PAD</div>
+                        }
+                        @for (r of resultadosFiltrados; track r) {
+                          <div
+                            class="picker-item"
+                            [class.picker-item-selected]="nodo._padSeleccionado === r.id"
+                            (click)="seleccionarResultado(nodo, r)"
+                            >
+                            <span class="picker-item-codigo">{{ r.codigo_resultado || r.codigo || '—' }}</span>
+                            <span class="picker-item-nombre">{{ r.denominacion || r.nombre || '—' }}</span>
+                            @if (nodo._padSeleccionado === r.id) {
+                              <span class="picker-item-check">✓</span>
+                            }
+                          </div>
+                        }
+                      </div>
+                    } @else {
+                      <div class="picker-loader">Cargando resultados PAD...</div>
+                    }
+                    @if (mensajeFeedback) {
+                      <div class="picker-feedback" [class.success]="feedbackTipo === 'success'" [class.error]="feedbackTipo === 'error'">
+                        {{ mensajeFeedback }}
+                      </div>
+                    }
+                  </div>
+                </td>
+              </tr>
+            }
+            <!-- Children (recursive) -->
+            @if (nodo._expanded && nodo.hijos && nodo.hijos.length > 0) {
+              <tr class="tr-children">
+                <td [attr.colspan]="5" class="td-children">
+                  <app-matriz-completa-tree
+                    [nodos]="nodo.hijos!"
+                    [level]="level + 1"
+                    [resultadosPad]="resultadosPad"
+                    (bridgeUpdated)="onBridgeUpdated($event)"
+                  ></app-matriz-completa-tree>
+                </td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    `,
   styles: [
     `
     .matriz-tree-table {

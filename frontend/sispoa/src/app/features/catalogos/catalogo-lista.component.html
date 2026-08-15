@@ -19,9 +19,11 @@
             class="form-select form-select-sm"
             [(ngModel)]="tipoSeleccionado"
             (change)="onTipoChange()"
-          >
+            >
             <option value="">— Seleccione un catálogo —</option>
-            <option *ngFor="let t of tipos" [value]="t.valor">{{ t.etiqueta }}</option>
+            @for (t of tipos; track t) {
+              <option [value]="t.valor">{{ t.etiqueta }}</option>
+            }
           </select>
         </div>
 
@@ -34,40 +36,40 @@
             class="form-control form-control-sm"
             [(ngModel)]="gestion"
             placeholder="Año"
-          />
-        </div>
+            />
+          </div>
 
-        <!-- Búsqueda -->
-        <div class="col-md-4">
-          <label class="form-label fw-semibold small" for="search">Búsqueda</label>
-          <input
-            id="search"
-            type="text"
-            class="form-control form-control-sm"
-            [(ngModel)]="searchTerm"
-            (keyup.enter)="buscar()"
-            placeholder="Buscar…"
-          />
-        </div>
+          <!-- Búsqueda -->
+          <div class="col-md-4">
+            <label class="form-label fw-semibold small" for="search">Búsqueda</label>
+            <input
+              id="search"
+              type="text"
+              class="form-control form-control-sm"
+              [(ngModel)]="searchTerm"
+              (keyup.enter)="buscar()"
+              placeholder="Buscar…"
+              />
+            </div>
 
-        <div class="col-md-2 d-grid">
-          <button class="btn btn-primary btn-sm" (click)="buscar()" [disabled]="!tipoSeleccionado">
-            Buscar
-          </button>
+            <div class="col-md-2 d-grid">
+              <button class="btn btn-primary btn-sm" (click)="buscar()" [disabled]="!tipoSeleccionado">
+                Buscar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabla de datos -->
+      <div class="card">
+        <div class="card-body p-0">
+          <app-tabla-generica
+            [columns]="columnas"
+            [data]="data"
+            [loading]="loading"
+            [pageSize]="15"
+          ></app-tabla-generica>
         </div>
       </div>
     </div>
-  </div>
-
-  <!-- Tabla de datos -->
-  <div class="card">
-    <div class="card-body p-0">
-      <app-tabla-generica
-        [columns]="columnas"
-        [data]="data"
-        [loading]="loading"
-        [pageSize]="15"
-      ></app-tabla-generica>
-    </div>
-  </div>
-</div>

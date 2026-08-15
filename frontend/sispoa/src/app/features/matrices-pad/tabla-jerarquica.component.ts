@@ -68,121 +68,124 @@ export interface ResultadoDraft {
         <div class="tj-col col-fin">Financ.</div>
         <div class="tj-col col-acciones">Acciones</div>
       </div>
-
+    
       <div class="tj-body">
-        <ng-container *ngFor="let res of resultados; let i = index">
+        @for (res of resultados; track res; let i = $index) {
           <!-- ===== Fila padre: Resultado ===== -->
           <div class="tj-grid tj-row fila-resultado"
-               [class.fila-incompleta]="tieneFaltaDenominacion(res)">
+            [class.fila-incompleta]="tieneFaltaDenominacion(res)">
             <div class="tj-col col-codigo">
               <button type="button" class="btn-toggle"
-                      [attr.aria-label]="expandido(i) ? 'Contraer' : 'Expandir'"
-                      (click)="toggle(i)">
+                [attr.aria-label]="expandido(i) ? 'Contraer' : 'Expandir'"
+                (click)="toggle(i)">
                 {{ expandido(i) ? '▼' : '▶' }}
               </button>
               <span class="codigo" [title]="codigoResultado(i)">{{ codigoResultado(i) || '—' }}</span>
             </div>
             <div class="tj-col col-desc">
               <input class="form-control tj-input"
-                     [(ngModel)]="res.denominacion"
-                     (ngModelChange)="onCampoCambio()"
-                     placeholder="Denominación del resultado PAD">
-            </div>
-            <div class="tj-col col-terr">
-              <input class="form-control tj-input"
-                     [(ngModel)]="res.territorializacion"
-                     (ngModelChange)="onCampoCambio()"
-                     placeholder="Ej: COMUNIDAD 1, DISTRITO 4,5">
-            </div>
-            <div class="tj-col col-resp">
-              <input class="form-control tj-input"
-                     [(ngModel)]="res.responsable"
-                     (ngModelChange)="onCampoCambio()"
-                     placeholder="Entidad responsable">
-            </div>
-            <div class="tj-col col-fin">
-              <label class="check-fin" [class.check-on]="res.cuenta_con_financiamiento">
-                <input type="checkbox"
-                       [(ngModel)]="res.cuenta_con_financiamiento"
-                       (ngModelChange)="onCampoCambio()">
-                <span>SÍ</span>
-              </label>
-            </div>
-            <div class="tj-col col-acciones">
-              <button type="button" class="btn btn-sm btn-primary"
-                      (click)="agregarProducto(i)">+ Producto</button>
-              <button type="button" class="btn btn-sm btn-outline"
-                      (click)="duplicarResultado(i)">Duplicar</button>
-              <button type="button" class="btn btn-sm btn-outline-danger"
-                      (click)="eliminarResultado(i)"
-                      [disabled]="resultados.length <= 1">Eliminar</button>
-            </div>
-          </div>
-
-          <!-- ===== Filas hijas: Productos ===== -->
-          <ng-container *ngIf="expandido(i)">
-            <div class="tj-grid tj-row fila-producto"
-                 [class.fila-incompleta]="tieneFaltaDenominacion(prod)"
-                 *ngFor="let prod of res.productos; let j = index">
-              <div class="tj-col col-codigo">
-                <span class="codigo child" [title]="codigoProducto(i, j)">{{ codigoProducto(i, j) || '—' }}</span>
-              </div>
-              <div class="tj-col col-desc">
-                <input class="form-control tj-input"
-                       [(ngModel)]="prod.denominacion"
-                       (ngModelChange)="onCampoCambio()"
-                       placeholder="Bien, servicio o intervención (producto PAD)">
+                [(ngModel)]="res.denominacion"
+                (ngModelChange)="onCampoCambio()"
+                placeholder="Denominación del resultado PAD">
               </div>
               <div class="tj-col col-terr">
                 <input class="form-control tj-input"
-                       [(ngModel)]="prod.territorializacion"
-                       (ngModelChange)="onCampoCambio()"
-                       placeholder="Ej: COMUNIDAD 1, DISTRITO 4,5">
-              </div>
-              <div class="tj-col col-resp">
-                <input class="form-control tj-input"
-                       [(ngModel)]="prod.responsable"
-                       (ngModelChange)="onCampoCambio()"
-                       placeholder="Entidad responsable">
-              </div>
-              <div class="tj-col col-fin">
-                <label class="check-fin" [class.check-on]="prod.cuenta_con_financiamiento">
-                  <input type="checkbox"
-                         [(ngModel)]="prod.cuenta_con_financiamiento"
-                         (ngModelChange)="onCampoCambio()">
-                  <span>SÍ</span>
-                </label>
-              </div>
-              <div class="tj-col col-acciones">
-                <button type="button" class="btn btn-sm btn-outline"
-                        (click)="duplicarProducto(i, j)">Duplicar</button>
-                <button type="button" class="btn btn-sm btn-outline-danger"
-                        (click)="eliminarProducto(i, j)"
-                        [disabled]="res.productos.length <= 1">Eliminar</button>
-              </div>
-            </div>
-          </ng-container>
-        </ng-container>
-
-        <!-- Fila final: agregar resultado (tipo Excel) -->
-        <div class="tj-grid tj-row tj-row-add">
-          <div class="tj-col tj-add-cell">
-            <button type="button" class="btn btn-sm btn-primary" (click)="agregarResultado()">
-              + Agregar Resultado
-            </button>
-          </div>
-          <div class="tj-col tj-add-hint">
-            Los códigos se actualizan en vivo al agregar o eliminar filas.
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="tj-resumen" *ngIf="resultados.length">
-      Total: {{ resultados.length }} resultado(s), {{ totalProductos() }} producto(s)
-      → {{ totalFilas() }} fila(s) en la matriz.
-    </div>
-  `,
+                  [(ngModel)]="res.territorializacion"
+                  (ngModelChange)="onCampoCambio()"
+                  placeholder="Ej: COMUNIDAD 1, DISTRITO 4,5">
+                </div>
+                <div class="tj-col col-resp">
+                  <input class="form-control tj-input"
+                    [(ngModel)]="res.responsable"
+                    (ngModelChange)="onCampoCambio()"
+                    placeholder="Entidad responsable">
+                  </div>
+                  <div class="tj-col col-fin">
+                    <label class="check-fin" [class.check-on]="res.cuenta_con_financiamiento">
+                      <input type="checkbox"
+                        [(ngModel)]="res.cuenta_con_financiamiento"
+                        (ngModelChange)="onCampoCambio()">
+                        <span>SÍ</span>
+                      </label>
+                    </div>
+                    <div class="tj-col col-acciones">
+                      <button type="button" class="btn btn-sm btn-primary"
+                      (click)="agregarProducto(i)">+ Producto</button>
+                      <button type="button" class="btn btn-sm btn-outline"
+                      (click)="duplicarResultado(i)">Duplicar</button>
+                      <button type="button" class="btn btn-sm btn-outline-danger"
+                        (click)="eliminarResultado(i)"
+                      [disabled]="resultados.length <= 1">Eliminar</button>
+                    </div>
+                  </div>
+                  <!-- ===== Filas hijas: Productos ===== -->
+                  @if (expandido(i)) {
+                    @for (prod of res.productos; track prod; let j = $index) {
+                      <div class="tj-grid tj-row fila-producto"
+                        [class.fila-incompleta]="tieneFaltaDenominacion(prod)"
+                        >
+                        <div class="tj-col col-codigo">
+                          <span class="codigo child" [title]="codigoProducto(i, j)">{{ codigoProducto(i, j) || '—' }}</span>
+                        </div>
+                        <div class="tj-col col-desc">
+                          <input class="form-control tj-input"
+                            [(ngModel)]="prod.denominacion"
+                            (ngModelChange)="onCampoCambio()"
+                            placeholder="Bien, servicio o intervención (producto PAD)">
+                          </div>
+                          <div class="tj-col col-terr">
+                            <input class="form-control tj-input"
+                              [(ngModel)]="prod.territorializacion"
+                              (ngModelChange)="onCampoCambio()"
+                              placeholder="Ej: COMUNIDAD 1, DISTRITO 4,5">
+                            </div>
+                            <div class="tj-col col-resp">
+                              <input class="form-control tj-input"
+                                [(ngModel)]="prod.responsable"
+                                (ngModelChange)="onCampoCambio()"
+                                placeholder="Entidad responsable">
+                              </div>
+                              <div class="tj-col col-fin">
+                                <label class="check-fin" [class.check-on]="prod.cuenta_con_financiamiento">
+                                  <input type="checkbox"
+                                    [(ngModel)]="prod.cuenta_con_financiamiento"
+                                    (ngModelChange)="onCampoCambio()">
+                                    <span>SÍ</span>
+                                  </label>
+                                </div>
+                                <div class="tj-col col-acciones">
+                                  <button type="button" class="btn btn-sm btn-outline"
+                                  (click)="duplicarProducto(i, j)">Duplicar</button>
+                                  <button type="button" class="btn btn-sm btn-outline-danger"
+                                    (click)="eliminarProducto(i, j)"
+                                  [disabled]="res.productos.length <= 1">Eliminar</button>
+                                </div>
+                              </div>
+                            }
+                          }
+                        }
+    
+                        <!-- Fila final: agregar resultado (tipo Excel) -->
+                        <div class="tj-grid tj-row tj-row-add">
+                          <div class="tj-col tj-add-cell">
+                            <button type="button" class="btn btn-sm btn-primary" (click)="agregarResultado()">
+                              + Agregar Resultado
+                            </button>
+                          </div>
+                          <div class="tj-col tj-add-hint">
+                            Los códigos se actualizan en vivo al agregar o eliminar filas.
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+    
+                    @if (resultados.length) {
+                      <div class="tj-resumen">
+                        Total: {{ resultados.length }} resultado(s), {{ totalProductos() }} producto(s)
+                        → {{ totalFilas() }} fila(s) en la matriz.
+                      </div>
+                    }
+    `,
   styles: [`
     .tj-scroll { overflow-x: auto; max-height: 62vh; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
     .tj-grid { display: grid; grid-template-columns: minmax(150px, 200px) minmax(260px, 1fr) minmax(140px, 180px) minmax(140px, 180px) 84px minmax(240px, auto); min-width: 940px; }

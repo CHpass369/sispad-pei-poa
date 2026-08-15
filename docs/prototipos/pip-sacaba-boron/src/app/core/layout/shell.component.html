@@ -1,0 +1,53 @@
+<div class="app-shell" [class.sidebar-collapsed]="collapsed()">
+  <aside class="sidebar" [class.mobile-open]="mobileOpen()">
+    <div class="brand">
+      <div class="brand-mark">S</div>
+      <div class="brand-copy">
+        <strong>PIP SACABA</strong>
+        <span>Planificación integral</span>
+      </div>
+    </div>
+
+    <nav class="nav">
+      @for (group of ['PIP','Sistemas','Transversal']; track group) {
+        <div class="nav-group-title">{{ group }}</div>
+        @for (item of nav; track item.route) {
+          @if (item.group === group) {
+            <a [routerLink]="item.route" routerLinkActive="active" [routerLinkActiveOptions]="{exact: item.route === '/dashboard'}" (click)="mobileOpen.set(false)">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path [attr.d]="iconPath(item.icon)" /></svg>
+              <span>{{ item.label }}</span>
+            </a>
+          }
+        }
+      }
+    </nav>
+
+    <div class="sidebar-foot">
+      <div class="status-dot"></div>
+      <div><strong>Gestión 2027</strong><span>Formulación activa</span></div>
+    </div>
+  </aside>
+
+  <div class="backdrop" [class.show]="mobileOpen()" (click)="mobileOpen.set(false)"></div>
+
+  <main class="main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="icon-btn mobile-menu" (click)="mobileOpen.set(!mobileOpen())" aria-label="Abrir menú">☰</button>
+        <button class="icon-btn desktop-collapse" (click)="collapsed.set(!collapsed())" aria-label="Contraer menú">☰</button>
+        <div class="search"><span>⌕</span><input placeholder="Buscar módulos, instrumentos, proyectos..." /></div>
+      </div>
+      <div class="topbar-actions">
+        <button class="icon-btn" (click)="toggleTheme()" [attr.aria-label]="dark() ? 'Modo claro' : 'Modo oscuro'">{{ dark() ? '☀' : '◐' }}</button>
+        <button class="notification">🔔<span>3</span></button>
+        <div class="profile">
+          <div class="avatar">PO</div>
+          <div><strong>Planificación</strong><span>Administrador PIP</span></div>
+          <b>⌄</b>
+        </div>
+      </div>
+    </header>
+
+    <section class="content"><router-outlet /></section>
+  </main>
+</div>

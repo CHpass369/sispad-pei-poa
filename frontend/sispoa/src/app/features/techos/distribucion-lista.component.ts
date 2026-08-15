@@ -10,106 +10,121 @@ import { ApiService } from '../../core/services/api.service';
         <h2>Distribución de Techos</h2>
         <p class="text-secondary">Asignación de techos por unidad organizacional</p>
       </div>
-
+    
       <!-- Loading -->
-      <div class="loading" *ngIf="!items && !error && !showForm">
-        <p>Cargando distribuciones...</p>
-      </div>
-
+      @if (!items && !error && !showForm) {
+        <div class="loading">
+          <p>Cargando distribuciones...</p>
+        </div>
+      }
+    
       <!-- Error -->
-      <div class="alert alert-error" *ngIf="error">
-        {{ error }}
-      </div>
-
+      @if (error) {
+        <div class="alert alert-error">
+          {{ error }}
+        </div>
+      }
+    
       <!-- Save Success -->
-      <div class="alert alert-success" *ngIf="successMsg">
-        {{ successMsg }}
-      </div>
-
+      @if (successMsg) {
+        <div class="alert alert-success">
+          {{ successMsg }}
+        </div>
+      }
+    
       <!-- Table Section -->
-      <div *ngIf="items">
-        <div class="toolbar">
-          <h3>Distribuciones registradas</h3>
-          <button class="btn btn-primary" (click)="openForm()">
-            + Nueva Distribución
-          </button>
-        </div>
-
-        <div class="table-responsive">
-          <table>
-            <thead>
-              <tr>
-                <th>Unidad / DA / UE</th>
-                <th>Monto Asignado (Bs)</th>
-                <th>Gestión</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let d of items">
-                <td>{{ d.unidad_nombre }}</td>
-                <td class="text-right">{{ d.monto | number:'1.2-2' }}</td>
-                <td>{{ d.gestion }}</td>
-                <td>
-                  <button class="btn btn-sm btn-outline" (click)="editForm(d)">Editar</button>
-                </td>
-              </tr>
-              <tr *ngIf="items.length === 0">
-                <td colspan="4" class="empty">No hay distribuciones registradas</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- Form Section -->
-      <div class="form-section" *ngIf="showForm">
-        <h3>{{ editingId ? 'Editar' : 'Nueva' }} Distribución</h3>
-        <form (ngSubmit)="onSubmit()" #distForm="ngForm">
-          <div class="form-group">
-            <label for="unidad">Unidad / DA / UE</label>
-            <select id="unidad" [(ngModel)]="formData.unidad_id" name="unidad_id" required class="form-control">
-              <option value="" disabled>Seleccione una unidad...</option>
-              <option *ngFor="let u of unidades" [value]="u.id">{{ u.nombre }}</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label for="monto">Monto (Bs)</label>
-            <input
-              id="monto"
-              type="number"
-              step="0.01"
-              [(ngModel)]="formData.monto"
-              name="monto"
-              required
-              min="0"
-              class="form-control"
-              placeholder="0.00"
-            />
-          </div>
-
-          <div class="form-group">
-            <label for="gestionForm">Gestión</label>
-            <select id="gestionForm" [(ngModel)]="formData.gestion" name="gestion" required class="form-control">
-              <option *ngFor="let g of gestiones" [value]="g">{{ g }}</option>
-            </select>
-          </div>
-
-          <div class="form-actions">
-            <button type="submit" class="btn btn-primary" [disabled]="!distForm.form.valid">
-              {{ editingId ? 'Actualizar' : 'Guardar' }}
+      @if (items) {
+        <div>
+          <div class="toolbar">
+            <h3>Distribuciones registradas</h3>
+            <button class="btn btn-primary" (click)="openForm()">
+              + Nueva Distribución
             </button>
-            <button type="button" class="btn btn-outline" (click)="cancelForm()">Cancelar</button>
           </div>
-
-          <div class="alert alert-error" *ngIf="formError">
-            {{ formError }}
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>Unidad / DA / UE</th>
+                  <th>Monto Asignado (Bs)</th>
+                  <th>Gestión</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (d of items; track d) {
+                  <tr>
+                    <td>{{ d.unidad_nombre }}</td>
+                    <td class="text-right">{{ d.monto | number:'1.2-2' }}</td>
+                    <td>{{ d.gestion }}</td>
+                    <td>
+                      <button class="btn btn-sm btn-outline" (click)="editForm(d)">Editar</button>
+                    </td>
+                  </tr>
+                }
+                @if (items.length === 0) {
+                  <tr>
+                    <td colspan="4" class="empty">No hay distribuciones registradas</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
           </div>
-        </form>
+        </div>
+      }
+    
+      <!-- Form Section -->
+      @if (showForm) {
+        <div class="form-section">
+          <h3>{{ editingId ? 'Editar' : 'Nueva' }} Distribución</h3>
+          <form (ngSubmit)="onSubmit()" #distForm="ngForm">
+            <div class="form-group">
+              <label for="unidad">Unidad / DA / UE</label>
+              <select id="unidad" [(ngModel)]="formData.unidad_id" name="unidad_id" required class="form-control">
+                <option value="" disabled>Seleccione una unidad...</option>
+                @for (u of unidades; track u) {
+                  <option [value]="u.id">{{ u.nombre }}</option>
+                }
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="monto">Monto (Bs)</label>
+              <input
+                id="monto"
+                type="number"
+                step="0.01"
+                [(ngModel)]="formData.monto"
+                name="monto"
+                required
+                min="0"
+                class="form-control"
+                placeholder="0.00"
+                />
+              </div>
+              <div class="form-group">
+                <label for="gestionForm">Gestión</label>
+                <select id="gestionForm" [(ngModel)]="formData.gestion" name="gestion" required class="form-control">
+                  @for (g of gestiones; track g) {
+                    <option [value]="g">{{ g }}</option>
+                  }
+                </select>
+              </div>
+              <div class="form-actions">
+                <button type="submit" class="btn btn-primary" [disabled]="!distForm.form.valid">
+                  {{ editingId ? 'Actualizar' : 'Guardar' }}
+                </button>
+                <button type="button" class="btn btn-outline" (click)="cancelForm()">Cancelar</button>
+              </div>
+              @if (formError) {
+                <div class="alert alert-error">
+                  {{ formError }}
+                </div>
+              }
+            </form>
+          </div>
+        }
       </div>
-    </div>
-  `,
+    `,
   styles: [`
     .page-header { margin-bottom: 1.5rem; }
     .page-header h2 { font-size: 1.5rem; margin-bottom: 0.25rem; }

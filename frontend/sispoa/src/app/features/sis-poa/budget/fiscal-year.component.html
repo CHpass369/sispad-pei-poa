@@ -3,59 +3,81 @@
   <p class="text-secondary">Ciclo presupuestario: configuración, habilitación, formulación, vigencia y cierre</p>
 </div>
 
-<div class="alert alert-error" *ngIf="error">{{ error }}</div>
-<div class="alert alert-success" *ngIf="mensaje">{{ mensaje }}</div>
+@if (error) {
+  <div class="alert alert-error">{{ error }}</div>
+}
+@if (mensaje) {
+  <div class="alert alert-success">{{ mensaje }}</div>
+}
 
-<form *ngIf="puedeGestionar" (ngSubmit)="crear()" class="card form-inline">
-  <div class="campo">
-    <label>Año de gestión</label>
-    <input [(ngModel)]="form.anio" name="anio" type="number" required class="input" placeholder="Ej: 2027" />
-  </div>
-  <div class="campo">
-    <label>Heredar configuración de</label>
-    <select [(ngModel)]="form.heredar_de" name="heredar_de" class="input">
-      <option [ngValue]="null">— No heredar —</option>
-      <option *ngFor="let gestion of gestiones" [ngValue]="gestion.anio">
-        Gestión {{ gestion.anio }} ({{ gestion.estado_display }})
-      </option>
-    </select>
-  </div>
-  <div class="campo">
-    <button type="submit" class="btn btn-primary">+ Nueva gestión</button>
-  </div>
-</form>
+@if (puedeGestionar) {
+  <form (ngSubmit)="crear()" class="card form-inline">
+    <div class="campo">
+      <label>Año de gestión</label>
+      <input [(ngModel)]="form.anio" name="anio" type="number" required class="input" placeholder="Ej: 2027" />
+    </div>
+    <div class="campo">
+      <label>Heredar configuración de</label>
+      <select [(ngModel)]="form.heredar_de" name="heredar_de" class="input">
+        <option [ngValue]="null">— No heredar —</option>
+        @for (gestion of gestiones; track gestion) {
+          <option [ngValue]="gestion.anio">
+            Gestión {{ gestion.anio }} ({{ gestion.estado_display }})
+          </option>
+        }
+      </select>
+    </div>
+    <div class="campo">
+      <button type="submit" class="btn btn-primary">+ Nueva gestión</button>
+    </div>
+  </form>
+}
 
-<div *ngIf="cargando" class="loading">Cargando gestiones fiscales...</div>
+@if (cargando) {
+  <div class="loading">Cargando gestiones fiscales...</div>
+}
 
-<table class="data-table" *ngIf="!cargando">
-  <thead>
-    <tr>
-      <th>Gestión</th>
-      <th>Estado</th>
-      <th>Gestión anterior</th>
-      <th>Apertura</th>
-      <th>Cierre</th>
-      <th></th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr *ngFor="let gestion of gestiones">
-      <td>{{ gestion.anio }}</td>
-      <td><span class="badge" [class]="badgeClass(gestion)">{{ gestion.estado_display }}</span></td>
-      <td>{{ gestion.gestion_anterior ?? '—' }}</td>
-      <td>{{ (gestion.fecha_apertura | date: 'dd/MM/yyyy') || '—' }}</td>
-      <td>{{ (gestion.fecha_cierre | date: 'dd/MM/yyyy') || '—' }}</td>
-      <td>
-        <div class="acciones" *ngIf="puedeGestionar">
-          <button class="btn btn-sm btn-primary" *ngIf="puedeHabilitar(gestion)" (click)="habilitar(gestion)">
-            Habilitar
-          </button>
-          <button class="btn btn-sm btn-danger" *ngIf="puedeCerrar(gestion)" (click)="cerrar(gestion)">
-            Cerrar
-          </button>
-        </div>
-      </td>
-    </tr>
-  </tbody>
-</table>
-<div *ngIf="!cargando && gestiones.length === 0" class="empty">Sin gestiones fiscales registradas</div>
+@if (!cargando) {
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Gestión</th>
+        <th>Estado</th>
+        <th>Gestión anterior</th>
+        <th>Apertura</th>
+        <th>Cierre</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (gestion of gestiones; track gestion) {
+        <tr>
+          <td>{{ gestion.anio }}</td>
+          <td><span class="badge" [class]="badgeClass(gestion)">{{ gestion.estado_display }}</span></td>
+          <td>{{ gestion.gestion_anterior ?? '—' }}</td>
+          <td>{{ (gestion.fecha_apertura | date: 'dd/MM/yyyy') || '—' }}</td>
+          <td>{{ (gestion.fecha_cierre | date: 'dd/MM/yyyy') || '—' }}</td>
+          <td>
+            @if (puedeGestionar) {
+              <div class="acciones">
+                @if (puedeHabilitar(gestion)) {
+                  <button class="btn btn-sm btn-primary" (click)="habilitar(gestion)">
+                    Habilitar
+                  </button>
+                }
+                @if (puedeCerrar(gestion)) {
+                  <button class="btn btn-sm btn-danger" (click)="cerrar(gestion)">
+                    Cerrar
+                  </button>
+                }
+              </div>
+            }
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}
+@if (!cargando && gestiones.length === 0) {
+  <div class="empty">Sin gestiones fiscales registradas</div>
+}

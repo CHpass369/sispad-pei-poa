@@ -2,143 +2,193 @@
   <h2>Distribución Territorial</h2>
   <div class="acciones">
     <select class="input" [ngModel]="gestionSeleccionada" (ngModelChange)="seleccionarGestion($event)"
-            style="width:auto">
-      <option *ngFor="let g of gestiones" [ngValue]="g.id">{{ g.anio }} — {{ g.estado_display }}</option>
+      style="width:auto">
+      @for (g of gestiones; track g) {
+        <option [ngValue]="g.id">{{ g.anio }} — {{ g.estado_display }}</option>
+      }
     </select>
     <button class="btn btn-primary" (click)="nuevaDistribucion()">+ Nueva distribución</button>
   </div>
 </div>
 
-<div class="alert-error" *ngIf="error">{{ error }}</div>
-<div class="alert-success" *ngIf="mensaje">{{ mensaje }}</div>
+@if (error) {
+  <div class="alert-error">{{ error }}</div>
+}
+@if (mensaje) {
+  <div class="alert-success">{{ mensaje }}</div>
+}
 
-<div class="loading" *ngIf="cargando">Cargando…</div>
+@if (cargando) {
+  <div class="loading">Cargando…</div>
+}
 
 <!-- Lista de distribuciones existentes -->
-<div class="seccion" *ngIf="!cargando">
-  <h3>Distribuciones ({{ lista.length }})</h3>
-  <div class="empty" *ngIf="lista.length === 0">Sin distribuciones territoriales para esta gestión.</div>
-  <div class="fila-distribucion" *ngFor="let d of lista"
-       [class.seleccionada]="actual?.id === d.id" (click)="seleccionar(d)">
-    <span>#{{ d.id }} — {{ d.metodo_display }} — {{ d.bolsa_total | moneda }}</span>
-    <span class="badge" [ngClass]="badgeClass(d.estado)">{{ d.estado }}</span>
+@if (!cargando) {
+  <div class="seccion">
+    <h3>Distribuciones ({{ lista.length }})</h3>
+    @if (lista.length === 0) {
+      <div class="empty">Sin distribuciones territoriales para esta gestión.</div>
+    }
+    @for (d of lista; track d) {
+      <div class="fila-distribucion"
+        [class.seleccionada]="actual?.id === d.id" (click)="seleccionar(d)">
+        <span>#{{ d.id }} — {{ d.metodo_display }} — {{ d.bolsa_total | moneda }}</span>
+        <span class="badge" [ngClass]="badgeClass(d.estado)">{{ d.estado }}</span>
+      </div>
+    }
   </div>
-</div>
+}
 
 <!-- Formulario -->
-<div class="seccion" *ngIf="!cargando">
-  <h3>{{ actual ? 'Editar distribución #' + actual.id : 'Nueva distribución' }}</h3>
-  <div class="form-grid">
-    <div class="campo">
-      <label>Fuente de financiamiento *</label>
-      <select class="input" [(ngModel)]="formulario.fuente" [disabled]="bloquearEdicion()">
-        <option [ngValue]="null">— fuente —</option>
-        <option *ngFor="let fuente of opciones?.fuentes" [ngValue]="fuente.id">{{ fuente.codigo }} — {{ fuente.denominacion }}</option>
-      </select>
-    </div>
-    <div class="campo">
-      <label>Organismo</label>
-      <select class="input" [(ngModel)]="formulario.organismo" [disabled]="bloquearEdicion()">
-        <option [ngValue]="null">— organismo —</option>
-        <option *ngFor="let o of opciones?.organismos" [ngValue]="o.id">{{ o.codigo }} — {{ o.denominacion }}</option>
-      </select>
-    </div>
-    <div class="campo">
-      <label>Método *</label>
-      <select class="input" [(ngModel)]="formulario.metodo" [disabled]="bloquearEdicion()">
-        <option *ngFor="let m of metodos" [ngValue]="m.valor">{{ m.etiqueta }}</option>
-      </select>
-    </div>
-    <div class="campo">
-      <label>Bolsa total (Bs) *</label>
-      <input class="input" type="number" min="0" step="0.01" [(ngModel)]="formulario.bolsa_total"
-             [disabled]="bloquearEdicion()" />
-    </div>
-    <div class="campo">
-      <label>Observaciones</label>
-      <input class="input" [(ngModel)]="formulario.observaciones" [disabled]="bloquearEdicion()" />
+@if (!cargando) {
+  <div class="seccion">
+    <h3>{{ actual ? 'Editar distribución #' + actual.id : 'Nueva distribución' }}</h3>
+    <div class="form-grid">
+      <div class="campo">
+        <label>Fuente de financiamiento *</label>
+        <select class="input" [(ngModel)]="formulario.fuente" [disabled]="bloquearEdicion()">
+          <option [ngValue]="null">— fuente —</option>
+          @for (fuente of opciones?.fuentes; track fuente) {
+            <option [ngValue]="fuente.id">{{ fuente.codigo }} — {{ fuente.denominacion }}</option>
+          }
+        </select>
+      </div>
+      <div class="campo">
+        <label>Organismo</label>
+        <select class="input" [(ngModel)]="formulario.organismo" [disabled]="bloquearEdicion()">
+          <option [ngValue]="null">— organismo —</option>
+          @for (o of opciones?.organismos; track o) {
+            <option [ngValue]="o.id">{{ o.codigo }} — {{ o.denominacion }}</option>
+          }
+        </select>
+      </div>
+      <div class="campo">
+        <label>Método *</label>
+        <select class="input" [(ngModel)]="formulario.metodo" [disabled]="bloquearEdicion()">
+          @for (m of metodos; track m) {
+            <option [ngValue]="m.valor">{{ m.etiqueta }}</option>
+          }
+        </select>
+      </div>
+      <div class="campo">
+        <label>Bolsa total (Bs) *</label>
+        <input class="input" type="number" min="0" step="0.01" [(ngModel)]="formulario.bolsa_total"
+          [disabled]="bloquearEdicion()" />
+      </div>
+      <div class="campo">
+        <label>Observaciones</label>
+        <input class="input" [(ngModel)]="formulario.observaciones" [disabled]="bloquearEdicion()" />
+      </div>
     </div>
   </div>
-</div>
+}
 
 <!-- Tabla de distritos -->
-<div class="seccion" *ngIf="!cargando">
-  <h3>Distritos</h3>
-  <div class="empty" *ngIf="filas.length === 0">Agregue distritos a la distribución (botón "+ Distrito").</div>
-  <table class="data-table" *ngIf="filas.length > 0">
-    <thead>
-      <tr>
-        <th>Distrito</th>
-        <th *ngIf="metodoActual().usaPoblacion" class="monto-celda">Población</th>
-        <th *ngIf="metodoActual().usaPorcentaje" class="monto-celda">%</th>
-        <th *ngIf="metodoActual().usaMonto" class="monto-celda">Monto (Bs)</th>
-        <th class="monto-celda">Monto calculado</th>
-        <th class="monto-celda">Ajuste</th>
-        <th class="monto-celda">Monto final</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr *ngFor="let f of filas; let i = index">
-        <td>
-          <select class="input" [(ngModel)]="f.distrito" [disabled]="bloquearEdicion()" style="min-width: 220px;">
-            <option value="">— distrito —</option>
-            <option *ngFor="let d of opciones?.distritos" [ngValue]="d.id">{{ d.codigo }} — {{ d.nombre }}</option>
-          </select>
-        </td>
-        <td *ngIf="metodoActual().usaPoblacion" class="monto-celda">
-          <input class="input" type="number" min="1" step="1" [(ngModel)]="f.poblacion"
-                 [disabled]="bloquearEdicion()" style="width: 110px;" />
-        </td>
-        <td *ngIf="metodoActual().usaPorcentaje" class="monto-celda">
-          <input class="input" type="number" min="0" max="100" step="0.01" [(ngModel)]="f.porcentaje"
-                 [disabled]="bloquearEdicion()" style="width: 110px;" />
-        </td>
-        <td *ngIf="metodoActual().usaMonto" class="monto-celda">
-          <input class="input" type="number" min="0" step="0.01" [(ngModel)]="f.monto"
-                 [disabled]="bloquearEdicion()" style="width: 130px;" />
-        </td>
-        <td class="monto-celda">{{ montoAsignacion(f, 'monto_calculado') }}</td>
-        <td class="monto-celda">{{ montoAsignacion(f, 'ajuste') }}</td>
-        <td class="monto-celda">{{ montoAsignacion(f, 'monto_final') }}</td>
-        <td>
-          <button class="btn btn-sm btn-danger" (click)="quitarFila(i)" [disabled]="bloquearEdicion()"
-                  *ngIf="filas.length > 1" title="Quitar">✕</button>
-        </td>
-      </tr>
-    </tbody>
-  </table>
-  <div class="acciones" style="margin-top: 0.75rem;">
-    <button class="btn btn-sm" (click)="agregarFila()" [disabled]="bloquearEdicion()">+ Distrito</button>
-    <button class="btn btn-primary" (click)="guardar()" [disabled]="guardando || bloquearEdicion()">
-      {{ guardando ? 'Guardando…' : 'Guardar distribución' }}
-    </button>
-    <button class="btn btn-sm" (click)="calcular()" [disabled]="guardando || bloquearEdicion() || !actual">
-      Calcular reparto
-    </button>
-    <button class="btn btn-sm" (click)="aplicar()"
-            [disabled]="guardando || !actual || actual.estado !== 'CALCULADA'">
-      Aplicar (reservas)
-    </button>
-    <button class="btn btn-sm" (click)="liberar()"
-            [disabled]="guardando || !actual || actual.estado !== 'APLICADA'">
-      Liberar reservas
-    </button>
+@if (!cargando) {
+  <div class="seccion">
+    <h3>Distritos</h3>
+    @if (filas.length === 0) {
+      <div class="empty">Agregue distritos a la distribución (botón "+ Distrito").</div>
+    }
+    @if (filas.length > 0) {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Distrito</th>
+            @if (metodoActual().usaPoblacion) {
+              <th class="monto-celda">Población</th>
+            }
+            @if (metodoActual().usaPorcentaje) {
+              <th class="monto-celda">%</th>
+            }
+            @if (metodoActual().usaMonto) {
+              <th class="monto-celda">Monto (Bs)</th>
+            }
+            <th class="monto-celda">Monto calculado</th>
+            <th class="monto-celda">Ajuste</th>
+            <th class="monto-celda">Monto final</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (f of filas; track f; let i = $index) {
+            <tr>
+              <td>
+                <select class="input" [(ngModel)]="f.distrito" [disabled]="bloquearEdicion()" style="min-width: 220px;">
+                  <option value="">— distrito —</option>
+                  @for (d of opciones?.distritos; track d) {
+                    <option [ngValue]="d.id">{{ d.codigo }} — {{ d.nombre }}</option>
+                  }
+                </select>
+              </td>
+              @if (metodoActual().usaPoblacion) {
+                <td class="monto-celda">
+                  <input class="input" type="number" min="1" step="1" [(ngModel)]="f.poblacion"
+                    [disabled]="bloquearEdicion()" style="width: 110px;" />
+                </td>
+              }
+              @if (metodoActual().usaPorcentaje) {
+                <td class="monto-celda">
+                  <input class="input" type="number" min="0" max="100" step="0.01" [(ngModel)]="f.porcentaje"
+                    [disabled]="bloquearEdicion()" style="width: 110px;" />
+                </td>
+              }
+              @if (metodoActual().usaMonto) {
+                <td class="monto-celda">
+                  <input class="input" type="number" min="0" step="0.01" [(ngModel)]="f.monto"
+                    [disabled]="bloquearEdicion()" style="width: 130px;" />
+                </td>
+              }
+              <td class="monto-celda">{{ montoAsignacion(f, 'monto_calculado') }}</td>
+              <td class="monto-celda">{{ montoAsignacion(f, 'ajuste') }}</td>
+              <td class="monto-celda">{{ montoAsignacion(f, 'monto_final') }}</td>
+              <td>
+                @if (filas.length > 1) {
+                  <button class="btn btn-sm btn-danger" (click)="quitarFila(i)" [disabled]="bloquearEdicion()"
+                  title="Quitar">✕</button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+    <div class="acciones" style="margin-top: 0.75rem;">
+      <button class="btn btn-sm" (click)="agregarFila()" [disabled]="bloquearEdicion()">+ Distrito</button>
+      <button class="btn btn-primary" (click)="guardar()" [disabled]="guardando || bloquearEdicion()">
+        {{ guardando ? 'Guardando…' : 'Guardar distribución' }}
+      </button>
+      <button class="btn btn-sm" (click)="calcular()" [disabled]="guardando || bloquearEdicion() || !actual">
+        Calcular reparto
+      </button>
+      <button class="btn btn-sm" (click)="aplicar()"
+        [disabled]="guardando || !actual || actual.estado !== 'CALCULADA'">
+        Aplicar (reservas)
+      </button>
+      <button class="btn btn-sm" (click)="liberar()"
+        [disabled]="guardando || !actual || actual.estado !== 'APLICADA'">
+        Liberar reservas
+      </button>
+    </div>
   </div>
-</div>
+}
 
 <!-- Total verificable -->
-<div class="seccion" *ngIf="!cargando && actual">
-  <h3>Total asignado vs bolsa</h3>
-  <p style="font-size: 0.875rem;">
-    Suma asignada: <strong>{{ sumaAsignada() | moneda }}</strong>
-    &nbsp;·&nbsp; Bolsa total: <strong>{{ actual.bolsa_total | moneda }}</strong>
-    <span class="total-badge" [ngClass]="coincide() ? 'ok' : 'bad'">
-      {{ coincide() ? '✓ Suma exacta' : '✗ No coincide (diferencia de ' + diferencia() + ')' }}
-    </span>
-  </p>
-  <p class="empty" style="text-align: left; padding: 0.5rem 0; font-size: 0.8125rem;" *ngIf="actual.estado === 'APLICADA'">
-    La distribución está APLICADA: se crearon reservas DISTRITALES por distrito. Use "Liberar reservas" para
-    devolverlas al disponible.
-  </p>
-</div>
+@if (!cargando && actual) {
+  <div class="seccion">
+    <h3>Total asignado vs bolsa</h3>
+    <p style="font-size: 0.875rem;">
+      Suma asignada: <strong>{{ sumaAsignada() | moneda }}</strong>
+      &nbsp;·&nbsp; Bolsa total: <strong>{{ actual.bolsa_total | moneda }}</strong>
+      <span class="total-badge" [ngClass]="coincide() ? 'ok' : 'bad'">
+        {{ coincide() ? '✓ Suma exacta' : '✗ No coincide (diferencia de ' + diferencia() + ')' }}
+      </span>
+    </p>
+    @if (actual.estado === 'APLICADA') {
+      <p class="empty" style="text-align: left; padding: 0.5rem 0; font-size: 0.8125rem;">
+        La distribución está APLICADA: se crearon reservas DISTRITALES por distrito. Use "Liberar reservas" para
+        devolverlas al disponible.
+      </p>
+    }
+  </div>
+}

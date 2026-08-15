@@ -49,29 +49,35 @@ export interface CadenaAcumulada {
         <div class="header-actions">
           <label class="control-label">Gestión:</label>
           <select class="form-control select-gestion" [(ngModel)]="gestion"
-                  (ngModelChange)="cargar()">
-            <option *ngFor="let g of gestiones" [ngValue]="g">{{ g }}</option>
+            (ngModelChange)="cargar()">
+            @for (g of gestiones; track g) {
+              <option [ngValue]="g">{{ g }}</option>
+            }
           </select>
-          <span class="badge badge-info" *ngIf="!cargando && totalFilas">
-            {{ totalFilas }} fila(s) · {{ fecha }}
-          </span>
+          @if (!cargando && totalFilas) {
+            <span class="badge badge-info">
+              {{ totalFilas }} fila(s) · {{ fecha }}
+            </span>
+          }
           <a routerLink="/matrices-pad" class="btn btn-sm btn-outline">← Volver</a>
         </div>
       </div>
-
+    
       <div class="tabs">
         <button type="button" class="tab" [class.tab-active]="tab === 'a'"
-                (click)="cambiarTab('a')">Matriz A completa</button>
+        (click)="cambiarTab('a')">Matriz A completa</button>
         <button type="button" class="tab" [class.tab-active]="tab === 'b'"
-                (click)="cambiarTab('b')">Matriz B completa</button>
+        (click)="cambiarTab('b')">Matriz B completa</button>
         <button type="button" class="tab" [class.tab-active]="tab === 'mapa'"
-                (click)="cambiarTab('mapa')">Mapa</button>
+        (click)="cambiarTab('mapa')">Mapa</button>
       </div>
-
-      <div class="alert alert-danger" *ngIf="mensajeError">{{ mensajeError }}</div>
-
+    
+      @if (mensajeError) {
+        <div class="alert alert-danger">{{ mensajeError }}</div>
+      }
+    
       <!-- ===================== TAB: MATRIZ A ===================== -->
-      <ng-container *ngIf="tab === 'a'">
+      @if (tab === 'a') {
         <div class="card table-card">
           <div class="table-scroll">
             <table class="matriz-table">
@@ -92,57 +98,71 @@ export interface CadenaAcumulada {
                   <th>Unidad</th>
                   <th>Línea Base</th>
                   <th>Meta 2030</th>
-                  <th *ngFor="let y of quinquenio" class="pf-col">Prog. Física {{ y }}</th>
+                  @for (y of quinquenio; track y) {
+                    <th class="pf-col">Prog. Física {{ y }}</th>
+                  }
                   <th>¿Financ.?</th>
                   <th>Presupuesto Total</th>
-                  <th *ngFor="let y of quinquenio" class="pf-col">Ppto. {{ y }}</th>
+                  @for (y of quinquenio; track y) {
+                    <th class="pf-col">Ppto. {{ y }}</th>
+                  }
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let f of filasA"
+                @for (f of filasA; track f) {
+                  <tr
                     [class.fila-producto]="f.tipo_fila === 'producto'">
-                  <td class="sticky-col">{{ f.sector || '—' }}</td>
-                  <td><span class="codigo">{{ f.cod_geografico || '—' }}</span></td>
-                  <td class="cell-desc">{{ f.politica || '—' }}</td>
-                  <td><span class="codigo">{{ f.cod_lineamiento_pad || '—' }}</span></td>
-                  <td><span class="codigo">{{ f.codigo_resultado_pad || '—' }}</span></td>
-                  <td class="cell-desc">{{ f.resultado_pad || '—' }}</td>
-                  <td><span class="codigo">{{ f.codigo_producto_pad || '—' }}</span></td>
-                  <td class="cell-desc">{{ f.producto_pad || '—' }}</td>
-                  <td class="cell-desc">{{ f.territorializacion || '—' }}</td>
-                  <td class="cell-desc">{{ f.responsable_pad || '—' }}</td>
-                  <td class="cell-desc">{{ f.indicador || '—' }}</td>
-                  <td class="cell-desc">{{ f.formula || '—' }}</td>
-                  <td>{{ f.unidad_medida || '—' }}</td>
-                  <td class="num">{{ f.linea_base !== '' ? f.linea_base : '—' }}</td>
-                  <td class="num">{{ f.meta_2030 !== '' ? f.meta_2030 : '—' }}</td>
-                  <td class="num" *ngFor="let y of quinquenio">{{ f['pf_' + y] !== '' ? f['pf_' + y] : '—' }}</td>
-                  <td>
-                    <span class="badge" [class.badge-success]="f.cuenta_con_financiamiento"
-                          [class.badge-muted]="!f.cuenta_con_financiamiento">
-                      {{ f.cuenta_con_financiamiento ? 'SÍ' : 'NO' }}
-                    </span>
-                  </td>
-                  <td class="num">{{ f.presupuesto_total !== '' ? f.presupuesto_total : '—' }}</td>
-                  <td class="num" *ngFor="let y of quinquenio">{{ f['presupuesto_' + y] !== '' ? f['presupuesto_' + y] : '—' }}</td>
-                </tr>
-                <tr *ngIf="cargando">
-                  <td colspan="27" class="empty-cell">Cargando Matriz A acumulada...</td>
-                </tr>
-                <tr *ngIf="!cargando && filasA.length === 0">
-                  <td colspan="27" class="empty-cell">
-                    Sin resultados materializados para la gestión {{ gestion }}.
-                    Materialice al menos un borrador Matriz PAD de la gestión.
-                  </td>
-                </tr>
+                    <td class="sticky-col">{{ f.sector || '—' }}</td>
+                    <td><span class="codigo">{{ f.cod_geografico || '—' }}</span></td>
+                    <td class="cell-desc">{{ f.politica || '—' }}</td>
+                    <td><span class="codigo">{{ f.cod_lineamiento_pad || '—' }}</span></td>
+                    <td><span class="codigo">{{ f.codigo_resultado_pad || '—' }}</span></td>
+                    <td class="cell-desc">{{ f.resultado_pad || '—' }}</td>
+                    <td><span class="codigo">{{ f.codigo_producto_pad || '—' }}</span></td>
+                    <td class="cell-desc">{{ f.producto_pad || '—' }}</td>
+                    <td class="cell-desc">{{ f.territorializacion || '—' }}</td>
+                    <td class="cell-desc">{{ f.responsable_pad || '—' }}</td>
+                    <td class="cell-desc">{{ f.indicador || '—' }}</td>
+                    <td class="cell-desc">{{ f.formula || '—' }}</td>
+                    <td>{{ f.unidad_medida || '—' }}</td>
+                    <td class="num">{{ f.linea_base !== '' ? f.linea_base : '—' }}</td>
+                    <td class="num">{{ f.meta_2030 !== '' ? f.meta_2030 : '—' }}</td>
+                    @for (y of quinquenio; track y) {
+                      <td class="num">{{ f['pf_' + y] !== '' ? f['pf_' + y] : '—' }}</td>
+                    }
+                    <td>
+                      <span class="badge" [class.badge-success]="f.cuenta_con_financiamiento"
+                        [class.badge-muted]="!f.cuenta_con_financiamiento">
+                        {{ f.cuenta_con_financiamiento ? 'SÍ' : 'NO' }}
+                      </span>
+                    </td>
+                    <td class="num">{{ f.presupuesto_total !== '' ? f.presupuesto_total : '—' }}</td>
+                    @for (y of quinquenio; track y) {
+                      <td class="num">{{ f['presupuesto_' + y] !== '' ? f['presupuesto_' + y] : '—' }}</td>
+                    }
+                  </tr>
+                }
+                @if (cargando) {
+                  <tr>
+                    <td colspan="27" class="empty-cell">Cargando Matriz A acumulada...</td>
+                  </tr>
+                }
+                @if (!cargando && filasA.length === 0) {
+                  <tr>
+                    <td colspan="27" class="empty-cell">
+                      Sin resultados materializados para la gestión {{ gestion }}.
+                      Materialice al menos un borrador Matriz PAD de la gestión.
+                    </td>
+                  </tr>
+                }
               </tbody>
             </table>
           </div>
         </div>
-      </ng-container>
-
+      }
+    
       <!-- ===================== TAB: MATRIZ B ===================== -->
-      <ng-container *ngIf="tab === 'b'">
+      @if (tab === 'b') {
         <div class="card table-card">
           <div class="table-scroll">
             <table class="matriz-table">
@@ -172,117 +192,142 @@ export interface CadenaAcumulada {
                   <th>Unidad</th>
                   <th>LB</th>
                   <th>Meta 2030</th>
-                  <th *ngFor="let y of quinquenio" class="pf-col">Prog. Física {{ y }}</th>
+                  @for (y of quinquenio; track y) {
+                    <th class="pf-col">Prog. Física {{ y }}</th>
+                  }
                   <th>Presupuesto Referencial</th>
-                  <th *ngFor="let y of quinquenio" class="pf-col">Ppto. {{ y }}</th>
+                  @for (y of quinquenio; track y) {
+                    <th class="pf-col">Ppto. {{ y }}</th>
+                  }
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let f of filasB"
+                @for (f of filasB; track f) {
+                  <tr
                     [class.fila-producto]="f.tipo_fila === 'producto'">
-                  <td><span class="codigo">{{ f.cod_eje_pgdesa || '—' }}</span></td>
-                  <td class="cell-desc">{{ f.objetivo_impacto || '—' }}</td>
-                  <td><span class="codigo">{{ f.cod_componente_pdesa || '—' }}</span></td>
-                  <td class="cell-desc">{{ f.objetivo_efecto || '—' }}</td>
-                  <td>{{ f.ods || '—' }}</td>
-                  <td>{{ f.ndc || '—' }}</td>
-                  <td>{{ f.ndt || '—' }}</td>
-                  <td>{{ f.compromiso_3030 || '—' }}</td>
-                  <td><span class="codigo">{{ f.cod_sector || '—' }}</span></td>
-                  <td class="cell-desc">{{ f.sector || '—' }}</td>
-                  <td><span class="codigo">{{ f.cod_resultado_pds || '—' }}</span></td>
-                  <td class="cell-desc">{{ f.resultado_pds || '—' }}</td>
-                  <td><span class="codigo">{{ f.cod_geografico || '—' }}</span></td>
-                  <td class="cell-desc">{{ f.eta || '—' }}</td>
-                  <td><span class="codigo">{{ f.cod_lineamiento_pad || '—' }}</span></td>
-                  <td><span class="codigo">{{ f.codigo_resultado_pad || '—' }}</span></td>
-                  <td class="cell-desc">{{ f.resultado_pad || '—' }}</td>
-                  <td><span class="codigo">{{ f.codigo_producto_pad || '—' }}</span></td>
-                  <td class="cell-desc">{{ f.producto_pad || '—' }}</td>
-                  <td class="cell-desc">{{ f.indicador || '—' }}</td>
-                  <td class="cell-desc">{{ f.formula || '—' }}</td>
-                  <td>{{ f.unidad_medida || '—' }}</td>
-                  <td class="num">{{ f.linea_base !== '' ? f.linea_base : '—' }}</td>
-                  <td class="num">{{ f.meta_2030 !== '' ? f.meta_2030 : '—' }}</td>
-                  <td class="num" *ngFor="let y of quinquenio">{{ f['pf_' + y] !== '' ? f['pf_' + y] : '—' }}</td>
-                  <td class="num">{{ f.presupuesto_total !== '' ? f.presupuesto_total : '—' }}</td>
-                  <td class="num" *ngFor="let y of quinquenio">{{ f['presupuesto_' + y] !== '' ? f['presupuesto_' + y] : '—' }}</td>
-                </tr>
-                <tr *ngIf="cargando">
-                  <td colspan="34" class="empty-cell">Cargando Matriz B acumulada...</td>
-                </tr>
-                <tr *ngIf="!cargando && filasB.length === 0">
-                  <td colspan="34" class="empty-cell">
-                    Sin resultados materializados para la gestión {{ gestion }}.
-                    Materialice al menos un borrador Matriz PAD de la gestión.
-                  </td>
-                </tr>
+                    <td><span class="codigo">{{ f.cod_eje_pgdesa || '—' }}</span></td>
+                    <td class="cell-desc">{{ f.objetivo_impacto || '—' }}</td>
+                    <td><span class="codigo">{{ f.cod_componente_pdesa || '—' }}</span></td>
+                    <td class="cell-desc">{{ f.objetivo_efecto || '—' }}</td>
+                    <td>{{ f.ods || '—' }}</td>
+                    <td>{{ f.ndc || '—' }}</td>
+                    <td>{{ f.ndt || '—' }}</td>
+                    <td>{{ f.compromiso_3030 || '—' }}</td>
+                    <td><span class="codigo">{{ f.cod_sector || '—' }}</span></td>
+                    <td class="cell-desc">{{ f.sector || '—' }}</td>
+                    <td><span class="codigo">{{ f.cod_resultado_pds || '—' }}</span></td>
+                    <td class="cell-desc">{{ f.resultado_pds || '—' }}</td>
+                    <td><span class="codigo">{{ f.cod_geografico || '—' }}</span></td>
+                    <td class="cell-desc">{{ f.eta || '—' }}</td>
+                    <td><span class="codigo">{{ f.cod_lineamiento_pad || '—' }}</span></td>
+                    <td><span class="codigo">{{ f.codigo_resultado_pad || '—' }}</span></td>
+                    <td class="cell-desc">{{ f.resultado_pad || '—' }}</td>
+                    <td><span class="codigo">{{ f.codigo_producto_pad || '—' }}</span></td>
+                    <td class="cell-desc">{{ f.producto_pad || '—' }}</td>
+                    <td class="cell-desc">{{ f.indicador || '—' }}</td>
+                    <td class="cell-desc">{{ f.formula || '—' }}</td>
+                    <td>{{ f.unidad_medida || '—' }}</td>
+                    <td class="num">{{ f.linea_base !== '' ? f.linea_base : '—' }}</td>
+                    <td class="num">{{ f.meta_2030 !== '' ? f.meta_2030 : '—' }}</td>
+                    @for (y of quinquenio; track y) {
+                      <td class="num">{{ f['pf_' + y] !== '' ? f['pf_' + y] : '—' }}</td>
+                    }
+                    <td class="num">{{ f.presupuesto_total !== '' ? f.presupuesto_total : '—' }}</td>
+                    @for (y of quinquenio; track y) {
+                      <td class="num">{{ f['presupuesto_' + y] !== '' ? f['presupuesto_' + y] : '—' }}</td>
+                    }
+                  </tr>
+                }
+                @if (cargando) {
+                  <tr>
+                    <td colspan="34" class="empty-cell">Cargando Matriz B acumulada...</td>
+                  </tr>
+                }
+                @if (!cargando && filasB.length === 0) {
+                  <tr>
+                    <td colspan="34" class="empty-cell">
+                      Sin resultados materializados para la gestión {{ gestion }}.
+                      Materialice al menos un borrador Matriz PAD de la gestión.
+                    </td>
+                  </tr>
+                }
               </tbody>
             </table>
           </div>
         </div>
-      </ng-container>
-
+      }
+    
       <!-- ===================== TAB: MAPA ===================== -->
-      <ng-container *ngIf="tab === 'mapa'">
-        <div class="card mapa-card" *ngIf="!cargando && cadenas.length">
-          <div class="mapa-controles">
-            <label class="control-label">Mostrar:</label>
-            <select class="form-control select-cadena" [(ngModel)]="seleccion"
-                    (ngModelChange)="cdr.detectChanges()">
-              <option [ngValue]="null">Todas las cadenas ({{ cadenas.length }})</option>
-              <option *ngFor="let c of cadenas; let i = index" [ngValue]="i">
-                {{ i + 1 }}. {{ c.titulo }}
-              </option>
-            </select>
-            <button type="button" class="btn btn-sm btn-outline" (click)="verTodas()">Ver todas</button>
-            <span class="control-note" *ngIf="seleccion !== null">
-              Cadena {{ (seleccion ?? 0) + 1 }} de {{ cadenas.length }}
-            </span>
-          </div>
-
-          <div class="mapa-scroll">
-            <div class="mapa-todas" [class.mapa-sola]="seleccion !== null">
-              <div class="mapa-cadena" *ngFor="let cadena of cadenasVisibles; let ci = index">
-                <div class="cadena-titulo" *ngIf="seleccion === null">
-                  Cadena {{ ci + 1 }} — <span class="codigo">{{ cadena.titulo }}</span>
-                </div>
-                <div class="cadena-nodos">
-                  <ng-container *ngFor="let nodo of cadena.nodos; let ni = index">
-                    <div class="nodo nivel-{{ nodo.nivel }}">
-                      <div class="nodo-cab">{{ nodo.titulo }}</div>
-                      <div class="nodo-codigo">{{ nodo.codigo || '—' }}</div>
-                      <div class="nodo-detalle">{{ nodo.detalle || '—' }}</div>
+      @if (tab === 'mapa') {
+        @if (!cargando && cadenas.length) {
+          <div class="card mapa-card">
+            <div class="mapa-controles">
+              <label class="control-label">Mostrar:</label>
+              <select class="form-control select-cadena" [(ngModel)]="seleccion"
+                (ngModelChange)="cdr.detectChanges()">
+                <option [ngValue]="null">Todas las cadenas ({{ cadenas.length }})</option>
+                @for (c of cadenas; track c; let i = $index) {
+                  <option [ngValue]="i">
+                    {{ i + 1 }}. {{ c.titulo }}
+                  </option>
+                }
+              </select>
+              <button type="button" class="btn btn-sm btn-outline" (click)="verTodas()">Ver todas</button>
+              @if (seleccion !== null) {
+                <span class="control-note">
+                  Cadena {{ (seleccion ?? 0) + 1 }} de {{ cadenas.length }}
+                </span>
+              }
+            </div>
+            <div class="mapa-scroll">
+              <div class="mapa-todas" [class.mapa-sola]="seleccion !== null">
+                @for (cadena of cadenasVisibles; track cadena; let ci = $index) {
+                  <div class="mapa-cadena">
+                    @if (seleccion === null) {
+                      <div class="cadena-titulo">
+                        Cadena {{ ci + 1 }} — <span class="codigo">{{ cadena.titulo }}</span>
+                      </div>
+                    }
+                    <div class="cadena-nodos">
+                      @for (nodo of cadena.nodos; track nodo; let ni = $index) {
+                        <div class="nodo nivel-{{ nodo.nivel }}">
+                          <div class="nodo-cab">{{ nodo.titulo }}</div>
+                          <div class="nodo-codigo">{{ nodo.codigo || '—' }}</div>
+                          <div class="nodo-detalle">{{ nodo.detalle || '—' }}</div>
+                        </div>
+                        @if (ni < cadena.nodos.length - 1) {
+                          <div class="conector">
+                            <div class="conector-linea"></div>
+                          </div>
+                        }
+                      }
                     </div>
-                    <div class="conector" *ngIf="ni < cadena.nodos.length - 1">
-                      <div class="conector-linea"></div>
-                    </div>
-                  </ng-container>
-                </div>
+                  </div>
+                }
               </div>
             </div>
+            <div class="mapa-leyenda">
+              <span class="leyenda-item nivel-1-dot">1. PGDESA</span>
+              <span class="leyenda-item nivel-2-dot">2. PDESA</span>
+              <span class="leyenda-item nivel-3-dot">3. Acuerdos</span>
+              <span class="leyenda-item nivel-4-dot">4. Sector</span>
+              <span class="leyenda-item nivel-5-dot">5. Territorio</span>
+              <span class="leyenda-item nivel-6-dot">6. Resultado PAD</span>
+              <span class="leyenda-item nivel-7-dot">7. Productos</span>
+            </div>
           </div>
-
-          <div class="mapa-leyenda">
-            <span class="leyenda-item nivel-1-dot">1. PGDESA</span>
-            <span class="leyenda-item nivel-2-dot">2. PDESA</span>
-            <span class="leyenda-item nivel-3-dot">3. Acuerdos</span>
-            <span class="leyenda-item nivel-4-dot">4. Sector</span>
-            <span class="leyenda-item nivel-5-dot">5. Territorio</span>
-            <span class="leyenda-item nivel-6-dot">6. Resultado PAD</span>
-            <span class="leyenda-item nivel-7-dot">7. Productos</span>
+        }
+        @if (!cargando && cadenas.length === 0) {
+          <div class="card mapa-card">
+            <p class="empty-state">
+              Sin cadenas para mostrar. Materialice al menos un borrador Matriz PAD
+              de la gestión {{ gestion }}.
+            </p>
           </div>
-        </div>
-
-        <div class="card mapa-card" *ngIf="!cargando && cadenas.length === 0">
-          <p class="empty-state">
-            Sin cadenas para mostrar. Materialice al menos un borrador Matriz PAD
-            de la gestión {{ gestion }}.
-          </p>
-        </div>
-      </ng-container>
+        }
+      }
     </div>
-  `,
+    `,
   styles: [`
     .matriz-page { padding-bottom: 2rem; }
     .page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }

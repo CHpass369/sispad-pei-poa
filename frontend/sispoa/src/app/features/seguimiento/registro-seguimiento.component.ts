@@ -9,7 +9,7 @@ import { SeguimientoService, ReporteSeguimiento } from './seguimiento.service';
       <h2>Registrar Seguimiento</h2>
       <p class="text-secondary">Registrar avance físico y financiero de actividades</p>
     </div>
-
+    
     <div class="form-card">
       <form (ngSubmit)="guardar()">
         <div class="form-grid">
@@ -22,42 +22,46 @@ import { SeguimientoService, ReporteSeguimiento } from './seguimiento.service';
           <div class="field">
             <label>Avance Físico (%)</label>
             <input type="number" [(ngModel)]="reporte.avance_fisico" name="avance_fisico"
-                   class="form-control" min="0" max="100" step="0.01">
-          </div>
-          <div class="field">
-            <label>Avance Financiero (%)</label>
-            <input type="number" [(ngModel)]="reporte.avance_financiero" name="avance_financiero"
-                   class="form-control" min="0" max="100" step="0.01">
-          </div>
-          <div class="field">
-            <label>Monto Ejecutado (Bs.)</label>
-            <input type="number" [(ngModel)]="reporte.monto_ejecutado" name="monto_ejecutado"
-                   class="form-control" min="0" step="0.01">
-          </div>
-          <div class="field">
-            <label>Monto Programado (Bs.)</label>
-            <input type="number" [(ngModel)]="reporte.monto_programado" name="monto_programado"
-                   class="form-control" min="0" step="0.01">
-          </div>
-          <div class="field field-full">
-            <label>Observaciones</label>
-            <textarea [(ngModel)]="reporte.observaciones" name="observaciones"
-                      class="form-control" rows="3"></textarea>
-          </div>
-        </div>
-
-        <div class="form-actions">
-          <button type="button" class="btn btn-outline" (click)="limpiar()">Limpiar</button>
-          <button type="submit" class="btn btn-primary" [disabled]="guardando">
-            {{ guardando ? 'Guardando...' : 'Registrar' }}
-          </button>
-        </div>
-      </form>
-    </div>
-
-    <div class="alert alert-success" *ngIf="exito">{{ exito }}</div>
-    <div class="alert alert-error" *ngIf="error">{{ error }}</div>
-  `,
+              class="form-control" min="0" max="100" step="0.01">
+            </div>
+            <div class="field">
+              <label>Avance Financiero (%)</label>
+              <input type="number" [(ngModel)]="reporte.avance_financiero" name="avance_financiero"
+                class="form-control" min="0" max="100" step="0.01">
+              </div>
+              <div class="field">
+                <label>Monto Ejecutado (Bs.)</label>
+                <input type="number" [(ngModel)]="reporte.monto_ejecutado" name="monto_ejecutado"
+                  class="form-control" min="0" step="0.01">
+                </div>
+                <div class="field">
+                  <label>Monto Programado (Bs.)</label>
+                  <input type="number" [(ngModel)]="reporte.monto_programado" name="monto_programado"
+                    class="form-control" min="0" step="0.01">
+                  </div>
+                  <div class="field field-full">
+                    <label>Observaciones</label>
+                    <textarea [(ngModel)]="reporte.observaciones" name="observaciones"
+                    class="form-control" rows="3"></textarea>
+                  </div>
+                </div>
+    
+                <div class="form-actions">
+                  <button type="button" class="btn btn-outline" (click)="limpiar()">Limpiar</button>
+                  <button type="submit" class="btn btn-primary" [disabled]="guardando">
+                    {{ guardando ? 'Guardando...' : 'Registrar' }}
+                  </button>
+                </div>
+              </form>
+            </div>
+    
+            @if (exito) {
+              <div class="alert alert-success">{{ exito }}</div>
+            }
+            @if (error) {
+              <div class="alert alert-error">{{ error }}</div>
+            }
+    `,
   styles: [`
     .page-header { margin-bottom: 1rem; }
     .page-header h2 { font-size: 1.5rem; margin-bottom: 0.25rem; }

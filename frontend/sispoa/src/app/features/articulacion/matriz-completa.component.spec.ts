@@ -1,10 +1,8 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { of, Subject, throwError } from 'rxjs';
 import { MatrizCompletaComponent } from './matriz-completa.component';
-import {
-  MatrizCompletaService,
-  MatrizResponse,
-} from './matriz-completa.service';
+import { MatrizCompletaService } from './matriz-completa.service';
+import { MatrizResponse } from './matrices-contracts';
 
 describe('MatrizCompletaComponent', () => {
   let component: MatrizCompletaComponent;
@@ -46,8 +44,8 @@ describe('MatrizCompletaComponent', () => {
   it('requests the initial tree and renders loaded data', () => {
     fixture.detectChanges();
 
-    expect(serviceSpy.getArbol).toHaveBeenCalledWith(2026);
-    expect(serviceSpy.getResultadosPAD).toHaveBeenCalledWith(2026);
+    expect(serviceSpy.getArbol).toHaveBeenCalledWith(2027);
+    expect(serviceSpy.getResultadosPAD).toHaveBeenCalledWith(2027);
     expect(component.cargando).toBeFalse();
     expect(fixture.nativeElement.textContent).toContain('Eje de prueba');
   });
@@ -78,7 +76,7 @@ describe('MatrizCompletaComponent', () => {
 
     expect(component.arbolData).toEqual([]);
     expect(fixture.nativeElement.textContent).toContain(
-      'No se encontraron nodos de planificación para la gestión 2026',
+      'No se encontraron nodos de planificación para la gestión 2027',
     );
   });
 

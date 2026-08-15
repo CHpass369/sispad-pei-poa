@@ -9,74 +9,93 @@ import { PortalPublicoService, ResumenEjecucion } from './portal-publico.service
       <h2>Estadísticas Públicas</h2>
       <p class="text-secondary">Resumen ejecutivo de planificación y presupuesto</p>
     </div>
-
-    <div class="stats-grid" *ngIf="!cargando && resumen">
-      <div class="card stat-card highlight">
-        <div class="stat-valor">Bs {{ resumen.total_presupuesto | number:'1.2-2' }}</div>
-        <div class="stat-label">Presupuesto Total</div>
-      </div>
-      <div class="card stat-card">
-        <div class="stat-valor">Bs {{ resumen.total_ejecutado | number:'1.2-2' }}</div>
-        <div class="stat-label">Total Ejecutado</div>
-      </div>
-      <div class="card stat-card">
-        <div class="stat-valor">{{ resumen.porcentaje_ejecucion || 0 }}%</div>
-        <div class="stat-label">% Ejecución</div>
-        <div class="progress-bar">
-          <div class="progress-fill" [style.width.%]="resumen.porcentaje_ejecucion || 0"></div>
+    
+    @if (!cargando && resumen) {
+      <div class="stats-grid">
+        <div class="card stat-card highlight">
+          <div class="stat-valor">Bs {{ resumen.total_presupuesto | number:'1.2-2' }}</div>
+          <div class="stat-label">Presupuesto Total</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-valor">Bs {{ resumen.total_ejecutado | number:'1.2-2' }}</div>
+          <div class="stat-label">Total Ejecutado</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-valor">{{ resumen.porcentaje_ejecucion || 0 }}%</div>
+          <div class="stat-label">% Ejecución</div>
+          <div class="progress-bar">
+            <div class="progress-fill" [style.width.%]="resumen.porcentaje_ejecucion || 0"></div>
+          </div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-valor">{{ resumen.total_programas || 0 }}</div>
+          <div class="stat-label">Programas</div>
         </div>
       </div>
-      <div class="card stat-card">
-        <div class="stat-valor">{{ resumen.total_programas || 0 }}</div>
-        <div class="stat-label">Programas</div>
+    }
+    
+    @if (!cargando && resumen) {
+      <div class="charts-row">
+        <div class="card chart-card">
+          <h3>Ejecución por Tipo</h3>
+          <div class="chart-bars">
+            @for (item of resumen.por_tipo; track item) {
+              <div class="bar-item">
+                <span class="bar-label">{{ item.tipo || item.nombre }}</span>
+                <div class="bar-track">
+                  <div class="bar-fill" [style.width.%]="item.porcentaje || 0"></div>
+                </div>
+                <span class="bar-value">{{ item.monto | number:'1.0-0' }} Bs</span>
+              </div>
+            }
+            @if (!resumen.por_tipo || resumen.por_tipo.length === 0) {
+              <div class="empty-chart">Sin datos disponibles</div>
+            }
+          </div>
+        </div>
+        <div class="card chart-card">
+          <h3>Ejecución por Sector</h3>
+          <div class="chart-bars">
+            @for (item of resumen.por_sector; track item) {
+              <div class="bar-item">
+                <span class="bar-label">{{ item.sector || item.nombre }}</span>
+                <div class="bar-track">
+                  <div class="bar-fill bar-fill-alt" [style.width.%]="item.porcentaje || 0"></div>
+                </div>
+                <span class="bar-value">{{ item.monto | number:'1.0-0' }} Bs</span>
+              </div>
+            }
+            @if (!resumen.por_sector || resumen.por_sector.length === 0) {
+              <div class="empty-chart">Sin datos disponibles</div>
+            }
+          </div>
+        </div>
       </div>
-    </div>
-
-    <div class="charts-row" *ngIf="!cargando && resumen">
-      <div class="card chart-card">
-        <h3>Ejecución por Tipo</h3>
-        <div class="chart-bars">
-          <div *ngFor="let item of resumen.por_tipo" class="bar-item">
-            <span class="bar-label">{{ item.tipo || item.nombre }}</span>
-            <div class="bar-track">
-              <div class="bar-fill" [style.width.%]="item.porcentaje || 0"></div>
+    }
+    
+    @if (!cargando && resumen && resumen.por_mes && resumen.por_mes.length > 0) {
+      <div class="card chart-card full-width">
+        <h3>Ejecución Mensual</h3>
+        <div class="monthly-bars">
+          @for (item of resumen.por_mes; track item) {
+            <div class="month-bar">
+              <div class="month-column">
+                <div class="month-fill" [style.height.%]="item.porcentaje || 0"></div>
+              </div>
+              <span class="month-label">{{ item.mes }}</span>
             </div>
-            <span class="bar-value">{{ item.monto | number:'1.0-0' }} Bs</span>
-          </div>
-          <div *ngIf="!resumen.por_tipo || resumen.por_tipo.length === 0" class="empty-chart">Sin datos disponibles</div>
+          }
         </div>
       </div>
-
-      <div class="card chart-card">
-        <h3>Ejecución por Sector</h3>
-        <div class="chart-bars">
-          <div *ngFor="let item of resumen.por_sector" class="bar-item">
-            <span class="bar-label">{{ item.sector || item.nombre }}</span>
-            <div class="bar-track">
-              <div class="bar-fill bar-fill-alt" [style.width.%]="item.porcentaje || 0"></div>
-            </div>
-            <span class="bar-value">{{ item.monto | number:'1.0-0' }} Bs</span>
-          </div>
-          <div *ngIf="!resumen.por_sector || resumen.por_sector.length === 0" class="empty-chart">Sin datos disponibles</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card chart-card full-width" *ngIf="!cargando && resumen && resumen.por_mes && resumen.por_mes.length > 0">
-      <h3>Ejecución Mensual</h3>
-      <div class="monthly-bars">
-        <div *ngFor="let item of resumen.por_mes" class="month-bar">
-          <div class="month-column">
-            <div class="month-fill" [style.height.%]="item.porcentaje || 0"></div>
-          </div>
-          <span class="month-label">{{ item.mes }}</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="loading" *ngIf="cargando">Cargando estadísticas...</div>
-    <div class="alert alert-error" *ngIf="error">{{ error }}</div>
-  `,
+    }
+    
+    @if (cargando) {
+      <div class="loading">Cargando estadísticas...</div>
+    }
+    @if (error) {
+      <div class="alert alert-error">{{ error }}</div>
+    }
+    `,
   styles: [`
     .page-header { margin-bottom: 1.5rem; }
     .page-header h2 { font-size: 1.5rem; margin-bottom: 0.25rem; }

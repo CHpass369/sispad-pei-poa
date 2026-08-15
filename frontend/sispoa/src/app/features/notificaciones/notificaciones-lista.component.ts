@@ -9,39 +9,54 @@ import { NotificacionesService, Notificacion, ResumenNotificaciones } from './no
       <h2>Notificaciones</h2>
       <p class="text-secondary">Centro de notificaciones del sistema</p>
     </div>
-
+    
     <div class="acciones-superior">
-      <span class="resumen-text" *ngIf="resumen">
-        {{ resumen.no_leidas || 0 }} sin leer de {{ resumen.total || 0 }} total
-      </span>
+      @if (resumen) {
+        <span class="resumen-text">
+          {{ resumen.no_leidas || 0 }} sin leer de {{ resumen.total || 0 }} total
+        </span>
+      }
       <button class="btn btn-primary" (click)="marcarTodasLeidas()"
-              [disabled]="!resumen || (resumen.no_leidas || 0) === 0">
+        [disabled]="!resumen || (resumen.no_leidas || 0) === 0">
         Marcar todas como leídas
       </button>
       <button class="btn btn-outline" (click)="cargar()">Recargar</button>
     </div>
-
-    <div class="notificaciones-container" *ngIf="!cargando">
-      <div *ngFor="let n of notificaciones" class="card notificacion-item"
-           [class.no-leida]="!n.leida" (click)="marcarLeida(n)">
-        <div class="notificacion-header">
-          <span class="badge badge-tipo" [ngClass]="'badge-' + (n.tipo || 'info')">{{ n.tipo || 'info' }}</span>
-          <span class="notificacion-fecha">{{ n.fecha_creacion | date:'dd/MM/yyyy HH:mm' }}</span>
-          <span class="notificacion-leida" *ngIf="!n.leida">●</span>
-        </div>
-        <h4 class="notificacion-titulo">{{ n.titulo }}</h4>
-        <p class="notificacion-mensaje">{{ n.mensaje }}</p>
-        <a class="notificacion-enlace" *ngIf="n.enlace" [routerLink]="n.enlace">Ver detalle →</a>
+    
+    @if (!cargando) {
+      <div class="notificaciones-container">
+        @for (n of notificaciones; track n) {
+          <div class="card notificacion-item"
+            [class.no-leida]="!n.leida" (click)="marcarLeida(n)">
+            <div class="notificacion-header">
+              <span class="badge badge-tipo" [ngClass]="'badge-' + (n.tipo || 'info')">{{ n.tipo || 'info' }}</span>
+              <span class="notificacion-fecha">{{ n.fecha_creacion | date:'dd/MM/yyyy HH:mm' }}</span>
+              @if (!n.leida) {
+                <span class="notificacion-leida">●</span>
+              }
+            </div>
+            <h4 class="notificacion-titulo">{{ n.titulo }}</h4>
+            <p class="notificacion-mensaje">{{ n.mensaje }}</p>
+            @if (n.enlace) {
+              <a class="notificacion-enlace" [routerLink]="n.enlace">Ver detalle →</a>
+            }
+          </div>
+        }
+        @if (notificaciones.length === 0) {
+          <div class="empty">
+            No tienes notificaciones
+          </div>
+        }
       </div>
-
-      <div *ngIf="notificaciones.length === 0" class="empty">
-        No tienes notificaciones
-      </div>
-    </div>
-
-    <div class="loading" *ngIf="cargando">Cargando notificaciones...</div>
-    <div class="alert alert-error" *ngIf="error">{{ error }}</div>
-  `,
+    }
+    
+    @if (cargando) {
+      <div class="loading">Cargando notificaciones...</div>
+    }
+    @if (error) {
+      <div class="alert alert-error">{{ error }}</div>
+    }
+    `,
   styles: [`
     .page-header { margin-bottom: 1rem; }
     .page-header h2 { font-size: 1.5rem; margin-bottom: 0.25rem; }

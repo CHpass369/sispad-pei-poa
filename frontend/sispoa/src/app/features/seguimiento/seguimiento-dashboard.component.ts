@@ -9,66 +9,80 @@ import { SeguimientoService, Semaforo, DashboardData, Alerta } from './seguimien
       <h2>Dashboard de Seguimiento</h2>
       <p class="text-secondary">Indicadores de avance físico y financiero</p>
     </div>
-
-    <div class="indicadores-grid" *ngIf="dashboard">
-      <div class="card indicador">
-        <div class="indicador-label">Total Actividades</div>
-        <div class="indicador-valor">{{ dashboard.total_actividades || 0 }}</div>
-      </div>
-      <div class="card indicador verde">
-        <div class="indicador-label">En Tiempo</div>
-        <div class="indicador-valor">{{ dashboard.semaforo?.verde || 0 }}</div>
-      </div>
-      <div class="card indicador amarillo">
-        <div class="indicador-label">Con Riesgo</div>
-        <div class="indicador-valor">{{ dashboard.semaforo?.amarillo || 0 }}</div>
-      </div>
-      <div class="card indicador rojo">
-        <div class="indicador-label">Retrasadas</div>
-        <div class="indicador-valor">{{ dashboard.semaforo?.rojo || 0 }}</div>
-      </div>
-      <div class="card indicador">
-        <div class="indicador-label">Avance Físico Prom.</div>
-        <div class="indicador-valor">{{ dashboard.promedio_avance_fisico || 0 }}%</div>
-      </div>
-      <div class="card indicador">
-        <div class="indicador-label">Avance Financiero Prom.</div>
-        <div class="indicador-valor">{{ dashboard.promedio_avance_financiero || 0 }}%</div>
-      </div>
-    </div>
-
-    <div class="seccion">
-      <h3>Semáforo de Actividades</h3>
-      <div class="semaforo-grid" *ngIf="semaforos.length > 0">
-        <div class="card semaforo-item" *ngFor="let s of semaforos"
-             [class.semaforo-verde]="s.estado_semaforo === 'verde'"
-             [class.semaforo-amarillo]="s.estado_semaforo === 'amarillo'"
-             [class.semaforo-rojo]="s.estado_semaforo === 'rojo'">
-          <div class="semaforo-dot" [ngClass]="'dot-' + s.estado_semaforo"></div>
-          <div class="semaforo-info">
-            <strong>{{ s.actividad_descripcion }}</strong>
-            <div class="semaforo-avances">
-              <span>Físico: {{ s.avance_fisico || 0 }}%</span>
-              <span>Financiero: {{ s.avance_financiero || 0 }}%</span>
-            </div>
-          </div>
+    
+    @if (dashboard) {
+      <div class="indicadores-grid">
+        <div class="card indicador">
+          <div class="indicador-label">Total Actividades</div>
+          <div class="indicador-valor">{{ dashboard.total_actividades || 0 }}</div>
+        </div>
+        <div class="card indicador verde">
+          <div class="indicador-label">En Tiempo</div>
+          <div class="indicador-valor">{{ dashboard.semaforo?.verde || 0 }}</div>
+        </div>
+        <div class="card indicador amarillo">
+          <div class="indicador-label">Con Riesgo</div>
+          <div class="indicador-valor">{{ dashboard.semaforo?.amarillo || 0 }}</div>
+        </div>
+        <div class="card indicador rojo">
+          <div class="indicador-label">Retrasadas</div>
+          <div class="indicador-valor">{{ dashboard.semaforo?.rojo || 0 }}</div>
+        </div>
+        <div class="card indicador">
+          <div class="indicador-label">Avance Físico Prom.</div>
+          <div class="indicador-valor">{{ dashboard.promedio_avance_fisico || 0 }}%</div>
+        </div>
+        <div class="card indicador">
+          <div class="indicador-label">Avance Financiero Prom.</div>
+          <div class="indicador-valor">{{ dashboard.promedio_avance_financiero || 0 }}%</div>
         </div>
       </div>
-      <div *ngIf="semaforos.length === 0" class="empty">No hay datos de semáforo disponibles</div>
+    }
+    
+    <div class="seccion">
+      <h3>Semáforo de Actividades</h3>
+      @if (semaforos.length > 0) {
+        <div class="semaforo-grid">
+          @for (s of semaforos; track s) {
+            <div class="card semaforo-item"
+              [class.semaforo-verde]="s.estado_semaforo === 'verde'"
+              [class.semaforo-amarillo]="s.estado_semaforo === 'amarillo'"
+              [class.semaforo-rojo]="s.estado_semaforo === 'rojo'">
+              <div class="semaforo-dot" [ngClass]="'dot-' + s.estado_semaforo"></div>
+              <div class="semaforo-info">
+                <strong>{{ s.actividad_descripcion }}</strong>
+                <div class="semaforo-avances">
+                  <span>Físico: {{ s.avance_fisico || 0 }}%</span>
+                  <span>Financiero: {{ s.avance_financiero || 0 }}%</span>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      }
+      @if (semaforos.length === 0) {
+        <div class="empty">No hay datos de semáforo disponibles</div>
+      }
     </div>
-
+    
     <div class="seccion">
       <h3>Alertas Activas ({{ alertas.length }})</h3>
-      <div *ngFor="let a of alertas" class="card alerta-item">
-        <span class="badge" [ngClass]="'badge-' + a.severidad">{{ a.severidad }}</span>
-        <span class="alerta-mensaje">{{ a.mensaje }}</span>
-        <span class="alerta-actividad">{{ a.actividad_descripcion }}</span>
-      </div>
-      <div *ngIf="alertas.length === 0" class="empty">No hay alertas activas</div>
+      @for (a of alertas; track a) {
+        <div class="card alerta-item">
+          <span class="badge" [ngClass]="'badge-' + a.severidad">{{ a.severidad }}</span>
+          <span class="alerta-mensaje">{{ a.mensaje }}</span>
+          <span class="alerta-actividad">{{ a.actividad_descripcion }}</span>
+        </div>
+      }
+      @if (alertas.length === 0) {
+        <div class="empty">No hay alertas activas</div>
+      }
     </div>
-
-    <div class="loading" *ngIf="cargando">Cargando dashboard...</div>
-  `,
+    
+    @if (cargando) {
+      <div class="loading">Cargando dashboard...</div>
+    }
+    `,
   styles: [`
     .page-header { margin-bottom: 1.5rem; }
     .page-header h2 { font-size: 1.5rem; margin-bottom: 0.25rem; }

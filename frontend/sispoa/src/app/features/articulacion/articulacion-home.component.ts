@@ -19,23 +19,25 @@ interface CardLink {
           Matrices de articulación del Sistema Integrado de Planificación Estratégica
         </p>
       </div>
-
+    
       <div class="cards-grid">
-        <a *ngFor="let card of cards"
-           [routerLink]="card.route"
-           class="card art-card"
-           [style.--card-accent]="card.color">
-          <div class="card-icon-wrapper" [style.background]="card.color + '18'">
-            <span class="card-icon">{{ card.icon }}</span>
-          </div>
-          <div class="card-body">
-            <h3>{{ card.title }}</h3>
-            <p>{{ card.description }}</p>
-          </div>
-          <span class="card-arrow">→</span>
-        </a>
+        @for (card of cards; track card) {
+          <a
+            [routerLink]="card.route"
+            class="card art-card"
+            [style.--card-accent]="card.color">
+            <div class="card-icon-wrapper" [style.background]="card.color + '18'">
+              <span class="card-icon">{{ card.icon }}</span>
+            </div>
+            <div class="card-body">
+              <h3>{{ card.title }}</h3>
+              <p>{{ card.description }}</p>
+            </div>
+            <span class="card-arrow">→</span>
+          </a>
+        }
       </div>
-
+    
       <div class="info-card card">
         <div class="info-header">
           <span class="info-icon">ⓘ</span>
@@ -50,7 +52,7 @@ interface CardLink {
         </p>
       </div>
     </div>
-  `,
+    `,
   styles: [`
     .art-home { padding-bottom: 2rem; }
     .page-header { margin-bottom: 1.5rem; }

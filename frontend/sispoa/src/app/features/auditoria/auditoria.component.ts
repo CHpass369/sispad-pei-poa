@@ -14,7 +14,9 @@ import { ApiService } from '../../core/services/api.service';
         <label>Acción</label>
         <select [(ngModel)]="filtroAccion" (change)="cargar()" class="form-control">
           <option value="">Todas</option>
-          <option *ngFor="let a of acciones" [value]="a">{{ a }}</option>
+          @for (a of acciones; track a) {
+            <option [value]="a">{{ a }}</option>
+          }
         </select>
       </div>
       <div class="field">
@@ -23,26 +25,32 @@ import { ApiService } from '../../core/services/api.service';
       </div>
     </div>
     <div class="timeline">
-      <div *ngFor="let e of eventos" class="evento">
-        <div class="evento-dot" [class.login]="e.accion==='login'" [class.aprobar]="e.accion==='aprobar'"
-             [class.crear]="e.accion==='crear'" [class.modificar]="e.accion==='modificar'"></div>
-        <div class="evento-content card">
-          <div class="evento-header">
-            <strong>{{ e.usuario_email || e.usuario || 'Sistema' }}</strong>
-            <span class="badge badge-info">{{ e.accion }}</span>
-            <span class="evento-fecha">{{ e.creado_en | date:'dd/MM/yyyy HH:mm' }}</span>
-          </div>
-          <div class="evento-body">
-            <span class="entidad">{{ e.entidad }} #{{ e.entidad_id }}</span>
-            <p *ngIf="e.resumen">{{ e.resumen }}</p>
+      @for (e of eventos; track e) {
+        <div class="evento">
+          <div class="evento-dot" [class.login]="e.accion==='login'" [class.aprobar]="e.accion==='aprobar'"
+          [class.crear]="e.accion==='crear'" [class.modificar]="e.accion==='modificar'"></div>
+          <div class="evento-content card">
+            <div class="evento-header">
+              <strong>{{ e.usuario_email || e.usuario || 'Sistema' }}</strong>
+              <span class="badge badge-info">{{ e.accion }}</span>
+              <span class="evento-fecha">{{ e.creado_en | date:'dd/MM/yyyy HH:mm' }}</span>
+            </div>
+            <div class="evento-body">
+              <span class="entidad">{{ e.entidad }} #{{ e.entidad_id }}</span>
+              @if (e.resumen) {
+                <p>{{ e.resumen }}</p>
+              }
+            </div>
           </div>
         </div>
-      </div>
-      <div *ngIf="eventos.length === 0" class="empty">
-        No hay eventos de auditoría
-      </div>
+      }
+      @if (eventos.length === 0) {
+        <div class="empty">
+          No hay eventos de auditoría
+        </div>
+      }
     </div>
-  `,
+    `,
   styles: [`
     .page-header { margin-bottom: 1rem; }
     .filtros { display: flex; gap: 1rem; margin-bottom: 1.5rem; }

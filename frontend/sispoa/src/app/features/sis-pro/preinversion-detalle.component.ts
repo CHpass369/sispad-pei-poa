@@ -13,92 +13,111 @@ import {
     <div class="page-header">
       <a routerLink="/sis-pro/preinversion" class="volver">← Preinversión</a>
       <h2>{{ proyecto?.codigo_interno }} — {{ proyecto?.nombre }}</h2>
-      <p class="text-secondary" *ngIf="proyecto">
-        Estado: <span class="badge estado">{{ service.etiquetaEstadoExpediente(proyecto.estado_preinversion) }}</span>
-        · Tipología: <span class="badge">{{ proyecto.tipologia_rm115 ? service.tipologiaNombre(proyecto.tipologia_rm115) : 'Sin clasificar' }}</span>
-        · Madurez: <strong>{{ proyecto.puntaje_madurez }}%</strong>
-        · POA: {{ proyecto.habilitado_poa ? '✅ habilitado' : '—' }}
-      </p>
+      @if (proyecto) {
+        <p class="text-secondary">
+          Estado: <span class="badge estado">{{ service.etiquetaEstadoExpediente(proyecto.estado_preinversion) }}</span>
+          · Tipología: <span class="badge">{{ proyecto.tipologia_rm115 ? service.tipologiaNombre(proyecto.tipologia_rm115) : 'Sin clasificar' }}</span>
+          · Madurez: <strong>{{ proyecto.puntaje_madurez }}%</strong>
+          · POA: {{ proyecto.habilitado_poa ? '✅ habilitado' : '—' }}
+        </p>
+      }
     </div>
-    <div *ngIf="cargando" class="loading">Cargando expediente...</div>
-    <div class="alert alert-error" *ngIf="error">{{ error }}</div>
-    <div class="alert alert-success" *ngIf="mensaje">{{ mensaje }}</div>
-
-    <div class="card" *ngIf="proyecto && !cargando">
-      <h3>Ficha de la iniciativa</h3>
-      <form (ngSubmit)="guardarFicha()" class="ficha">
-        <label>Problema / necesidad
-          <textarea [(ngModel)]="ficha.problema" name="problema" rows="2" class="input"></textarea>
-        </label>
-        <label>Objetivo general
-          <textarea [(ngModel)]="ficha.objetivo_general" name="obj" rows="2" class="input"></textarea>
-        </label>
-        <div class="fila">
-          <label>Distrito
-            <input [(ngModel)]="ficha.distrito" name="distrito" class="input" />
+    @if (cargando) {
+      <div class="loading">Cargando expediente...</div>
+    }
+    @if (error) {
+      <div class="alert alert-error">{{ error }}</div>
+    }
+    @if (mensaje) {
+      <div class="alert alert-success">{{ mensaje }}</div>
+    }
+    
+    @if (proyecto && !cargando) {
+      <div class="card">
+        <h3>Ficha de la iniciativa</h3>
+        <form (ngSubmit)="guardarFicha()" class="ficha">
+          <label>Problema / necesidad
+            <textarea [(ngModel)]="ficha.problema" name="problema" rows="2" class="input"></textarea>
           </label>
-          <label>Comunidad / OTB
-            <input [(ngModel)]="ficha.comunidad" name="comunidad" class="input" />
+          <label>Objetivo general
+            <textarea [(ngModel)]="ficha.objetivo_general" name="obj" rows="2" class="input"></textarea>
           </label>
-          <label>Localización
-            <input [(ngModel)]="ficha.descripcion_localizacion" name="loc" class="input" />
-          </label>
-        </div>
-        <div class="fila">
-          <label>Presupuesto estimado (Bs)
-            <input type="number" [(ngModel)]="ficha.presupuesto_estimado" name="pe" class="input" />
-          </label>
-          <label>Presupuesto aprobado (Bs)
-            <input type="number" [(ngModel)]="ficha.presupuesto_aprobado" name="pa" class="input" />
-          </label>
-        </div>
+          <div class="fila">
+            <label>Distrito
+              <input [(ngModel)]="ficha.distrito" name="distrito" class="input" />
+            </label>
+            <label>Comunidad / OTB
+              <input [(ngModel)]="ficha.comunidad" name="comunidad" class="input" />
+            </label>
+            <label>Localización
+              <input [(ngModel)]="ficha.descripcion_localizacion" name="loc" class="input" />
+            </label>
+          </div>
+          <div class="fila">
+            <label>Presupuesto estimado (Bs)
+              <input type="number" [(ngModel)]="ficha.presupuesto_estimado" name="pe" class="input" />
+            </label>
+            <label>Presupuesto aprobado (Bs)
+              <input type="number" [(ngModel)]="ficha.presupuesto_aprobado" name="pa" class="input" />
+            </label>
+          </div>
+          <div class="acciones">
+            <button type="submit" class="btn btn-primary" [disabled]="!puedeEditar">Guardar ficha</button>
+            <button type="button" class="btn" (click)="clasificar()" [disabled]="!puedeEditar">🤖 Clasificar RM 115</button>
+          </div>
+        </form>
+      </div>
+    }
+    
+    @if (proyecto && !cargando) {
+      <div class="card">
+        <h3>Acciones del expediente</h3>
         <div class="acciones">
-          <button type="submit" class="btn btn-primary" [disabled]="!puedeEditar">Guardar ficha</button>
-          <button type="button" class="btn" (click)="clasificar()" [disabled]="!puedeEditar">🤖 Clasificar RM 115</button>
+          <a class="btn btn-sm btn-wizard" [routerLink]="['/sis-pro/preinversion', proyecto.id, 'wizard']">
+            ✨ Abrir wizard de llenado (ITCP → EDTP)
+          </a>
         </div>
-      </form>
-    </div>
-
-    <div class="card" *ngIf="proyecto && !cargando">
-      <h3>Acciones del expediente</h3>
-      <div class="acciones">
-        <a class="btn btn-sm btn-wizard" [routerLink]="['/sis-pro/preinversion', proyecto.id, 'wizard']">
-          ✨ Abrir wizard de llenado (ITCP → EDTP)
-        </a>
-      </div>
-      <div class="acciones mt">
-        <button class="btn btn-sm" (click)="inicializarItcp()" [disabled]="!puedeEditar">
-          🚀 Inicializar ITCP
-        </button>
-        <button class="btn btn-sm" (click)="inicializarEdtp()" [disabled]="!puedeEditar">
-          🚀 Inicializar EDTP
-        </button>
-        <button class="btn btn-sm" (click)="calcularMadurez()" [disabled]="!puedeValidar">
-          📊 Calcular madurez
-        </button>
-        <button class="btn btn-sm" (click)="validar('ITCP')" [disabled]="!puedeValidar">✔ Validar ITCP</button>
-        <button class="btn btn-sm" (click)="validar('EDTP')" [disabled]="!puedeValidar">✔ Validar EDTP</button>
-        <button class="btn btn-sm" (click)="generar('ITCP')" [disabled]="!puedeValidar">📄 Generar ITCP DOCX</button>
-        <button class="btn btn-sm" (click)="generar('EDTP')" [disabled]="!puedeValidar">📄 Generar EDTP DOCX</button>
-        <button class="btn btn-sm" (click)="cambiarEstado('enviado_poa')" [disabled]="!puedeValidar">
-          ➜ Enviar a SIS-POA
-        </button>
-      </div>
-      <div class="acciones mt">
-        <button class="btn btn-sm" (click)="descargarPaquete()">📦 Paquete de transferencia</button>
-      </div>
-      <div *ngIf="validacion" class="validacion">
-        <div [class.ok]="validacion.aprobable" [class.ko]="!validacion.aprobable">
-          {{ validacion.aprobable ? '✅ Aprobable' : '❌ No aprobable' }}
+        <div class="acciones mt">
+          <button class="btn btn-sm" (click)="inicializarItcp()" [disabled]="!puedeEditar">
+            🚀 Inicializar ITCP
+          </button>
+          <button class="btn btn-sm" (click)="inicializarEdtp()" [disabled]="!puedeEditar">
+            🚀 Inicializar EDTP
+          </button>
+          <button class="btn btn-sm" (click)="calcularMadurez()" [disabled]="!puedeValidar">
+            📊 Calcular madurez
+          </button>
+          <button class="btn btn-sm" (click)="validar('ITCP')" [disabled]="!puedeValidar">✔ Validar ITCP</button>
+          <button class="btn btn-sm" (click)="validar('EDTP')" [disabled]="!puedeValidar">✔ Validar EDTP</button>
+          <button class="btn btn-sm" (click)="generar('ITCP')" [disabled]="!puedeValidar">📄 Generar ITCP DOCX</button>
+          <button class="btn btn-sm" (click)="generar('EDTP')" [disabled]="!puedeValidar">📄 Generar EDTP DOCX</button>
+          <button class="btn btn-sm" (click)="cambiarEstado('enviado_poa')" [disabled]="!puedeValidar">
+            ➜ Enviar a SIS-POA
+          </button>
         </div>
-        <ul *ngIf="validacion.errores.length">
-          <li *ngFor="let e of validacion.errores">{{ e }}</li>
-        </ul>
+        <div class="acciones mt">
+          <button class="btn btn-sm" (click)="descargarPaquete()">📦 Paquete de transferencia</button>
+        </div>
+        @if (validacion) {
+          <div class="validacion">
+            <div [class.ok]="validacion.aprobable" [class.ko]="!validacion.aprobable">
+              {{ validacion.aprobable ? '✅ Aprobable' : '❌ No aprobable' }}
+            </div>
+            @if (validacion.errores.length) {
+              <ul>
+                @for (e of validacion.errores; track e) {
+                  <li>{{ e }}</li>
+                }
+              </ul>
+            }
+          </div>
+        }
       </div>
-    </div>
-
-    <div class="card" *ngIf="itcp && !cargando">
-      <h3>ITCP <span class="badge">{{ itcp.estado }}</span> v{{ itcp.version }}
+    }
+    
+    @if (itcp && !cargando) {
+      <div class="card">
+        <h3>ITCP <span class="badge">{{ itcp.estado }}</span> v{{ itcp.version }}
         <a class="btn btn-sm float-right" [routerLink]="['/sis-pro/preinversion', proyecto?.id, 'itcp']">Asistente ITCP →</a>
       </h3>
       <div class="resumen">
@@ -106,9 +125,11 @@ import {
         <span>Resultado: <strong>{{ itcp.resultado_preliminar || '—' }}</strong></span>
       </div>
     </div>
-
-    <div class="card" *ngIf="tdr && !cargando">
-      <h3>TDR del EDTP <span class="badge">{{ tdr.estado }}</span> v{{ tdr.version }}
+    }
+    
+    @if (tdr && !cargando) {
+      <div class="card">
+        <h3>TDR del EDTP <span class="badge">{{ tdr.estado }}</span> v{{ tdr.version }}
         <a class="btn btn-sm float-right" [routerLink]="['/sis-pro/preinversion', proyecto?.id, 'tdr']">Asistente TDR →</a>
       </h3>
       <div class="resumen">
@@ -116,9 +137,11 @@ import {
         <span>Duración: <strong>{{ tdr.duracion_dias ?? '—' }} días</strong></span>
       </div>
     </div>
-
-    <div class="card" *ngIf="edtp && !cargando">
-      <h3>EDTP <span class="badge">{{ edtp.estado }}</span> v{{ edtp.version }}
+    }
+    
+    @if (edtp && !cargando) {
+      <div class="card">
+        <h3>EDTP <span class="badge">{{ edtp.estado }}</span> v{{ edtp.version }}
         <a class="btn btn-sm float-right" [routerLink]="['/sis-pro/preinversion', proyecto?.id, 'edtp']">Asistente EDTP →</a>
       </h3>
       <div class="resumen">
@@ -128,7 +151,8 @@ import {
         <span>Financiamiento: <strong>Bs {{ totalFinanciamiento }}</strong></span>
       </div>
     </div>
-  `,
+    }
+    `,
   styles: [`
     .page-header { margin-bottom: 1.5rem; }
     .volver { display: inline-block; font-size: 0.8125rem; color: var(--text-secondary); text-decoration: none; margin-bottom: 0.25rem; }

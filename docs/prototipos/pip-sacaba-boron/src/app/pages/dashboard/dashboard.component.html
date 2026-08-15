@@ -1,0 +1,74 @@
+<div class="page-head">
+  <div>
+    <div class="eyebrow">GOBIERNO AUTÓNOMO MUNICIPAL DE SACABA</div>
+    <h1>Plataforma Integral de Planificación</h1>
+    <p>Centro de mando para planificación estratégica, operativa y gestión del ciclo de proyectos.</p>
+  </div>
+  <div class="head-actions">
+    <span class="pill">● Gestión 2027</span>
+    <button>＋ Nuevo registro</button>
+  </div>
+</div>
+
+<section class="systems-grid">
+  @for (system of systems; track system.code) {
+    <a class="system-card card" [class]="system.cls + ' system-card card'" [routerLink]="system.route">
+      <div class="system-top"><span>{{ system.code }}</span><b>↗</b></div>
+      <h2>{{ system.title }}</h2>
+      <p>{{ system.desc }}</p>
+      <div class="meta">{{ system.meta }}</div>
+      <div class="progress"><i [style.width.%]="system.progress"></i></div>
+      <div class="progress-caption"><span>Configuración del módulo</span><strong>{{ system.progress }}%</strong></div>
+    </a>
+  }
+</section>
+
+<section class="kpi-grid">
+  <div class="kpi card"><div class="kpi-icon">◎</div><div><span>Resultados estratégicos</span><strong>48</strong><small>12 con articulación completa</small></div></div>
+  <div class="kpi card"><div class="kpi-icon">₿</div><div><span>Techo institucional 2027</span><strong>Bs 428,6 M</strong><small>6 fuentes de financiamiento</small></div></div>
+  <div class="kpi card"><div class="kpi-icon">▣</div><div><span>POAU en formulación</span><strong>37</strong><small>18 unidades organizacionales</small></div></div>
+  <div class="kpi card"><div class="kpi-icon">◆</div><div><span>Proyectos activos</span><strong>126</strong><small>22 con alertas de seguimiento</small></div></div>
+</section>
+
+<section class="dashboard-grid">
+  <article class="card planning-flow">
+    <div class="section-title"><div><span>CADENA DE PLANIFICACIÓN</span><h3>Articulación PIP</h3></div><button>Ver matriz ↗</button></div>
+    <div class="flow">
+      <div class="flow-node"><b>PGDESA / PDESA</b><span>Marco nacional</span></div><i>→</i>
+      <div class="flow-node"><b>PAD</b><span>Mediano plazo</span></div><i>→</i>
+      <div class="flow-node"><b>PEI</b><span>Institucional</span></div><i>→</i>
+      <div class="flow-node"><b>POA</b><span>Corto plazo</span></div><i>→</i>
+      <div class="flow-node"><b>POAU</b><span>Unidad</span></div>
+    </div>
+    <div class="chart-labels"><span>Ene</span><span>Mar</span><span>May</span><span>Jul</span><span>Sep</span><span>Nov</span></div>
+    <svg class="line-chart" viewBox="0 0 700 180" preserveAspectRatio="none" aria-label="Avance de formulación">
+      <path class="gridline" d="M0 140H700M0 90H700M0 40H700" />
+      <path class="area" d="M0 145 C70 130 95 137 140 112 S220 85 280 92 S365 55 420 66 S510 32 560 46 S650 18 700 25 V180H0Z" />
+      <path class="line" d="M0 145 C70 130 95 137 140 112 S220 85 280 92 S365 55 420 66 S510 32 560 46 S650 18 700 25" />
+    </svg>
+  </article>
+
+  <article class="card activity">
+    <div class="section-title"><div><span>ACTIVIDAD</span><h3>Movimientos recientes</h3></div><button>•••</button></div>
+    <div class="activity-list">
+      @for (item of activity; track item[0]) {
+        <div class="activity-item"><div class="activity-mark"></div><div><strong>{{ item[0] }}</strong><p>{{ item[1] }}</p><small>{{ item[2] }}</small></div></div>
+      }
+    </div>
+  </article>
+</section>
+
+<section class="card table-card">
+  <div class="section-title"><div><span>SEGUIMIENTO</span><h3>Unidades organizacionales</h3></div><button>Exportar reporte</button></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Unidad</th><th>Responsable</th><th>PEI</th><th>POA</th><th>POAU</th><th>Estado</th></tr></thead>
+      <tbody>
+        <tr><td><b>Dirección de Catastro</b></td><td>P. Orellana</td><td>100%</td><td>82%</td><td>64%</td><td><span class="status ok">En curso</span></td></tr>
+        <tr><td><b>Planificación Estratégica</b></td><td>Equipo PE</td><td>100%</td><td>94%</td><td>88%</td><td><span class="status ok">En curso</span></td></tr>
+        <tr><td><b>Obras Públicas</b></td><td>Equipo técnico</td><td>76%</td><td>68%</td><td>41%</td><td><span class="status warn">Revisión</span></td></tr>
+        <tr><td><b>Medio Ambiente</b></td><td>Equipo MMA</td><td>92%</td><td>71%</td><td>56%</td><td><span class="status ok">En curso</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>

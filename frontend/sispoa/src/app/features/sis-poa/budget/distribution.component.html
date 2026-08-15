@@ -2,8 +2,10 @@
   <h2>Distribución Presupuestaria</h2>
   <div class="acciones">
     <select class="input" [ngModel]="gestionSeleccionada" (ngModelChange)="seleccionarGestion($event)"
-            style="width:auto">
-      <option *ngFor="let g of gestiones" [ngValue]="g.id">{{ g.anio }} — {{ g.estado_display }}</option>
+      style="width:auto">
+      @for (g of gestiones; track g) {
+        <option [ngValue]="g.id">{{ g.anio }} — {{ g.estado_display }}</option>
+      }
     </select>
     <div class="tooltip-wrap">
       <button class="btn btn-sm" disabled title="Disponible en la Fase 5">Importar GASTOS</button>
@@ -15,8 +17,12 @@
   </div>
 </div>
 
-<div class="alert-error" *ngIf="error">{{ error }}</div>
-<div class="alert-success" *ngIf="mensaje">{{ mensaje }}</div>
+@if (error) {
+  <div class="alert-error">{{ error }}</div>
+}
+@if (mensaje) {
+  <div class="alert-success">{{ mensaje }}</div>
+}
 
 <!-- Dashboard: cards -->
 <div class="cards-grid">
@@ -49,235 +55,281 @@
 <!-- Tabla por fuente -->
 <div class="seccion">
   <h3>Disponibilidad por fuente de financiamiento</h3>
-  <div class="loading" *ngIf="cargando">Cargando…</div>
-  <table class="data-table" *ngIf="!cargando && resumen && resumen.por_fuente.length > 0">
-    <thead>
-      <tr>
-        <th>Fuente</th>
-        <th class="monto-celda">Techo</th>
-        <th class="monto-celda">Distribuido</th>
-        <th class="monto-celda">Reservado</th>
-        <th class="monto-celda">Disponible</th>
-        <th class="monto-celda">%</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr *ngFor="let f of resumen.por_fuente">
-        <td>{{ f.denominacion }}</td>
-        <td class="monto-celda">{{ f.techo | moneda }}</td>
-        <td class="monto-celda">{{ f.distribuido | moneda }}</td>
-        <td class="monto-celda">{{ f.reservado | moneda }}</td>
-        <td class="monto-celda">{{ f.disponible | moneda }}</td>
-        <td class="monto-celda">{{ f.porcentaje | number: '1.0-2' }}%</td>
-      </tr>
-    </tbody>
-  </table>
-  <div class="empty" *ngIf="!cargando && resumen && resumen.por_fuente.length === 0">
-    Sin techo fijado: la distribución está bloqueada.
-  </div>
+  @if (cargando) {
+    <div class="loading">Cargando…</div>
+  }
+  @if (!cargando && resumen && resumen.por_fuente.length > 0) {
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Fuente</th>
+          <th class="monto-celda">Techo</th>
+          <th class="monto-celda">Distribuido</th>
+          <th class="monto-celda">Reservado</th>
+          <th class="monto-celda">Disponible</th>
+          <th class="monto-celda">%</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (f of resumen.por_fuente; track f) {
+          <tr>
+            <td>{{ f.denominacion }}</td>
+            <td class="monto-celda">{{ f.techo | moneda }}</td>
+            <td class="monto-celda">{{ f.distribuido | moneda }}</td>
+            <td class="monto-celda">{{ f.reservado | moneda }}</td>
+            <td class="monto-celda">{{ f.disponible | moneda }}</td>
+            <td class="monto-celda">{{ f.porcentaje | number: '1.0-2' }}%</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+  @if (!cargando && resumen && resumen.por_fuente.length === 0) {
+    <div class="empty">
+      Sin techo fijado: la distribución está bloqueada.
+    </div>
+  }
 </div>
 
 <!-- Formulario nueva apertura -->
-<div class="seccion" *ngIf="mostrarFormulario">
-  <h3>{{ editando ? 'Editar apertura' : 'Nueva apertura' }}</h3>
-  <div class="form-grid">
-    <div class="campo">
-      <label>Denominación *</label>
-      <input class="input" [(ngModel)]="nueva.denominacion" placeholder="Denominación de la apertura" />
+@if (mostrarFormulario) {
+  <div class="seccion">
+    <h3>{{ editando ? 'Editar apertura' : 'Nueva apertura' }}</h3>
+    <div class="form-grid">
+      <div class="campo">
+        <label>Denominación *</label>
+        <input class="input" [(ngModel)]="nueva.denominacion" placeholder="Denominación de la apertura" />
+      </div>
+      <div class="campo">
+        <label>Categoría programática</label>
+        <select class="input" [(ngModel)]="nueva.categoria">
+          <option [ngValue]="null">— sin categoría —</option>
+          @for (c of categorias; track c) {
+            <option [ngValue]="c.id">{{ c.codigo_compuesto }} — {{ c.denominacion }}</option>
+          }
+        </select>
+      </div>
+      <div class="campo">
+        <label>Distrito</label>
+        <select class="input" [(ngModel)]="nueva.distrito">
+          <option [ngValue]="null">— sin distrito —</option>
+          @for (d of opciones?.distritos; track d) {
+            <option [ngValue]="d.codigo">{{ d.codigo }} — {{ d.nombre }}</option>
+          }
+        </select>
+      </div>
+      <div class="campo">
+        <label>Dirección administrativa</label>
+        <select class="input" [(ngModel)]="nueva.da">
+          <option [ngValue]="null">— sin DA —</option>
+          @for (d of opciones?.direcciones; track d) {
+            <option [ngValue]="d.codigo">{{ d.codigo }} — {{ d.nombre }}</option>
+          }
+        </select>
+      </div>
+      <div class="campo">
+        <label>Unidad ejecutora</label>
+        <select class="input" [(ngModel)]="nueva.ue">
+          <option [ngValue]="null">— sin UE —</option>
+          @for (u of opciones?.unidades_ejecutoras; track u) {
+            <option [ngValue]="u.codigo">{{ u.codigo }} — {{ u.nombre }}</option>
+          }
+        </select>
+      </div>
+      <div class="campo">
+        <label>Unidad organizacional</label>
+        <select class="input" [(ngModel)]="nueva.unidad_organizacional">
+          <option [ngValue]="null">— sin unidad —</option>
+          @for (u of opciones?.unidades_organizacionales; track u) {
+            <option [ngValue]="u.codigo">{{ u.codigo }} — {{ u.nombre }}</option>
+          }
+        </select>
+      </div>
+      <div class="campo">
+        <label>Código SISIN</label>
+        <input class="input" [(ngModel)]="nueva.codigo_sisin" placeholder="12345678" />
+      </div>
+      <div class="campo">
+        <label>Proyecto</label>
+        <input class="input" [(ngModel)]="nueva.proyecto_codigo" placeholder="Código de proyecto" />
+      </div>
+      <div class="campo">
+        <label>Actividad</label>
+        <input class="input" [(ngModel)]="nueva.actividad_codigo" placeholder="Código de actividad" />
+      </div>
     </div>
-    <div class="campo">
-      <label>Categoría programática</label>
-      <select class="input" [(ngModel)]="nueva.categoria">
-        <option [ngValue]="null">— sin categoría —</option>
-        <option *ngFor="let c of categorias" [ngValue]="c.id">{{ c.codigo_compuesto }} — {{ c.denominacion }}</option>
-      </select>
+    <div class="fuentes-filas">
+      <label style="font-size: 0.75rem; font-weight: 600;">Fuentes de financiamiento *</label>
+      @for (f of filasFuentes; track f; let i = $index) {
+        <div class="fila-fuente">
+          <select class="input" [(ngModel)]="f.fuente" style="min-width: 220px;">
+            <option value="">— fuente —</option>
+            @for (fuente of opciones?.fuentes; track fuente) {
+              <option [ngValue]="fuente.id">{{ fuente.codigo }} — {{ fuente.denominacion }}</option>
+            }
+          </select>
+          <select class="input" [(ngModel)]="f.organismo" style="min-width: 200px;">
+            <option value="">— organismo —</option>
+            @for (o of opciones?.organismos; track o) {
+              <option [ngValue]="o.id">{{ o.codigo }} — {{ o.denominacion }}</option>
+            }
+          </select>
+          <input class="input" type="number" min="0" step="0.01" [(ngModel)]="f.monto" placeholder="Monto (Bs)" />
+          @if (filasFuentes.length > 1) {
+            <button class="btn btn-sm btn-danger" (click)="quitarFilaFuente(i)">✕</button>
+          }
+          <button class="btn btn-sm" (click)="agregarFilaFuente()">+ Fila</button>
+        </div>
+      }
+      <div class="monto-celda" style="text-align: left; font-weight: 600; margin-top: 0.5rem;">
+        Total: {{ totalFormulario() | moneda }}
+      </div>
     </div>
-    <div class="campo">
-      <label>Distrito</label>
-      <select class="input" [(ngModel)]="nueva.distrito">
-        <option [ngValue]="null">— sin distrito —</option>
-        <option *ngFor="let d of opciones?.distritos" [ngValue]="d.codigo">{{ d.codigo }} — {{ d.nombre }}</option>
-      </select>
-    </div>
-    <div class="campo">
-      <label>Dirección administrativa</label>
-      <select class="input" [(ngModel)]="nueva.da">
-        <option [ngValue]="null">— sin DA —</option>
-        <option *ngFor="let d of opciones?.direcciones" [ngValue]="d.codigo">{{ d.codigo }} — {{ d.nombre }}</option>
-      </select>
-    </div>
-    <div class="campo">
-      <label>Unidad ejecutora</label>
-      <select class="input" [(ngModel)]="nueva.ue">
-        <option [ngValue]="null">— sin UE —</option>
-        <option *ngFor="let u of opciones?.unidades_ejecutoras" [ngValue]="u.codigo">{{ u.codigo }} — {{ u.nombre }}</option>
-      </select>
-    </div>
-    <div class="campo">
-      <label>Unidad organizacional</label>
-      <select class="input" [(ngModel)]="nueva.unidad_organizacional">
-        <option [ngValue]="null">— sin unidad —</option>
-        <option *ngFor="let u of opciones?.unidades_organizacionales" [ngValue]="u.codigo">{{ u.codigo }} — {{ u.nombre }}</option>
-      </select>
-    </div>
-    <div class="campo">
-      <label>Código SISIN</label>
-      <input class="input" [(ngModel)]="nueva.codigo_sisin" placeholder="12345678" />
-    </div>
-    <div class="campo">
-      <label>Proyecto</label>
-      <input class="input" [(ngModel)]="nueva.proyecto_codigo" placeholder="Código de proyecto" />
-    </div>
-    <div class="campo">
-      <label>Actividad</label>
-      <input class="input" [(ngModel)]="nueva.actividad_codigo" placeholder="Código de actividad" />
+    <div class="acciones" style="margin-top: 1rem;">
+      <button class="btn btn-primary" (click)="guardar()" [disabled]="guardando">
+        {{ guardando ? 'Guardando…' : (editando ? 'Guardar cambios' : 'Crear apertura') }}
+      </button>
+      <button class="btn btn-sm" (click)="cerrarFormulario()">Cancelar</button>
     </div>
   </div>
-
-  <div class="fuentes-filas">
-    <label style="font-size: 0.75rem; font-weight: 600;">Fuentes de financiamiento *</label>
-    <div class="fila-fuente" *ngFor="let f of filasFuentes; let i = index">
-      <select class="input" [(ngModel)]="f.fuente" style="min-width: 220px;">
-        <option value="">— fuente —</option>
-        <option *ngFor="let fuente of opciones?.fuentes" [ngValue]="fuente.id">{{ fuente.codigo }} — {{ fuente.denominacion }}</option>
-      </select>
-      <select class="input" [(ngModel)]="f.organismo" style="min-width: 200px;">
-        <option value="">— organismo —</option>
-        <option *ngFor="let o of opciones?.organismos" [ngValue]="o.id">{{ o.codigo }} — {{ o.denominacion }}</option>
-      </select>
-      <input class="input" type="number" min="0" step="0.01" [(ngModel)]="f.monto" placeholder="Monto (Bs)" />
-      <button class="btn btn-sm btn-danger" (click)="quitarFilaFuente(i)" *ngIf="filasFuentes.length > 1">✕</button>
-      <button class="btn btn-sm" (click)="agregarFilaFuente()">+ Fila</button>
-    </div>
-    <div class="monto-celda" style="text-align: left; font-weight: 600; margin-top: 0.5rem;">
-      Total: {{ totalFormulario() | moneda }}
-    </div>
-  </div>
-
-  <div class="acciones" style="margin-top: 1rem;">
-    <button class="btn btn-primary" (click)="guardar()" [disabled]="guardando">
-      {{ guardando ? 'Guardando…' : (editando ? 'Guardar cambios' : 'Crear apertura') }}
-    </button>
-    <button class="btn btn-sm" (click)="cerrarFormulario()">Cancelar</button>
-  </div>
-</div>
+}
 
 <!-- Tabla de aperturas -->
 <div class="seccion">
   <h3>Aperturas programáticas ({{ aperturas.length }})</h3>
-  <div class="loading" *ngIf="cargando">Cargando…</div>
-  <div class="empty" *ngIf="!cargando && aperturas.length === 0">Sin aperturas para esta gestión.</div>
-  <table class="data-table" *ngIf="!cargando && aperturas.length > 0">
-    <thead>
-      <tr>
-        <th>N°</th>
-        <th>DA</th>
-        <th>UE</th>
-        <th>Programa</th>
-        <th>SISIN</th>
-        <th>Actividad</th>
-        <th>Denominación</th>
-        <th class="monto-celda">Total</th>
-        <th>Estado</th>
-        <th>Acciones</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr *ngFor="let a of aperturas; let i = index"
-          class="fila-seleccionable"
-          [class.fila-seleccionada]="aperturaSeleccionada?.id === a.id"
-          (click)="seleccionarApertura(a)"
-          title="Clic para ver los objetos del gasto de esta apertura">
-        <td>{{ a.orden > 0 ? a.orden : i + 1 }}</td>
-        <td>{{ a.da_detalle?.codigo ?? '—' }}</td>
-        <td>{{ a.ue_detalle?.codigo ?? '—' }}</td>
-        <td>{{ a.categoria_detalle?.codigo_compuesto ?? a.categoria_detalle?.codigo ?? '—' }}</td>
-        <td>{{ a.codigo_sisin || '—' }}</td>
-        <td>{{ a.actividad_codigo || '—' }}</td>
-        <td>{{ a.denominacion }}</td>
-        <td class="monto-celda">{{ a.total | moneda }}</td>
-        <td><span class="badge" [ngClass]="badgeClass(a.estado)">{{ a.estado }}</span></td>
-        <td>
-          <div class="acciones" (click)="$event.stopPropagation()">
-            <button class="btn btn-sm" (click)="editar(a)" [disabled]="a.estado === 'CERRADA'" title="Editar">✎</button>
-            <button class="btn btn-sm" (click)="cerrar(a)" [disabled]="a.estado === 'CERRADA'" title="Cerrar">⛔</button>
-            <button class="btn btn-sm btn-danger" (click)="eliminar(a)" [disabled]="a.estado === 'CERRADA'" title="Eliminar">🗑</button>
-          </div>
-        </td>
-      </tr>
-    </tbody>
-  </table>
+  @if (cargando) {
+    <div class="loading">Cargando…</div>
+  }
+  @if (!cargando && aperturas.length === 0) {
+    <div class="empty">Sin aperturas para esta gestión.</div>
+  }
+  @if (!cargando && aperturas.length > 0) {
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>N°</th>
+          <th>DA</th>
+          <th>UE</th>
+          <th>Programa</th>
+          <th>SISIN</th>
+          <th>Actividad</th>
+          <th>Denominación</th>
+          <th class="monto-celda">Total</th>
+          <th>Estado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (a of aperturas; track a; let i = $index) {
+          <tr
+            class="fila-seleccionable"
+            [class.fila-seleccionada]="aperturaSeleccionada?.id === a.id"
+            (click)="seleccionarApertura(a)"
+            title="Clic para ver los objetos del gasto de esta apertura">
+            <td>{{ a.orden > 0 ? a.orden : i + 1 }}</td>
+            <td>{{ a.da_detalle?.codigo ?? '—' }}</td>
+            <td>{{ a.ue_detalle?.codigo ?? '—' }}</td>
+            <td>{{ a.categoria_detalle?.codigo_compuesto ?? a.categoria_detalle?.codigo ?? '—' }}</td>
+            <td>{{ a.codigo_sisin || '—' }}</td>
+            <td>{{ a.actividad_codigo || '—' }}</td>
+            <td>{{ a.denominacion }}</td>
+            <td class="monto-celda">{{ a.total | moneda }}</td>
+            <td><span class="badge" [ngClass]="badgeClass(a.estado)">{{ a.estado }}</span></td>
+            <td>
+              <div class="acciones" (click)="$event.stopPropagation()">
+                <button class="btn btn-sm" (click)="editar(a)" [disabled]="a.estado === 'CERRADA'" title="Editar">✎</button>
+                <button class="btn btn-sm" (click)="cerrar(a)" [disabled]="a.estado === 'CERRADA'" title="Cerrar">⛔</button>
+                <button class="btn btn-sm btn-danger" (click)="eliminar(a)" [disabled]="a.estado === 'CERRADA'" title="Eliminar">🗑</button>
+              </div>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
 </div>
 
 <!-- Objetos del gasto por apertura (Fase 9) -->
-<div class="seccion" *ngIf="aperturaSeleccionada">
-  <h3>Objetos del gasto — {{ aperturaSeleccionada.denominacion }}</h3>
-
-  <div class="cards-grid" *ngIf="resumenApertura" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
-    <div class="card-resumen destacada">
-      <div class="etiqueta">Techo de la apertura</div>
-      <div class="valor">{{ resumenApertura.techo | moneda }}</div>
-    </div>
-    <div class="card-resumen">
-      <div class="etiqueta">Programado</div>
-      <div class="valor">{{ resumenApertura.programado | moneda }}</div>
-    </div>
-    <div class="card-resumen resalta">
-      <div class="etiqueta">Disponible</div>
-      <div class="valor">{{ resumenApertura.disponible | moneda }}</div>
-    </div>
-  </div>
-
-  <div class="alert-error" *ngIf="errorObjetos">{{ errorObjetos }}</div>
-
-  <table class="data-table" *ngIf="objetosGasto.length > 0">
-    <thead>
-      <tr>
-        <th>Código</th>
-        <th>Denominación</th>
-        <th class="monto-celda">Monto</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr *ngFor="let o of objetosGasto">
-        <td>{{ o.objeto_gasto_detalle?.codigo ?? '—' }}</td>
-        <td>{{ o.objeto_gasto_detalle?.denominacion ?? '—' }}</td>
-        <td class="monto-celda">{{ o.monto | moneda }}</td>
-        <td>
-          <div class="acciones">
-            <button class="btn btn-sm" (click)="editarObjeto(o)" title="Editar monto">✎</button>
-            <button class="btn btn-sm btn-danger" (click)="eliminarObjeto(o)" title="Eliminar">🗑</button>
-          </div>
-        </td>
-      </tr>
-    </tbody>
-  </table>
-  <div class="empty" *ngIf="objetosGasto.length === 0">Sin objetos del gasto programados en esta apertura.</div>
-
-  <div class="form-grid" style="max-width: 720px; margin-top: 0.75rem;">
-    <div class="campo">
-      <label>Objeto del gasto</label>
-      <select class="input" [(ngModel)]="formObjeto.objeto_gasto" [disabled]="!!editandoObjeto">
-        <option [ngValue]="null">— objeto del gasto —</option>
-        <option *ngFor="let og of opciones?.objetos_gasto" [ngValue]="og.id">{{ og.codigo }} — {{ og.nombre ?? og.denominacion }}</option>
-      </select>
-    </div>
-    <div class="campo">
-      <label>Monto (Bs) *</label>
-      <input class="input" type="number" min="0" step="0.01" [(ngModel)]="formObjeto.monto" />
-    </div>
-    <div class="campo">
-      <label>&nbsp;</label>
-      <div class="acciones">
-        <button class="btn btn-primary" (click)="guardarObjeto()" [disabled]="guardandoObjeto">
-          {{ guardandoObjeto ? 'Guardando…' : (editandoObjeto ? 'Guardar monto' : 'Programar') }}
-        </button>
-        <button class="btn btn-sm" *ngIf="editandoObjeto" (click)="cancelarEdicionObjeto()">Cancelar</button>
+@if (aperturaSeleccionada) {
+  <div class="seccion">
+    <h3>Objetos del gasto — {{ aperturaSeleccionada.denominacion }}</h3>
+    @if (resumenApertura) {
+      <div class="cards-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
+        <div class="card-resumen destacada">
+          <div class="etiqueta">Techo de la apertura</div>
+          <div class="valor">{{ resumenApertura.techo | moneda }}</div>
+        </div>
+        <div class="card-resumen">
+          <div class="etiqueta">Programado</div>
+          <div class="valor">{{ resumenApertura.programado | moneda }}</div>
+        </div>
+        <div class="card-resumen resalta">
+          <div class="etiqueta">Disponible</div>
+          <div class="valor">{{ resumenApertura.disponible | moneda }}</div>
+        </div>
+      </div>
+    }
+    @if (errorObjetos) {
+      <div class="alert-error">{{ errorObjetos }}</div>
+    }
+    @if (objetosGasto.length > 0) {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Código</th>
+            <th>Denominación</th>
+            <th class="monto-celda">Monto</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (o of objetosGasto; track o) {
+            <tr>
+              <td>{{ o.objeto_gasto_detalle?.codigo ?? '—' }}</td>
+              <td>{{ o.objeto_gasto_detalle?.denominacion ?? '—' }}</td>
+              <td class="monto-celda">{{ o.monto | moneda }}</td>
+              <td>
+                <div class="acciones">
+                  <button class="btn btn-sm" (click)="editarObjeto(o)" title="Editar monto">✎</button>
+                  <button class="btn btn-sm btn-danger" (click)="eliminarObjeto(o)" title="Eliminar">🗑</button>
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+    @if (objetosGasto.length === 0) {
+      <div class="empty">Sin objetos del gasto programados en esta apertura.</div>
+    }
+    <div class="form-grid" style="max-width: 720px; margin-top: 0.75rem;">
+      <div class="campo">
+        <label>Objeto del gasto</label>
+        <select class="input" [(ngModel)]="formObjeto.objeto_gasto" [disabled]="!!editandoObjeto">
+          <option [ngValue]="null">— objeto del gasto —</option>
+          @for (og of opciones?.objetos_gasto; track og) {
+            <option [ngValue]="og.id">{{ og.codigo }} — {{ og.nombre ?? og.denominacion }}</option>
+          }
+        </select>
+      </div>
+      <div class="campo">
+        <label>Monto (Bs) *</label>
+        <input class="input" type="number" min="0" step="0.01" [(ngModel)]="formObjeto.monto" />
+      </div>
+      <div class="campo">
+        <label>&nbsp;</label>
+        <div class="acciones">
+          <button class="btn btn-primary" (click)="guardarObjeto()" [disabled]="guardandoObjeto">
+            {{ guardandoObjeto ? 'Guardando…' : (editandoObjeto ? 'Guardar monto' : 'Programar') }}
+          </button>
+          @if (editandoObjeto) {
+            <button class="btn btn-sm" (click)="cancelarEdicionObjeto()">Cancelar</button>
+          }
+        </div>
       </div>
     </div>
   </div>
-</div>
+}
 
 <!-- Reservas -->
 <div class="seccion">
@@ -287,14 +339,18 @@
       <label>Fuente</label>
       <select class="input" [(ngModel)]="formReserva.fuente">
         <option [ngValue]="null">— fuente —</option>
-        <option *ngFor="let fuente of opciones?.fuentes" [ngValue]="fuente.id">{{ fuente.codigo }} — {{ fuente.denominacion }}</option>
+        @for (fuente of opciones?.fuentes; track fuente) {
+          <option [ngValue]="fuente.id">{{ fuente.codigo }} — {{ fuente.denominacion }}</option>
+        }
       </select>
     </div>
     <div class="campo">
       <label>Organismo</label>
       <select class="input" [(ngModel)]="formReserva.organismo">
         <option [ngValue]="null">— organismo —</option>
-        <option *ngFor="let o of opciones?.organismos" [ngValue]="o.id">{{ o.codigo }} — {{ o.denominacion }}</option>
+        @for (o of opciones?.organismos; track o) {
+          <option [ngValue]="o.id">{{ o.codigo }} — {{ o.denominacion }}</option>
+        }
       </select>
     </div>
     <div class="campo">
@@ -319,116 +375,143 @@
     </div>
   </div>
 
-  <table class="data-table" style="margin-top: 1rem;" *ngIf="reservas.length > 0">
-    <thead>
-      <tr>
-        <th>Fuente</th>
-        <th>Tipo</th>
-        <th class="monto-celda">Monto</th>
-        <th>Motivo</th>
-        <th>Estado</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr *ngFor="let r of reservas">
-        <td>{{ r.fuente_detalle?.denominacion ?? '—' }}</td>
-        <td>{{ r.tipo_display }}</td>
-        <td class="monto-celda">{{ r.monto | moneda }}</td>
-        <td>{{ r.motivo || '—' }}</td>
-        <td><span class="badge" [ngClass]="r.estado === 'ACTIVA' ? 'badge-warning' : 'badge-success'">{{ r.estado }}</span></td>
-        <td>
-          <button class="btn btn-sm" *ngIf="r.estado === 'ACTIVA'" (click)="liberar(r)">Liberar</button>
-        </td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-<!-- Fijación de la distribución (Fase 7) -->
-<div class="seccion" *ngIf="versiones.length > 0">
-  <h3>Fijación de la distribución</h3>
-
-  <div class="alert-error" *ngIf="versiones.length > 0 && !versionActiva()">
-    Distribución fijada: use «Ajuste» sobre la versión fijada para crear la versión siguiente (BORRADOR).
-  </div>
-
-  <div class="acciones" style="margin-bottom: 0.75rem;">
-    <button class="btn btn-sm" (click)="validar()" [disabled]="!versionActiva()" title="Valida Σfuente = techo − reservas">Validar distribución</button>
-    <button *ngIf="puede('submit')" class="btn btn-primary" (click)="enviarRevision()" title="BORRADOR → EN_REVISION">Enviar a revisión</button>
-    <button *ngIf="puede('observe')" class="btn btn-sm" (click)="observar()" title="EN_REVISION → OBSERVADO">Observar</button>
-    <button *ngIf="puede('approve')" class="btn btn-primary" (click)="aprobar()" title="EN_REVISION → APROBADO">Aprobar</button>
-    <button *ngIf="puede('freeze')" class="btn btn-success" (click)="fijar()" title="APROBADO → FIJADO (inmutable + checksum)">Fijar distribución</button>
-  </div>
-
-  <div class="form-grid" *ngIf="puede('observe') || puede('freeze')" style="max-width: 640px; margin-bottom: 0.75rem;">
-    <div class="campo">
-      <label>{{ puede('observe') ? 'Motivo de la observación *' : 'Observaciones de la fijación' }}</label>
-      <input class="input" [(ngModel)]="observacionTexto" placeholder="Motivo / observaciones" />
-    </div>
-  </div>
-
-  <!-- Panel de validación (diferencias por fuente) -->
-  <div *ngIf="validacion" style="margin-bottom: 1rem;">
-    <div class="alert-success" *ngIf="validacion.valida">
-      La distribución está completa: todas las fuentes con diferencia 0. Puede fijarla.
-    </div>
-    <div class="alert-error" *ngIf="!validacion.valida">
-      La distribución NO está completa: corrija las diferencias antes de fijar.
-    </div>
-    <table class="data-table">
+  @if (reservas.length > 0) {
+    <table class="data-table" style="margin-top: 1rem;">
       <thead>
         <tr>
           <th>Fuente</th>
-          <th class="monto-celda">Techo</th>
-          <th class="monto-celda">Distribuido</th>
-          <th class="monto-celda">Reservado</th>
-          <th class="monto-celda">Diferencia</th>
+          <th>Tipo</th>
+          <th class="monto-celda">Monto</th>
+          <th>Motivo</th>
           <th>Estado</th>
+          <th></th>
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let d of validacion.diferencias">
-          <td>{{ d.denominacion }}</td>
-          <td class="monto-celda">{{ d.techo | moneda }}</td>
-          <td class="monto-celda">{{ d.distribuido | moneda }}</td>
-          <td class="monto-celda">{{ d.reservado | moneda }}</td>
-          <td class="monto-celda">{{ d.diferencia | moneda }}</td>
-          <td>
-            <span class="badge" [ngClass]="d.diferencia === '0.00' ? 'badge-success' : 'badge-danger'">
-              {{ d.diferencia === '0.00' ? 'válida' : 'no válida' }}
-            </span>
-          </td>
+        @for (r of reservas; track r) {
+          <tr>
+            <td>{{ r.fuente_detalle?.denominacion ?? '—' }}</td>
+            <td>{{ r.tipo_display }}</td>
+            <td class="monto-celda">{{ r.monto | moneda }}</td>
+            <td>{{ r.motivo || '—' }}</td>
+            <td><span class="badge" [ngClass]="r.estado === 'ACTIVA' ? 'badge-warning' : 'badge-success'">{{ r.estado }}</span></td>
+            <td>
+              @if (r.estado === 'ACTIVA') {
+                <button class="btn btn-sm" (click)="liberar(r)">Liberar</button>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</div>
+
+<!-- Fijación de la distribución (Fase 7) -->
+@if (versiones.length > 0) {
+  <div class="seccion">
+    <h3>Fijación de la distribución</h3>
+    @if (versiones.length > 0 && !versionActiva()) {
+      <div class="alert-error">
+        Distribución fijada: use «Ajuste» sobre la versión fijada para crear la versión siguiente (BORRADOR).
+      </div>
+    }
+    <div class="acciones" style="margin-bottom: 0.75rem;">
+      <button class="btn btn-sm" (click)="validar()" [disabled]="!versionActiva()" title="Valida Σfuente = techo − reservas">Validar distribución</button>
+      @if (puede('submit')) {
+        <button class="btn btn-primary" (click)="enviarRevision()" title="BORRADOR → EN_REVISION">Enviar a revisión</button>
+      }
+      @if (puede('observe')) {
+        <button class="btn btn-sm" (click)="observar()" title="EN_REVISION → OBSERVADO">Observar</button>
+      }
+      @if (puede('approve')) {
+        <button class="btn btn-primary" (click)="aprobar()" title="EN_REVISION → APROBADO">Aprobar</button>
+      }
+      @if (puede('freeze')) {
+        <button class="btn btn-success" (click)="fijar()" title="APROBADO → FIJADO (inmutable + checksum)">Fijar distribución</button>
+      }
+    </div>
+    @if (puede('observe') || puede('freeze')) {
+      <div class="form-grid" style="max-width: 640px; margin-bottom: 0.75rem;">
+        <div class="campo">
+          <label>{{ puede('observe') ? 'Motivo de la observación *' : 'Observaciones de la fijación' }}</label>
+          <input class="input" [(ngModel)]="observacionTexto" placeholder="Motivo / observaciones" />
+        </div>
+      </div>
+    }
+    <!-- Panel de validación (diferencias por fuente) -->
+    @if (validacion) {
+      <div style="margin-bottom: 1rem;">
+        @if (validacion.valida) {
+          <div class="alert-success">
+            La distribución está completa: todas las fuentes con diferencia 0. Puede fijarla.
+          </div>
+        }
+        @if (!validacion.valida) {
+          <div class="alert-error">
+            La distribución NO está completa: corrija las diferencias antes de fijar.
+          </div>
+        }
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Fuente</th>
+              <th class="monto-celda">Techo</th>
+              <th class="monto-celda">Distribuido</th>
+              <th class="monto-celda">Reservado</th>
+              <th class="monto-celda">Diferencia</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (d of validacion.diferencias; track d) {
+              <tr>
+                <td>{{ d.denominacion }}</td>
+                <td class="monto-celda">{{ d.techo | moneda }}</td>
+                <td class="monto-celda">{{ d.distribuido | moneda }}</td>
+                <td class="monto-celda">{{ d.reservado | moneda }}</td>
+                <td class="monto-celda">{{ d.diferencia | moneda }}</td>
+                <td>
+                  <span class="badge" [ngClass]="d.diferencia === '0.00' ? 'badge-success' : 'badge-danger'">
+                    {{ d.diferencia === '0.00' ? 'válida' : 'no válida' }}
+                  </span>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+    <!-- Versiones de la distribución -->
+    <h3 style="margin-top: 1.25rem;">Versiones de la distribución ({{ versiones.length }})</h3>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Versión</th>
+          <th>Estado</th>
+          <th>Inmutabilidad</th>
+          <th>Checksum</th>
+          <th>Fijada por</th>
+          <th></th>
         </tr>
+      </thead>
+      <tbody>
+        @for (v of versiones; track v) {
+          <tr>
+            <td>V{{ v.numero }}</td>
+            <td><span class="badge" [ngClass]="badgeEstadoVersion(v.estado)">{{ v.estado_display }}</span></td>
+            <td>{{ v.inmutable ? 'FIJADA (inmutable)' : 'Editable' }}</td>
+            <td style="font-family: monospace; font-size: 0.6875rem;">{{ v.hash ? (v.hash | slice:0:12) + '…' : '—' }}</td>
+            <td>{{ v.fijado_por_email || '—' }}</td>
+            <td>
+              @if (v.inmutable) {
+                <button class="btn btn-sm" (click)="ajustar(v)"
+                title="Crea la versión siguiente (BORRADOR), sin copiar montos">Ajuste</button>
+              }
+            </td>
+          </tr>
+        }
       </tbody>
     </table>
   </div>
-
-  <!-- Versiones de la distribución -->
-  <h3 style="margin-top: 1.25rem;">Versiones de la distribución ({{ versiones.length }})</h3>
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th>Versión</th>
-        <th>Estado</th>
-        <th>Inmutabilidad</th>
-        <th>Checksum</th>
-        <th>Fijada por</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr *ngFor="let v of versiones">
-        <td>V{{ v.numero }}</td>
-        <td><span class="badge" [ngClass]="badgeEstadoVersion(v.estado)">{{ v.estado_display }}</span></td>
-        <td>{{ v.inmutable ? 'FIJADA (inmutable)' : 'Editable' }}</td>
-        <td style="font-family: monospace; font-size: 0.6875rem;">{{ v.hash ? (v.hash | slice:0:12) + '…' : '—' }}</td>
-        <td>{{ v.fijado_por_email || '—' }}</td>
-        <td>
-          <button class="btn btn-sm" *ngIf="v.inmutable" (click)="ajustar(v)"
-                  title="Crea la versión siguiente (BORRADOR), sin copiar montos">Ajuste</button>
-        </td>
-      </tr>
-    </tbody>
-  </table>
-</div>
+}

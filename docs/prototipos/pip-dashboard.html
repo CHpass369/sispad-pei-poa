@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PIP — Dashboard SIS-POA · GAM Sacaba</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* ============ TOKENS ============ */
+  :root {
+    --pip-ink: #132019;
+    --pip-ink-soft: #4A5B51;
+    --pip-green-900: #0C2E1D;
+    --pip-green-800: #103D26;
+    --pip-green-700: #155E3A;
+    --pip-green-500: #2E8B57;
+    --pip-green-100: #E2F0E7;
+    --pip-gold: #C9972E;
+    --pip-gold-soft: #F5EAD2;
+    --pip-surface: #F4F7F4;
+    --pip-card: #FFFFFF;
+    --pip-line: #DEE7E0;
+    --pip-danger: #C0392B;
+    --pip-warn: #B9770E;
+    --font-display: 'Space Grotesk', sans-serif;
+    --font-body: 'Inter', sans-serif;
+    --font-mono: 'IBM Plex Mono', monospace;
+    --radius: 10px;
+    --shadow: 0 1px 2px rgba(19,32,25,.05), 0 8px 24px rgba(19,32,25,.06);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font-body);
+    color: var(--pip-ink);
+    background: var(--pip-surface);
+    font-size: 14px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Focus visible — calidad mínima */
+  a:focus-visible, button:focus-visible, input:focus-visible, [tabindex]:focus-visible {
+    outline: 2px solid var(--pip-green-500);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* ============ LAYOUT ============ */
+  .app { display: flex; min-height: 100vh; }
+
+  /* ---- Sidebar ---- */
+  .sidebar {
+    width: 248px;
+    flex-shrink: 0;
+    background: var(--pip-green-900);
+    color: #CFE3D6;
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+  }
+  .sidebar-brand {
+    display: flex; align-items: center; gap: 10px;
+    padding: 20px 18px 16px;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+  }
+  .brand-mark {
+    width: 34px; height: 34px; border-radius: 9px;
+    background: linear-gradient(135deg, var(--pip-green-500), var(--pip-green-700));
+    display: grid; place-items: center;
+    font-family: var(--font-display); font-weight: 700; font-size: 13px; color: #fff;
+    letter-spacing: .5px;
+  }
+  .brand-name { font-family: var(--font-display); font-weight: 600; font-size: 15px; color: #fff; }
+  .brand-sub { font-size: 10.5px; color: #8FB89E; letter-spacing: .4px; text-transform: uppercase; }
+
+  .sidebar-nav { flex: 1; overflow-y: auto; padding: 14px 10px; }
+  .nav-label {
+    font-size: 10px; letter-spacing: 1.2px; text-transform: uppercase;
+    color: #6E9A80; padding: 12px 10px 6px; font-weight: 600;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 10px; border-radius: 8px;
+    color: #C4D9CB; text-decoration: none; font-size: 13px; font-weight: 500;
+    transition: background .15s;
+  }
+  .nav-item:hover { background: rgba(255,255,255,.06); color: #fff; }
+  .nav-item.active { background: var(--pip-green-700); color: #fff; }
+  .nav-item .ico { width: 16px; text-align: center; opacity: .85; }
+  .nav-item .badge {
+    margin-left: auto; font-size: 10px; font-weight: 600;
+    background: var(--pip-gold); color: var(--pip-green-900);
+    border-radius: 20px; padding: 1px 7px;
+  }
+  .nav-item .badge.ok { background: var(--pip-green-500); color: #fff; }
+
+  .sidebar-foot { padding: 14px 18px; border-top: 1px solid rgba(255,255,255,.08); font-size: 11px; color: #7FA792; }
+
+  /* ---- Main ---- */
+  .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+  .topbar {
+    display: flex; align-items: center; gap: 14px;
+    padding: 12px 28px;
+    background: var(--pip-card);
+    border-bottom: 1px solid var(--pip-line);
+    position: sticky; top: 0; z-index: 20;
+  }
+  .topbar-title { font-family: var(--font-display); font-weight: 600; font-size: 15px; }
+  .topbar-crumb { font-size: 12px; color: var(--pip-ink-soft); }
+  .cmd {
+    margin-left: auto;
+    display: flex; align-items: center; gap: 8px;
+    background: var(--pip-surface);
+    border: 1px solid var(--pip-line);
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 12.5px; color: var(--pip-ink-soft);
+    width: 260px; cursor: pointer;
+    transition: border-color .15s;
+  }
+  .cmd:hover { border-color: var(--pip-green-500); }
+  .cmd kbd {
+    margin-left: auto; font-family: var(--font-mono); font-size: 10.5px;
+    background: #fff; border: 1px solid var(--pip-line); border-radius: 4px;
+    padding: 1px 5px; color: var(--pip-ink-soft);
+  }
+  .topbar-user {
+    display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 500;
+  }
+  .avatar {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: var(--pip-green-700); color: #fff;
+    display: grid; place-items: center; font-size: 12px; font-weight: 600;
+  }
+
+  .content { padding: 26px 28px 48px; max-width: 1240px; width: 100%; margin: 0 auto; }
+
+  /* ============ HERO — EL TECHO ============ */
+  .hero {
+    background: var(--pip-green-900);
+    border-radius: var(--radius);
+    color: #E8F2EC;
+    padding: 30px 32px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+    flex-wrap: wrap;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::after {
+    content: '';
+    position: absolute; right: -80px; top: -80px;
+    width: 300px; height: 300px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(46,139,87,.35), transparent 70%);
+    pointer-events: none;
+  }
+  .hero-label {
+    font-size: 11px; letter-spacing: 1.6px; text-transform: uppercase;
+    color: #8FB89E; font-weight: 600; margin-bottom: 10px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .hero-label .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--pip-gold); }
+  .hero-number {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(40px, 6vw, 64px);
+    line-height: 1;
+    letter-spacing: -1.5px;
+    font-variant-numeric: tabular-nums;
+    color: #fff;
+  }
+  .hero-number .bs { font-size: .45em; color: var(--pip-gold); font-weight: 600; letter-spacing: 0; margin-right: 6px; }
+  .hero-sub { margin-top: 12px; font-size: 13px; color: #A9C7B5; }
+  .hero-sub strong { color: #E8F2EC; font-weight: 600; }
+  .hero-meta { display: flex; gap: 26px; flex-wrap: wrap; position: relative; z-index: 1; }
+  .hero-meta .cell { }
+  .hero-meta .cell .k { font-size: 11px; color: #8FB89E; letter-spacing: .5px; text-transform: uppercase; font-weight: 600; }
+  .hero-meta .cell .v { font-family: var(--font-display); font-size: 22px; font-weight: 600; color: #fff; font-variant-numeric: tabular-nums; }
+  .hero-meta .cell .v.gold { color: var(--pip-gold); }
+
+  /* ============ CADENA DE ARTICULACIÓN — LA FIRMA ============ */
+  .cadena-wrap {
+    margin-top: 22px;
+    background: var(--pip-card);
+    border: 1px solid var(--pip-line);
+    border-radius: var(--radius);
+    padding: 18px 22px;
+  }
+  .cadena-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 16px; gap: 12px; flex-wrap: wrap;
+  }
+  .cadena-title { font-family: var(--font-display); font-weight: 600; font-size: 14px; }
+  .cadena-sub { font-size: 12px; color: var(--pip-ink-soft); }
+  .cadena {
+    display: flex; align-items: stretch; gap: 0;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+  .eslabon {
+    flex: 1; min-width: 118px;
+    display: flex; flex-direction: column; gap: 6px;
+    padding: 12px 10px;
+    border-radius: 8px;
+    background: var(--pip-surface);
+    border: 1px solid var(--pip-line);
+    position: relative;
+  }
+  .eslabon.sigla { font-family: var(--font-display); font-weight: 700; font-size: 13.5px; letter-spacing: .3px; }
+  .eslabon.codigo { font-family: var(--font-mono); font-size: 10px; color: var(--pip-ink-soft); white-space: nowrap; }
+  .eslabon.estado { font-size: 10.5px; font-weight: 600; display: flex; align-items: center; gap: 5px; }
+  .eslabon.estado::before { content: ''; width: 6px; height: 6px; border-radius: 50%; }
+  .eslabon.ok .estado { color: var(--pip-green-700); }
+  .eslabon.ok .estado::before { background: var(--pip-green-500); }
+  .eslabon.prog .estado { color: var(--pip-warn); }
+  .eslabon.prog .estado::before { background: var(--pip-gold); }
+  .eslabon.pend .estado { color: var(--pip-ink-soft); }
+  .eslabon.pend .estado::before { background: #B8C6BD; }
+  .eslabon.actual { border-color: var(--pip-green-700); box-shadow: 0 0 0 1px var(--pip-green-700); }
+  .flecha {
+    display: grid; place-items: center;
+    color: var(--pip-green-700); font-size: 15px;
+    padding: 0 6px; font-weight: 600;
+  }
+
+  /* ============ CICLO PRESUPUESTARIO ============ */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 22px; }
+  @media (max-width: 980px) { .grid-2 { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--pip-card);
+    border: 1px solid var(--pip-line);
+    border-radius: var(--radius);
+    padding: 20px 22px;
+    box-shadow: var(--shadow);
+  }
+  .card-title { font-family: var(--font-display); font-weight: 600; font-size: 14.5px; margin-bottom: 4px; }
+  .card-sub { font-size: 12px; color: var(--pip-ink-soft); margin-bottom: 16px; }
+
+  .ciclo { list-style: none; }
+  .ciclo li {
+    display: flex; align-items: center; gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px dashed var(--pip-line);
+    font-size: 13px;
+  }
+  .ciclo li:last-child { border-bottom: none; }
+  .ciclo .num {
+    font-family: var(--font-mono); font-size: 11px; color: var(--pip-ink-soft);
+    width: 22px; text-align: right; flex-shrink: 0;
+  }
+  .ciclo .nombre { font-weight: 500; }
+  .ciclo .st { margin-left: auto; font-size: 11px; font-weight: 600; padding: 2px 9px; border-radius: 20px; flex-shrink: 0; }
+  .st.done { background: var(--pip-green-100); color: var(--pip-green-700); }
+  .st.now { background: var(--pip-gold-soft); color: var(--pip-warn); }
+  .st.todo { background: #EDF1EE; color: var(--pip-ink-soft); }
+
+  /* ---- Composición por fuente ---- */
+  .fuente { margin-bottom: 16px; }
+  .fuente:last-child { margin-bottom: 0; }
+  .fuente-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 6px; gap: 10px; }
+  .fuente-name { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .fuente-code { font-family: var(--font-mono); font-size: 10.5px; color: var(--pip-green-700); background: var(--pip-green-100); padding: 1px 6px; border-radius: 4px; }
+  .fuente-monto { font-family: var(--font-display); font-weight: 600; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+  .barra { height: 8px; background: #EDF1EE; border-radius: 20px; overflow: hidden; }
+  .barra > span { display: block; height: 100%; border-radius: 20px; background: var(--pip-green-700); }
+  .barra > span.gold { background: var(--pip-gold); }
+  .fuente-det { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--pip-ink-soft); margin-top: 4px; }
+
+  /* ---- Pie ---- */
+  .foot {
+    margin-top: 26px; padding-top: 16px;
+    border-top: 1px solid var(--pip-line);
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 11.5px; color: var(--pip-ink-soft); flex-wrap: wrap; gap: 8px;
+  }
+  .foot .mono { font-family: var(--font-mono); font-size: 10.5px; }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 860px) {
+    .sidebar { width: 64px; }
+    .sidebar-brand .brand-name, .sidebar-brand .brand-sub,
+    .nav-item span:not(.ico), .nav-label, .sidebar-foot { display: none; }
+    .nav-item { justify-content: center; padding: 10px; }
+    .nav-item .badge { display: none; }
+    .content { padding: 20px 16px 40px; }
+    .topbar { padding: 10px 16px; }
+    .cmd { width: 44px; justify-content: center; }
+    .cmd span:not(kbd), .cmd kbd { display: none; }
+    .hero { padding: 24px 20px; }
+  }
+
+  /* ============ REDUCED MOTION ============ */
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-mark">PIP</div>
+      <div>
+        <div class="brand-name">PIP Sacaba</div>
+        <div class="brand-sub">Planificación Integral</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav" aria-label="Sistemas">
+      <div class="nav-label">Plataforma</div>
+      <a class="nav-item" href="#"><span class="ico">◈</span><span>Selector de sistemas</span></a>
+
+      <div class="nav-label">SIS-PE · Estratégico</div>
+      <a class="nav-item" href="#"><span class="ico">◉</span><span>Dashboard</span></a>
+      <a class="nav-item" href="#"><span class="ico">▤</span><span>Instrumentos</span></a>
+      <a class="nav-item" href="#"><span class="ico">▦</span><span>Matrices PAD</span></a>
+
+      <div class="nav-label">SIS-POA · Operativo</div>
+      <a class="nav-item active" href="#"><span class="ico">◉</span><span>Dashboard</span><span class="badge ok">2027</span></a>
+      <a class="nav-item" href="#"><span class="ico">🗓️</span><span>Gestión Fiscal</span></a>
+      <a class="nav-item" href="#"><span class="ico">⊡</span><span>Techo Directivo</span><span class="badge">BORRADOR</span></a>
+      <a class="nav-item" href="#"><span class="ico">◔</span><span>Distribución</span></a>
+      <a class="nav-item" href="#"><span class="ico">▤</span><span>POA / POAU</span></a>
+      <a class="nav-item" href="#"><span class="ico">⊞</span><span>Programación</span></a>
+      <a class="nav-item" href="#"><span class="ico">⇄</span><span>Reformulaciones</span></a>
+      <a class="nav-item" href="#"><span class="ico">🔍</span><span>Auditoría</span></a>
+
+      <div class="nav-label">SIS-PRO · Proyectos</div>
+      <a class="nav-item" href="#"><span class="ico">▤</span><span>Cartera</span></a>
+      <a class="nav-item" href="#"><span class="ico">⇄</span><span>Preinversión</span></a>
+    </nav>
+    <div class="sidebar-foot">GAM Sacaba · Gestión 2027<br>RM N° 271 · 31/07/2026</div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <div class="main">
+
+    <header class="topbar">
+      <div>
+        <div class="topbar-title">Dashboard operativo</div>
+        <div class="topbar-crumb">SIS-POA · Gestión 2027</div>
+      </div>
+      <button class="cmd" aria-label="Buscar páginas y acciones">
+        <span>🔍</span><span>Buscar páginas, aperturas, códigos…</span><kbd>⌘K</kbd>
+      </button>
+      <div class="topbar-user">
+        <div class="avatar">AD</div>
+        <span>Admin PIP</span>
+      </div>
+    </header>
+
+    <main class="content">
+
+      <!-- ============ HERO: EL TECHO ============ -->
+      <section class="hero" aria-labelledby="techo-title">
+        <div>
+          <div class="hero-label"><span class="dot"></span> Techo presupuestario · SIGEP · Reporte RFprTechoPresup</div>
+          <div class="hero-number" id="techo-title"><span class="bs">Bs</span>245.290.497</div>
+          <div class="hero-sub">Fuente <strong>41 · Transferencias T.G.N.</strong> · Entidad 1312 · GAM Sacaba · Reporte oficial 10/08/2026</div>
+        </div>
+        <div class="hero-meta">
+          <div class="cell">
+            <div class="k">Distribuible</div>
+            <div class="v">Bs 238.826.101</div>
+          </div>
+          <div class="cell">
+            <div class="k">Obligatorios</div>
+            <div class="v gold">Bs 6.464.396</div>
+          </div>
+          <div class="cell">
+            <div class="k">Estado</div>
+            <div class="v" style="font-size:16px; padding-top:4px;">BORRADOR · v1</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ CADENA DE ARTICULACIÓN — LA FIRMA ============ -->
+      <section class="cadena-wrap" aria-labelledby="cadena-title">
+        <div class="cadena-head">
+          <div>
+            <div class="cadena-title" id="cadena-title">Cadena de articulación</div>
+            <div class="cadena-sub">Trazabilidad del marco nacional al operativo · motor PIP</div>
+          </div>
+          <div class="cadena-sub mono">EE.CC.SS.RS.031001.LL.RT.PT.1312.OE.RI.PI.ACP.OP.ACT.TAR</div>
+        </div>
+        <div class="cadena" role="list" aria-label="Cadena de articulación">
+          <div class="eslabon ok" role="listitem">
+            <span class="sigla">PGDESA</span>
+            <span class="codigo">Ley N° 650 · 13 pilares</span>
+            <span class="estado">Aprobado</span>
+          </div>
+          <div class="flecha">→</div>
+          <div class="eslabon ok" role="listitem">
+            <span class="sigla">PDESA</span>
+            <span class="codigo">Ley N° 1407 · 10 ejes</span>
+            <span class="estado">Aprobado</span>
+          </div>
+          <div class="flecha">→</div>
+          <div class="eslabon ok" role="listitem">
+            <span class="sigla">PAD</span>
+            <span class="codigo">PAD-2027 · v3</span>
+            <span class="estado">Aprobado</span>
+          </div>
+          <div class="flecha">→</div>
+          <div class="eslabon ok" role="listitem">
+            <span class="sigla">PEI</span>
+            <span class="codigo">PEI-2027 · v1</span>
+            <span class="estado">Aprobado</span>
+          </div>
+          <div class="flecha">→</div>
+          <div class="eslabon prog actual" role="listitem">
+            <span class="sigla">POA</span>
+            <span class="codigo">POA 2027 · en curso</span>
+            <span class="estado">En formulación</span>
+          </div>
+          <div class="flecha">→</div>
+          <div class="eslabon pend" role="listitem">
+            <span class="sigla">POAU</span>
+            <span class="codigo">Por unidad · pendiente</span>
+            <span class="estado">Pendiente</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ CICLO + COMPOSICIÓN ============ -->
+      <div class="grid-2">
+
+        <section class="card" aria-labelledby="ciclo-title">
+          <div class="card-title" id="ciclo-title">Ciclo presupuestario 2027</div>
+          <div class="card-sub">Flujo maestro SIS-POA · estado real de cada paso</div>
+          <ol class="ciclo">
+            <li><span class="num">01</span><span class="nombre">Habilitar gestión</span><span class="st done">Hecho</span></li>
+            <li><span class="num">02</span><span class="nombre">Registrar techo SIGEP</span><span class="st done">Hecho</span></li>
+            <li><span class="num">03</span><span class="nombre">Aprobar techo</span><span class="st now">En curso</span></li>
+            <li><span class="num">04</span><span class="nombre">Distribuir recursos</span><span class="st todo">Pendiente</span></li>
+            <li><span class="num">05</span><span class="nombre">Asignar recursos</span><span class="st todo">Pendiente</span></li>
+            <li><span class="num">06</span><span class="nombre">Formular POA</span><span class="st todo">Pendiente</span></li>
+            <li><span class="num">07</span><span class="nombre">Asignar POAU</span><span class="st todo">Pendiente</span></li>
+            <li><span class="num">08</span><span class="nombre">Formular POAU</span><span class="st todo">Pendiente</span></li>
+            <li><span class="num">09</span><span class="nombre">Programar presupuesto</span><span class="st todo">Pendiente</span></li>
+            <li><span class="num">10</span><span class="nombre">Consolidar</span><span class="st todo">Pendiente</span></li>
+            <li><span class="num">11</span><span class="nombre">Aprobar</span><span class="st todo">Pendiente</span></li>
+            <li><span class="num">12</span><span class="nombre">Seguimiento y reformas</span><span class="st todo">Pendiente</span></li>
+          </ol>
+        </section>
+
+        <section class="card" aria-labelledby="fuente-title">
+          <div class="card-title" id="fuente-title">Composición del techo por fuente</div>
+          <div class="card-sub">Fuente 41 · Transferencias T.G.N. · desglose por organismo</div>
+
+          <div class="fuente">
+            <div class="fuente-head">
+              <span class="fuente-name"><span class="fuente-code">41·113</span> Coparticipación Tributaria</span>
+              <span class="fuente-monto">Bs 217.742.150</span>
+            </div>
+            <div class="barra"><span style="width:89%"></span></div>
+            <div class="fuente-det"><span>TGN-CT</span><span>88,7%</span></div>
+          </div>
+
+          <div class="fuente">
+            <div class="fuente-head">
+              <span class="fuente-name"><span class="fuente-code">41·119</span> Impuesto Directo a los Hidrocarburos</span>
+              <span class="fuente-monto">Bs 26.321.808</span>
+            </div>
+            <div class="barra"><span style="width:10.7%"></span></div>
+            <div class="fuente-det"><span>TGN-IDH · subsidios + nivelación</span><span>10,7%</span></div>
+          </div>
+
+          <div class="fuente">
+            <div class="fuente-head">
+              <span class="fuente-name"><span class="fuente-code">41·111</span> Tesoro General de la Nación</span>
+              <span class="fuente-monto">Bs 227.539</span>
+            </div>
+            <div class="barra"><span class="gold" style="width:0.6%"></span></div>
+            <div class="fuente-det"><span>TGN · subsidios directos</span><span>0,1%</span></div>
+          </div>
+
+          <div class="fuente">
+            <div class="fuente-head">
+              <span class="fuente-name"><span class="fuente-code">TOTAL</span> Techo SIGEP 2027</span>
+              <span class="fuente-monto">Bs 245.290.497</span>
+            </div>
+            <div class="barra"><span style="width:100%"></span></div>
+            <div class="fuente-det"><span>Obligatorios reservados: 6.464.396</span><span>100%</span></div>
+          </div>
+        </section>
+      </div>
+
+      <footer class="foot">
+        <span>Plataforma Integral de Planificación · GAM Sacaba</span>
+        <span class="mono">gams_pip · RM 271/2026 · esquemas: pip_core · sis_pe · sis_poa · sis_pro</span>
+      </footer>
+
+    </main>
+  </div>
+</div>
+</body>
+</html>

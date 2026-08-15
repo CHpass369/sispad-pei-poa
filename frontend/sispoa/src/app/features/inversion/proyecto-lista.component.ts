@@ -41,23 +41,27 @@ import { ApiService } from '../../core/services/api.service';
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let p of proyectos">
-            <td><strong>{{ p.codigo_interno }}</strong></td>
-            <td>{{ p.nombre }}</td>
-            <td><code>{{ p.codigo_sisin || '—' }}</code></td>
-            <td>{{ prioridadLabel(p.prioridad) }}</td>
-            <td>{{ etapaLabel(p.etapa) }}</td>
-            <td>Bs {{ p.costo_total | number:'1.2-2' }}</td>
-            <td>Bs {{ p.ejecucion_acumulada | number:'1.2-2' }}</td>
-            <td><span class="badge" [class.badge-success]="p.activo">{{ p.activo ? 'Activo' : 'Inactivo' }}</span></td>
-          </tr>
-          <tr *ngIf="proyectos.length === 0">
-            <td colspan="8" class="empty">No hay proyectos registrados</td>
-          </tr>
+          @for (p of proyectos; track p) {
+            <tr>
+              <td><strong>{{ p.codigo_interno }}</strong></td>
+              <td>{{ p.nombre }}</td>
+              <td><code>{{ p.codigo_sisin || '—' }}</code></td>
+              <td>{{ prioridadLabel(p.prioridad) }}</td>
+              <td>{{ etapaLabel(p.etapa) }}</td>
+              <td>Bs {{ p.costo_total | number:'1.2-2' }}</td>
+              <td>Bs {{ p.ejecucion_acumulada | number:'1.2-2' }}</td>
+              <td><span class="badge" [class.badge-success]="p.activo">{{ p.activo ? 'Activo' : 'Inactivo' }}</span></td>
+            </tr>
+          }
+          @if (proyectos.length === 0) {
+            <tr>
+              <td colspan="8" class="empty">No hay proyectos registrados</td>
+            </tr>
+          }
         </tbody>
       </table>
     </div>
-  `,
+    `,
   styles: [`
     .page-header { margin-bottom: 1rem; }
     .filtros { display: flex; gap: 0.75rem; align-items: center; }

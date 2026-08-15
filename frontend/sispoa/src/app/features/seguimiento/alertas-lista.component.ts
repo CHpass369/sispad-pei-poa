@@ -9,34 +9,48 @@ import { SeguimientoService, Alerta } from './seguimiento.service';
       <h2>Alertas Activas</h2>
       <p class="text-secondary">Alertas del sistema que requieren atención</p>
     </div>
-
-    <div class="lista" *ngIf="!cargando">
-      <div class="card alerta-item" *ngFor="let a of alertas">
-        <div class="alerta-header">
-          <span class="badge" [ngClass]="'badge-' + a.severidad">{{ a.severidad }}</span>
-          <span class="alerta-tipo">{{ a.tipo }}</span>
-          <span class="alerta-fecha">{{ a.fecha_creacion | date:'dd/MM/yyyy HH:mm' }}</span>
-        </div>
-        <div class="alerta-body">
-          <p class="alerta-mensaje">{{ a.mensaje }}</p>
-          <span class="alerta-actividad" *ngIf="a.actividad_descripcion">
-            Actividad: {{ a.actividad_descripcion }}
-          </span>
-        </div>
-        <div class="alerta-actions">
-          <button class="btn btn-sm btn-success" (click)="resolver(a)"
-                  [disabled]="resolviendo === a.id">
-            {{ resolviendo === a.id ? 'Resolviendo...' : 'Resolver' }}
-          </button>
-        </div>
+    
+    @if (!cargando) {
+      <div class="lista">
+        @for (a of alertas; track a) {
+          <div class="card alerta-item">
+            <div class="alerta-header">
+              <span class="badge" [ngClass]="'badge-' + a.severidad">{{ a.severidad }}</span>
+              <span class="alerta-tipo">{{ a.tipo }}</span>
+              <span class="alerta-fecha">{{ a.fecha_creacion | date:'dd/MM/yyyy HH:mm' }}</span>
+            </div>
+            <div class="alerta-body">
+              <p class="alerta-mensaje">{{ a.mensaje }}</p>
+              @if (a.actividad_descripcion) {
+                <span class="alerta-actividad">
+                  Actividad: {{ a.actividad_descripcion }}
+                </span>
+              }
+            </div>
+            <div class="alerta-actions">
+              <button class="btn btn-sm btn-success" (click)="resolver(a)"
+                [disabled]="resolviendo === a.id">
+                {{ resolviendo === a.id ? 'Resolviendo...' : 'Resolver' }}
+              </button>
+            </div>
+          </div>
+        }
+        @if (alertas.length === 0) {
+          <div class="empty">No hay alertas activas</div>
+        }
       </div>
-      <div *ngIf="alertas.length === 0" class="empty">No hay alertas activas</div>
-    </div>
-
-    <div class="loading" *ngIf="cargando">Cargando alertas...</div>
-    <div class="alert alert-error" *ngIf="error">{{ error }}</div>
-    <div class="alert alert-success" *ngIf="exito">{{ exito }}</div>
-  `,
+    }
+    
+    @if (cargando) {
+      <div class="loading">Cargando alertas...</div>
+    }
+    @if (error) {
+      <div class="alert alert-error">{{ error }}</div>
+    }
+    @if (exito) {
+      <div class="alert alert-success">{{ exito }}</div>
+    }
+    `,
   styles: [`
     .page-header { margin-bottom: 1.5rem; }
     .page-header h2 { font-size: 1.5rem; margin-bottom: 0.25rem; }

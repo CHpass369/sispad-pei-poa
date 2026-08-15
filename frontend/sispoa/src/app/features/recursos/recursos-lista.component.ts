@@ -10,7 +10,7 @@ import { RecursosService, Recurso } from './recursos.service';
       <h2>Recursos</h2>
       <p class="text-secondary">Gestión y estimación de recursos del plan</p>
     </div>
-
+    
     <div class="summary-cards">
       <div class="card summary-item">
         <span class="summary-value">{{ totalRecursos }}</span>
@@ -29,56 +29,66 @@ import { RecursosService, Recurso } from './recursos.service';
         <span class="summary-label">Costo Estimado (Bs.)</span>
       </div>
     </div>
-
+    
     <div class="acciones-superior">
       <div class="field">
         <input [(ngModel)]="busqueda" (keyup.enter)="cargar()" class="form-control"
-               placeholder="Buscar por nombre o tipo...">
+          placeholder="Buscar por nombre o tipo...">
+        </div>
+        <button class="btn btn-primary" (click)="nuevo()">+ Nuevo Recurso</button>
       </div>
-      <button class="btn btn-primary" (click)="nuevo()">+ Nuevo Recurso</button>
-    </div>
-
-    <div class="table-container" *ngIf="!cargando">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Tipo</th>
-            <th>Nombre</th>
-            <th>Cantidad</th>
-            <th>Unidad</th>
-            <th>Disponibilidad</th>
-            <th>Asignado A</th>
-            <th>Costo Est.</th>
-            <th>Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let r of recursos">
-            <td>
-              <span class="badge badge-info">{{ r.tipo }}</span>
-            </td>
-            <td>{{ r.nombre }}</td>
-            <td>{{ r.cantidad }}</td>
-            <td>{{ r.unidad }}</td>
-            <td>
-              <span class="badge" [ngClass]="r.disponibilidad === 'disponible' ? 'badge-success' : r.disponibilidad === 'asignado' ? 'badge-warning' : 'badge-danger'">
-                {{ r.disponibilidad }}
-              </span>
-            </td>
-            <td>{{ r.asignado_nombre || r.asignado_a || '-' }}</td>
-            <td>{{ r.costo_estimado | number:'1.2-2' }}</td>
-            <td>
-              <button class="btn btn-sm btn-outline" (click)="verDetalle(r)">Ver</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-      <div *ngIf="recursos.length === 0" class="empty">No se encontraron recursos</div>
-    </div>
-
-    <div class="loading" *ngIf="cargando">Cargando recursos...</div>
-    <div class="alert alert-error" *ngIf="error">{{ error }}</div>
-  `,
+    
+      @if (!cargando) {
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Tipo</th>
+                <th>Nombre</th>
+                <th>Cantidad</th>
+                <th>Unidad</th>
+                <th>Disponibilidad</th>
+                <th>Asignado A</th>
+                <th>Costo Est.</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (r of recursos; track r) {
+                <tr>
+                  <td>
+                    <span class="badge badge-info">{{ r.tipo }}</span>
+                  </td>
+                  <td>{{ r.nombre }}</td>
+                  <td>{{ r.cantidad }}</td>
+                  <td>{{ r.unidad }}</td>
+                  <td>
+                    <span class="badge" [ngClass]="r.disponibilidad === 'disponible' ? 'badge-success' : r.disponibilidad === 'asignado' ? 'badge-warning' : 'badge-danger'">
+                      {{ r.disponibilidad }}
+                    </span>
+                  </td>
+                  <td>{{ r.asignado_nombre || r.asignado_a || '-' }}</td>
+                  <td>{{ r.costo_estimado | number:'1.2-2' }}</td>
+                  <td>
+                    <button class="btn btn-sm btn-outline" (click)="verDetalle(r)">Ver</button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+          @if (recursos.length === 0) {
+            <div class="empty">No se encontraron recursos</div>
+          }
+        </div>
+      }
+    
+      @if (cargando) {
+        <div class="loading">Cargando recursos...</div>
+      }
+      @if (error) {
+        <div class="alert alert-error">{{ error }}</div>
+      }
+    `,
   styles: [`
     .page-header { margin-bottom: 1rem; }
     .page-header h2 { font-size: 1.5rem; margin-bottom: 0.25rem; }

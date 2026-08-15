@@ -10,7 +10,7 @@ import { RecursosService, Recurso } from './recursos.service';
       <h2>Nuevo Recurso</h2>
       <p class="text-secondary">Registrar o estimar un nuevo recurso</p>
     </div>
-
+    
     <div class="form-card">
       <form (ngSubmit)="guardar()">
         <div class="form-grid">
@@ -28,70 +28,72 @@ import { RecursosService, Recurso } from './recursos.service';
           <div class="field">
             <label>Nombre *</label>
             <input [(ngModel)]="recurso.nombre" name="nombre" class="form-control"
-                   placeholder="Nombre del recurso" required>
-          </div>
-          <div class="field">
-            <label>Cantidad</label>
-            <input type="number" [(ngModel)]="recurso.cantidad" name="cantidad" class="form-control"
-                   placeholder="0" min="0">
-          </div>
-          <div class="field">
-            <label>Unidad</label>
-            <select [(ngModel)]="recurso.unidad" name="unidad" class="form-control">
-              <option value="">Seleccione...</option>
-              <option value="unidad">Unidad</option>
-              <option value="kg">Kilogramo</option>
-              <option value="lt">Litro</option>
-              <option value="m2">Metro cuadrado</option>
-              <option value="m3">Metro cúbico</option>
-              <option value="hora">Hora</option>
-              <option value="dia">Día</option>
-              <option value="mes">Mes</option>
-              <option value="par">Par</option>
-              <option value="jornal">Jornal</option>
-            </select>
-          </div>
-          <div class="field">
-            <label>Costo Estimado (Bs.)</label>
-            <input type="number" [(ngModel)]="recurso.costo_estimado" name="costo_estimado"
-                   class="form-control" placeholder="0.00" min="0" step="0.01">
-          </div>
-          <div class="field">
-            <label>Periodo</label>
-            <input [(ngModel)]="recurso.periodo" name="periodo" class="form-control"
-                   placeholder="Ej: 2026-S1">
-          </div>
-          <div class="field">
-            <label>Responsable</label>
-            <input [(ngModel)]="recurso.responsable" name="responsable" class="form-control"
-                   placeholder="Nombre del responsable">
-          </div>
-          <div class="field">
-            <label>Disponibilidad</label>
-            <select [(ngModel)]="recurso.disponibilidad" name="disponibilidad" class="form-control">
-              <option value="disponible">Disponible</option>
-              <option value="asignado">Asignado</option>
-              <option value="agotado">Agotado</option>
-            </select>
-          </div>
-          <div class="field field-full">
-            <label>Descripción</label>
-            <textarea [(ngModel)]="recurso.descripcion" name="descripcion" class="form-control" rows="3"
+              placeholder="Nombre del recurso" required>
+            </div>
+            <div class="field">
+              <label>Cantidad</label>
+              <input type="number" [(ngModel)]="recurso.cantidad" name="cantidad" class="form-control"
+                placeholder="0" min="0">
+              </div>
+              <div class="field">
+                <label>Unidad</label>
+                <select [(ngModel)]="recurso.unidad" name="unidad" class="form-control">
+                  <option value="">Seleccione...</option>
+                  <option value="unidad">Unidad</option>
+                  <option value="kg">Kilogramo</option>
+                  <option value="lt">Litro</option>
+                  <option value="m2">Metro cuadrado</option>
+                  <option value="m3">Metro cúbico</option>
+                  <option value="hora">Hora</option>
+                  <option value="dia">Día</option>
+                  <option value="mes">Mes</option>
+                  <option value="par">Par</option>
+                  <option value="jornal">Jornal</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Costo Estimado (Bs.)</label>
+                <input type="number" [(ngModel)]="recurso.costo_estimado" name="costo_estimado"
+                  class="form-control" placeholder="0.00" min="0" step="0.01">
+                </div>
+                <div class="field">
+                  <label>Periodo</label>
+                  <input [(ngModel)]="recurso.periodo" name="periodo" class="form-control"
+                    placeholder="Ej: 2026-S1">
+                  </div>
+                  <div class="field">
+                    <label>Responsable</label>
+                    <input [(ngModel)]="recurso.responsable" name="responsable" class="form-control"
+                      placeholder="Nombre del responsable">
+                    </div>
+                    <div class="field">
+                      <label>Disponibilidad</label>
+                      <select [(ngModel)]="recurso.disponibilidad" name="disponibilidad" class="form-control">
+                        <option value="disponible">Disponible</option>
+                        <option value="asignado">Asignado</option>
+                        <option value="agotado">Agotado</option>
+                      </select>
+                    </div>
+                    <div class="field field-full">
+                      <label>Descripción</label>
+                      <textarea [(ngModel)]="recurso.descripcion" name="descripcion" class="form-control" rows="3"
                       placeholder="Descripción del recurso"></textarea>
-          </div>
-        </div>
-
-        <div class="form-actions">
-          <button type="button" class="btn btn-outline" (click)="cancelar()">Cancelar</button>
-          <button type="submit" class="btn btn-primary" [disabled]="guardando">
-            {{ guardando ? 'Guardando...' : 'Guardar Recurso' }}
-          </button>
-        </div>
-      </form>
-    </div>
-
-    <div class="alert alert-error" *ngIf="error">{{ error }}</div>
-  `,
+                    </div>
+                  </div>
+    
+                  <div class="form-actions">
+                    <button type="button" class="btn btn-outline" (click)="cancelar()">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" [disabled]="guardando">
+                      {{ guardando ? 'Guardando...' : 'Guardar Recurso' }}
+                    </button>
+                  </div>
+                </form>
+              </div>
+    
+              @if (error) {
+                <div class="alert alert-error">{{ error }}</div>
+              }
+    `,
   styles: [`
     .page-header { margin-bottom: 1rem; }
     .page-header h2 { font-size: 1.5rem; margin-bottom: 0.25rem; }

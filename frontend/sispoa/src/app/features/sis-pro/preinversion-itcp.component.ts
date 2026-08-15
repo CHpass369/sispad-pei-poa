@@ -12,91 +12,121 @@ import { CondicionITCP, ITCP, PreinversionService } from './preinversion.service
       <h2>Asistente ITCP — Condiciones Previas</h2>
       <p class="text-secondary">RM 115 · Informe Técnico de Condiciones Previas</p>
     </div>
-    <div *ngIf="cargando" class="loading">Cargando ITCP...</div>
-    <div class="alert alert-error" *ngIf="error">{{ error }}</div>
-    <div class="alert alert-success" *ngIf="mensaje">{{ mensaje }}</div>
-
-    <div class="card" *ngIf="itcp && !cargando">
-      <h3>Información general
-        <span class="badge estado">{{ itcp.estado }}</span> v{{ itcp.version }}
-      </h3>
-      <div class="grid">
-        <label>Justificación de la iniciativa
-          <textarea [(ngModel)]="itcp.justificacion_iniciativa" name="ji" rows="3" class="input" (change)="guardarItcp()"></textarea>
-        </label>
-        <label>Idea del proyecto
-          <textarea [(ngModel)]="itcp.idea_proyecto" name="idea" rows="3" class="input" (change)="guardarItcp()"></textarea>
-        </label>
-        <label>Resultado preliminar
-          <select [(ngModel)]="itcp.resultado_preliminar" name="rp" class="input" (change)="guardarItcp()">
-            <option value="">— Seleccionar —</option>
-            <option value="viable_edtp">Viable para elaborar EDTP</option>
-            <option value="viable_condiciones">Viable con condiciones</option>
-            <option value="no_viable">No viable</option>
-            <option value="informacion_insuficiente">Información insuficiente</option>
-          </select>
-        </label>
-        <label>Conclusiones
-          <textarea [(ngModel)]="itcp.conclusiones" name="concl" rows="3" class="input" (change)="guardarItcp()"></textarea>
-        </label>
-        <label>Recomendaciones
-          <textarea [(ngModel)]="itcp.recomendaciones" name="recom" rows="3" class="input" (change)="guardarItcp()"></textarea>
-        </label>
+    @if (cargando) {
+      <div class="loading">Cargando ITCP...</div>
+    }
+    @if (error) {
+      <div class="alert alert-error">{{ error }}</div>
+    }
+    @if (mensaje) {
+      <div class="alert alert-success">{{ mensaje }}</div>
+    }
+    
+    @if (itcp && !cargando) {
+      <div class="card">
+        <h3>Información general
+          <span class="badge estado">{{ itcp.estado }}</span> v{{ itcp.version }}
+        </h3>
+        <div class="grid">
+          <label>Justificación de la iniciativa
+            <textarea [(ngModel)]="itcp.justificacion_iniciativa" name="ji" rows="3" class="input" (change)="guardarItcp()"></textarea>
+          </label>
+          <label>Idea del proyecto
+            <textarea [(ngModel)]="itcp.idea_proyecto" name="idea" rows="3" class="input" (change)="guardarItcp()"></textarea>
+          </label>
+          <label>Resultado preliminar
+            <select [(ngModel)]="itcp.resultado_preliminar" name="rp" class="input" (change)="guardarItcp()">
+              <option value="">— Seleccionar —</option>
+              <option value="viable_edtp">Viable para elaborar EDTP</option>
+              <option value="viable_condiciones">Viable con condiciones</option>
+              <option value="no_viable">No viable</option>
+              <option value="informacion_insuficiente">Información insuficiente</option>
+            </select>
+          </label>
+          <label>Conclusiones
+            <textarea [(ngModel)]="itcp.conclusiones" name="concl" rows="3" class="input" (change)="guardarItcp()"></textarea>
+          </label>
+          <label>Recomendaciones
+            <textarea [(ngModel)]="itcp.recomendaciones" name="recom" rows="3" class="input" (change)="guardarItcp()"></textarea>
+          </label>
+        </div>
       </div>
-    </div>
-
-    <div class="card" *ngIf="condiciones.length && !cargando">
-      <h3>Matriz de condiciones previas</h3>
-      <div class="semafaro">
-        <span class="chip verde">{{ resueltas }} resueltas</span>
-        <span class="chip rojo">{{ pendientes }} pendientes</span>
-        <span class="chip gris">{{ criticas }} críticas</span>
+    }
+    
+    @if (condiciones.length && !cargando) {
+      <div class="card">
+        <h3>Matriz de condiciones previas</h3>
+        <div class="semafaro">
+          <span class="chip verde">{{ resueltas }} resueltas</span>
+          <span class="chip rojo">{{ pendientes }} pendientes</span>
+          <span class="chip gris">{{ criticas }} críticas</span>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr><th>Categoría</th><th>Condición</th><th>Estado</th><th>Hallazgo / Plan de acción</th><th>Crítica</th><th></th></tr>
+          </thead>
+          <tbody>
+            @for (c of condiciones; track c) {
+              <tr [class.no-aplica]="c.estado === 'no_aplica'">
+                <td>{{ service.condicionCategoria(c.categoria) }}</td>
+                <td>
+                  <strong>{{ c.titulo }}</strong>
+                  @if (editando === c.id) {
+                    <textarea [(ngModel)]="c.hallazgo" name="h" rows="2" class="input" placeholder="Hallazgo"></textarea>
+                  }
+                  @if (editando === c.id) {
+                    <textarea [(ngModel)]="c.plan_accion" name="pa" rows="2" class="input" placeholder="Plan de acción"></textarea>
+                  }
+                  @if (editando === c.id && c.estado === 'no_aplica') {
+                    <textarea [(ngModel)]="c.justificacion_no_aplica" name="jna" rows="2" class="input" placeholder="Justificación de no aplica"></textarea>
+                  }
+                </td>
+                <td>
+                  <select [(ngModel)]="c.estado" name="est" class="input" (change)="guardarCondicion(c)">
+                    @for (e of service.estadosCondicion; track e) {
+                      <option [value]="e">{{ etiquetaEstado(e) }}</option>
+                    }
+                  </select>
+                </td>
+                <td>
+                  @if (editando !== c.id) {
+                    <span class="texto">{{ c.hallazgo || '—' }}</span>
+                  }
+                </td>
+                <td>{{ c.critica ? '🔴' : '—' }}</td>
+                <td>
+                  <button class="btn btn-sm" (click)="toggleEditar(c)" [disabled]="!puedeEditar">
+                    {{ editando === c.id ? 'Cerrar' : '✎' }}
+                  </button>
+                  @if (editando === c.id) {
+                    <button class="btn btn-sm" (click)="guardarCondicion(c)" [disabled]="!puedeEditar">Guardar</button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
       </div>
-      <table class="data-table">
-        <thead>
-          <tr><th>Categoría</th><th>Condición</th><th>Estado</th><th>Hallazgo / Plan de acción</th><th>Crítica</th><th></th></tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let c of condiciones" [class.no-aplica]="c.estado === 'no_aplica'">
-            <td>{{ service.condicionCategoria(c.categoria) }}</td>
-            <td>
-              <strong>{{ c.titulo }}</strong>
-              <textarea *ngIf="editando === c.id" [(ngModel)]="c.hallazgo" name="h" rows="2" class="input" placeholder="Hallazgo"></textarea>
-              <textarea *ngIf="editando === c.id" [(ngModel)]="c.plan_accion" name="pa" rows="2" class="input" placeholder="Plan de acción"></textarea>
-              <textarea *ngIf="editando === c.id && c.estado === 'no_aplica'" [(ngModel)]="c.justificacion_no_aplica" name="jna" rows="2" class="input" placeholder="Justificación de no aplica"></textarea>
-            </td>
-            <td>
-              <select [(ngModel)]="c.estado" name="est" class="input" (change)="guardarCondicion(c)">
-                <option *ngFor="let e of service.estadosCondicion" [value]="e">{{ etiquetaEstado(e) }}</option>
-              </select>
-            </td>
-            <td>
-              <span *ngIf="editando !== c.id" class="texto">{{ c.hallazgo || '—' }}</span>
-            </td>
-            <td>{{ c.critica ? '🔴' : '—' }}</td>
-            <td>
-              <button class="btn btn-sm" (click)="toggleEditar(c)" [disabled]="!puedeEditar">
-                {{ editando === c.id ? 'Cerrar' : '✎' }}
-              </button>
-              <button class="btn btn-sm" *ngIf="editando === c.id" (click)="guardarCondicion(c)" [disabled]="!puedeEditar">Guardar</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div class="card" *ngIf="itcp && !cargando">
-      <div class="acciones">
-        <button class="btn" (click)="validar()" [disabled]="!puedeValidar">✔ Validar aprobación</button>
-        <button class="btn btn-primary" (click)="generar()" [disabled]="!puedeValidar">📄 Generar ITCP DOCX</button>
-        <button class="btn" (click)="aprobar()" [disabled]="!puedeValidar">✅ Marcar ITCP aprobado</button>
+    }
+    
+    @if (itcp && !cargando) {
+      <div class="card">
+        <div class="acciones">
+          <button class="btn" (click)="validar()" [disabled]="!puedeValidar">✔ Validar aprobación</button>
+          <button class="btn btn-primary" (click)="generar()" [disabled]="!puedeValidar">📄 Generar ITCP DOCX</button>
+          <button class="btn" (click)="aprobar()" [disabled]="!puedeValidar">✅ Marcar ITCP aprobado</button>
+        </div>
+        @if (errores.length) {
+          <div class="errores">
+            <strong>No aprobable:</strong>
+            <ul>@for (e of errores; track e) {
+              <li>{{ e }}</li>
+            }</ul>
+          </div>
+        }
       </div>
-      <div *ngIf="errores.length" class="errores">
-        <strong>No aprobable:</strong>
-        <ul><li *ngFor="let e of errores">{{ e }}</li></ul>
-      </div>
-    </div>
-  `,
+    }
+    `,
   styles: [`
     .page-header { margin-bottom: 1.5rem; }
     .volver { display: inline-block; font-size: 0.8125rem; color: var(--text-secondary); text-decoration: none; margin-bottom: 0.25rem; }

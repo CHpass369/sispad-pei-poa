@@ -6,73 +6,93 @@ import { ModificacionesService, SolicitudModificacion } from './modificaciones.s
   standalone: false,
   selector: 'app-modificacion-detalle',
   template: `
-    <div class="page-header" *ngIf="solicitud">
-      <h2>Detalle de Modificación</h2>
-      <p class="text-secondary">{{ solicitud.tipo }} — {{ solicitud.entidad }}</p>
-    </div>
-
-    <div class="info-grid" *ngIf="solicitud">
-      <div class="card info-item">
-        <label>Tipo</label>
-        <span>{{ solicitud.tipo }}</span>
+    @if (solicitud) {
+      <div class="page-header">
+        <h2>Detalle de Modificación</h2>
+        <p class="text-secondary">{{ solicitud.tipo }} — {{ solicitud.entidad }}</p>
       </div>
-      <div class="card info-item">
-        <label>Entidad</label>
-        <span>{{ solicitud.entidad }}</span>
-      </div>
-      <div class="card info-item">
-        <label>Estado</label>
-        <span class="badge" [ngClass]="'badge-' + solicitud.estado">{{ solicitud.estado }}</span>
-      </div>
-      <div class="card info-item">
-        <label>Solicitado por</label>
-        <span>{{ solicitud.solicitado_por_nombre || solicitud.solicitado_por }}</span>
-      </div>
-      <div class="card info-item">
-        <label>Fecha Solicitud</label>
-        <span>{{ solicitud.fecha_solicitud | date:'dd/MM/yyyy HH:mm' }}</span>
-      </div>
-      <div class="card info-item" *ngIf="solicitud.fecha_resolucion">
-        <label>Fecha Resolución</label>
-        <span>{{ solicitud.fecha_resolucion | date:'dd/MM/yyyy HH:mm' }}</span>
-      </div>
-      <div class="card info-item full-width" *ngIf="solicitud.motivo">
-        <label>Motivo</label>
-        <span>{{ solicitud.motivo }}</span>
-      </div>
-      <div class="card info-item full-width" *ngIf="solicitud.informe_tecnico">
-        <label>Informe Técnico</label>
-        <span>{{ solicitud.informe_tecnico }}</span>
-      </div>
-      <div class="card info-item full-width" *ngIf="solicitud.observaciones">
-        <label>Observaciones</label>
-        <span>{{ solicitud.observaciones }}</span>
-      </div>
-    </div>
-
-    <div class="seccion" *ngIf="solicitud && solicitud.estado === 'pendiente'">
-      <h3>Acciones de Resolución</h3>
-      <div class="form-card">
-        <div class="field">
-          <label>Observaciones de resolución</label>
-          <textarea [(ngModel)]="observacionesResolucion" class="form-control"
-                    rows="3" placeholder="Ingrese observaciones..."></textarea>
+    }
+    
+    @if (solicitud) {
+      <div class="info-grid">
+        <div class="card info-item">
+          <label>Tipo</label>
+          <span>{{ solicitud.tipo }}</span>
         </div>
-        <div class="acciones-resolucion">
-          <button class="btn btn-success" (click)="aprobar()" [disabled]="procesando">
-            {{ procesando ? 'Procesando...' : 'Aprobar' }}
-          </button>
-          <button class="btn btn-danger" (click)="rechazar()" [disabled]="procesando">
-            {{ procesando ? 'Procesando...' : 'Rechazar' }}
-          </button>
+        <div class="card info-item">
+          <label>Entidad</label>
+          <span>{{ solicitud.entidad }}</span>
+        </div>
+        <div class="card info-item">
+          <label>Estado</label>
+          <span class="badge" [ngClass]="'badge-' + solicitud.estado">{{ solicitud.estado }}</span>
+        </div>
+        <div class="card info-item">
+          <label>Solicitado por</label>
+          <span>{{ solicitud.solicitado_por_nombre || solicitud.solicitado_por }}</span>
+        </div>
+        <div class="card info-item">
+          <label>Fecha Solicitud</label>
+          <span>{{ solicitud.fecha_solicitud | date:'dd/MM/yyyy HH:mm' }}</span>
+        </div>
+        @if (solicitud.fecha_resolucion) {
+          <div class="card info-item">
+            <label>Fecha Resolución</label>
+            <span>{{ solicitud.fecha_resolucion | date:'dd/MM/yyyy HH:mm' }}</span>
+          </div>
+        }
+        @if (solicitud.motivo) {
+          <div class="card info-item full-width">
+            <label>Motivo</label>
+            <span>{{ solicitud.motivo }}</span>
+          </div>
+        }
+        @if (solicitud.informe_tecnico) {
+          <div class="card info-item full-width">
+            <label>Informe Técnico</label>
+            <span>{{ solicitud.informe_tecnico }}</span>
+          </div>
+        }
+        @if (solicitud.observaciones) {
+          <div class="card info-item full-width">
+            <label>Observaciones</label>
+            <span>{{ solicitud.observaciones }}</span>
+          </div>
+        }
+      </div>
+    }
+    
+    @if (solicitud && solicitud.estado === 'pendiente') {
+      <div class="seccion">
+        <h3>Acciones de Resolución</h3>
+        <div class="form-card">
+          <div class="field">
+            <label>Observaciones de resolución</label>
+            <textarea [(ngModel)]="observacionesResolucion" class="form-control"
+            rows="3" placeholder="Ingrese observaciones..."></textarea>
+          </div>
+          <div class="acciones-resolucion">
+            <button class="btn btn-success" (click)="aprobar()" [disabled]="procesando">
+              {{ procesando ? 'Procesando...' : 'Aprobar' }}
+            </button>
+            <button class="btn btn-danger" (click)="rechazar()" [disabled]="procesando">
+              {{ procesando ? 'Procesando...' : 'Rechazar' }}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
-
-    <div class="loading" *ngIf="cargando">Cargando detalle...</div>
-    <div class="alert alert-error" *ngIf="error">{{ error }}</div>
-    <div class="alert alert-success" *ngIf="exito">{{ exito }}</div>
-  `,
+    }
+    
+    @if (cargando) {
+      <div class="loading">Cargando detalle...</div>
+    }
+    @if (error) {
+      <div class="alert alert-error">{{ error }}</div>
+    }
+    @if (exito) {
+      <div class="alert alert-success">{{ exito }}</div>
+    }
+    `,
   styles: [`
     .page-header { margin-bottom: 1.5rem; }
     .page-header h2 { font-size: 1.5rem; margin-bottom: 0.25rem; }

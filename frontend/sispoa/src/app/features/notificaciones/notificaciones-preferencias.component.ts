@@ -9,54 +9,65 @@ import { NotificacionesService, PreferenciaNotificacion } from './notificaciones
       <h2>Preferencias de Notificaciones</h2>
       <p class="text-secondary">Configura cómo y cuándo recibir notificaciones</p>
     </div>
-
-    <div class="preferencias-container" *ngIf="!cargando">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Evento</th>
-            <th class="col-center">Email</th>
-            <th class="col-center">En la App</th>
-            <th class="col-center">Push</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let pref of preferencias">
-            <td class="evento-cell">
-              <strong>{{ formatearEvento(pref.evento) }}</strong>
-            </td>
-            <td class="col-center">
-              <label class="toggle-switch">
-                <input type="checkbox" [checked]="pref.email_habilitado"
-                       (change)="toggle(pref, 'email_habilitado')">
-                <span class="toggle-slider"></span>
-              </label>
-            </td>
-            <td class="col-center">
-              <label class="toggle-switch">
-                <input type="checkbox" [checked]="pref.in_app_habilitado"
-                       (change)="toggle(pref, 'in_app_habilitado')">
-                <span class="toggle-slider"></span>
-              </label>
-            </td>
-            <td class="col-center">
-              <label class="toggle-switch">
-                <input type="checkbox" [checked]="pref.push_habilitado"
-                       (change)="toggle(pref, 'push_habilitado')">
-                <span class="toggle-slider"></span>
-              </label>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-
-      <div *ngIf="preferencias.length === 0" class="empty">No hay eventos de notificación disponibles</div>
-    </div>
-
-    <div class="loading" *ngIf="cargando">Cargando preferencias...</div>
-    <div class="alert alert-success" *ngIf="exito">{{ exito }}</div>
-    <div class="alert alert-error" *ngIf="error">{{ error }}</div>
-  `,
+    
+    @if (!cargando) {
+      <div class="preferencias-container">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Evento</th>
+              <th class="col-center">Email</th>
+              <th class="col-center">En la App</th>
+              <th class="col-center">Push</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (pref of preferencias; track pref) {
+              <tr>
+                <td class="evento-cell">
+                  <strong>{{ formatearEvento(pref.evento) }}</strong>
+                </td>
+                <td class="col-center">
+                  <label class="toggle-switch">
+                    <input type="checkbox" [checked]="pref.email_habilitado"
+                      (change)="toggle(pref, 'email_habilitado')">
+                      <span class="toggle-slider"></span>
+                    </label>
+                  </td>
+                  <td class="col-center">
+                    <label class="toggle-switch">
+                      <input type="checkbox" [checked]="pref.in_app_habilitado"
+                        (change)="toggle(pref, 'in_app_habilitado')">
+                        <span class="toggle-slider"></span>
+                      </label>
+                    </td>
+                    <td class="col-center">
+                      <label class="toggle-switch">
+                        <input type="checkbox" [checked]="pref.push_habilitado"
+                          (change)="toggle(pref, 'push_habilitado')">
+                          <span class="toggle-slider"></span>
+                        </label>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+              @if (preferencias.length === 0) {
+                <div class="empty">No hay eventos de notificación disponibles</div>
+              }
+            </div>
+          }
+    
+          @if (cargando) {
+            <div class="loading">Cargando preferencias...</div>
+          }
+          @if (exito) {
+            <div class="alert alert-success">{{ exito }}</div>
+          }
+          @if (error) {
+            <div class="alert alert-error">{{ error }}</div>
+          }
+    `,
   styles: [`
     .page-header { margin-bottom: 1rem; }
     .page-header h2 { font-size: 1.5rem; margin-bottom: 0.25rem; }

@@ -10,63 +10,73 @@ import { NormativaService, Normativa } from './normativa.service';
       <h2>Normativa</h2>
       <p class="text-secondary">Gestión de documentos normativos del sistema</p>
     </div>
-
+    
     <div class="acciones-superior">
       <div class="field">
         <input [(ngModel)]="busqueda" (keyup.enter)="cargar()" class="form-control"
-               placeholder="Buscar por título o descripción...">
+          placeholder="Buscar por título o descripción...">
+        </div>
+        <select [(ngModel)]="filtroEstado" (change)="cargar()" class="form-control filtro-select">
+          <option value="">Todos los estados</option>
+          <option value="borrador">Borrador</option>
+          <option value="vigente">Vigente</option>
+          <option value="obsoleta">Obsoleta</option>
+        </select>
+        <select [(ngModel)]="filtroTipo" (change)="cargar()" class="form-control filtro-select">
+          <option value="">Todos los tipos</option>
+          <option value="ley">Ley</option>
+          <option value="decreto">Decreto</option>
+          <option value="resolucion">Resolución</option>
+          <option value="acuerdo">Acuerdo</option>
+          <option value="norma_interna">Norma Interna</option>
+        </select>
       </div>
-      <select [(ngModel)]="filtroEstado" (change)="cargar()" class="form-control filtro-select">
-        <option value="">Todos los estados</option>
-        <option value="borrador">Borrador</option>
-        <option value="vigente">Vigente</option>
-        <option value="obsoleta">Obsoleta</option>
-      </select>
-      <select [(ngModel)]="filtroTipo" (change)="cargar()" class="form-control filtro-select">
-        <option value="">Todos los tipos</option>
-        <option value="ley">Ley</option>
-        <option value="decreto">Decreto</option>
-        <option value="resolucion">Resolución</option>
-        <option value="acuerdo">Acuerdo</option>
-        <option value="norma_interna">Norma Interna</option>
-      </select>
-    </div>
-
-    <div class="table-container" *ngIf="!cargando">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Título</th>
-            <th>Tipo</th>
-            <th>Estado</th>
-            <th>Versión</th>
-            <th>Fecha Vigencia</th>
-            <th>Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let n of normativas">
-            <td>{{ n.titulo }}</td>
-            <td>
-              <span class="badge badge-info">{{ n.tipo }}</span>
-            </td>
-            <td>
-              <span class="badge" [ngClass]="'badge-' + n.estado">{{ n.estado }}</span>
-            </td>
-            <td>{{ n.version || '-' }}</td>
-            <td>{{ n.fecha_vigencia | date:'dd/MM/yyyy' }}</td>
-            <td>
-              <button class="btn btn-sm btn-outline" (click)="verDetalle(n)">Ver Detalle</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-      <div *ngIf="normativas.length === 0" class="empty">No se encontraron documentos normativos</div>
-    </div>
-
-    <div class="loading" *ngIf="cargando">Cargando normativa...</div>
-    <div class="alert alert-error" *ngIf="error">{{ error }}</div>
-  `,
+    
+      @if (!cargando) {
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Título</th>
+                <th>Tipo</th>
+                <th>Estado</th>
+                <th>Versión</th>
+                <th>Fecha Vigencia</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (n of normativas; track n) {
+                <tr>
+                  <td>{{ n.titulo }}</td>
+                  <td>
+                    <span class="badge badge-info">{{ n.tipo }}</span>
+                  </td>
+                  <td>
+                    <span class="badge" [ngClass]="'badge-' + n.estado">{{ n.estado }}</span>
+                  </td>
+                  <td>{{ n.version || '-' }}</td>
+                  <td>{{ n.fecha_vigencia | date:'dd/MM/yyyy' }}</td>
+                  <td>
+                    <button class="btn btn-sm btn-outline" (click)="verDetalle(n)">Ver Detalle</button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+          @if (normativas.length === 0) {
+            <div class="empty">No se encontraron documentos normativos</div>
+          }
+        </div>
+      }
+    
+      @if (cargando) {
+        <div class="loading">Cargando normativa...</div>
+      }
+      @if (error) {
+        <div class="alert alert-error">{{ error }}</div>
+      }
+    `,
   styles: [`
     .page-header { margin-bottom: 1rem; }
     .page-header h2 { font-size: 1.5rem; margin-bottom: 0.25rem; }

@@ -4,176 +4,214 @@
 </div>
 
 <div class="wizard">
-  <span class="paso" *ngFor="let p of pasos" [class.activo]="paso === p.numero">
-    <span class="num">{{ p.numero }}</span>{{ p.titulo }}
-  </span>
+  @for (p of pasos; track p) {
+    <span class="paso" [class.activo]="paso === p.numero">
+      <span class="num">{{ p.numero }}</span>{{ p.titulo }}
+    </span>
+  }
 </div>
 
-<div class="alert-error" *ngIf="error">{{ error }}</div>
-<div class="alert-success" *ngIf="mensaje">{{ mensaje }}</div>
+@if (error) {
+  <div class="alert-error">{{ error }}</div>
+}
+@if (mensaje) {
+  <div class="alert-success">{{ mensaje }}</div>
+}
 
 <!-- ============================ Paso 1: subir ============================ -->
-<div class="card" *ngIf="paso === 1">
-  <div class="form-grid">
-    <div class="campo">
-      <label>Gestión fiscal</label>
-      <select class="input" [(ngModel)]="gestionSeleccionada"
-              (ngModelChange)="seleccionarGestion($event)">
-        <option *ngFor="let g of gestiones" [ngValue]="g.id">{{ g.anio }} — {{ g.estado_display }}</option>
-      </select>
+@if (paso === 1) {
+  <div class="card">
+    <div class="form-grid">
+      <div class="campo">
+        <label>Gestión fiscal</label>
+        <select class="input" [(ngModel)]="gestionSeleccionada"
+          (ngModelChange)="seleccionarGestion($event)">
+          @for (g of gestiones; track g) {
+            <option [ngValue]="g.id">{{ g.anio }} — {{ g.estado_display }}</option>
+          }
+        </select>
+      </div>
+      <div class="campo">
+        <label>Perfil de planilla</label>
+        <select class="input" [(ngModel)]="perfil">
+          <option value="PIP_GASTOS_HISTORICO">GASTOS histórico (estructura oficial)</option>
+          <option value="PIP_GASTOS_ACTUAL">GASTOS actual (planilla vigente)</option>
+          <option value="OTRO">Otro</option>
+        </select>
+      </div>
+      <div class="campo">
+        <label>Archivo (.xlsx / .csv)</label>
+        <input class="input" type="file" accept=".xlsx,.csv"
+          (change)="onArchivoSeleccionado($event)" />
+      </div>
     </div>
-    <div class="campo">
-      <label>Perfil de planilla</label>
-      <select class="input" [(ngModel)]="perfil">
-        <option value="PIP_GASTOS_HISTORICO">GASTOS histórico (estructura oficial)</option>
-        <option value="PIP_GASTOS_ACTUAL">GASTOS actual (planilla vigente)</option>
-        <option value="OTRO">Otro</option>
-      </select>
+    <div class="acciones">
+      <button class="btn btn-primary" (click)="subir()" [disabled]="cargando">
+        {{ cargando ? 'Subiendo…' : 'Subir y parsear' }}
+      </button>
     </div>
-    <div class="campo">
-      <label>Archivo (.xlsx / .csv)</label>
-      <input class="input" type="file" accept=".xlsx,.csv"
-             (change)="onArchivoSeleccionado($event)" />
-    </div>
+    @if (!cargando && gestiones.length === 0) {
+      <div class="empty">
+        No hay gestiones fiscales disponibles.
+      </div>
+    }
   </div>
-  <div class="acciones">
-    <button class="btn btn-primary" (click)="subir()" [disabled]="cargando">
-      {{ cargando ? 'Subiendo…' : 'Subir y parsear' }}
-    </button>
-  </div>
-  <div class="empty" *ngIf="!cargando && gestiones.length === 0">
-    No hay gestiones fiscales disponibles.
-  </div>
-</div>
+}
 
 <!-- ====================== Paso 2: hoja y mapeo =========================== -->
-<div class="card" *ngIf="paso === 2 && importacion">
-  <h3>Hoja de trabajo</h3>
-  <div class="form-grid">
-    <div class="campo">
-      <label>Hoja del libro</label>
-      <select class="input" [(ngModel)]="hojaSeleccionada">
-        <option *ngFor="let h of hojas" [ngValue]="h">{{ h }}</option>
-      </select>
+@if (paso === 2 && importacion) {
+  <div class="card">
+    <h3>Hoja de trabajo</h3>
+    <div class="form-grid">
+      <div class="campo">
+        <label>Hoja del libro</label>
+        <select class="input" [(ngModel)]="hojaSeleccionada">
+          @for (h of hojas; track h) {
+            <option [ngValue]="h">{{ h }}</option>
+          }
+        </select>
+      </div>
+    </div>
+    <h3>Mapeo de columnas (columna Excel → campo)</h3>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Columna Excel</th>
+          <th>Campo destino</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (f of filasMapeo; track f) {
+          <tr>
+            <td>{{ f.columna }}</td>
+            <td>
+              <select class="input" [(ngModel)]="f.campo">
+                <option value="">— ignorar —</option>
+                @for (c of camposDisponibles; track c) {
+                  <option [ngValue]="c.valor">{{ c.etiqueta }}</option>
+                }
+              </select>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+    @if (importacion.mapeo_json?.fuentes) {
+      <p class="estado-archivo">
+        Fuentes por columna (configurables en la API): CT→{{ importacion.mapeo_json.fuentes['ct'] }},
+        RE→{{ importacion.mapeo_json.fuentes['re'] }}, ORE→{{ importacion.mapeo_json.fuentes['ore'] }},
+        IDH→{{ importacion.mapeo_json.fuentes['idh'] }}, TGN→{{ importacion.mapeo_json.fuentes['tgn'] }}
+      </p>
+    }
+    <div class="acciones">
+      <button class="btn btn-primary" (click)="guardarMapeo()" [disabled]="cargando || !hojaSeleccionada">
+        {{ cargando ? 'Aplicando…' : 'Guardar mapeo y continuar' }}
+      </button>
     </div>
   </div>
-
-  <h3>Mapeo de columnas (columna Excel → campo)</h3>
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th>Columna Excel</th>
-        <th>Campo destino</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr *ngFor="let f of filasMapeo">
-        <td>{{ f.columna }}</td>
-        <td>
-          <select class="input" [(ngModel)]="f.campo">
-            <option value="">— ignorar —</option>
-            <option *ngFor="let c of camposDisponibles" [ngValue]="c.valor">{{ c.etiqueta }}</option>
-          </select>
-        </td>
-      </tr>
-    </tbody>
-  </table>
-  <p class="estado-archivo" *ngIf="importacion.mapeo_json?.fuentes">
-    Fuentes por columna (configurables en la API): CT→{{ importacion.mapeo_json.fuentes['ct'] }},
-    RE→{{ importacion.mapeo_json.fuentes['re'] }}, ORE→{{ importacion.mapeo_json.fuentes['ore'] }},
-    IDH→{{ importacion.mapeo_json.fuentes['idh'] }}, TGN→{{ importacion.mapeo_json.fuentes['tgn'] }}
-  </p>
-  <div class="acciones">
-    <button class="btn btn-primary" (click)="guardarMapeo()" [disabled]="cargando || !hojaSeleccionada">
-      {{ cargando ? 'Aplicando…' : 'Guardar mapeo y continuar' }}
-    </button>
-  </div>
-</div>
+}
 
 <!-- ========================= Paso 3: validar ============================= -->
-<div class="card" *ngIf="paso >= 3 && importacion">
-  <h3>Validación</h3>
-  <div class="resumen-conteos">
-    <div class="item"><b>{{ conteos['CRITICAL'] ?? 0 }}</b>Críticos</div>
-    <div class="item"><b>{{ conteos['ERROR'] ?? 0 }}</b>Errores</div>
-    <div class="item"><b>{{ conteos['WARNING'] ?? 0 }}</b>Advertencias</div>
-    <div class="item"><b>{{ conteos['INFO'] ?? 0 }}</b>Info</div>
-    <div class="item"><b>{{ importacion.estado }}</b>Estado</div>
+@if (paso >= 3 && importacion) {
+  <div class="card">
+    <h3>Validación</h3>
+    <div class="resumen-conteos">
+      <div class="item"><b>{{ conteos['CRITICAL'] ?? 0 }}</b>Críticos</div>
+      <div class="item"><b>{{ conteos['ERROR'] ?? 0 }}</b>Errores</div>
+      <div class="item"><b>{{ conteos['WARNING'] ?? 0 }}</b>Advertencias</div>
+      <div class="item"><b>{{ conteos['INFO'] ?? 0 }}</b>Info</div>
+      <div class="item"><b>{{ importacion.estado }}</b>Estado</div>
+    </div>
+    <div class="acciones">
+      <button class="btn btn-primary" (click)="validar()" [disabled]="validando">
+        {{ validando ? 'Validando…' : 'Validar importación' }}
+      </button>
+      <button class="btn" (click)="paso = 2">Volver al mapeo</button>
+      @if (importacion.estado === 'VALIDADO' || (conteos['CRITICAL'] ?? 0) === 0) {
+        <button class="btn btn-primary" (click)="aplicar()"
+          [disabled]="aplicando || bloques || !(importacion.estado === 'VALIDADO' || importacion.estado === 'STAGING')"
+          >
+          {{ aplicando ? 'Aplicando…' : 'Aplicar importación' }}
+        </button>
+      }
+    </div>
+    @if (bloques) {
+      <div class="alert-error">
+        No se puede aplicar: existen errores críticos o errores sin resolver.
+      </div>
+    }
+    @if (erroresFiltrados.length > 0) {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Fila</th>
+            <th>Campo</th>
+            <th>Valor original</th>
+            <th>Valor normalizado</th>
+            <th>Severidad</th>
+            <th>Mensaje</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (e of erroresFiltrados; track e) {
+            <tr>
+              <td>{{ e.fila }}</td>
+              <td>{{ e.campo }}</td>
+              <td>{{ e.valor_original }}</td>
+              <td>{{ e.valor_normalizado }}</td>
+              <td><span class="badge" [ngClass]="severidadClase(e.severidad)">{{ e.severidad }}</span></td>
+              <td>{{ e.mensaje }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+    @if (erroresFiltrados.length === 0 && !validando && Object.keys(conteos).length > 0) {
+      <div class="empty">
+        Sin hallazgos: la importación puede aplicarse.
+      </div>
+    }
   </div>
-  <div class="acciones">
-    <button class="btn btn-primary" (click)="validar()" [disabled]="validando">
-      {{ validando ? 'Validando…' : 'Validar importación' }}
-    </button>
-    <button class="btn" (click)="paso = 2">Volver al mapeo</button>
-    <button class="btn btn-primary" (click)="aplicar()"
-            [disabled]="aplicando || bloques || !(importacion.estado === 'VALIDADO' || importacion.estado === 'STAGING')"
-            *ngIf="importacion.estado === 'VALIDADO' || (conteos['CRITICAL'] ?? 0) === 0">
-      {{ aplicando ? 'Aplicando…' : 'Aplicar importación' }}
-    </button>
-  </div>
-  <div class="alert-error" *ngIf="bloques">
-    No se puede aplicar: existen errores críticos o errores sin resolver.
-  </div>
-
-  <table class="data-table" *ngIf="erroresFiltrados.length > 0">
-    <thead>
-      <tr>
-        <th>Fila</th>
-        <th>Campo</th>
-        <th>Valor original</th>
-        <th>Valor normalizado</th>
-        <th>Severidad</th>
-        <th>Mensaje</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr *ngFor="let e of erroresFiltrados">
-        <td>{{ e.fila }}</td>
-        <td>{{ e.campo }}</td>
-        <td>{{ e.valor_original }}</td>
-        <td>{{ e.valor_normalizado }}</td>
-        <td><span class="badge" [ngClass]="severidadClase(e.severidad)">{{ e.severidad }}</span></td>
-        <td>{{ e.mensaje }}</td>
-      </tr>
-    </tbody>
-  </table>
-  <div class="empty" *ngIf="erroresFiltrados.length === 0 && !validando && Object.keys(conteos).length > 0">
-    Sin hallazgos: la importación puede aplicarse.
-  </div>
-</div>
+}
 
 <!-- ========================== Paso 4: aplicar ============================ -->
-<div class="card" *ngIf="paso === 4 && importacion && resultado">
-  <div class="alert-success">✅ {{ resultado }}</div>
-  <div class="acciones">
-    <button class="btn btn-primary" (click)="reiniciar()">Nueva importación</button>
+@if (paso === 4 && importacion && resultado) {
+  <div class="card">
+    <div class="alert-success">✅ {{ resultado }}</div>
+    <div class="acciones">
+      <button class="btn btn-primary" (click)="reiniciar()">Nueva importación</button>
+    </div>
   </div>
-</div>
+}
 
 <!-- ====================== Historial de la gestión ======================== -->
-<div class="card" *ngIf="importaciones.length > 0">
-  <h3>Importaciones de la gestión</h3>
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th>Archivo</th>
-        <th>Perfil</th>
-        <th>Hoja</th>
-        <th>Estado</th>
-        <th>Errores</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr *ngFor="let i of importaciones">
-        <td>{{ i.filename }}</td>
-        <td>{{ i.perfil_display }}</td>
-        <td>{{ i.hoja_seleccionada }}</td>
-        <td><span class="badge" [ngClass]="estadoClase(i.estado)">{{ i.estado }}</span></td>
-        <td>
-          C:{{ i.conteos?.['CRITICAL'] ?? 0 }} E:{{ i.conteos?.['ERROR'] ?? 0 }}
-          W:{{ i.conteos?.['WARNING'] ?? 0 }}
-        </td>
-      </tr>
-    </tbody>
-  </table>
-</div>
+@if (importaciones.length > 0) {
+  <div class="card">
+    <h3>Importaciones de la gestión</h3>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Archivo</th>
+          <th>Perfil</th>
+          <th>Hoja</th>
+          <th>Estado</th>
+          <th>Errores</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (i of importaciones; track i) {
+          <tr>
+            <td>{{ i.filename }}</td>
+            <td>{{ i.perfil_display }}</td>
+            <td>{{ i.hoja_seleccionada }}</td>
+            <td><span class="badge" [ngClass]="estadoClase(i.estado)">{{ i.estado }}</span></td>
+            <td>
+              C:{{ i.conteos?.['CRITICAL'] ?? 0 }} E:{{ i.conteos?.['ERROR'] ?? 0 }}
+              W:{{ i.conteos?.['WARNING'] ?? 0 }}
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}

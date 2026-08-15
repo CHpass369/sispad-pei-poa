@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute, RouterModule } from '@angular/router';
-import { CommonModule } from '@angular/common';
+
 
 /**
  * Página genérica para módulos del plan maestro aún en desarrollo.
@@ -8,7 +8,7 @@ import { CommonModule } from '@angular/common';
  */
 @Component({
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [RouterModule],
   selector: 'app-modulo-pendiente',
   template: `
     <div class="pendiente">

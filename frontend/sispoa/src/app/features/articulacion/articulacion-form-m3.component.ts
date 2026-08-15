@@ -11,10 +11,14 @@ import { Router } from '@angular/router';
         <h2>Nueva Articulación POA → POAU</h2>
         <p class="text-secondary">Cree la jerarquía Operación → Actividad → Tarea</p>
       </div>
-
-      <div class="alert alert-success" *ngIf="mensajeExito">{{ mensajeExito }}</div>
-      <div class="alert alert-danger" *ngIf="mensajeError">{{ mensajeError }}</div>
-
+    
+      @if (mensajeExito) {
+        <div class="alert alert-success">{{ mensajeExito }}</div>
+      }
+      @if (mensajeError) {
+        <div class="alert alert-danger">{{ mensajeError }}</div>
+      }
+    
       <!-- Seleccionar Acción POA -->
       <div class="card form-card">
         <h3 class="step-title">1. Seleccionar Acción POA</h3>
@@ -22,12 +26,14 @@ import { Router } from '@angular/router';
           <label>Acción POA *</label>
           <select [(ngModel)]="accionPoaSeleccionada" class="form-control" (change)="onAccionChange()">
             <option value="">Seleccionar acción POA...</option>
-            <option *ngFor="let a of accionesPOA" [value]="a.id">{{ a.codigo_accion }} — {{ a.denominacion }}</option>
+            @for (a of accionesPOA; track a) {
+              <option [value]="a.id">{{ a.codigo_accion }} — {{ a.denominacion }}</option>
+            }
           </select>
         </div>
       </div>
-
-      <ng-container *ngIf="accionPoaSeleccionada">
+    
+      @if (accionPoaSeleccionada) {
         <!-- Operación -->
         <div class="card form-card">
           <h3 class="step-title">2. Operación</h3>
@@ -81,129 +87,132 @@ import { Router } from '@angular/router';
             </div>
           </div>
         </div>
-
         <!-- Actividades -->
         <div class="card form-card">
           <div class="section-header">
             <h3 class="step-title">3. Actividades</h3>
             <button class="btn btn-sm btn-outline" (click)="agregarActividad()">+ Agregar Actividad</button>
           </div>
-
-          <div *ngFor="let act of actividades; let i = index" class="sub-form">
-            <h4 class="section-subtitle">Actividad {{ i + 1 }}</h4>
-            <div class="form-grid">
-              <div class="field">
-                <label>Código Actividad *</label>
-                <input [(ngModel)]="act.codigo_actividad" class="form-control" placeholder="Ej: ACT-001">
-              </div>
-              <div class="field">
-                <label>Unidad de Medida</label>
-                <select [(ngModel)]="act.unidad_medida" class="form-control">
-                  <option value="">Seleccionar...</option>
-                  <option value="Unidad">Unidad</option>
-                  <option value="Porcentaje">Porcentaje</option>
-                  <option value="Persona">Persona</option>
-                  <option value="Obra">Obra</option>
-                </select>
-              </div>
-              <div class="field-full">
-                <label>Denominación *</label>
-                <textarea [(ngModel)]="act.denominacion" class="form-control" rows="2" placeholder="Descripción de la actividad"></textarea>
-              </div>
-              <div class="field">
-                <label>Meta Anual</label>
-                <input type="number" step="0.01" [(ngModel)]="act.meta_anual" class="form-control" placeholder="Meta anual">
-              </div>
-              <div class="field">
-                <label>Ponderación (%)</label>
-                <input type="number" [(ngModel)]="act.ponderacion" class="form-control" min="0" max="100" placeholder="%">
-              </div>
-              <div class="field-full">
-                <label>Programación Mensual</label>
-                <div class="mensual-grid">
-                  <div class="field" *ngFor="let m of meses; let mi = index">
-                    <label>{{ m }}</label>
-                    <input type="number" step="0.01" [(ngModel)]="act.programacion_mensual[mi]" class="form-control" placeholder="0">
+          @for (act of actividades; track act; let i = $index) {
+            <div class="sub-form">
+              <h4 class="section-subtitle">Actividad {{ i + 1 }}</h4>
+              <div class="form-grid">
+                <div class="field">
+                  <label>Código Actividad *</label>
+                  <input [(ngModel)]="act.codigo_actividad" class="form-control" placeholder="Ej: ACT-001">
+                </div>
+                <div class="field">
+                  <label>Unidad de Medida</label>
+                  <select [(ngModel)]="act.unidad_medida" class="form-control">
+                    <option value="">Seleccionar...</option>
+                    <option value="Unidad">Unidad</option>
+                    <option value="Porcentaje">Porcentaje</option>
+                    <option value="Persona">Persona</option>
+                    <option value="Obra">Obra</option>
+                  </select>
+                </div>
+                <div class="field-full">
+                  <label>Denominación *</label>
+                  <textarea [(ngModel)]="act.denominacion" class="form-control" rows="2" placeholder="Descripción de la actividad"></textarea>
+                </div>
+                <div class="field">
+                  <label>Meta Anual</label>
+                  <input type="number" step="0.01" [(ngModel)]="act.meta_anual" class="form-control" placeholder="Meta anual">
+                </div>
+                <div class="field">
+                  <label>Ponderación (%)</label>
+                  <input type="number" [(ngModel)]="act.ponderacion" class="form-control" min="0" max="100" placeholder="%">
+                </div>
+                <div class="field-full">
+                  <label>Programación Mensual</label>
+                  <div class="mensual-grid">
+                    @for (m of meses; track m; let mi = $index) {
+                      <div class="field">
+                        <label>{{ m }}</label>
+                        <input type="number" step="0.01" [(ngModel)]="act.programacion_mensual[mi]" class="form-control" placeholder="0">
+                      </div>
+                    }
                   </div>
                 </div>
               </div>
-            </div>
-
-            <!-- Tareas dentro de la actividad -->
-            <div class="tareas-section">
-              <div class="section-header">
-                <label class="tareas-label">Tareas</label>
-                <button class="btn btn-xs btn-outline" (click)="agregarTarea(i)">+ Tarea</button>
-              </div>
-
-              <div *ngFor="let tar of act.tareas; let tj = index" class="sub-form tarea-form">
-                <h5 class="tarea-title">Tarea {{ tj + 1 }}
-                  <button class="btn btn-xs btn-outline-danger" (click)="eliminarTarea(i, tj)">✕</button>
-                </h5>
-                <div class="form-grid">
-                  <div class="field">
-                    <label>Código Tarea *</label>
-                    <input [(ngModel)]="tar.codigo_tarea" class="form-control" placeholder="Ej: TAR-001">
-                  </div>
-                  <div class="field">
-                    <label>Responsable</label>
-                    <input [(ngModel)]="tar.responsable" class="form-control" placeholder="Responsable">
-                  </div>
-                  <div class="field-full">
-                    <label>Denominación *</label>
-                    <textarea [(ngModel)]="tar.denominacion" class="form-control" rows="1" placeholder="Descripción"></textarea>
-                  </div>
-                  <div class="field">
-                    <label>Fecha Inicio</label>
-                    <input type="date" [(ngModel)]="tar.fecha_inicio" class="form-control">
-                  </div>
-                  <div class="field">
-                    <label>Fecha Fin</label>
-                    <input type="date" [(ngModel)]="tar.fecha_fin" class="form-control">
-                  </div>
-                  <div class="field">
-                    <label>Meta</label>
-                    <input type="number" step="0.01" [(ngModel)]="tar.metas" class="form-control" placeholder="Meta">
-                  </div>
-                  <div class="field">
-                    <label>Orden</label>
-                    <input type="number" [(ngModel)]="tar.orden" class="form-control" placeholder="Orden">
-                  </div>
+              <!-- Tareas dentro de la actividad -->
+              <div class="tareas-section">
+                <div class="section-header">
+                  <label class="tareas-label">Tareas</label>
+                  <button class="btn btn-xs btn-outline" (click)="agregarTarea(i)">+ Tarea</button>
                 </div>
+                @for (tar of act.tareas; track tar; let tj = $index) {
+                  <div class="sub-form tarea-form">
+                    <h5 class="tarea-title">Tarea {{ tj + 1 }}
+                      <button class="btn btn-xs btn-outline-danger" (click)="eliminarTarea(i, tj)">✕</button>
+                    </h5>
+                    <div class="form-grid">
+                      <div class="field">
+                        <label>Código Tarea *</label>
+                        <input [(ngModel)]="tar.codigo_tarea" class="form-control" placeholder="Ej: TAR-001">
+                      </div>
+                      <div class="field">
+                        <label>Responsable</label>
+                        <input [(ngModel)]="tar.responsable" class="form-control" placeholder="Responsable">
+                      </div>
+                      <div class="field-full">
+                        <label>Denominación *</label>
+                        <textarea [(ngModel)]="tar.denominacion" class="form-control" rows="1" placeholder="Descripción"></textarea>
+                      </div>
+                      <div class="field">
+                        <label>Fecha Inicio</label>
+                        <input type="date" [(ngModel)]="tar.fecha_inicio" class="form-control">
+                      </div>
+                      <div class="field">
+                        <label>Fecha Fin</label>
+                        <input type="date" [(ngModel)]="tar.fecha_fin" class="form-control">
+                      </div>
+                      <div class="field">
+                        <label>Meta</label>
+                        <input type="number" step="0.01" [(ngModel)]="tar.metas" class="form-control" placeholder="Meta">
+                      </div>
+                      <div class="field">
+                        <label>Orden</label>
+                        <input type="number" [(ngModel)]="tar.orden" class="form-control" placeholder="Orden">
+                      </div>
+                    </div>
+                  </div>
+                }
+              </div>
+              <div class="sub-form-actions">
+                @if (actividades.length > 1) {
+                  <button class="btn btn-xs btn-outline-danger" (click)="eliminarActividad(i)">Eliminar actividad</button>
+                }
               </div>
             </div>
-
-            <div class="sub-form-actions">
-              <button class="btn btn-xs btn-outline-danger" (click)="eliminarActividad(i)" *ngIf="actividades.length > 1">Eliminar actividad</button>
-            </div>
-          </div>
+          }
         </div>
-
         <!-- Normativas -->
         <div class="card form-card">
           <h3 class="step-title">4. Normativas Aplicables</h3>
           <div class="field-full">
             <div class="checkbox-grid">
-              <label *ngFor="let n of normativas" class="checkbox-item">
-                <input type="checkbox" [value]="n.id"
-                       [checked]="normativasSeleccionadas.includes(n.id)"
-                       (change)="toggleNormativa(n.id)">
-                <span>{{ n.codigo || n.normativa }} — {{ n.descripcion || n.denominacion }}</span>
-              </label>
+              @for (n of normativas; track n) {
+                <label class="checkbox-item">
+                  <input type="checkbox" [value]="n.id"
+                    [checked]="normativasSeleccionadas.includes(n.id)"
+                    (change)="toggleNormativa(n.id)">
+                    <span>{{ n.codigo || n.normativa }} — {{ n.descripcion || n.denominacion }}</span>
+                  </label>
+                }
+              </div>
             </div>
           </div>
-        </div>
-
-        <!-- Botón guardar -->
-        <div class="form-nav">
-          <button class="btn btn-outline" (click)="cancelar()">← Cancelar</button>
-          <button class="btn btn-primary btn-guardar" (click)="guardarTodo()" [disabled]="guardando">
-            {{ guardando ? 'Guardando...' : '💾 Guardar Jerarquía Completa' }}
-          </button>
-        </div>
-      </ng-container>
-    </div>
-  `,
+          <!-- Botón guardar -->
+          <div class="form-nav">
+            <button class="btn btn-outline" (click)="cancelar()">← Cancelar</button>
+            <button class="btn btn-primary btn-guardar" (click)="guardarTodo()" [disabled]="guardando">
+              {{ guardando ? 'Guardando...' : '💾 Guardar Jerarquía Completa' }}
+            </button>
+          </div>
+        }
+      </div>
+    `,
   styles: [`
     .form-page { padding-bottom: 2rem; max-width: 900px; margin: 0 auto; }
     .page-header { margin-bottom: 1rem; }
