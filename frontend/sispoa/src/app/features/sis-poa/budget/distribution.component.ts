@@ -9,6 +9,7 @@ import {
   FiscalYear,
   ProgrammaticCategory,
   Reserve,
+  ValidacionDistribucion,
 } from './budget.service';
 
 @Component({
@@ -39,6 +40,9 @@ import {
     .btn-sm:hover { border-color: var(--primary); color: var(--primary); }
     .btn-danger { background: #FFEBEE; color: #C62828; }
     .btn-danger:hover { background: #FFCDD2; }
+    .btn-success { background: #2E7D32; color: white; }
+    .btn-success:hover { background: #1B5E20; }
+    .btn-success:disabled { opacity: 0.5; cursor: not-allowed; }
     .acciones { display: flex; gap: 0.375rem; flex-wrap: wrap; }
     .alert-error { background: #FFEBEE; color: #C62828; border-radius: 6px; padding: 0.625rem 0.875rem; margin: 0.75rem 0; font-size: 0.875rem; }
     .alert-success { background: #E8F5E9; color: #2E7D32; border-radius: 6px; padding: 0.625rem 0.875rem; margin: 0.75rem 0; font-size: 0.875rem; }
@@ -86,6 +90,10 @@ export class DistributionComponent implements OnInit {
     motivo: '',
   };
 
+  // -- Fijación de la distribución (Fase 7) ---------------------------------
+  validacion: ValidacionDistribucion | null = null;
+  observacionTexto = '';
+
   constructor(private service: BudgetService) {}
 
   ngOnInit(): void {
@@ -114,6 +122,7 @@ export class DistributionComponent implements OnInit {
     if (!this.gestionSeleccionada) return;
     this.cargando = true;
     this.error = '';
+    this.validacion = null;
     const gestion = this.gestionSeleccionada;
     this.service.resumenDistribucion(gestion).subscribe({
       next: (r) => { this.resumen = r; this.cargando = false; },
@@ -299,6 +308,117 @@ export class DistributionComponent implements OnInit {
       },
       error: (err) => { this.error = this.mensajeError(err); },
     });
+  }
+
+  // -- Fijación de la distribución (Fase 7) ---------------------------------
+
+  /** Versión editable de mayor número (la no fijada); null si está fijada. */
+  versionActiva(): DistributionVersion | null {
+    return this.versiones.find((v) => !v.inmutable) ?? null;
+  }
+
+  /** ¿La versión activa habilita la acción del ciclo (según su estado)? */
+  puede(accion: string): boolean {
+    const v = this.versionActiva();
+    if (!v) return false;
+    switch (accion) {
+      case 'submit': return v.estado === 'BORRADOR';
+      case 'observe': return v.estado === 'EN_REVISION';
+      case 'approve': return v.estado === 'EN_REVISION';
+      case 'freeze': return v.estado === 'APROBADO';
+      default: return false;
+    }
+  }
+
+  validar(): void {
+    const v = this.versionActiva();
+    if (!v) return;
+    this.service.validarDistribucion(v.id).subscribe({
+      next: (r) => { this.validacion = r; },
+      error: (err) => { this.error = this.mensajeError(err); },
+    });
+  }
+
+  enviarRevision(): void {
+    const v = this.versionActiva();
+    if (!v) return;
+    this.service.submitDistribucion(v.id).subscribe({
+      next: () => {
+        this.mensaje = 'Distribución enviada a revisión';
+        this.validacion = null;
+        this.observacionTexto = '';
+        this.cargarDatos();
+      },
+      error: (err) => { this.error = this.mensajeError(err); },
+    });
+  }
+
+  observar(): void {
+    const v = this.versionActiva();
+    if (!v) return;
+    if (!this.observacionTexto.trim()) {
+      this.error = 'Debe indicar el motivo de la observación';
+      return;
+    }
+    this.service.observarDistribucion(v.id, this.observacionTexto).subscribe({
+      next: () => {
+        this.mensaje = 'Distribución observada';
+        this.validacion = null;
+        this.observacionTexto = '';
+        this.cargarDatos();
+      },
+      error: (err) => { this.error = this.mensajeError(err); },
+    });
+  }
+
+  aprobar(): void {
+    const v = this.versionActiva();
+    if (!v) return;
+    this.service.aprobarDistribucion(v.id).subscribe({
+      next: () => {
+        this.mensaje = 'Distribución aprobada';
+        this.validacion = null;
+        this.cargarDatos();
+      },
+      error: (err) => { this.error = this.mensajeError(err); },
+    });
+  }
+
+  fijar(): void {
+    const v = this.versionActiva();
+    if (!v) return;
+    if (!window.confirm(`¿Fijar la distribución v${v.numero}? Quedará inmutable con checksum.`)) return;
+    this.service.fijarDistribucion(v.id, this.observacionTexto).subscribe({
+      next: () => {
+        this.mensaje = `Distribución v${v.numero} fijada (inmutable)`;
+        this.validacion = null;
+        this.observacionTexto = '';
+        this.cargarDatos();
+      },
+      error: (err) => { this.error = this.mensajeError(err); },
+    });
+  }
+
+  ajustar(v: DistributionVersion): void {
+    if (!window.confirm(`¿Crear la versión ${v.numero + 1} (BORRADOR) a partir de la fijada v${v.numero}?`)) return;
+    this.service.ajusteDistribucion(v.id).subscribe({
+      next: () => {
+        this.mensaje = `Versión ${v.numero + 1} creada para el ajuste`;
+        this.validacion = null;
+        this.cargarDatos();
+      },
+      error: (err) => { this.error = this.mensajeError(err); },
+    });
+  }
+
+  badgeEstadoVersion(estado: string): string {
+    switch (estado) {
+      case 'FIJADO':
+      case 'APROBADO': return 'badge-success';
+      case 'EN_REVISION': return 'badge-warning';
+      case 'OBSERVADO': return 'badge-danger';
+      default: return 'badge-info';
+    }
   }
 
   // -- Helpers ---------------------------------------------------------------

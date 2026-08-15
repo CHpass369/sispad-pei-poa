@@ -212,6 +212,22 @@ export interface DistributionSummary {
   por_fuente: DistribucionPorFuente[];
 }
 
+/** Fila de la validación de fijación (Fase 7): diferencia por fuente. */
+export interface DiferenciaFuente {
+  fuente_id: string;
+  denominacion: string;
+  techo: string;
+  distribuido: string;
+  reservado: string;
+  diferencia: string;
+}
+
+/** Resultado de validar_distribucion_completa (Fase 7, §49-52). */
+export interface ValidacionDistribucion {
+  valida: boolean;
+  diferencias: DiferenciaFuente[];
+}
+
 /** Error de la API V2: {error: {detail}, code?, details?}. */
 export interface ApiErrorResponse {
   error?: { detail?: string | string[] } | Record<string, unknown>;
@@ -691,6 +707,44 @@ export class BudgetService {
 
   liberarReserva(id: number): Observable<Reserve> {
     return this.http.post<Reserve>(`${this.base}/reserves/${id}/liberar/`, {});
+  }
+
+  // -- Fijación de la distribución (Fase 7) ---------------------------------
+
+  validarDistribucion(id: number): Observable<ValidacionDistribucion> {
+    return this.http.get<ValidacionDistribucion>(
+      `${this.base}/distributions/${id}/validate/`,
+    );
+  }
+
+  submitDistribucion(id: number): Observable<DistributionVersion> {
+    return this.http.post<DistributionVersion>(
+      `${this.base}/distributions/${id}/submit/`, {},
+    );
+  }
+
+  observarDistribucion(id: number, observaciones: string): Observable<DistributionVersion> {
+    return this.http.post<DistributionVersion>(
+      `${this.base}/distributions/${id}/observe/`, { observaciones },
+    );
+  }
+
+  aprobarDistribucion(id: number): Observable<DistributionVersion> {
+    return this.http.post<DistributionVersion>(
+      `${this.base}/distributions/${id}/approve/`, {},
+    );
+  }
+
+  fijarDistribucion(id: number, observaciones = ''): Observable<DistributionVersion> {
+    return this.http.post<DistributionVersion>(
+      `${this.base}/distributions/${id}/freeze/`, { observaciones },
+    );
+  }
+
+  ajusteDistribucion(id: number): Observable<DistributionVersion> {
+    return this.http.post<DistributionVersion>(
+      `${this.base}/distributions/${id}/ajuste/`, {},
+    );
   }
 
   // -- Importaciones Excel (Fase 5) -----------------------------------------

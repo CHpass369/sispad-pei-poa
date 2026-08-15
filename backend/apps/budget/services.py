@@ -14,7 +14,9 @@ Los estados legacy se reconocen en los helpers para no romper la UI V1
 (mapeo: preparacion≈CONFIGURACION, abierta≈HABILITADA,
 formulacion≈EN_FORMULACION, cerrada≈CERRADA).
 """
-from decimal import Decimal
+import hashlib
+import json
+from decimal import ROUND_HALF_UP, Decimal
 
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
@@ -652,8 +654,10 @@ def disponible_por_fuente(gestion):
 def version_distribucion_activa(gestion):
     """Versión vigente de la distribución: la no fijada de mayor número.
 
-    Si no existe (primer uso) crea la versión 1 en BORRADOR. La fijación
-    completa llega en la Fase 7.
+    Si no existe (primer uso) crea la versión 1 en BORRADOR. Si la última
+    versión está FIJADA (inmutable) NO auto-crea: la distribución quedó
+    congelada y solo un `ajuste_distribucion` explícito abre la versión
+    siguiente (Fase 7, §51: ajuste posterior = versión nueva).
     """
     activa = (
         DistributionVersion.objects
@@ -663,6 +667,17 @@ def version_distribucion_activa(gestion):
     )
     if activa is not None:
         return activa
+    fijada = (
+        DistributionVersion.objects
+        .filter(gestion=gestion, inmutable=True)
+        .order_by('-numero')
+        .first()
+    )
+    if fijada is not None:
+        raise ValidationError(
+            'La distribución está fijada (inmutable); use un ajuste para '
+            'crear la versión siguiente.'
+        )
     return DistributionVersion.objects.create(gestion=gestion, numero=1)
 
 
@@ -888,9 +903,18 @@ def actualizar_allocation(allocation, usuario, datos):
 
 @transaction.atomic
 def eliminar_allocation(allocation, usuario):
-    """Elimina una apertura; solo BORRADOR/ACTIVA (no cerradas)."""
+    """Elimina una apertura; solo BORRADOR/ACTIVA (no cerradas).
+
+    Guard de inmutabilidad (Fase 7): rechazada si la apertura pertenece a
+    una versión de distribución fijada.
+    """
     if allocation.estado == EstadoApertura.CERRADA:
         raise ValidationError('No se puede eliminar una apertura cerrada.')
+    if allocation.version is not None and allocation.version.inmutable:
+        raise ValidationError(
+            'La versión de distribución está fijada (inmutable); '
+            'no se puede eliminar la apertura.'
+        )
     gestion_anio = allocation.gestion.anio
     denominacion = allocation.denominacion
     allocation.delete()
@@ -956,6 +980,11 @@ def crear_reserva(gestion, usuario, datos):
             'la distribución está bloqueada.'
         )
     version = version_distribucion_activa(gestion)
+    if version.inmutable:
+        raise ValidationError(
+            'La versión de distribución está fijada (inmutable); '
+            'no se pueden crear reservas.'
+        )
 
     fuente = datos.get('fuente')
     fuente_id = getattr(fuente, 'id', fuente)
@@ -1001,9 +1030,18 @@ def crear_reserva(gestion, usuario, datos):
 
 @transaction.atomic
 def liberar_reserva(reserva, usuario):
-    """Libera una reserva ACTIVA (estado LIBERADA); devuelve el disponible."""
+    """Libera una reserva ACTIVA (estado LIBERADA); devuelve el disponible.
+
+    Guard de inmutabilidad (Fase 7): una reserva de una versión de
+    distribución fijada no puede liberarse (cambiaría el estado congelado).
+    """
     if reserva.estado == EstadoReserva.LIBERADA:
         raise ValidationError('La reserva ya está liberada.')
+    if reserva.version is not None and reserva.version.inmutable:
+        raise ValidationError(
+            'La reserva pertenece a una versión de distribución fijada '
+            '(inmutable); no se puede liberar.'
+        )
     reserva.estado = EstadoReserva.LIBERADA
     reserva.updated_by = usuario
     reserva.save(update_fields=['estado', 'updated_by', 'updated_at'])
@@ -1087,3 +1125,279 @@ def resumen_distribucion(gestion):
         ),
         'por_fuente': por_fuente,
     }
+
+
+# ===========================================================================
+# Fase 7 — Fijación de la distribución: validación Σfuente, checksum,
+# máquina de estados de la versión e inmutabilidad (§49-52, §132-133).
+# ===========================================================================
+
+# Tolerancia de redondeo: |diferencia| <= 0.01 se considera 0. Los montos
+# viven con 2 decimales (NUMERIC(18,2)); la tolerancia documenta el centavo
+# residual de operaciones de redondeo previas y evita rechazos espurios.
+UMBRAL_DIFERENCIA = Decimal('0.01')
+
+
+def _redondear_monto(valor):
+    """Decimal a 2 decimales (ROUND_HALF_UP), convención de la BD."""
+    return valor.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+
+def validar_distribucion_completa(gestion):
+    """Valida que la distribución esté completa por FF/OF (§49-52).
+
+    Para CADA fuente del techo fijado:
+        diferencia = techo_distribuible − (distribuido + reservado)
+    `distribuido`/`reservado` usan los agregados existentes
+    (`distribuido_por_fuente`/`reservado_por_fuente`: aperturas no CERRADAS
+    y reservas ACTIVAS, respectivamente). |diferencia| <= 0.01 se tolera
+    como 0 (redondeo a 2 decimales). Sin techo fijado devuelve valida=True
+    con lista vacía (no hay fuentes que diferir; la distribución igual
+    queda bloqueada por techo en las operaciones de escritura).
+    """
+    from apps.catalogos.models import FuenteFinanciamiento
+
+    techo = techo_distribuible_por_fuente(gestion)
+    distribuido = distribuido_por_fuente(gestion)
+    reservado = reservado_por_fuente(gestion)
+
+    fuente_ids = set(techo)
+    fuentes = (
+        {f.id: f for f in FuenteFinanciamiento.objects.filter(id__in=fuente_ids)}
+        if fuente_ids else {}
+    )
+
+    diferencias = []
+    for fid in sorted(
+        fuente_ids,
+        key=lambda x: (fuentes[x].codigo if x in fuentes else ''),
+    ):
+        t = _redondear_monto(techo.get(fid, Decimal('0.00')))
+        d = _redondear_monto(distribuido.get(fid, Decimal('0.00')))
+        r = _redondear_monto(reservado.get(fid, Decimal('0.00')))
+        diferencia = t - d - r
+        if abs(diferencia) <= UMBRAL_DIFERENCIA:
+            diferencia = Decimal('0.00')
+        diferencias.append({
+            'fuente_id': str(fid),
+            'denominacion': fuentes[fid].denominacion if fid in fuentes else '-',
+            'techo': t,
+            'distribuido': d,
+            'reservado': r,
+            'diferencia': diferencia,
+        })
+
+    valida = all(d['diferencia'] == 0 for d in diferencias)
+    return {'valida': valida, 'diferencias': diferencias}
+
+
+def checksum_distribucion(version):
+    """SHA-256 de los datos semánticos de la versión de distribución.
+
+    Incluye (fuente, organismo, monto) de las asignaciones de las APERTURAS
+    ACTIVAS de la versión y las reservas de la versión. El payload se ordena
+    por CONTENIDO semántico (no por ids de fila): el hash es estable ante
+    reordenaciones de filas con el mismo conjunto de datos (patrón
+    `DirectiveCeilingVersion`/Fase 2). Es la ÚNICA implementación del
+    checksum (el modelo delega en esta función).
+    """
+    asignaciones = sorted(
+        [
+            (
+                str(s.fuente_id or ''),
+                str(s.organismo_id or ''),
+                str(s.monto),
+            )
+            for s in AllocationSource.objects.filter(
+                allocation__version=version,
+                allocation__estado=EstadoApertura.ACTIVA,
+            )
+        ],
+        key=lambda t: (t[0], t[1], t[2]),
+    )
+    reservas = sorted(
+        [
+            (
+                str(r.fuente_id or ''),
+                str(r.organismo_id or ''),
+                r.tipo,
+                r.estado,
+                str(r.monto),
+            )
+            for r in version.reservas.all()
+        ],
+        key=lambda t: (t[0], t[1], t[2], t[3], t[4]),
+    )
+    payload = {'asignaciones': asignaciones, 'reservas': reservas}
+    return hashlib.sha256(
+        json.dumps(payload, ensure_ascii=False, sort_keys=True)
+        .encode('utf-8')
+    ).hexdigest()
+
+
+def _transicionar_distribucion(version, destino, usuario, accion, resumen):
+    """Aplica una transición válida de la versión y registra auditoría."""
+    if version.inmutable:
+        raise ValidationError(
+            'La versión de distribución está fijada (inmutable); '
+            'no puede transicionar.'
+        )
+    if version.estado == destino:
+        raise ValidationError(
+            f'La versión ya está en estado {version.get_estado_display()}.'
+        )
+    if destino not in EstadosTecho.TRANSICIONES.get(version.estado, set()):
+        raise ValidationError(
+            f'No se puede pasar la versión de '
+            f'{version.get_estado_display()} a '
+            f'{dict(EstadosTecho.CHOICES)[destino]}.'
+        )
+    estado_previo = version.estado
+    version.estado = destino
+    version.save(update_fields=['estado', 'updated_at'])
+    registrar_evento(
+        usuario,
+        accion,
+        'DistributionVersion',
+        version.id,
+        version=version.numero,
+        resumen=resumen,
+        datos_previos={'estado': estado_previo},
+        datos_posteriores={'estado': version.estado},
+        gestion=version.gestion.anio,
+    )
+    return version
+
+
+def enviar_distribucion_a_revision(version, usuario):
+    """BORRADOR|OBSERVADO → EN_REVISION."""
+    return _transicionar_distribucion(
+        version,
+        EstadosTecho.EN_REVISION,
+        usuario,
+        EventoAuditoria.Accion.ENVIAR,
+        f'Distribución v{version.numero} enviada a revisión',
+    )
+
+
+def observar_distribucion(version, usuario, motivo):
+    """EN_REVISION → OBSERVADO (con observaciones del revisor)."""
+    if not (motivo or '').strip():
+        raise ValidationError('Debe indicar el motivo de la observación.')
+    version.observaciones = motivo
+    version.save(update_fields=['observaciones', 'updated_at'])
+    return _transicionar_distribucion(
+        version,
+        EstadosTecho.OBSERVADO,
+        usuario,
+        EventoAuditoria.Accion.DEVOLVER,
+        f'Distribución v{version.numero} observada: {motivo}',
+    )
+
+
+def aprobar_distribucion(version, usuario):
+    """EN_REVISION → APROBADO."""
+    return _transicionar_distribucion(
+        version,
+        EstadosTecho.APROBADO,
+        usuario,
+        EventoAuditoria.Accion.APROBAR,
+        f'Distribución v{version.numero} aprobada',
+    )
+
+
+@transaction.atomic
+def fijar_distribucion(version, usuario, observaciones=''):
+    """APROBADO → FIJADO con validación Σfuente = techo (§49-52).
+
+    Todo dentro de la transacción: la versión debe existir y estar APROBADA,
+    la gestión habilitada y `validar_distribucion_completa` debe validar (si
+    no → ValidationError listando las diferencias por fuente). Luego calcula
+    el checksum y congela (inmutable, fecha, autor, observaciones); registra
+    auditoría. Devuelve la versión fijada.
+    """
+    if version.estado != EstadosTecho.APROBADO:
+        raise ValidationError(
+            'Solo una distribución aprobada puede fijarse '
+            f'(estado actual: {version.get_estado_display()}).'
+        )
+    if version.inmutable:
+        raise ValidationError(
+            'La versión de distribución ya está fijada (inmutable).'
+        )
+    validar_gestion_para_distribucion(version.gestion)
+
+    validacion = validar_distribucion_completa(version.gestion)
+    if not validacion['valida']:
+        detalle = '; '.join(
+            f'{d["denominacion"]} (techo {d["techo"]}, distribuido '
+            f'{d["distribuido"]}, reservado {d["reservado"]}, diferencia '
+            f'{d["diferencia"]})'
+            for d in validacion['diferencias'] if d['diferencia'] != 0
+        )
+        raise ValidationError(
+            'La distribución no está completa: diferencias por fuente '
+            f'({detalle}).'
+        )
+
+    estado_previo = version.estado
+    version.fijar(usuario, observaciones)
+    registrar_evento(
+        usuario,
+        EventoAuditoria.Accion.APROBAR,
+        'DistributionVersion',
+        version.id,
+        version=version.numero,
+        resumen=(
+            f'Distribución fijada v{version.numero} '
+            f'(gestión {version.gestion.anio})'
+        ),
+        datos_previos={'estado': estado_previo},
+        datos_posteriores={
+            'estado': EstadosTecho.FIJADO,
+            'hash': version.hash,
+            'fecha_fijacion': version.fecha_fijacion.isoformat(),
+        },
+        gestion=version.gestion.anio,
+    )
+    return version
+
+
+@transaction.atomic
+def ajuste_distribucion(version, usuario):
+    """Ajuste post-fijación (§51): crea una VERSIÓN NUEVA desde la fijada.
+
+    La versión fijada queda intacta (histórico, inmutable, solo lectura).
+    La nueva versión (numero + 1) nace en BORRADOR SIN copiar montos: la
+    reformulación (Fase 10) define los cambios; acá solo se prepara el
+    contenedor vacío para la distribución siguiente.
+    """
+    if version.estado != EstadosTecho.FIJADO or not version.inmutable:
+        raise ValidationError(
+            'Solo se puede ajustar una distribución fijada '
+            f'(estado actual: {version.estado or "sin versión"}).'
+        )
+
+    nueva = DistributionVersion.objects.create(
+        gestion=version.gestion,
+        numero=version.numero + 1,
+        estado=EstadosTecho.BORRADOR,
+        observaciones=f'Ajuste de la versión {version.numero} (fijada).',
+        created_by=usuario,
+        updated_by=usuario,
+    )
+    registrar_evento(
+        usuario,
+        EventoAuditoria.Accion.CREAR,
+        'DistributionVersion',
+        nueva.id,
+        version=nueva.numero,
+        resumen=(
+            f'Ajuste de distribución: versión {nueva.numero} creada desde '
+            f'la fijada {version.numero} (gestión {version.gestion.anio})'
+        ),
+        datos_previos={'version': version.numero, 'estado': version.estado},
+        datos_posteriores={'version': nueva.numero, 'estado': nueva.estado},
+        gestion=version.gestion.anio,
+    )
+    return nueva

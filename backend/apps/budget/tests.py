@@ -1830,3 +1830,453 @@ class TerritorialAplicarLiberarTests(TerritorialBase):
         self.assertEqual(resp.status_code, 200, resp.data)
         self.assertEqual(resp.data['count'], 1)
         self.assertEqual(resp.data['results'][0]['metodo'], 'POBLACION')
+
+
+# ===========================================================================
+# Fase 7 - Fijación de la distribución (validación Σfuente + checksum +
+# inmutabilidad + versión de ajuste)
+# ===========================================================================
+from .services import (  # noqa: E402
+    actualizar_allocation,
+    ajuste_distribucion,
+    aprobar_distribucion,
+    checksum_distribucion,
+    enviar_distribucion_a_revision,
+    fijar_distribucion,
+    validar_distribucion_completa,
+)
+
+
+class FijacionDistribucionBase(DistribucionBase):
+    """Base: gestión 2030 con techo fijado de 1500.00 (fuente 11)."""
+
+    def crear_gestion_con_techo(self, anio, monto):
+        """Gestión nueva HABILITADA con techo fijado de `monto` (1 fuente)."""
+        gestion = crear_gestion(anio, estado='HABILITADA')
+        fuente = FuenteFinanciamiento.objects.create(
+            codigo=str(anio), denominacion=f'Fuente {anio}', gestion=anio,
+            fecha_vigencia_desde=timezone.now().date(),
+        )
+        organismo = OrganismoFinanciador.objects.create(
+            codigo=str(anio) + '1', denominacion=f'Origen {anio}', gestion=anio,
+            fecha_vigencia_desde=timezone.now().date(),
+        )
+        resp = self.client.post(
+            f'{BUDGET_URL}directive-ceilings/',
+            {'gestion': str(gestion.id)},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 201, resp.data)
+        ceiling = DirectiveCeiling.objects.get(gestion=gestion)
+        version = DirectiveCeilingVersion.objects.get(
+            ceiling=ceiling, numero=1
+        )
+        CeilingResource.objects.create(
+            version=version, origen='SIGEP', monto=monto, concepto='CT',
+            fuente=fuente, organismo=organismo,
+            created_by=self.admin, updated_by=self.admin,
+        )
+        enviar_a_revision(version, self.admin)
+        aprobar(version, self.admin)
+        fijar_techo(version, self.admin)
+        return gestion, fuente, organismo
+
+    def crear_apertura_en(self, gestion, fuente, organismo, monto,
+                          denominacion='Apertura demo'):
+        data = {
+            'gestion': str(gestion.id),
+            'denominacion': denominacion,
+            'codigo_sisin': '12345678',
+            'fuentes': [{
+                'fuente': str(fuente.id),
+                'organismo': str(organismo.id),
+                'monto': monto,
+            }],
+        }
+        return self.client.post(
+            f'{BUDGET_URL}allocations/', data, format='json',
+        )
+
+    def crear_reserva_en(self, gestion, fuente, organismo, monto):
+        return self.client.post(
+            f'{BUDGET_URL}reserves/',
+            {'gestion': str(gestion.id), 'fuente': str(fuente.id),
+             'organismo': str(organismo.id), 'tipo': 'OTRA',
+             'motivo': 'Contingencia', 'monto': monto},
+            format='json',
+        )
+
+    def version_activa(self):
+        from .services import version_distribucion_activa
+        return version_distribucion_activa(self.gestion)
+
+    def fijar_v1_api(self):
+        """Distribución completa (1000 + 500) y freeze vía API."""
+        self.crear_apertura(monto='1000.00', denominacion='A fijar')
+        self.crear_reserva_api(monto='500.00')
+        version = self.version_activa()
+        resp = self.client.post(
+            f'{BUDGET_URL}distributions/{version.id}/submit/', {}, format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        resp = self.client.post(
+            f'{BUDGET_URL}distributions/{version.id}/approve/', {}, format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        resp = self.client.post(
+            f'{BUDGET_URL}distributions/{version.id}/freeze/', {}, format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        version.refresh_from_db()
+        return version
+
+    def _usuario_sin_capacidades(self):
+        rol = Rol.objects.create(codigo='rol_basico_f7', nombre='Rol básico')
+        usuario = Usuario.objects.create_user(
+            email='basico@f7.test', password='test2026'
+        )
+        usuario.roles.add(rol)
+        return usuario
+
+
+class FijacionValidacionTests(FijacionDistribucionBase):
+    def test_validacion_completa_true_con_diferencia_cero(self):
+        # techo 1000; distribuido 600 + reservado 400 = 1000 → valida.
+        gestion, fuente, organismo = self.crear_gestion_con_techo(2035, '1000.00')
+        resp = self.crear_apertura_en(
+            gestion, fuente, organismo, '600.00', 'Apertura A',
+        )
+        self.assertEqual(resp.status_code, 201, resp.data)
+        resp = self.crear_reserva_en(gestion, fuente, organismo, '400.00')
+        self.assertEqual(resp.status_code, 201, resp.data)
+
+        resultado = validar_distribucion_completa(gestion)
+        self.assertTrue(resultado['valida'])
+        self.assertEqual(len(resultado['diferencias']), 1)
+        fila = resultado['diferencias'][0]
+        self.assertEqual(fila['techo'], Decimal('1000.00'))
+        self.assertEqual(fila['distribuido'], Decimal('600.00'))
+        self.assertEqual(fila['reservado'], Decimal('400.00'))
+        self.assertEqual(fila['diferencia'], Decimal('0.00'))
+
+    def test_validacion_detecta_diferencia_no_cero(self):
+        # techo 1000; distribuido 600 + reservado 300 = 900 → diferencia 100.
+        gestion, fuente, organismo = self.crear_gestion_con_techo(2036, '1000.00')
+        resp = self.crear_apertura_en(
+            gestion, fuente, organismo, '600.00', 'Apertura A',
+        )
+        self.assertEqual(resp.status_code, 201, resp.data)
+        resp = self.crear_reserva_en(gestion, fuente, organismo, '300.00')
+        self.assertEqual(resp.status_code, 201, resp.data)
+
+        resultado = validar_distribucion_completa(gestion)
+        self.assertFalse(resultado['valida'])
+        self.assertEqual(resultado['diferencias'][0]['diferencia'],
+                         Decimal('100.00'))
+
+    def test_validacion_tolera_centavo_de_redondeo(self):
+        gestion, fuente, organismo = self.crear_gestion_con_techo(2037, '1000.00')
+        self.crear_apertura_en(gestion, fuente, organismo, '599.99',
+                               'Apertura A')
+        self.crear_reserva_en(gestion, fuente, organismo, '400.00')
+        resultado = validar_distribucion_completa(gestion)
+        self.assertTrue(resultado['valida'])
+        self.assertEqual(resultado['diferencias'][0]['diferencia'],
+                         Decimal('0.00'))
+
+    def test_validate_endpoint_devuelve_diferencias(self):
+        self.crear_apertura(monto='1000.00')
+        self.crear_reserva_api(monto='500.00')
+        version = self.version_activa()
+        resp = self.client.get(
+            f'{BUDGET_URL}distributions/{version.id}/validate/'
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertTrue(resp.data['valida'])
+        self.assertEqual(resp.data['diferencias'][0]['diferencia'], '0.00')
+        self.assertEqual(resp.data['diferencias'][0]['techo'], '1500.00')
+
+    def test_validate_endpoint_con_diferencia(self):
+        self.crear_apertura(monto='1000.00')
+        self.crear_reserva_api(monto='200.00')
+        version = self.version_activa()
+        resp = self.client.get(
+            f'{BUDGET_URL}distributions/{version.id}/validate/'
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertFalse(resp.data['valida'])
+        self.assertEqual(resp.data['diferencias'][0]['diferencia'], '300.00')
+
+
+class FijacionFlujoTests(FijacionDistribucionBase):
+    def test_flujo_submit_approve_freeze_secuencial_ok(self):
+        self.crear_apertura(monto='1000.00')
+        self.crear_reserva_api(monto='500.00')
+        version = self.version_activa()
+
+        resp = self.client.post(
+            f'{BUDGET_URL}distributions/{version.id}/submit/', {}, format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(resp.data['estado'], 'EN_REVISION')
+
+        resp = self.client.post(
+            f'{BUDGET_URL}distributions/{version.id}/approve/', {}, format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(resp.data['estado'], 'APROBADO')
+
+        resp = self.client.post(
+            f'{BUDGET_URL}distributions/{version.id}/freeze/', {}, format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(resp.data['estado'], 'FIJADO')
+        self.assertTrue(resp.data['inmutable'])
+
+    def test_freeze_sin_approve_rechazado(self):
+        version = self.version_activa()
+        resp = self.client.post(
+            f'{BUDGET_URL}distributions/{version.id}/freeze/', {}, format='json',
+        )
+        self.assertEqual(resp.status_code, 400, resp.data)
+        version.refresh_from_db()
+        self.assertEqual(version.estado, 'BORRADOR')
+        self.assertFalse(version.inmutable)
+
+    def test_observar_requiere_motivo_y_reenviar(self):
+        version = self.version_activa()
+        resp = self.client.post(
+            f'{BUDGET_URL}distributions/{version.id}/observe/', {}, format='json',
+        )
+        self.assertEqual(resp.status_code, 400, resp.data)
+
+        resp = self.client.post(
+            f'{BUDGET_URL}distributions/{version.id}/submit/', {}, format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        resp = self.client.post(
+            f'{BUDGET_URL}distributions/{version.id}/observe/',
+            {'observaciones': 'Falta desglose por fuente'}, format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(resp.data['estado'], 'OBSERVADO')
+        self.assertEqual(resp.data['observaciones'],
+                         'Falta desglose por fuente')
+        resp = self.client.post(
+            f'{BUDGET_URL}distributions/{version.id}/submit/', {}, format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(resp.data['estado'], 'EN_REVISION')
+
+    def test_fijar_con_diferencia_no_cero_rechazado(self):
+        self.crear_apertura(monto='1000.00')
+        self.crear_reserva_api(monto='200.00')  # 1200 de 1500 → diferencia 300
+        version = self.version_activa()
+        enviar_distribucion_a_revision(version, self.admin)
+        aprobar_distribucion(version, self.admin)
+
+        resp = self.client.post(
+            f'{BUDGET_URL}distributions/{version.id}/freeze/', {}, format='json',
+        )
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertIn('diferencia', json.dumps(resp.data))
+        version.refresh_from_db()
+        self.assertEqual(version.estado, 'APROBADO')
+        self.assertFalse(version.inmutable)
+        self.assertEqual(version.hash, '')
+
+    def test_fijar_con_distribucion_completa_queda_fijada(self):
+        version = self.fijar_v1_api()
+        self.assertEqual(version.estado, 'FIJADO')
+        self.assertTrue(version.inmutable)
+        self.assertTrue(version.hash)
+        self.assertEqual(len(version.hash), 64)
+        self.assertTrue(version.verificar_hash())
+        self.assertIsNotNone(version.fecha_fijacion)
+        self.assertEqual(version.fijado_por, self.admin)
+        self.assertEqual(version.observaciones, '')
+        evento = EventoAuditoria.objects.filter(
+            entidad='DistributionVersion', entidad_id=str(version.id),
+        ).order_by('-creado_en').first()
+        self.assertIsNotNone(evento)
+        self.assertEqual(evento.accion, 'aprobar')
+        self.assertIn('fijada', evento.resumen.lower())
+        self.assertEqual(evento.gestion, 2030)
+
+
+class FijacionInmutabilidadTests(FijacionDistribucionBase):
+    def test_patch_apertura_de_version_fijada_rechazado(self):
+        self.fijar_v1_api()
+        allocation = Allocation.objects.get(gestion=self.gestion)
+        resp = self.client.patch(
+            f'{BUDGET_URL}allocations/{allocation.id}/',
+            {'denominacion': 'Intento'}, format='json',
+        )
+        self.assertEqual(resp.status_code, 400, resp.data)
+        allocation.refresh_from_db()
+        self.assertEqual(allocation.denominacion, 'A fijar')
+
+    def test_crear_apertura_tras_fijar_rechazado(self):
+        self.fijar_v1_api()
+        resp = self.crear_apertura(monto='100.00', denominacion='Post fijación')
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertIn('fijada', json.dumps(resp.data))
+        self.assertEqual(
+            Allocation.objects.filter(denominacion='Post fijación').count(), 0
+        )
+
+    def test_crear_reserva_tras_fijar_rechazado(self):
+        self.fijar_v1_api()
+        resp = self.crear_reserva_api(monto='50.00')
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertEqual(Reserve.objects.filter(motivo='Contingencia').count(), 1)
+
+    def test_liberar_reserva_de_version_fijada_rechazado(self):
+        self.fijar_v1_api()
+        reserva = Reserve.objects.get(gestion=self.gestion, estado='ACTIVA')
+        resp = self.client.post(
+            f'{BUDGET_URL}reserves/{reserva.id}/liberar/', {}, format='json',
+        )
+        self.assertEqual(resp.status_code, 400, resp.data)
+        reserva.refresh_from_db()
+        self.assertEqual(reserva.estado, 'ACTIVA')
+
+    def test_patch_reserva_de_version_fijada_rechazado(self):
+        self.fijar_v1_api()
+        reserva = Reserve.objects.get(gestion=self.gestion, estado='ACTIVA')
+        resp = self.client.patch(
+            f'{BUDGET_URL}reserves/{reserva.id}/',
+            {'monto': '1.00'}, format='json',
+        )
+        self.assertEqual(resp.status_code, 409, resp.data)
+        reserva.refresh_from_db()
+        self.assertEqual(reserva.monto, Decimal('500.00'))
+
+    def test_eliminar_apertura_de_version_fijada_rechazado(self):
+        self.fijar_v1_api()
+        allocation = Allocation.objects.get(gestion=self.gestion)
+        resp = self.client.delete(f'{BUDGET_URL}allocations/{allocation.id}/')
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertTrue(Allocation.objects.filter(pk=allocation.pk).exists())
+
+    def test_patch_sobre_version_fijada_rechazado(self):
+        version = self.fijar_v1_api()
+        resp = self.client.patch(
+            f'{BUDGET_URL}distributions/{version.id}/',
+            {'observaciones': 'cambio'}, format='json',
+        )
+        self.assertEqual(resp.status_code, 409, resp.data)
+        version.refresh_from_db()
+        self.assertEqual(version.observaciones, '')
+
+
+class FijacionAjusteTests(FijacionDistribucionBase):
+    def test_ajuste_crea_version_nueva_y_la_fijada_sigue_intacta(self):
+        v1 = self.fijar_v1_api()
+        resp = self.client.post(
+            f'{BUDGET_URL}distributions/{v1.id}/ajuste/', {}, format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(resp.data['numero'], 2)
+        self.assertEqual(resp.data['estado'], 'BORRADOR')
+        self.assertFalse(resp.data['inmutable'])
+
+        v2 = DistributionVersion.objects.get(gestion=self.gestion, numero=2)
+        self.assertEqual(v2.observaciones, 'Ajuste de la versión 1 (fijada).')
+        v1.refresh_from_db()
+        self.assertEqual(v1.estado, 'FIJADO')
+        self.assertTrue(v1.inmutable)
+        self.assertTrue(v1.hash)
+        self.assertEqual(v1.verificar_hash(), True)
+        self.assertFalse(v2.reservas.exists())
+        self.assertFalse(v2.aperturas.exists())
+
+    def test_ajuste_requiere_version_fijada(self):
+        version = self.version_activa()
+        resp = self.client.post(
+            f'{BUDGET_URL}distributions/{version.id}/ajuste/', {}, format='json',
+        )
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertEqual(
+            DistributionVersion.objects.filter(gestion=self.gestion).count(), 1
+        )
+
+    def test_version_distribucion_activa_devuelve_la_ajustada(self):
+        v1 = self.fijar_v1_api()
+        self.client.post(
+            f'{BUDGET_URL}distributions/{v1.id}/ajuste/', {}, format='json',
+        )
+        from .services import version_distribucion_activa
+        activa = version_distribucion_activa(self.gestion)
+        self.assertEqual(activa.numero, 2)
+        self.assertEqual(activa.estado, 'BORRADOR')
+
+
+class FijacionChecksumTests(FijacionDistribucionBase):
+    def test_checksum_cambia_con_monto_y_es_estable_ante_reorden(self):
+        version = self.version_activa()
+        self.crear_apertura(monto='100.00', denominacion='A')
+        self.crear_apertura(monto='200.00', denominacion='B')
+
+        h1 = checksum_distribucion(version)
+        self.assertEqual(len(h1), 64)
+
+        # Reorden: intercambiar montos entre aperturas (mismo set de tuplas
+        # (fuente, organismo, monto)) → hash idéntico.
+        a = Allocation.objects.get(gestion=self.gestion, denominacion='A')
+        b = Allocation.objects.get(gestion=self.gestion, denominacion='B')
+        actualizar_allocation(a, self.admin, {'fuentes': [{
+            'fuente': self.fuente.id, 'organismo': self.organismo.id,
+            'monto': Decimal('200.00'),
+        }]})
+        actualizar_allocation(b, self.admin, {'fuentes': [{
+            'fuente': self.fuente.id, 'organismo': self.organismo.id,
+            'monto': Decimal('100.00'),
+        }]})
+        h2 = checksum_distribucion(version)
+        self.assertEqual(h1, h2)
+
+        # Cambio de monto → hash distinto.
+        actualizar_allocation(a, self.admin, {'fuentes': [{
+            'fuente': self.fuente.id, 'organismo': self.organismo.id,
+            'monto': Decimal('150.00'),
+        }]})
+        h3 = checksum_distribucion(version)
+        self.assertNotEqual(h1, h3)
+
+    def test_checksum_incluye_reservas(self):
+        version = self.version_activa()
+        self.crear_apertura(monto='1000.00', denominacion='A')
+        sin_reservas = checksum_distribucion(version)
+        self.crear_reserva_api(monto='200.00')
+        con_reservas = checksum_distribucion(version)
+        self.assertNotEqual(sin_reservas, con_reservas)
+
+    def test_checksum_estable_en_verificacion_de_fijada(self):
+        version = self.fijar_v1_api()
+        self.assertEqual(version.hash, checksum_distribucion(version))
+
+
+class FijacionPermisosTests(FijacionDistribucionBase):
+    def test_submit_require_capacidad_aprobacion(self):
+        version = self.version_activa()
+        usuario = self._usuario_sin_capacidades()
+        client = APIClient()
+        client.force_authenticate(user=usuario)
+        resp = client.post(
+            f'{BUDGET_URL}distributions/{version.id}/submit/', {}, format='json',
+        )
+        self.assertEqual(resp.status_code, 403, resp.data)
+        version.refresh_from_db()
+        self.assertEqual(version.estado, 'BORRADOR')
+
+    def test_validate_disponible_con_autenticacion(self):
+        version = self.version_activa()
+        usuario = self._usuario_sin_capacidades()
+        client = APIClient()
+        client.force_authenticate(user=usuario)
+        resp = client.get(
+            f'{BUDGET_URL}distributions/{version.id}/validate/'
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertIn('valida', resp.data)

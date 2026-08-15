@@ -270,3 +270,91 @@
     </tbody>
   </table>
 </div>
+
+<!-- Fijación de la distribución (Fase 7) -->
+<div class="seccion" *ngIf="versiones.length > 0">
+  <h3>Fijación de la distribución</h3>
+
+  <div class="alert-error" *ngIf="versiones.length > 0 && !versionActiva()">
+    Distribución fijada: use «Ajuste» sobre la versión fijada para crear la versión siguiente (BORRADOR).
+  </div>
+
+  <div class="acciones" style="margin-bottom: 0.75rem;">
+    <button class="btn btn-sm" (click)="validar()" [disabled]="!versionActiva()" title="Valida Σfuente = techo − reservas">Validar distribución</button>
+    <button *ngIf="puede('submit')" class="btn btn-primary" (click)="enviarRevision()" title="BORRADOR → EN_REVISION">Enviar a revisión</button>
+    <button *ngIf="puede('observe')" class="btn btn-sm" (click)="observar()" title="EN_REVISION → OBSERVADO">Observar</button>
+    <button *ngIf="puede('approve')" class="btn btn-primary" (click)="aprobar()" title="EN_REVISION → APROBADO">Aprobar</button>
+    <button *ngIf="puede('freeze')" class="btn btn-success" (click)="fijar()" title="APROBADO → FIJADO (inmutable + checksum)">Fijar distribución</button>
+  </div>
+
+  <div class="form-grid" *ngIf="puede('observe') || puede('freeze')" style="max-width: 640px; margin-bottom: 0.75rem;">
+    <div class="campo">
+      <label>{{ puede('observe') ? 'Motivo de la observación *' : 'Observaciones de la fijación' }}</label>
+      <input class="input" [(ngModel)]="observacionTexto" placeholder="Motivo / observaciones" />
+    </div>
+  </div>
+
+  <!-- Panel de validación (diferencias por fuente) -->
+  <div *ngIf="validacion" style="margin-bottom: 1rem;">
+    <div class="alert-success" *ngIf="validacion.valida">
+      La distribución está completa: todas las fuentes con diferencia 0. Puede fijarla.
+    </div>
+    <div class="alert-error" *ngIf="!validacion.valida">
+      La distribución NO está completa: corrija las diferencias antes de fijar.
+    </div>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Fuente</th>
+          <th class="monto-celda">Techo</th>
+          <th class="monto-celda">Distribuido</th>
+          <th class="monto-celda">Reservado</th>
+          <th class="monto-celda">Diferencia</th>
+          <th>Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let d of validacion.diferencias">
+          <td>{{ d.denominacion }}</td>
+          <td class="monto-celda">{{ d.techo | moneda }}</td>
+          <td class="monto-celda">{{ d.distribuido | moneda }}</td>
+          <td class="monto-celda">{{ d.reservado | moneda }}</td>
+          <td class="monto-celda">{{ d.diferencia | moneda }}</td>
+          <td>
+            <span class="badge" [ngClass]="d.diferencia === '0.00' ? 'badge-success' : 'badge-danger'">
+              {{ d.diferencia === '0.00' ? 'válida' : 'no válida' }}
+            </span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Versiones de la distribución -->
+  <h3 style="margin-top: 1.25rem;">Versiones de la distribución ({{ versiones.length }})</h3>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Versión</th>
+        <th>Estado</th>
+        <th>Inmutabilidad</th>
+        <th>Checksum</th>
+        <th>Fijada por</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let v of versiones">
+        <td>V{{ v.numero }}</td>
+        <td><span class="badge" [ngClass]="badgeEstadoVersion(v.estado)">{{ v.estado_display }}</span></td>
+        <td>{{ v.inmutable ? 'FIJADA (inmutable)' : 'Editable' }}</td>
+        <td style="font-family: monospace; font-size: 0.6875rem;">{{ v.hash ? (v.hash | slice:0:12) + '…' : '—' }}</td>
+        <td>{{ v.fijado_por_email || '—' }}</td>
+        <td>
+          <button class="btn btn-sm" *ngIf="v.inmutable" (click)="ajustar(v)"
+                  title="Crea la versión siguiente (BORRADOR), sin copiar montos">Ajuste</button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>

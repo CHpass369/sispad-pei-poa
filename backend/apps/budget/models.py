@@ -483,8 +483,9 @@ class DistributionVersion(TimeStampedModel):
     EN_REVISION → APROBADO → FIJADO, con OBSERVADO) y al fijarse queda
     inmutable con checksum SHA-256. La distribución activa es la versión
     no fijada de mayor número; si no existe se crea la versión 1 al primer
-    uso. La fijación completa (validación Σfuente = techo − reservas) llega
-    en la Fase 7; aquí ya existe el contenedor para no remodelar.
+    uso y, si la última está FIJADA, se exige un ajuste explícito (Fase 7).
+    La fijación valida Σfuente = techo − reservas y el checksum lo calcula
+    `services.checksum_distribucion` (única implementación; Fase 7).
     """
 
     gestion = models.ForeignKey(
@@ -525,45 +526,16 @@ class DistributionVersion(TimeStampedModel):
 
     # -- Checksum (patrón VersionInstrumento) ------------------------------
 
-    def _datos_checksum(self):
-        """Datos semánticos de la versión, deterministas y ordenados."""
-        aperturas = [
-            (
-                a.denominacion,
-                a.estado,
-                a.tipo_apertura,
-                str(a.orden),
-                a.codigo_sisin,
-                sorted([
-                    (
-                        str(s.fuente_id or ''),
-                        str(s.organismo_id or ''),
-                        str(s.monto),
-                    )
-                    for s in a.fuentes.all()
-                ]),
-            )
-            for a in self.aperturas.order_by('id')
-        ]
-        reservas = [
-            (
-                str(r.fuente_id or ''),
-                str(r.organismo_id or ''),
-                r.tipo,
-                r.estado,
-                str(r.monto),
-            )
-            for r in self.reservas.order_by('id')
-        ]
-        return {'aperturas': aperturas, 'reservas': reservas}
-
     def calcular_hash(self):
-        """SHA-256 de los datos semánticos de la versión."""
-        payload = self._datos_checksum()
-        return hashlib.sha256(
-            json.dumps(payload, ensure_ascii=False, sort_keys=True)
-            .encode('utf-8')
-        ).hexdigest()
+        """SHA-256 de los datos semánticos de la versión (Fase 7).
+
+        Delega en `services.checksum_distribucion` (única implementación):
+        (fuente, organismo, monto) de las asignaciones de las aperturas
+        ACTIVAS de la versión + reservas de la versión, ordenadas de forma
+        determinista.
+        """
+        from .services import checksum_distribucion
+        return checksum_distribucion(self)
 
     def verificar_hash(self):
         return bool(self.hash) and self.hash == self.calcular_hash()

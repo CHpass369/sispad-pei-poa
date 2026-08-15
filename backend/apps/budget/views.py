@@ -64,7 +64,9 @@ from .serializers import (
 )
 from .services import (
     ErrorDisponibilidad,
+    ajuste_distribucion,
     aprobar,
+    aprobar_distribucion,
     actualizar_allocation,
     cerrar_allocation,
     cerrar_gestion,
@@ -73,12 +75,16 @@ from .services import (
     crear_reserva,
     eliminar_allocation,
     enviar_a_revision,
+    enviar_distribucion_a_revision,
+    fijar_distribucion,
     fijar_techo,
     gestion_habilitada,
     habilitar_gestion,
     liberar_reserva,
     observar,
+    observar_distribucion,
     resumen_distribucion,
+    validar_distribucion_completa,
 )
 
 CAPACIDAD_GESTION = 'sis_poa.budget.manage'
@@ -424,7 +430,20 @@ def _respuesta_exceso(exc):
 
 
 class DistributionVersionViewSet(viewsets.ModelViewSet):
-    """Versiones de distribución (CRUD liviano + listado por gestión)."""
+    """Versiones de distribución: CRUD liviano + ciclo de fijación (Fase 7).
+
+    Acciones del ciclo (§51):
+        POST .../{id}/submit/   → EN_REVISION
+        POST .../{id}/observe/  → OBSERVADO  (body: observaciones|motivo)
+        POST .../{id}/approve/  → APROBADO
+        POST .../{id}/freeze/   → FIJADO (valida Σfuente = techo; congela)
+        GET  .../{id}/validate/ → validar_distribucion_completa (diferencias)
+        POST .../{id}/ajuste/   → versión siguiente (BORRADOR, contenedor)
+
+    Permisos (ADR-003): submit/observe/approve/freeze → `sis_poa.budget.
+    approve`; create/update/destroy/ajuste → `sis_poa.budget.manage`;
+    validate → IsAuthenticated (default global).
+    """
 
     queryset = DistributionVersion.objects.select_related(
         'gestion', 'fijado_por',
@@ -434,8 +453,11 @@ class DistributionVersionViewSet(viewsets.ModelViewSet):
     search_fields = ['gestion__anio']
 
     def get_permissions(self):
-        if self.action in ('create', 'update', 'partial_update', 'destroy'):
+        if self.action in ('create', 'update', 'partial_update', 'destroy',
+                           'ajuste'):
             return [TieneCapacidad(CAPACIDAD_GESTION)]
+        if self.action in ('submit', 'observe', 'approve', 'freeze'):
+            return [TieneCapacidad(CAPACIDAD_APROBACION)]
         return super().get_permissions()
 
     def perform_create(self, serializer):
@@ -449,6 +471,21 @@ class DistributionVersionViewSet(viewsets.ModelViewSet):
             return Response(ERROR_409_INMUTABLE, status=409)
         return super().destroy(request, *args, **kwargs)
 
+    def update(self, request, *args, **kwargs):
+        version = self.get_object()
+        if version.inmutable:
+            return Response(ERROR_409_INMUTABLE, status=409)
+        return super().update(request, *args, **kwargs)
+
+    def _ejecutar(self, request, pk, servicio, *args, **kwargs):
+        """Ejecuta un servicio de transición sobre la versión (400 si no)."""
+        version = self.get_object()
+        try:
+            resultado = servicio(version, request.user, *args, **kwargs)
+        except DjangoValidationError as exc:
+            return _respuesta_error(exc)
+        return Response(self.get_serializer(resultado).data)
+
     @action(detail=False, methods=['get'], url_path='versions')
     def versions(self, request):
         """Lista las versiones de distribución por gestión (?gestion=)."""
@@ -460,6 +497,48 @@ class DistributionVersionViewSet(viewsets.ModelViewSet):
             )
         qs = self.get_queryset().filter(gestion_id=gestion).order_by('-numero')
         return Response(self.get_serializer(qs, many=True).data)
+
+    @action(detail=True, methods=['post'], url_path='submit')
+    def submit(self, request, pk=None):
+        """BORRADOR|OBSERVADO → EN_REVISION."""
+        return self._ejecutar(request, pk, enviar_distribucion_a_revision)
+
+    @action(detail=True, methods=['post'], url_path='observe')
+    def observe(self, request, pk=None):
+        """EN_REVISION → OBSERVADO. Body: {'observaciones': 'motivo'}."""
+        motivo = (
+            request.data.get('observaciones') or request.data.get('motivo') or ''
+        )
+        if not motivo.strip():
+            return Response(
+                {'error': {'detail': ['Debe indicar el motivo de la observación.']}},
+                status=400,
+            )
+        return self._ejecutar(request, pk, observar_distribucion, motivo)
+
+    @action(detail=True, methods=['post'], url_path='approve')
+    def approve(self, request, pk=None):
+        """EN_REVISION → APROBADO."""
+        return self._ejecutar(request, pk, aprobar_distribucion)
+
+    @action(detail=True, methods=['post'], url_path='freeze')
+    def freeze(self, request, pk=None):
+        """APROBADO → FIJADO (valida Σfuente y congela con checksum)."""
+        observaciones = request.data.get('observaciones') or ''
+        return self._ejecutar(request, pk, fijar_distribucion, observaciones)
+
+    @action(detail=True, methods=['get'], url_path='validate')
+    def validate(self, request, pk=None):
+        """Validación §49-52: {valida, diferencias[{fuente, techo, ...}]}."""
+        version = self.get_object()
+        return Response(
+            _serializar_montos(validar_distribucion_completa(version.gestion))
+        )
+
+    @action(detail=True, methods=['post'], url_path='ajuste')
+    def ajuste(self, request, pk=None):
+        """Crea la versión siguiente (BORRADOR) desde la fijada."""
+        return self._ejecutar(request, pk, ajuste_distribucion)
 
 
 class AllocationViewSet(viewsets.ModelViewSet):
@@ -565,6 +644,12 @@ class ReserveViewSet(viewsets.ModelViewSet):
                            'liberar'):
             return [TieneCapacidad(CAPACIDAD_GESTION)]
         return super().get_permissions()
+
+    def update(self, request, *args, **kwargs):
+        reserva = self.get_object()
+        if reserva.version is not None and reserva.version.inmutable:
+            return Response(ERROR_409_INMUTABLE, status=409)
+        return super().update(request, *args, **kwargs)
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
