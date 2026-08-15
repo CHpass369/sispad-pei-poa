@@ -4,7 +4,7 @@ from .models import (
     ResultadoPAD, ProductoPAD, ResultadoPEI, ProductoPEI,
     ArticulacionPADPEI, IndicadorCadena, AccionPOA, OperacionPOAU,
     ActividadPOAU, ActividadNormativa, TareaPOAU, TareaNormativa,
-    SeguimientoPresupuesto, AsignacionObjetoGasto,
+    SeguimientoPresupuesto, AsignacionObjetoGasto, BorradorMatrizPAD,
 )
 
 
@@ -180,3 +180,53 @@ class AsignacionObjetoGastoSerializer(serializers.ModelSerializer):
 
     def get_monto_vigente_calculado(self, obj):
         return (obj.monto_programado or 0) + (obj.monto_modificado or 0)
+
+
+class BorradorMatrizPADSerializer(serializers.ModelSerializer):
+    """Serializador del borrador incremental de Matrices PAD.
+
+    El PATCH acepta dos contratos:
+    - Por sección: ``{"seccion": "resultados", "valores": [...lista...]}``
+      (guardado incremental por paso del wizard; la colección ``resultados``
+      se envía completa: el wizard la mantiene en memoria y la reemplaza al
+      agregar/editar resultado o producto).
+    - Completo: ``{"datos": {...}}`` (reemplaza todo el JSON de secciones).
+
+    Las secciones legacy p6..p10 (cadena única) se aceptan en el PATCH y se
+    transforman a la colección en lectura (retrocompatibilidad).
+    """
+
+    class Meta:
+        model = BorradorMatrizPAD
+        fields = '__all__'
+        read_only_fields = ['id', 'created_at', 'updated_at', 'created_by', 'updated_by']
+
+
+def validar_estructura_resultados(valores):
+    """Valida la estructura de la colección ``resultados`` del PATCH.
+
+    Retorna un mensaje de error (str) si la estructura es inválida; None si
+    es válida. Cada resultado debe ser un dict con ``denominacion`` y una
+    lista ``productos`` (cada producto un dict con ``denominacion``).
+    """
+    if not isinstance(valores, list):
+        return 'La sección "resultados" debe ser una lista de resultados.'
+    if not valores:
+        return 'La sección "resultados" no puede estar vacía: agregue al menos un resultado.'
+    for i, resultado in enumerate(valores):
+        if not isinstance(resultado, dict):
+            return f'El resultado {i + 1} debe ser un objeto (dict).'
+        if not str(resultado.get('denominacion', '')).strip():
+            return f'El resultado {i + 1} debe tener una denominación.'
+        productos = resultado.get('productos')
+        if not isinstance(productos, list):
+            return (
+                f'El resultado {i + 1} ("{resultado.get("denominacion", "")}") '
+                'debe tener una lista "productos".'
+            )
+        for j, producto in enumerate(productos):
+            if not isinstance(producto, dict):
+                return f'El producto {j + 1} del resultado {i + 1} debe ser un objeto (dict).'
+            if not str(producto.get('denominacion', '')).strip():
+                return f'El producto {j + 1} del resultado {i + 1} debe tener una denominación.'
+    return None

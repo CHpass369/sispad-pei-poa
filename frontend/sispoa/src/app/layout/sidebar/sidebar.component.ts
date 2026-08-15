@@ -159,6 +159,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         { route: '/articulador', label: 'PAD', icon: '▤', roles: ['superadmin', 'tecnico_admin', 'planificador'], legacy: true },
         { route: '/sis-pe/pei', label: 'PEI', icon: '▤', capacidades: ['sis_pe.instrumento.read'], pendiente: true },
         { route: '/articulacion', label: 'Articulación', icon: '⇄', roles: ['superadmin', 'tecnico_admin', 'planificador'], legacy: true },
+        { route: '/matrices-pad', label: 'Matrices PAD', icon: '▦', capacidades: ['sis_pe.instrumento.read'] },
         { route: '/indicadores', label: 'Indicadores', icon: '⊡', roles: ['superadmin', 'tecnico_admin', 'planificador'], legacy: true },
         { route: '/territorio', label: 'Territorio', icon: '◈', roles: ['superadmin', 'tecnico_admin'], legacy: true },
         { route: '/sis-pe/seguimiento', label: 'Seguimiento estratégico', icon: '◷', capacidades: ['sis_pe.instrumento.read'], pendiente: true },

@@ -6,12 +6,14 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework import viewsets
 from django.db.models import Prefetch
+from datetime import date
 from apps.presupuesto.models import AsignacionPresupuestariaUnidad
 from .models import (
     ArticulacionPADPEI, IndicadorCadena, AccionPOA,
     OperacionPOAU, ActividadPOAU,
     SeguimientoPresupuesto, AsignacionObjetoGasto
 )
+from .services import construir_matriz_a_gestion, construir_matriz_b_gestion
 
 
 def _text(value, limit=None):
@@ -226,6 +228,68 @@ def _serialize_m5(row, canonical):
 class MatrizViewSet(viewsets.ViewSet):
     """Endpoints que devuelven matrices desnormalizadas (formato Excel)."""
 
+    def _gestion_param(self, request, por_defecto=2026):
+        """Lee y valida ``?gestion=`` (int); 400 si no es numérico."""
+        raw = request.query_params.get('gestion') or por_defecto
+        try:
+            return int(raw)
+        except (TypeError, ValueError):
+            return None
+
+    @action(detail=False, methods=['get'])
+    def matriz_a_gestion(self, request):
+        """Matriz A (27 columnas) ACUMULADA de la gestión completa.
+
+        GET /api/v1/articulacion/matrices/matriz_a_gestion/?gestion=2026
+
+        Acumula TODOS los ResultadoPAD materializados de la gestión (todos
+        los borradores COMPLETO + cualquier ResultadoPAD existente con
+        ``vigencia_desde=gestion``) en una sola Matriz A: por cada resultado
+        1 fila + 1 fila por producto, ordenado por cgeo, lineamiento,
+        resultado y producto. Reutiliza la misma lógica de filas que la
+        matriz por borrador (construir_matriz_a).
+
+        Respuesta: ``{gestion, fecha, total_filas, filas: [...]}``.
+        """
+        gestion = self._gestion_param(request)
+        if gestion is None:
+            return Response(
+                {'error': 'Parámetro "gestion" debe ser numérico.'},
+                status=400,
+            )
+        filas = construir_matriz_a_gestion(gestion)
+        return Response({
+            'gestion': gestion,
+            'fecha': date.today().isoformat(),
+            'total_filas': len(filas),
+            'filas': filas,
+        })
+
+    @action(detail=False, methods=['get'])
+    def matriz_b_gestion(self, request):
+        """Matriz B (34 columnas) ACUMULADA de la gestión completa.
+
+        GET /api/v1/articulacion/matrices/matriz_b_gestion/?gestion=2026
+
+        Idem ``matriz_a_gestion`` pero para la Matriz B (34 columnas),
+        reutilizando la lógica de filas de ``construir_matriz_b``.
+
+        Respuesta: ``{gestion, fecha, total_filas, filas: [...]}``.
+        """
+        gestion = self._gestion_param(request)
+        if gestion is None:
+            return Response(
+                {'error': 'Parámetro "gestion" debe ser numérico.'},
+                status=400,
+            )
+        filas = construir_matriz_b_gestion(gestion)
+        return Response({
+            'gestion': gestion,
+            'fecha': date.today().isoformat(),
+            'total_filas': len(filas),
+            'filas': filas,
+        })
+
     @action(detail=False, methods=['get'])
     def m1_pad_pei(self, request):
         """Matriz 1: Articulación PAD-PEI (como en Excel, 58 columnas).
@@ -303,3 +367,118 @@ class MatrizViewSet(viewsets.ViewSet):
             _serialize_m5(row, canonical.get(row.cod_objeto_gasto))
             for row in qs.order_by('codigo_asignacion')
         ])
+
+    @action(detail=False, methods=['get'])
+    def catalogos_articulacion(self, request):
+        """Catálogos de soporte para los formularios de articulación.
+
+        Devuelve ejes PGDESA, componentes PDESA, lineamientos PAD, sectores
+        económicos presupuestarios y unidades de medida desde los modelos
+        canónicos (codificacion + catalogos), filtrado por gestión cuando se
+        provee (?gestion=2027).
+
+        TODO-articulacion-s2: main no tiene objetivo_impacto (EjePGDESA),
+        objetivo_efecto (ComponentePDESA) ni FK LineamientoPAD.componente;
+        esos campos salen degradados ('').
+        """
+        gestion = request.query_params.get('gestion')
+
+        def _by_gestion(qs):
+            if gestion:
+                return qs.filter(version_catalogo__gestion=int(gestion))
+            return qs
+
+        from apps.codificacion.models import (
+            EjePGDESA, ComponentePDESA, LineamientoPAD,
+            EntidadTerritorialCGEO, ResultadoSectorial,
+        )
+        from apps.catalogos.models import (
+            UnidadMedida, SectorEconomicoPresupuestario,
+        )
+
+        ejes = [
+            {'codigo': e.codigo, 'denominacion': e.denominacion, 'id': str(e.id),
+             'objetivo_impacto': getattr(e, 'objetivo_impacto', '') or ''}
+            for e in _by_gestion(EjePGDESA.objects.all()).order_by('codigo')
+        ]
+        componentes = [
+            {'codigo': c.codigo, 'denominacion': c.denominacion, 'id': str(c.id),
+             'eje_codigo': getattr(getattr(c, 'eje', None), 'codigo', ''),
+             'objetivo_efecto': getattr(c, 'objetivo_efecto', '') or ''}
+            for c in _by_gestion(ComponentePDESA.objects.select_related('eje').all()).order_by('codigo')
+        ]
+        lineamientos = [
+            {'codigo': l.codigo, 'denominacion': l.denominacion, 'id': str(l.id),
+             'componente_codigo': getattr(getattr(l, 'componente', None), 'codigo', '')}
+            for l in _by_gestion(LineamientoPAD.objects.all()).order_by('codigo')
+        ]
+        # Sectores de la economía plural: SOLO nivel 1 del clasificador
+        # SECTOR_ECONOMICO (código sin punto), excluyendo los 4
+        # administrativos/estatales (14 ADMINISTRACION GENERAL, 15 ORDEN
+        # PUBLICO Y SEGURIDAD CIUDADANA, 16 DEFENSA, 17 DEUDA PUBLICA).
+        # Resultado: los 20 sectores productivos y sociales que la matriz M1
+        # usa en la columna COD_SECTOR.
+        SECTORES_ADMINISTRATIVOS = {'14', '15', '16', '17'}
+        sectores = [
+            {'codigo': s.codigo, 'denominacion': s.denominacion, 'id': str(s.id)}
+            for s in SectorEconomicoPresupuestario.objects.filter(
+                gestion=int(gestion) if gestion else 2026
+            ).exclude(codigo__in=SECTORES_ADMINISTRATIVOS).order_by('codigo')
+            if '.' not in s.codigo
+        ]
+        # Si la gestión pedida no tiene ejes/componentes, fallback a 2026
+        # (el catálogo maestro está poblado en 2026 baseline; 2027 pendiente
+        # de homologación). Los formularios de articulación usan vigencia 2026.
+        if not ejes:
+            ejes = [
+                {'codigo': e.codigo, 'denominacion': e.denominacion, 'id': str(e.id),
+                 'objetivo_impacto': getattr(e, 'objetivo_impacto', '') or ''}
+                for e in EjePGDESA.objects.filter(
+                    version_catalogo__gestion=2026
+                ).order_by('codigo')
+            ]
+        if not componentes:
+            componentes = [
+                {'codigo': c.codigo, 'denominacion': c.denominacion, 'id': str(c.id),
+                 'eje_codigo': getattr(getattr(c, 'eje', None), 'codigo', ''),
+                 'objetivo_efecto': getattr(c, 'objetivo_efecto', '') or ''}
+                for c in ComponentePDESA.objects.select_related('eje').filter(
+                    version_catalogo__gestion=2026
+                ).order_by('codigo')
+            ]
+        if not lineamientos:
+            lineamientos = [
+                {'codigo': l.codigo, 'denominacion': l.denominacion, 'id': str(l.id),
+                 'componente_codigo': getattr(getattr(l, 'componente', None), 'codigo', '')}
+                for l in LineamientoPAD.objects.filter(
+                    version_catalogo__gestion=2026
+                ).order_by('codigo')
+            ]
+        unidades = [
+            {'codigo': u.codigo, 'denominacion': u.denominacion, 'id': str(u.id)}
+            for u in UnidadMedida.objects.all().order_by('codigo')
+        ]
+        # Entidades territoriales CGEO (clasificador geográfico INE/MEPF) para
+        # el paso de contexto territorial: el código CGEO se elige de catálogo,
+        # no se escribe como texto libre.
+        entidades_territoriales = [
+            {'codigo': e.codigo, 'denominacion': e.nombre, 'nivel': e.nivel, 'id': str(e.id)}
+            for e in EntidadTerritorialCGEO.objects.all().order_by('codigo')
+        ]
+        # Resultados sectoriales del PDS (clasificador codificacion.ResultadoSectorial).
+        # ``sector_codigo`` permite la cascada sector → resultado sectorial; si el
+        # sector elegido no tiene resultados, el formulario los muestra libres.
+        resultados_sectoriales = [
+            {'codigo': r.codigo, 'denominacion': r.denominacion, 'id': str(r.id),
+             'sector_codigo': getattr(getattr(r, 'sector', None), 'codigo', '')}
+            for r in ResultadoSectorial.objects.select_related('sector').all().order_by('codigo')
+        ]
+        return Response({
+            'ejes': ejes,
+            'componentes': componentes,
+            'lineamientos': lineamientos,
+            'sectores': sectores,
+            'unidades_medida': unidades,
+            'entidades_territoriales': entidades_territoriales,
+            'resultados_sectoriales': resultados_sectoriales,
+        })

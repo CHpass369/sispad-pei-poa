@@ -979,3 +979,90 @@ class AsignacionObjetoGasto(TimeStampedModel):
 
     def __str__(self):
         return f'[{self.codigo_asignacion}] G{self.gestion} - {self.descripcion_objeto[:60]}'
+
+
+class BorradorMatrizPAD(TimeStampedModel):
+    """Borrador del wizard de Matrices PAD (11 pasos, sin articulación PEI).
+
+    Cada paso del wizard persiste su sección en ``datos`` mediante PATCH
+    parcial (``seccion`` + ``valores``): los visualizadores Matriz A/B leen
+    en vivo desde el borrador hasta que la action ``materializar`` crea los
+    registros operativos (ResultadoPAD → ProductoPAD → IndicadorCadena) en
+    una transacción atómica y deja el borrador en estado COMPLETO.
+    """
+
+    ESTADO_BORRADOR = 'BORRADOR'
+    ESTADO_COMPLETO = 'COMPLETO'
+    ESTADO_CHOICES = [
+        (ESTADO_BORRADOR, 'Borrador'),
+        (ESTADO_COMPLETO, 'Completo'),
+    ]
+
+    # Secciones del wizard por paso (claves del JSONField ``datos``)
+    #
+    # Estructura REAL de las matrices PAD: un borrador contiene VARIOS
+    # resultados territoriales, cada uno con VARIOS productos, todos
+    # conviviendo como filas de la misma Matriz A / Matriz B. La sección
+    # ``resultados`` es una colección::
+    #
+    #   resultados: [
+    #     {denominacion, territorializacion, responsable,
+    #      cuenta_con_financiamiento,
+    #      indicador: {indicador, formula, unidad_medida, linea_base,
+    #                  meta_2030, programacion_fisica},
+    #      presupuesto_total, presupuesto_anual,
+    #      productos: [ {mismos campos que el resultado}, ... ]},
+    #     ...
+    #   ]
+    #
+    # Las secciones p1_nacional..p5_lineamiento son la cabecera de cadena
+    # (nacional/acuerdos/sectorial/territorial/lineamiento) que la Matriz B
+    # repite por fila. Las secciones p6..p10 se conservan SOLO para
+    # retrocompatibilidad con borradores creados antes de la colección: la
+    # lectura (materializar / matrices A-B) las transforma al formato nuevo.
+    SECCIONES = (
+        'p1_nacional',
+        'p2_acuerdos',
+        'p3_sectorial',
+        'p4_territorial',
+        'p5_lineamiento',
+        'resultados',
+        # Legacy (aceptado en PATCH, ignorado en lectura si existe resultados)
+        'p6_resultado',
+        'p7_producto',
+        'p8_indicador_resultado',
+        'p9_indicador_producto',
+        'p10_financiera',
+    )
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    gestion = models.IntegerField(default=2026, verbose_name='Gestión')
+    estado = models.CharField(
+        max_length=20, choices=ESTADO_CHOICES, default=ESTADO_BORRADOR,
+        verbose_name='Estado',
+    )
+    datos = models.JSONField(
+        default=dict, verbose_name='Datos del wizard',
+        help_text=(
+            'Secciones de cabecera p1_nacional..p5_lineamiento + colección '
+            'resultados[] (cada resultado con sus productos).'
+        ),
+    )
+    id_resultado_pad = models.ForeignKey(
+        ResultadoPAD, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='borradores_matriz_pad',
+        verbose_name='Resultado PAD materializado',
+        help_text='Se llena al materializar el borrador.',
+    )
+
+    class Meta:
+        verbose_name = 'Borrador de Matriz PAD'
+        verbose_name_plural = 'Borradores de Matrices PAD'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return (
+            f'Borrador PAD G{self.gestion} '
+            f'{self.get_estado_display()} '
+            f'({self.created_at:%Y-%m-%d %H:%M})'
+        )

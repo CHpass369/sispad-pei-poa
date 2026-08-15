@@ -1,12 +1,13 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from django.db import transaction
 from .models import (
     CodigoNivel, AcuerdoInternacional, Normativa, LineamientoPAD,
     ResultadoPAD, ProductoPAD, ResultadoPEI, ProductoPEI,
     ArticulacionPADPEI, IndicadorCadena, AccionPOA, OperacionPOAU,
     ActividadPOAU, ActividadNormativa, TareaPOAU, TareaNormativa,
-    SeguimientoPresupuesto, AsignacionObjetoGasto,
+    SeguimientoPresupuesto, AsignacionObjetoGasto, BorradorMatrizPAD,
 )
 from .serializers import (
     CodigoNivelSerializer, AcuerdoInternacionalSerializer, NormativaSerializer,
@@ -15,10 +16,16 @@ from .serializers import (
     IndicadorCadenaSerializer, AccionPOASerializer, OperacionPOAUSerializer,
     ActividadPOAUSerializer, ActividadNormativaSerializer, TareaPOAUSerializer,
     TareaNormativaSerializer, SeguimientoPresupuestoSerializer,
-    AsignacionObjetoGastoSerializer,
+    AsignacionObjetoGastoSerializer, BorradorMatrizPADSerializer,
+    validar_estructura_resultados,
 )
 from .permissions import ArticulacionPermisos
-from .services import registrar_auditoria
+from .services import (
+    construir_matriz_a,
+    construir_matriz_b,
+    materializar_borrador_matriz,
+    registrar_auditoria,
+)
 
 
 # Mixin concreto para heredar las actions
@@ -231,3 +238,152 @@ class AsignacionObjetoGastoViewSet(EstadoActionsMixin, viewsets.ModelViewSet):
     filterset_fields = ['gestion', 'estado', 'accion_poa', 'operacion', 'actividad', 'tipo_gasto']
     search_fields = ['codigo_asignacion', 'descripcion_objeto']
     ordering_fields = ['codigo_asignacion', 'gestion']
+
+
+class BorradorMatrizPADViewSet(viewsets.ModelViewSet):
+    """CRUD del borrador de Matrices PAD (guardado incremental por paso).
+
+    Contrato del PATCH parcial (por sección del wizard):
+      ``PATCH /borradores-matriz-pad/{id}/`` con
+      ``{"seccion": "resultados", "valores": [...lista completa...]}``
+    actualiza únicamente esa sección en ``datos``. Para la colección
+    ``resultados`` el PATCH envía la LISTA COMPLETA (el wizard mantiene la
+    colección en memoria y la reemplaza al agregar/editar resultado o
+    producto). También se acepta ``{"datos": {...}}`` para reemplazar el
+    JSON completo de secciones.
+
+    Estructura de la sección ``resultados`` (colección):
+      resultados: [
+        {denominacion, territorializacion, responsable,
+         cuenta_con_financiamiento,
+         indicador: {indicador, formula, unidad_medida, linea_base,
+                     meta_2030},
+         programacion_fisica: {'2026': ...},
+         presupuesto_total, presupuesto_anual: {'2026': ...},
+         productos: [ {mismos campos que el resultado}, ... ]},
+        ...
+      ]
+    Las secciones legacy p6..p10 (cadena única) siguen siendo aceptadas en
+    el PATCH y se transforman a la colección en lectura (retrocompat).
+
+    Actions:
+      - ``POST /borradores-matriz-pad/{id}/materializar/``
+        Materializa el borrador: por cada resultado de la colección crea
+        ResultadoPAD → ProductoPAD → IndicadorCadena en transacción
+        atómica; setea ``id_resultado_pad`` y estado=COMPLETO.
+      - ``GET /borradores-matriz-pad/{id}/matriz_a/``
+        Matriz A (27 columnas) armada server-side. Fuente: modelos
+        materializados si ``id_resultado_pad`` existe, si no borrador.datos.
+      - ``GET /borradores-matriz-pad/{id}/matriz_b/``
+        Matriz B (34 columnas) con el mismo contrato.
+    """
+
+    queryset = BorradorMatrizPAD.objects.select_related(
+        'id_resultado_pad',
+    ).all()
+    serializer_class = BorradorMatrizPADSerializer
+    permission_classes = [ArticulacionPermisos]
+    filterset_fields = ['gestion', 'estado']
+    ordering_fields = ['gestion', 'estado', 'created_at']
+
+    def partial_update(self, request, *args, **kwargs):
+        """PATCH por sección (guardado incremental) o por datos completo."""
+        seccion = request.data.get('seccion')
+        if seccion:
+            valores = request.data.get('valores')
+            if valores is None:
+                return Response(
+                    {'error': 'Se requiere "valores" junto a "seccion".'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if seccion not in BorradorMatrizPAD.SECCIONES:
+                return Response(
+                    {'error': f'Sección inválida: {seccion}. '
+                              f'Válidas: {", ".join(BorradorMatrizPAD.SECCIONES)}'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if seccion == 'resultados':
+                error = validar_estructura_resultados(valores)
+                if error:
+                    return Response(
+                        {'error': error}, status=status.HTTP_400_BAD_REQUEST,
+                    )
+            instance = self.get_object()
+            datos = instance.datos or {}
+            datos[seccion] = valores
+            instance.datos = datos
+            instance.save(update_fields=['datos', 'updated_at'])
+            serializer = self.get_serializer(instance)
+            return Response(serializer.data)
+        return super().partial_update(request, *args, **kwargs)
+
+    @action(detail=True, methods=['post'])
+    def materializar(self, request, pk=None):
+        """Crea ResultadoPAD → ProductoPAD → IndicadorCadena (atómico).
+
+        La materialización procesa TODA la colección ``resultados``: crea un
+        ResultadoPAD por cada resultado y un ProductoPAD por cada producto
+        (cada uno con su IndicadorCadena). Devuelve el resumen con conteos.
+        """
+        borrador = self.get_object()
+        try:
+            with transaction.atomic():
+                creados = materializar_borrador_matriz(
+                    borrador, usuario=request.user,
+                )
+                primer_resultado = creados['resultados'][0]
+                borrador.id_resultado_pad = primer_resultado
+                borrador.estado = BorradorMatrizPAD.ESTADO_COMPLETO
+                borrador.save(
+                    update_fields=['id_resultado_pad', 'estado', 'updated_at'],
+                )
+        except ValueError as exc:
+            return Response(
+                {'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception as exc:
+            registrar_auditoria(
+                usuario=request.user, accion='materializar_error',
+                entidad='BorradorMatrizPAD', entidad_id=str(borrador.id),
+                detalle=f'Error al materializar: {str(exc)[:200]}',
+            )
+            return Response(
+                {'error': f'No se pudo materializar el borrador: {exc}'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        registrar_auditoria(
+            usuario=request.user, accion='materializar',
+            entidad='BorradorMatrizPAD', entidad_id=str(borrador.id),
+            detalle=(
+                f'Materializado: {len(creados["resultados"])} resultado(s), '
+                f'{len(creados["productos"])} producto(s)'
+            ),
+        )
+        return Response({
+            'estado': borrador.estado,
+            'id_resultado_pad': str(primer_resultado.id),
+            'total_resultados': len(creados['resultados']),
+            'total_productos': len(creados['productos']),
+            'total_indicadores': len(creados['indicadores']),
+            'codigos': {
+                'resultados': [r.codigo_resultado for r in creados['resultados']],
+                'productos': [p.codigo_producto for p in creados['productos']],
+            },
+            'ids': {
+                'resultados': [str(r.id) for r in creados['resultados']],
+                'productos': [str(p.id) for p in creados['productos']],
+                'indicadores': [str(i.id) for i in creados['indicadores']],
+            },
+        })
+
+    @action(detail=True, methods=['get'])
+    def matriz_a(self, request, pk=None):
+        """Matriz A (27 columnas) — modelos si materializado, borrador si no."""
+        borrador = self.get_object()
+        return Response(construir_matriz_a(borrador))
+
+    @action(detail=True, methods=['get'])
+    def matriz_b(self, request, pk=None):
+        """Matriz B (34 columnas) — modelos si materializado, borrador si no."""
+        borrador = self.get_object()
+        return Response(construir_matriz_b(borrador))
