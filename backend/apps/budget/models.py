@@ -1064,6 +1064,161 @@ class ImportDetalle(TimeStampedModel):
         return f'{self.importacion_id} fila {self.fila} ({self.clasificacion})'
 
 
+# ---------------------------------------------------------------------------
+# Fase 6 - Distribución territorial: reparto de bolsas entre distritos
+# (MANUAL/MONTO_FIJO/PORCENTAJE/POBLACION/FORMULA) materializado como reservas
+# DISTRITALES (no crea aperturas artificiales).
+# ---------------------------------------------------------------------------
+class MetodoDistribucion:
+    MANUAL = 'MANUAL'
+    MONTO_FIJO = 'MONTO_FIJO'
+    PORCENTAJE = 'PORCENTAJE'
+    POBLACION = 'POBLACION'
+    FORMULA = 'FORMULA'
+
+    CHOICES = [
+        (MANUAL, 'Manual'),
+        (MONTO_FIJO, 'Monto fijo'),
+        (PORCENTAJE, 'Porcentaje'),
+        (POBLACION, 'Población'),
+        (FORMULA, 'Fórmula'),
+    ]
+
+
+class EstadoDistribucionTerritorial:
+    BORRADOR = 'BORRADOR'
+    CALCULADA = 'CALCULADA'
+    APLICADA = 'APLICADA'
+
+    CHOICES = [
+        (BORRADOR, 'Borrador'),
+        (CALCULADA, 'Calculada'),
+        (APLICADA, 'Aplicada'),
+    ]
+
+
+class TerritorialDistribution(TimeStampedModel):
+    """Reparto de una bolsa presupuestaria entre distritos (Fase 6).
+
+    La distribución transita BORRADOR → CALCULADA → APLICADA. `calcular`
+    calcula los montos por distrito (`TerritorialAllocation`) con ajuste de
+    redondeo exacto (SUM(monto_final) = bolsa_total); `aplicar` materializa
+    el reparto como reservas DISTRITALES sobre la fuente (decrece el
+    disponible) y `liberar` las devuelve. `version` es la versión de
+    distribución activa al aplicar (puede ser nula). `CheckConstraint`
+    garantiza bolsa_total >= 0.
+    """
+
+    gestion = models.ForeignKey(
+        'gestion.GestionFiscal', on_delete=models.CASCADE,
+        related_name='distribuciones_territoriales',
+        help_text='Gestión fiscal de la distribución territorial.',
+    )
+    version = models.ForeignKey(
+        DistributionVersion, null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='distribuciones_territoriales',
+        help_text='Versión de distribución activa al momento de aplicar.',
+    )
+    fuente = models.ForeignKey(
+        'catalogos.FuenteFinanciamiento', null=True, blank=True,
+        on_delete=models.PROTECT, related_name='distribuciones_territoriales',
+        help_text='Fuente de la bolsa (sobre la que se reserva).',
+    )
+    organismo = models.ForeignKey(
+        'catalogos.OrganismoFinanciador', null=True, blank=True,
+        on_delete=models.PROTECT, related_name='distribuciones_territoriales',
+    )
+    metodo = models.CharField(
+        max_length=20, choices=MetodoDistribucion.CHOICES,
+        default=MetodoDistribucion.MANUAL,
+    )
+    bolsa_total = models.DecimalField(
+        max_digits=18, decimal_places=2, verbose_name='Bolsa total (Bs)'
+    )
+    estado = models.CharField(
+        max_length=20, choices=EstadoDistribucionTerritorial.CHOICES,
+        default=EstadoDistribucionTerritorial.BORRADOR,
+    )
+    observaciones = models.TextField(blank=True, default='')
+
+    class Meta:
+        verbose_name = 'Distribución territorial'
+        verbose_name_plural = 'Distribuciones territoriales'
+        ordering = ['-created_at']
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(bolsa_total__gte=0),
+                name='check_territorialdistribution_bolsa_positiva',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['gestion']),
+        ]
+
+    def __str__(self):
+        return (
+            f'Reparto {self.get_metodo_display()} {self.bolsa_total} '
+            f'({self.gestion.anio}, {self.get_estado_display()})'
+        )
+
+
+class TerritorialAllocation(TimeStampedModel):
+    """Asignación de un distrito dentro de una distribución territorial.
+
+    `poblacion` alimenta el método POBLACION y `porcentaje` el método
+    PORCENTAJE (escala 0-100, documentado en `territorial.calcular_reparto`).
+    `monto_calculado`/`ajuste`/`monto_final` los calcula el servicio de
+    reparto; la invariante es SUM(monto_final) = bolsa_total de la
+    distribución, EXACTO. `UniqueConstraint(nulls_distinct=False)` garantiza
+    una fila por (distribucion, distrito).
+    """
+
+    distribucion = models.ForeignKey(
+        TerritorialDistribution, on_delete=models.CASCADE,
+        related_name='asignaciones',
+    )
+    distrito = models.ForeignKey(
+        'territorio.Distrito', on_delete=models.PROTECT,
+        related_name='asignaciones_territoriales',
+    )
+    poblacion = models.PositiveIntegerField(
+        null=True, blank=True,
+        help_text='Población del distrito (método POBLACION).',
+    )
+    porcentaje = models.DecimalField(
+        max_digits=7, decimal_places=4, null=True, blank=True,
+        help_text='Porcentaje del distrito (método PORCENTAJE, escala 0-100).',
+    )
+    monto_calculado = models.DecimalField(
+        max_digits=18, decimal_places=2, default=0,
+        verbose_name='Monto calculado (Bs)',
+    )
+    ajuste = models.DecimalField(
+        max_digits=18, decimal_places=2, default=0,
+        help_text='Ajuste de redondeo aplicado (monto_final - monto_calculado).',
+    )
+    monto_final = models.DecimalField(
+        max_digits=18, decimal_places=2, default=0,
+        verbose_name='Monto final (Bs)',
+    )
+
+    class Meta:
+        verbose_name = 'Asignación territorial'
+        verbose_name_plural = 'Asignaciones territoriales'
+        ordering = ['distribucion', 'id']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['distribucion', 'distrito'],
+                name='uniq_distribucion_territorial_distrito',
+                nulls_distinct=False,
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.distrito}: {self.monto_final}'
+
+
 class ImportError(TimeStampedModel):
     """Hallazgo de la validación de una importación, con severidad y acción.
 

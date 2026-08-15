@@ -1545,3 +1545,288 @@ class ImportadorAplicacionTests(ImportadorBase):
             f'{BUDGET_URL}imports/{importacion.id}/apply/', {}, format='json',
         )
         self.assertEqual(resp.status_code, 400, resp.data)
+
+# ===========================================================================
+# Fase 6 - Distribución territorial (reparto por distrito + reservas)
+# ===========================================================================
+from apps.territorio.models import Distrito  # noqa: E402
+
+from .models import (  # noqa: E402
+    TerritorialAllocation,
+    TerritorialDistribution,
+)
+
+TERRITORIAL_URL = BUDGET_URL + 'territorial-distributions/'
+
+
+def crear_distrito(codigo, nombre):
+    return Distrito.objects.create(codigo=codigo, nombre=nombre)
+
+
+class TerritorialBase(DistribucionBase):
+    """Base territorial: techo fijado de 1500.00 sobre la fuente 11."""
+
+    def setUp(self):
+        super().setUp()
+        self.d1 = crear_distrito('D1', 'Centro')
+        self.d2 = crear_distrito('D2', 'Norte')
+        self.d3 = crear_distrito('D3', 'Sur')
+
+    def crear_distribucion(self, metodo='POBLACION', bolsa='600.00',
+                           distritos=None):
+        distritos = distritos or [
+            {'distrito': str(self.d1.id), 'poblacion': 100},
+            {'distrito': str(self.d2.id), 'poblacion': 200},
+            {'distrito': str(self.d3.id), 'poblacion': 300},
+        ]
+        return self.client.post(TERRITORIAL_URL, {
+            'gestion': str(self.gestion.id),
+            'fuente': str(self.fuente.id),
+            'organismo': str(self.organismo.id),
+            'metodo': metodo,
+            'bolsa_total': bolsa,
+            'distritos': distritos,
+        }, format='json')
+
+    def calcular(self, pk):
+        return self.client.post(
+            f'{TERRITORIAL_URL}{pk}/calcular/', {}, format='json',
+        )
+
+    def aplicar(self, pk):
+        return self.client.post(
+            f'{TERRITORIAL_URL}{pk}/aplicar/', {}, format='json',
+        )
+
+    def liberar(self, pk):
+        return self.client.post(
+            f'{TERRITORIAL_URL}{pk}/liberar/', {}, format='json',
+        )
+
+
+class TerritorialRepartoTests(TerritorialBase):
+    def test_poblacion_reparte_proporcional_exacto(self):
+        resp = self.crear_distribucion()
+        self.assertEqual(resp.status_code, 201, resp.data)
+        pk = resp.data['id']
+        self.assertEqual(resp.data['estado'], 'BORRADOR')
+        self.assertEqual(len(resp.data['asignaciones']), 3)
+
+        resp = self.calcular(pk)
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(resp.data['estado'], 'CALCULADA')
+        montos = {
+            a['distrito_detalle']['codigo']: Decimal(a['monto_final'])
+            for a in resp.data['asignaciones']
+        }
+        self.assertEqual(montos['D1'], Decimal('100.00'))
+        self.assertEqual(montos['D2'], Decimal('200.00'))
+        self.assertEqual(montos['D3'], Decimal('300.00'))
+        self.assertEqual(sum(montos.values()), Decimal('600.00'))
+        self.assertEqual(resp.data['total_asignado'], '600.00')
+
+    def test_redondeo_distribuye_centavo_con_sum_exacta(self):
+        resp = self.crear_distribucion(
+            bolsa='100.00',
+            distritos=[
+                {'distrito': str(self.d1.id), 'poblacion': 1},
+                {'distrito': str(self.d2.id), 'poblacion': 1},
+                {'distrito': str(self.d3.id), 'poblacion': 1},
+            ],
+        )
+        self.assertEqual(resp.status_code, 201, resp.data)
+        pk = resp.data['id']
+
+        resp = self.calcular(pk)
+        self.assertEqual(resp.status_code, 200, resp.data)
+        montos = sorted(
+            Decimal(a['monto_final'])
+            for a in resp.data['asignaciones']
+        )
+        self.assertEqual(
+            montos, [Decimal('33.33'), Decimal('33.33'), Decimal('33.34')]
+        )
+        self.assertEqual(sum(montos), Decimal('100.00'))
+        ajustes = [Decimal(a['ajuste']) for a in resp.data['asignaciones']]
+        self.assertEqual(sum(ajustes), Decimal('0.01'))
+
+    def test_porcentaje_reparte_50_30_20(self):
+        resp = self.crear_distribucion(
+            metodo='PORCENTAJE', bolsa='1000.00',
+            distritos=[
+                {'distrito': str(self.d1.id), 'porcentaje': '50'},
+                {'distrito': str(self.d2.id), 'porcentaje': '30'},
+                {'distrito': str(self.d3.id), 'porcentaje': '20'},
+            ],
+        )
+        self.assertEqual(resp.status_code, 201, resp.data)
+        pk = resp.data['id']
+
+        resp = self.calcular(pk)
+        self.assertEqual(resp.status_code, 200, resp.data)
+        montos = {
+            a['distrito_detalle']['codigo']: Decimal(a['monto_final'])
+            for a in resp.data['asignaciones']
+        }
+        self.assertEqual(montos['D1'], Decimal('500.00'))
+        self.assertEqual(montos['D2'], Decimal('300.00'))
+        self.assertEqual(montos['D3'], Decimal('200.00'))
+        self.assertEqual(sum(montos.values()), Decimal('1000.00'))
+
+    def test_porcentaje_debe_sumar_100(self):
+        resp = self.crear_distribucion(
+            metodo='PORCENTAJE', bolsa='1000.00',
+            distritos=[
+                {'distrito': str(self.d1.id), 'porcentaje': '40'},
+                {'distrito': str(self.d2.id), 'porcentaje': '30'},
+                {'distrito': str(self.d3.id), 'porcentaje': '20'},
+            ],
+        )
+        pk = resp.data['id']
+        resp = self.calcular(pk)
+        self.assertEqual(resp.status_code, 400, resp.data)
+        distribucion = TerritorialDistribution.objects.get(pk=pk)
+        self.assertEqual(distribucion.estado, 'BORRADOR')
+
+    def test_manual_requiere_suma_exacta(self):
+        resp = self.crear_distribucion(
+            metodo='MANUAL', bolsa='600.00',
+            distritos=[
+                {'distrito': str(self.d1.id), 'monto': '100.00'},
+                {'distrito': str(self.d2.id), 'monto': '200.00'},
+                {'distrito': str(self.d3.id), 'monto': '300.00'},
+            ],
+        )
+        pk = resp.data['id']
+        resp = self.calcular(pk)
+        self.assertEqual(resp.status_code, 200, resp.data)
+        montos = {
+            a['distrito_detalle']['codigo']: Decimal(a['monto_final'])
+            for a in resp.data['asignaciones']
+        }
+        self.assertEqual(montos['D1'], Decimal('100.00'))
+        self.assertEqual(montos['D2'], Decimal('200.00'))
+        self.assertEqual(montos['D3'], Decimal('300.00'))
+
+    def test_recalcular_con_distritos_actualiza_montos(self):
+        resp = self.crear_distribucion()
+        pk = resp.data['id']
+        self.assertEqual(self.calcular(pk).status_code, 200)
+
+        resp = self.client.post(
+            f'{TERRITORIAL_URL}{pk}/calcular/',
+            {'distritos': [
+                {'distrito': str(self.d1.id), 'poblacion': 300},
+                {'distrito': str(self.d2.id), 'poblacion': 200},
+                {'distrito': str(self.d3.id), 'poblacion': 100},
+            ]},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        montos = {
+            a['distrito_detalle']['codigo']: Decimal(a['monto_final'])
+            for a in resp.data['asignaciones']
+        }
+        self.assertEqual(montos['D1'], Decimal('300.00'))
+        self.assertEqual(montos['D2'], Decimal('200.00'))
+        self.assertEqual(montos['D3'], Decimal('100.00'))
+
+
+class TerritorialAplicarLiberarTests(TerritorialBase):
+    def _aplicada(self):
+        pk = self.crear_distribucion().data['id']
+        self.assertEqual(self.calcular(pk).status_code, 200)
+        return pk
+
+    def test_aplicar_crea_reservas_distritales_y_suma_bolsa(self):
+        pk = self._aplicada()
+        resp = self.aplicar(pk)
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(resp.data['estado'], 'APLICADA')
+
+        reservas = Reserve.objects.filter(
+            gestion=self.gestion, tipo='DISTRITAL', estado='ACTIVA',
+        )
+        self.assertEqual(reservas.count(), 3)
+        self.assertEqual(
+            sum(r.monto for r in reservas), Decimal('600.00')
+        )
+        for asignacion in TerritorialAllocation.objects.filter(
+            distribucion_id=pk,
+        ):
+            self.assertTrue(reservas.filter(
+                motivo=f'Distribución territorial: {asignacion.distrito}',
+            ).exists())
+        self.assertEqual(
+            disponible_por_fuente(self.gestion)[self.fuente.id],
+            Decimal('900.00'),
+        )
+
+    def test_aplicar_con_bolsa_mayor_al_disponible_rollback_total(self):
+        resp = self.crear_distribucion(bolsa='1600.00')
+        pk = resp.data['id']
+        self.assertEqual(self.calcular(pk).status_code, 200)
+
+        resp = self.aplicar(pk)
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertEqual(resp.data['code'], 'BUDGET_EXCEEDED')
+        self.assertEqual(resp.data['details']['requested'], '1600.00')
+        self.assertEqual(resp.data['details']['available'], '1500.00')
+        self.assertEqual(resp.data['details']['difference'], '100.00')
+        self.assertEqual(
+            Reserve.objects.filter(gestion=self.gestion).count(), 0
+        )
+        distribucion = TerritorialDistribution.objects.get(pk=pk)
+        self.assertEqual(distribucion.estado, 'CALCULADA')
+
+    def test_liberar_devuelve_reservas_y_estado_calculada(self):
+        pk = self._aplicada()
+        resp = self.aplicar(pk)
+        self.assertEqual(resp.status_code, 200, resp.data)
+
+        resp = self.liberar(pk)
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(resp.data['estado'], 'CALCULADA')
+        self.assertEqual(
+            Reserve.objects.filter(
+                gestion=self.gestion, estado='ACTIVA',
+            ).count(), 0
+        )
+        self.assertEqual(
+            Reserve.objects.filter(
+                gestion=self.gestion, estado='LIBERADA',
+            ).count(), 3
+        )
+        self.assertEqual(
+            disponible_por_fuente(self.gestion)[self.fuente.id],
+            Decimal('1500.00'),
+        )
+
+    def test_liberar_no_aplicada_rechazado(self):
+        pk = self._aplicada()
+        resp = self.liberar(pk)
+        self.assertEqual(resp.status_code, 400, resp.data)
+
+    def test_calcular_sobre_aplicada_rechazado(self):
+        pk = self._aplicada()
+        self.assertEqual(self.aplicar(pk).status_code, 200)
+        resp = self.calcular(pk)
+        self.assertEqual(resp.status_code, 400, resp.data)
+
+    def test_update_sobre_aplicada_rechazado(self):
+        pk = self._aplicada()
+        self.assertEqual(self.aplicar(pk).status_code, 200)
+        resp = self.client.patch(
+            f'{TERRITORIAL_URL}{pk}/',
+            {'bolsa_total': '500.00'}, format='json',
+        )
+        self.assertEqual(resp.status_code, 400, resp.data)
+
+    def test_listar_por_gestion(self):
+        self.crear_distribucion()
+        resp = self.client.get(
+            TERRITORIAL_URL, {'gestion': str(self.gestion.id)},
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(resp.data['count'], 1)
+        self.assertEqual(resp.data['results'][0]['metodo'], 'POBLACION')

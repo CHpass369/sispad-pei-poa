@@ -31,6 +31,7 @@ export interface DetalleCatalogo {
 }
 
 export interface DetalleUnidad {
+  id?: string;
   codigo: string;
   nombre: string;
 }
@@ -403,6 +404,55 @@ export interface ImportResultado {
   total_importado: string;
 }
 
+// -- Distribución territorial (Fase 6) --------------------------------------
+
+export interface TerritorialAllocation {
+  id: number;
+  distrito: string;
+  distrito_detalle: DetalleDistrito;
+  poblacion: number | null;
+  porcentaje: string | null;
+  monto_calculado: string;
+  ajuste: string;
+  monto_final: string;
+}
+
+export interface TerritorialRow {
+  distrito: string;
+  poblacion?: number | null;
+  porcentaje?: string | number | null;
+  monto?: string | number | null;
+}
+
+export interface TerritorialDistribution {
+  id: number;
+  gestion: string;
+  gestion_anio: number;
+  version: number | null;
+  fuente: string | null;
+  fuente_detalle: DetalleCatalogo | null;
+  organismo: string | null;
+  organismo_detalle: DetalleCatalogo | null;
+  metodo: string;
+  metodo_display: string;
+  bolsa_total: string;
+  estado: string;
+  estado_display: string;
+  observaciones: string;
+  asignaciones: TerritorialAllocation[];
+  total_asignado: string;
+}
+
+export interface TerritorialDistributionInput {
+  gestion: string;
+  fuente: string;
+  organismo?: string | null;
+  metodo: string;
+  bolsa_total: string | number;
+  observaciones?: string;
+  distritos?: TerritorialRow[];
+}
+
 /** Campos destino del mapeo columna -> campo (con etiqueta en español). */
 export const CAMPOS_IMPORTACION: { valor: string; etiqueta: string }[] = [
   { valor: 'unidad', etiqueta: 'Unidad ejecutiva' },
@@ -680,6 +730,40 @@ export class BudgetService {
   aplicarImportacion(id: number): Observable<BudgetImport & { resultado?: ImportResultado }> {
     return this.http.post<BudgetImport & { resultado?: ImportResultado }>(
       `${this.base}/imports/${id}/apply/`, {},
+    );
+  }
+
+  // -- Distribución territorial (Fase 6) -------------------------------------
+
+  listarTerritoriales(params?: { gestion?: string; estado?: string }): Observable<Paginado<TerritorialDistribution>> {
+    return this.http.get<Paginado<TerritorialDistribution>>(
+      `${this.base}/territorial-distributions/`,
+      { params: this.params(params) },
+    );
+  }
+
+  crearTerritorial(data: TerritorialDistributionInput): Observable<TerritorialDistribution> {
+    return this.http.post<TerritorialDistribution>(
+      `${this.base}/territorial-distributions/`, data,
+    );
+  }
+
+  calcularTerritorial(id: number, distritos?: TerritorialRow[]): Observable<TerritorialDistribution> {
+    return this.http.post<TerritorialDistribution>(
+      `${this.base}/territorial-distributions/${id}/calcular/`,
+      distritos ? { distritos } : {},
+    );
+  }
+
+  aplicarTerritorial(id: number): Observable<TerritorialDistribution> {
+    return this.http.post<TerritorialDistribution>(
+      `${this.base}/territorial-distributions/${id}/aplicar/`, {},
+    );
+  }
+
+  liberarTerritorial(id: number): Observable<TerritorialDistribution> {
+    return this.http.post<TerritorialDistribution>(
+      `${this.base}/territorial-distributions/${id}/liberar/`, {},
     );
   }
 }

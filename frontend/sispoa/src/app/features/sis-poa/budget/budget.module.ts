@@ -10,6 +10,7 @@ import { FiscalYearComponent } from './fiscal-year.component';
 import { ImportsComponent } from './imports.component';
 import { MonedaPipe } from './moneda.pipe';
 import { ProgrammaticCategoriesComponent } from './programmatic-categories.component';
+import { TerritorialComponent } from './territorial.component';
 
 const routes: Routes = [
   { path: '', redirectTo: 'gestion-fiscal', pathMatch: 'full' },
@@ -38,6 +39,12 @@ const routes: Routes = [
     data: { capacidades: ['sis_poa.budget.manage', 'sis_poa.formulate'] },
   },
   {
+    path: 'distribucion-territorial',
+    component: TerritorialComponent,
+    canActivate: [CapabilityGuard],
+    data: { capacidades: ['sis_poa.budget.manage', 'sis_poa.formulate'] },
+  },
+  {
     path: 'importaciones',
     component: ImportsComponent,
     canActivate: [CapabilityGuard],
@@ -52,6 +59,7 @@ const routes: Routes = [
     ProgrammaticCategoriesComponent,
     DistributionComponent,
     ImportsComponent,
+    TerritorialComponent,
     MonedaPipe,
   ],
   imports: [CommonModule, FormsModule, RouterModule.forChild(routes)],

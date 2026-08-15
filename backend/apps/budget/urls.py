@@ -19,6 +19,7 @@ from .views import (
     MandatoryExpenseViewSet,
     ProgrammaticCategoryViewSet,
     ReserveViewSet,
+    TerritorialDistributionViewSet,
 )
 
 budget_router = DefaultRouter()
@@ -44,6 +45,10 @@ budget_router.register(
 budget_router.register('allocations', AllocationViewSet, basename='v2-budget-allocations')
 budget_router.register('reserves', ReserveViewSet, basename='v2-budget-reserves')
 budget_router.register('imports', BudgetImportViewSet, basename='v2-budget-imports')
+budget_router.register(
+    'territorial-distributions', TerritorialDistributionViewSet,
+    basename='v2-territorial-distributions',
+)
 
 urlpatterns = [
     path(

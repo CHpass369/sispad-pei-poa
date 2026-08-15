@@ -46,6 +46,8 @@ from .models import (
     MandatoryExpense,
     ProgrammaticCategory,
     Reserve,
+    TerritorialAllocation,
+    TerritorialDistribution,
 )
 from .serializers import (
     AllocationSerializer,
@@ -57,6 +59,7 @@ from .serializers import (
     MandatoryExpenseSerializer,
     ProgrammaticCategorySerializer,
     ReserveSerializer,
+    TerritorialDistributionSerializer,
     _serializar_montos,
 )
 from .services import (
@@ -764,3 +767,143 @@ class BudgetImportViewSet(viewsets.ModelViewSet):
         if severidad:
             qs = qs.filter(severidad=severidad)
         return Response(ImportErrorSerializer(qs, many=True).data)
+
+
+# ---------------------------------------------------------------------------
+# Fase 6 - Distribución territorial (reparto por distrito → reservas DISTRITALES)
+# ---------------------------------------------------------------------------
+from .territorial import (  # noqa: E402
+    aplicar_reparto,
+    calcular_reparto,
+    liberar_reparto,
+    recalcular_reparto,
+)
+from .services import validar_gestion_para_distribucion  # noqa: E402
+
+
+class TerritorialDistributionViewSet(viewsets.ModelViewSet):
+    """Distribuciones territoriales: CRUD + calcular/aplicar/liberar.
+
+    create acepta `distritos`: [{distrito, poblacion?, porcentaje?, monto?}].
+    POST .../calcular/  → calcula el reparto (body opcional {distritos} para
+    recalcular con datos actualizados; rechaza APLICADA).
+    POST .../aplicar/   → materializa reservas DISTRITALES (BUDGET_EXCEEDED
+    si la bolsa excede el disponible de la fuente; rollback total).
+    POST .../liberar/   → solo APLICADA: libera las reservas y vuelve a
+    CALCULADA.
+    Escritura (incluidas las acciones) → capacidad `sis_poa.budget.manage`.
+    """
+
+    queryset = TerritorialDistribution.objects.select_related(
+        'gestion', 'version', 'fuente', 'organismo',
+    ).prefetch_related('asignaciones__distrito').all()
+    serializer_class = TerritorialDistributionSerializer
+    filterset_fields = ['gestion', 'estado', 'metodo', 'fuente']
+    search_fields = ['observaciones', 'gestion__anio']
+
+    def get_permissions(self):
+        if self.action in ('create', 'update', 'partial_update', 'destroy',
+                           'calcular', 'aplicar', 'liberar'):
+            return [TieneCapacidad(CAPACIDAD_GESTION)]
+        return super().get_permissions()
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        gestion = self.request.query_params.get('gestion')
+        if gestion:
+            qs = qs.filter(gestion_id=gestion)
+        return qs
+
+    def _ejecutar(self, servicio, distribucion, *args):
+        """Ejecuta el servicio sobre la distribución y serializa la respuesta."""
+        try:
+            servicio(distribucion, *args)
+        except ErrorDisponibilidad as exc:
+            return _respuesta_exceso(exc)
+        except DjangoValidationError as exc:
+            return _respuesta_error(exc)
+        self._descartar_cache_asignaciones(distribucion)
+        return Response(self.get_serializer(distribucion).data)
+
+    @staticmethod
+    def _descartar_cache_asignaciones(distribucion):
+        """Descarta el prefetch de `asignaciones` tras mutar (re-lectura)."""
+        cache = getattr(distribucion, '_prefetched_objects_cache', None)
+        if cache:
+            cache.pop('asignaciones', None)
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        validos = serializer.validated_data
+        gestion = validos.get('gestion')
+        try:
+            validar_gestion_para_distribucion(gestion)
+        except DjangoValidationError as exc:
+            return _respuesta_error(exc)
+
+        usuario = request.user
+        distribucion = TerritorialDistribution.objects.create(
+            gestion=gestion,
+            version=validos.get('version'),
+            fuente=validos.get('fuente'),
+            organismo=validos.get('organismo'),
+            metodo=validos.get('metodo') or 'MANUAL',
+            bolsa_total=validos.get('bolsa_total'),
+            observaciones=validos.get('observaciones') or '',
+            created_by=usuario,
+            updated_by=usuario,
+        )
+        distritos = validos.get('distritos')
+        if distritos:
+            for fila in distritos:
+                TerritorialAllocation.objects.create(
+                    distribucion=distribucion,
+                    distrito_id=fila['distrito'],
+                    poblacion=fila.get('poblacion'),
+                    porcentaje=fila.get('porcentaje'),
+                    monto_calculado=fila.get('monto') or 0,
+                    created_by=usuario,
+                    updated_by=usuario,
+                )
+        return Response(
+            self.get_serializer(distribucion).data, status=201,
+        )
+
+    def update(self, request, *args, **kwargs):
+        distribucion = self.get_object()
+        if distribucion.estado == 'APLICADA':
+            return Response(
+                {'error': {'detail': [
+                    'No se puede modificar una distribución territorial '
+                    'aplicada.',
+                ]}},
+                status=400,
+            )
+        return super().update(request, *args, **kwargs)
+
+    @action(detail=True, methods=['post'], url_path='calcular')
+    def calcular(self, request, pk=None):
+        """Calcula el reparto; body opcional {distritos} para recalcular."""
+        distribucion = self.get_object()
+        distritos = request.data.get('distritos')
+        if distritos is not None:
+            try:
+                recalcular_reparto(distribucion, distritos, request.user)
+            except ErrorDisponibilidad as exc:
+                return _respuesta_exceso(exc)
+            except DjangoValidationError as exc:
+                return _respuesta_error(exc)
+            self._descartar_cache_asignaciones(distribucion)
+            return Response(self.get_serializer(distribucion).data)
+        return self._ejecutar(calcular_reparto, distribucion)
+
+    @action(detail=True, methods=['post'], url_path='aplicar')
+    def aplicar(self, request, pk=None):
+        """Materializa el reparto como reservas DISTRITALES."""
+        return self._ejecutar(aplicar_reparto, self.get_object(), request.user)
+
+    @action(detail=True, methods=['post'], url_path='liberar')
+    def liberar(self, request, pk=None):
+        """Libera las reservas DISTRITALES (solo APLICADA → CALCULADA)."""
+        return self._ejecutar(liberar_reparto, self.get_object(), request.user)

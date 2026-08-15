@@ -10,7 +10,7 @@ Los montos (DecimalField) se serializan como string por convenciÃ³n de DRF
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.db import IntegrityError
+from django.db import IntegrityError, models
 from rest_framework import serializers
 
 from apps.gestion.models import GestionFiscal
@@ -29,6 +29,8 @@ from .models import (
     MandatoryExpense,
     ProgrammaticCategory,
     Reserve,
+    TerritorialAllocation,
+    TerritorialDistribution,
 )
 from .services import (
     composicion_techo,
@@ -693,3 +695,104 @@ class ImportErrorSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at',
         ]
         read_only_fields = fields
+
+
+# ---------------------------------------------------------------------------
+# Fase 6 - Distribución territorial (reparto por distrito + reservas)
+# ---------------------------------------------------------------------------
+class TerritorialAllocationInput(serializers.Serializer):
+    """Fila de distrito del payload de create/calcular (write-only).
+
+    `poblacion` alimenta el método POBLACION, `porcentaje` el método
+    PORCENTAJE (escala 0-100) y `monto` los métodos MANUAL/MONTO_FIJO/FORMULA.
+    """
+
+    distrito = serializers.UUIDField()
+    poblacion = serializers.IntegerField(
+        required=False, allow_null=True, min_value=1,
+    )
+    porcentaje = serializers.DecimalField(
+        max_digits=7, decimal_places=4, required=False, allow_null=True,
+    )
+    monto = serializers.DecimalField(
+        max_digits=18, decimal_places=2, required=False, allow_null=True,
+    )
+
+
+class TerritorialAllocationSerializer(serializers.ModelSerializer):
+    """Asignación territorial; los montos los calcula el servicio de reparto."""
+
+    distrito_detalle = serializers.SerializerMethodField()
+
+    class Meta:
+        model = TerritorialAllocation
+        fields = [
+            'id', 'distrito', 'distrito_detalle', 'poblacion', 'porcentaje',
+            'monto_calculado', 'ajuste', 'monto_final',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = [
+            'id', 'monto_calculado', 'ajuste', 'monto_final',
+            'created_at', 'updated_at',
+        ]
+
+    def get_distrito_detalle(self, obj) -> dict | None:
+        d = obj.distrito
+        if d is None:
+            return None
+        return {'codigo': d.codigo, 'nombre': d.nombre}
+
+
+class TerritorialDistributionSerializer(serializers.ModelSerializer):
+    """Distribución territorial con sus asignaciones anidadas.
+
+    Escritura: `distritos` acepta [{distrito, poblacion?, porcentaje?,
+    monto?}] y el viewset persiste las asignaciones. Los montos calculados
+    (`monto_calculado`/`ajuste`/`monto_final`) los escribe el servicio.
+    """
+
+    gestion_anio = serializers.IntegerField(source='gestion.anio', read_only=True)
+    metodo_display = serializers.CharField(
+        source='get_metodo_display', read_only=True,
+    )
+    estado_display = serializers.CharField(
+        source='get_estado_display', read_only=True,
+    )
+    fuente_detalle = serializers.SerializerMethodField()
+    organismo_detalle = serializers.SerializerMethodField()
+    asignaciones = TerritorialAllocationSerializer(many=True, read_only=True)
+    distritos = TerritorialAllocationInput(
+        many=True, write_only=True, required=False,
+    )
+    total_asignado = serializers.SerializerMethodField()
+
+    class Meta:
+        model = TerritorialDistribution
+        fields = [
+            'id', 'gestion', 'gestion_anio', 'version', 'fuente',
+            'fuente_detalle', 'organismo', 'organismo_detalle', 'metodo',
+            'metodo_display', 'bolsa_total', 'estado', 'estado_display',
+            'observaciones', 'asignaciones', 'total_asignado', 'distritos',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = [
+            'id', 'estado', 'estado_display', 'created_at', 'updated_at',
+        ]
+        extra_kwargs = {
+            'version': {'required': False},
+            'fuente': {'required': False},
+            'organismo': {'required': False},
+        }
+
+    def get_fuente_detalle(self, obj) -> dict | None:
+        return _detalle_catalogo(obj.fuente)
+
+    def get_organismo_detalle(self, obj) -> dict | None:
+        return _detalle_catalogo(obj.organismo)
+
+    def get_total_asignado(self, obj) -> str:
+        total = (
+            obj.asignaciones.aggregate(monto_total=models.Sum('monto_final'))
+            ['monto_total']
+        )
+        return str(total) if total is not None else '0.00'
