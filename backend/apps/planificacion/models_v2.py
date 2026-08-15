@@ -1,4 +1,4 @@
-"""Kernel estratégico V2 de PIP-GAMS (WP-04 / SIS-PE).
+"""Kernel estratégico SIS-PE (PIP-GAMS).
 
 Modelos genéricos y parametrizables por metodología (ADR-002, ADR-004).
 Las matrices oficiales son proyecciones de estas relaciones, no tablas

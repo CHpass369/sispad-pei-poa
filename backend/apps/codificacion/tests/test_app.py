@@ -12,4 +12,4 @@ class CodificacionAppTest(SimpleTestCase):
         """El AppConfig expone nombre y verbose_name en español."""
         config = apps.get_app_config('codificacion')
         self.assertEqual(config.name, 'apps.codificacion')
-        self.assertEqual(config.verbose_name, 'Codificación oficial PAD-PEI-POA-POAU')
+        self.assertEqual(config.verbose_name, 'PIP Catálogos - Codificación oficial')

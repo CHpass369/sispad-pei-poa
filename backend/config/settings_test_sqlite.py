@@ -29,12 +29,12 @@ LOCAL_APPS_TEST = [
     'apps.gestion',
     'apps.catalogos',
     'apps.normativa',
-    'apps.planificacion',
+    'apps.planificacion.apps.PlanificacionConfig',
     'apps.indicadores',
     'apps.recursos',
     'apps.techos',
     'apps.presupuesto',
-    'apps.pad',
+    'apps.pad.apps.PadConfig',
     'apps.workflow',
     'apps.documentos',
     'apps.reportes',
@@ -46,7 +46,7 @@ LOCAL_APPS_TEST = [
     'apps.seguimiento',
     'apps.acciones_correctivas',
     'apps.articulacion',
-    'apps.codificacion',
+    'apps.codificacion.apps.CodificacionConfig',
 ]
 
 INSTALLED_APPS = [
