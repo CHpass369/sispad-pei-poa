@@ -23,6 +23,7 @@ class EnvioFormulacion(TimeStampedModel):
     activo = models.BooleanField(default=True)
 
     class Meta:
+        db_table = 'flujo_envio_formulacion'
         verbose_name = 'Envío de formulación'
         verbose_name_plural = 'Envíos de formulación'
         ordering = ['-fecha_envio']
@@ -60,6 +61,7 @@ class Revision(TimeStampedModel):
     fecha_completado = models.DateTimeField(null=True, blank=True)
 
     class Meta:
+        db_table = 'flujo_revision'
         verbose_name = 'Revisión'
         verbose_name_plural = 'Revisiones'
         ordering = ['-fecha_asignacion']
@@ -109,6 +111,7 @@ class Observacion(TimeStampedModel):
     gestion = models.PositiveIntegerField()
 
     class Meta:
+        db_table = 'flujo_observacion'
         verbose_name = 'Observación'
         verbose_name_plural = 'Observaciones'
         ordering = ['-created_at']
@@ -150,6 +153,7 @@ class Aprobacion(TimeStampedModel):
     motivo_reapertura = models.TextField(blank=True)
 
     class Meta:
+        db_table = 'flujo_aprobacion'
         verbose_name = 'Aprobación'
         verbose_name_plural = 'Aprobaciones'
         ordering = ['-created_at']

@@ -36,6 +36,7 @@ class WorkflowDefinition(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        db_table = 'flujo_definicion'
         verbose_name = 'Definición de workflow'
         verbose_name_plural = 'Definiciones de workflow'
         ordering = ['codigo']
@@ -58,6 +59,7 @@ class WorkflowStepDefinition(models.Model):
     es_final = models.BooleanField(default=False)
 
     class Meta:
+        db_table = 'flujo_paso_definicion'
         verbose_name = 'Paso de workflow'
         verbose_name_plural = 'Pasos de workflow'
         ordering = ['definicion', 'orden']
@@ -93,6 +95,7 @@ class WorkflowTransition(models.Model):
     requiere_aprobacion = models.BooleanField(default=False)
 
     class Meta:
+        db_table = 'flujo_transicion'
         verbose_name = 'Transición de workflow'
         verbose_name_plural = 'Transiciones de workflow'
         ordering = ['definicion', 'id']
@@ -125,6 +128,7 @@ class WorkflowInstance(models.Model):
     cerrado_en = models.DateTimeField(null=True, blank=True)
 
     class Meta:
+        db_table = 'flujo_instancia'
         verbose_name = 'Instancia de workflow'
         verbose_name_plural = 'Instancias de workflow'
         ordering = ['-iniciado_en']
@@ -165,6 +169,7 @@ class WorkflowTask(models.Model):
     completado_en = models.DateTimeField(null=True, blank=True)
 
     class Meta:
+        db_table = 'flujo_tarea'
         verbose_name = 'Tarea de workflow'
         verbose_name_plural = 'Tareas de workflow'
         ordering = ['-creado_en']
@@ -203,6 +208,7 @@ class WorkflowObservacion(models.Model):
     creado_en = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        db_table = 'flujo_observacion_motor'
         verbose_name = 'Observación de workflow'
         verbose_name_plural = 'Observaciones de workflow'
         ordering = ['-creado_en']
@@ -237,6 +243,7 @@ class WorkflowAprobacion(models.Model):
     creado_en = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        db_table = 'flujo_aprobacion_motor'
         verbose_name = 'Aprobación de workflow'
         verbose_name_plural = 'Aprobaciones de workflow'
         ordering = ['-creado_en']
@@ -266,6 +273,7 @@ class Delegacion(models.Model):
     creado_en = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        db_table = 'flujo_delegacion'
         verbose_name = 'Delegación'
         verbose_name_plural = 'Delegaciones'
         ordering = ['-creado_en']

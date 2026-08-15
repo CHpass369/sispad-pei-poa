@@ -10,6 +10,11 @@ class TestSeedNormativoClasificadores2026(TransactionTestCase):
     migrate_to = [('catalogos', '0003_seed_clasificadores_oficiales_2026')]
     hash_valido = 'a' * 64
 
+    def tearDown(self):
+        executor = MigrationExecutor(connection)
+        executor.migrate(executor.loader.graph.leaf_nodes())
+        super().tearDown()
+
     def _migrate(self, targets):
         executor = MigrationExecutor(connection)
         executor.migrate(targets)

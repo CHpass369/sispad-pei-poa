@@ -447,7 +447,7 @@ class TestAsignacionPresupuestariaUnidad:
         version_objeto = estructura_t4['objeto'].version_clasificador
         with connection.cursor() as cursor:
             cursor.execute(
-                'UPDATE catalogos_fuentefinanciamiento '
+                'UPDATE catalogo_fuente_financiamiento '
                 'SET version_clasificador_id = %s WHERE id = %s',
                 [str(version_objeto.pk), str(estructura_t4['fuente'].pk)],
             )

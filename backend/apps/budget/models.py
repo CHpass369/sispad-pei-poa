@@ -108,6 +108,7 @@ class DirectiveCeiling(TimeStampedModel):
     )
 
     class Meta:
+        db_table = 'presupuesto_techo_directivo'
         verbose_name = 'Techo directivo'
         verbose_name_plural = 'Techos directivos'
         ordering = ['-created_at']
@@ -147,6 +148,7 @@ class DirectiveCeilingVersion(TimeStampedModel):
     inmutable = models.BooleanField(default=False)
 
     class Meta:
+        db_table = 'presupuesto_techo_version'
         verbose_name = 'Versión de techo directivo'
         verbose_name_plural = 'Versiones de techo directivo'
         ordering = ['ceiling', 'numero']
@@ -282,6 +284,7 @@ class CeilingResource(TimeStampedModel):
     )
 
     class Meta:
+        db_table = 'presupuesto_recurso_techo'
         verbose_name = 'Recurso del techo'
         verbose_name_plural = 'Recursos del techo'
         ordering = ['version', 'origen', 'concepto']
@@ -350,6 +353,7 @@ class MandatoryExpense(TimeStampedModel):
     )
 
     class Meta:
+        db_table = 'presupuesto_gasto_obligatorio'
         verbose_name = 'Gasto obligatorio'
         verbose_name_plural = 'Gastos obligatorios'
         ordering = ['version', 'programa', 'actividad', 'denominacion']
@@ -400,6 +404,7 @@ class BudgetDocument(TimeStampedModel):
     metadata_json = models.JSONField(default=dict, blank=True)
 
     class Meta:
+        db_table = 'presupuesto_documento'
         verbose_name = 'Documento de presupuesto'
         verbose_name_plural = 'Documentos de presupuesto'
         ordering = ['-created_at']
@@ -511,6 +516,7 @@ class DistributionVersion(TimeStampedModel):
     inmutable = models.BooleanField(default=False)
 
     class Meta:
+        db_table = 'presupuesto_distribucion_version'
         verbose_name = 'Versión de distribución'
         verbose_name_plural = 'Versiones de distribución'
         ordering = ['gestion', 'numero']
@@ -626,6 +632,7 @@ class Allocation(TimeStampedModel):
     orden = models.PositiveIntegerField(default=0)
 
     class Meta:
+        db_table = 'presupuesto_apertura'
         verbose_name = 'Apertura programática'
         verbose_name_plural = 'Aperturas programáticas'
         ordering = ['gestion', 'orden', 'id']
@@ -668,6 +675,7 @@ class AllocationSource(TimeStampedModel):
     )
 
     class Meta:
+        db_table = 'presupuesto_apertura_fuente'
         verbose_name = 'Asignación de apertura'
         verbose_name_plural = 'Asignaciones de apertura'
         ordering = ['allocation', 'fuente', 'organismo']
@@ -724,6 +732,7 @@ class Reserve(TimeStampedModel):
     )
 
     class Meta:
+        db_table = 'presupuesto_reserva'
         verbose_name = 'Reserva presupuestaria'
         verbose_name_plural = 'Reservas presupuestarias'
         ordering = ['gestion', '-created_at']
@@ -805,6 +814,7 @@ class ProgrammaticCategory(TimeStampedModel):
     observaciones = models.TextField(blank=True, default='')
 
     class Meta:
+        db_table = 'presupuesto_categoria_programatica'
         verbose_name = 'CategorAa programAtica'
         verbose_name_plural = 'CategorAas programAticas'
         ordering = ['gestion', 'nivel', 'codigo']
@@ -974,6 +984,7 @@ class BudgetImport(TimeStampedModel):
     )
 
     class Meta:
+        db_table = 'presupuesto_importacion'
         verbose_name = 'Importación de planilla'
         verbose_name_plural = 'Importaciones de planilla'
         ordering = ['-created_at']
@@ -1025,6 +1036,7 @@ class ImportDetalle(TimeStampedModel):
     errores_json = models.JSONField(default=list, blank=True)
 
     class Meta:
+        db_table = 'presupuesto_importacion_detalle'
         verbose_name = 'Detalle de importación'
         verbose_name_plural = 'Detalles de importación'
         ordering = ['importacion', 'fila']
@@ -1115,6 +1127,7 @@ class TerritorialDistribution(TimeStampedModel):
     observaciones = models.TextField(blank=True, default='')
 
     class Meta:
+        db_table = 'presupuesto_distribucion_territorial'
         verbose_name = 'Distribución territorial'
         verbose_name_plural = 'Distribuciones territoriales'
         ordering = ['-created_at']
@@ -1176,6 +1189,7 @@ class TerritorialAllocation(TimeStampedModel):
     )
 
     class Meta:
+        db_table = 'presupuesto_asignacion_territorial'
         verbose_name = 'Asignación territorial'
         verbose_name_plural = 'Asignaciones territoriales'
         ordering = ['distribucion', 'id']
@@ -1220,6 +1234,7 @@ class ExpenseObjectAllocation(TimeStampedModel):
     )
 
     class Meta:
+        db_table = 'presupuesto_asignacion_objeto_gasto'
         verbose_name = 'Objeto del gasto programado'
         verbose_name_plural = 'Objetos del gasto programados'
         ordering = ['allocation', 'id']
@@ -1270,6 +1285,7 @@ class ImportError(TimeStampedModel):
     resuelto = models.BooleanField(default=False)
 
     class Meta:
+        db_table = 'presupuesto_importacion_error'
         verbose_name = 'Error de importación'
         verbose_name_plural = 'Errores de importación'
         ordering = ['importacion', 'severidad', 'fila']
@@ -1420,6 +1436,7 @@ class Reform(TimeStampedModel):
     fecha_aplicacion = models.DateTimeField(null=True, blank=True)
 
     class Meta:
+        db_table = 'presupuesto_reforma'
         verbose_name = 'Reformulación'
         verbose_name_plural = 'Reformulaciones'
         ordering = ['-created_at']
@@ -1482,6 +1499,7 @@ class ReformMovement(TimeStampedModel):
     motivo = models.CharField(max_length=300, blank=True, default='')
 
     class Meta:
+        db_table = 'presupuesto_reforma_movimiento'
         verbose_name = 'Movimiento de reformulación'
         verbose_name_plural = 'Movimientos de reformulación'
         ordering = ['reform', 'id']

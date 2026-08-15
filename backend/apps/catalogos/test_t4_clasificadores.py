@@ -164,7 +164,7 @@ class TestVersionClasificador:
 
         with pytest.raises(IntegrityError), transaction.atomic(), connection.cursor() as cursor:
             cursor.execute(
-                'UPDATE catalogos_versionclasificador SET hash_fuente = %s WHERE id = %s',
+                'UPDATE catalogo_version_clasificador SET hash_fuente = %s WHERE id = %s',
                 ['A' * 64, str(version.pk)],
             )
 

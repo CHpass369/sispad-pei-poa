@@ -3,6 +3,7 @@
 import uuid
 
 import pytest
+from django.contrib.auth import get_user_model
 from django.db import DatabaseError, connection, transaction
 from django.db.migrations.executor import MigrationExecutor
 
@@ -15,9 +16,8 @@ MIGRATE_WITH_TRIGGER = (
 
 
 def _insert_homologacion(apps, suffix):
-    Usuario = apps.get_model('accounts', 'Usuario')
     HomologacionCodigo = apps.get_model('codificacion', 'HomologacionCodigo')
-    usuario = Usuario.objects.create(
+    usuario = get_user_model().objects.create(
         email=f'migration-trigger-{suffix}@test.gob.bo',
         password='not-used',
     )
@@ -28,7 +28,7 @@ def _insert_homologacion(apps, suffix):
         codigo_nuevo=f'CODIGO-NUEVO-{suffix}',
         motivo=f'Motivo original {suffix}',
         gestion=2027,
-        usuario=usuario,
+        usuario_id=usuario.pk,
     )
 
 

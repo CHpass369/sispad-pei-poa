@@ -35,9 +35,11 @@ class Rol(models.Model):
     orden = models.PositiveIntegerField(default=0)
     capacidades = models.ManyToManyField(
         'Capacidad', related_name='roles', blank=True,
+        db_table='cuentas_rol_capacidades',
     )
 
     class Meta:
+        db_table = 'cuentas_rol'
         verbose_name = 'Rol'
         verbose_name_plural = 'Roles'
         ordering = ['orden', 'nombre']
@@ -64,6 +66,7 @@ class Capacidad(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        db_table = 'cuentas_capacidad'
         verbose_name = 'Capacidad'
         verbose_name_plural = 'Capacidades'
         ordering = ['sistema', 'orden', 'codigo']
@@ -91,6 +94,7 @@ class AlcanceOrganizacional(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        db_table = 'cuentas_alcance_organizacional'
         verbose_name = 'Alcance organizacional'
         verbose_name_plural = 'Alcances organizacionales'
         ordering = ['usuario', 'unidad']
@@ -105,7 +109,31 @@ class Usuario(AbstractUser):
     email = models.EmailField(_('email address'), unique=True)
     cargo = models.CharField(max_length=200, blank=True)
     telefono = models.CharField(max_length=50, blank=True)
-    roles = models.ManyToManyField(Rol, related_name='usuarios', blank=True)
+    groups = models.ManyToManyField(
+        'auth.Group',
+        verbose_name=_('groups'),
+        blank=True,
+        help_text=_(
+            'The groups this user belongs to. A user will get all permissions '
+            'granted to each of their groups.'
+        ),
+        related_name="user_set",
+        related_query_name="user",
+        db_table='cuentas_usuario_grupos',
+    )
+    user_permissions = models.ManyToManyField(
+        'auth.Permission',
+        verbose_name=_('user permissions'),
+        blank=True,
+        help_text=_('Specific permissions for this user.'),
+        related_name="user_set",
+        related_query_name="user",
+        db_table='cuentas_usuario_permisos',
+    )
+    roles = models.ManyToManyField(
+        Rol, related_name='usuarios', blank=True,
+        db_table='cuentas_usuario_roles',
+    )
     debe_cambiar_password = models.BooleanField(default=True)
     activo = models.BooleanField(default=True)
 
@@ -115,6 +143,7 @@ class Usuario(AbstractUser):
     objects = UsuarioManager()
 
     class Meta:
+        db_table = 'cuentas_usuario'
         verbose_name = 'Usuario'
         verbose_name_plural = 'Usuarios'
         ordering = ['last_name', 'first_name']

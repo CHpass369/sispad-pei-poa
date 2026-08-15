@@ -59,6 +59,7 @@ class DemoDatasetManifest(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        db_table = 'nucleo_manifesto_dataset_demo'
         ordering = ['namespace']
 
     def __str__(self):
@@ -105,6 +106,7 @@ class LegacyMigrationMap(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        db_table = 'nucleo_mapa_migraciones_legacy'
         verbose_name = 'Mapa de migración legacy'
         verbose_name_plural = 'Mapas de migración legacy'
         ordering = ['app_legacy', 'modelo_legacy', 'uuid_legacy']

@@ -91,6 +91,7 @@ class VersionClasificador(TimeStampedModel):
     objects = VersionClasificadorManager()
 
     class Meta:
+        db_table = 'catalogo_version_clasificador'
         ordering = ['tipo', '-gestion', '-fecha_norma']
         constraints = [
             models.UniqueConstraint(
@@ -235,12 +236,14 @@ ClasificadorVersionadoMixin.add_to_class(
 
 class ClasificadorInstitucional(CatalogoBase):
     class Meta:
+        db_table = 'catalogo_clasificador_institucional'
         verbose_name = 'Clasificador institucional'
         verbose_name_plural = 'Clasificadores institucionales'
 
 
 class RubroRecurso(CatalogoBase):
     class Meta:
+        db_table = 'catalogo_rubro_recurso'
         verbose_name = 'Rubro de recurso'
         verbose_name_plural = 'Rubros de recursos'
 
@@ -275,6 +278,7 @@ class ObjetoGasto(ClasificadorVersionadoMixin, CatalogoBase):
     nivel = models.CharField(max_length=20, choices=NIVEL_CHOICES, blank=True)
 
     class Meta:
+        db_table = 'catalogo_objeto_gasto'
         verbose_name = 'Objeto del gasto'
         verbose_name_plural = 'Objetos del gasto'
         constraints = [
@@ -310,6 +314,7 @@ class FuenteFinanciamiento(ClasificadorVersionadoMixin, CatalogoBase):
     )
 
     class Meta:
+        db_table = 'catalogo_fuente_financiamiento'
         verbose_name = 'Fuente de financiamiento'
         verbose_name_plural = 'Fuentes de financiamiento'
         constraints = [
@@ -333,6 +338,7 @@ class OrganismoFinanciador(ClasificadorVersionadoMixin, CatalogoBase):
     )
 
     class Meta:
+        db_table = 'catalogo_organismo_financiador'
         verbose_name = 'Organismo financiador'
         verbose_name_plural = 'Organismos financiadores'
         constraints = [
@@ -361,6 +367,7 @@ class ClasificadorGeograficoPresupuestario(TimeStampedModel):
     procedencia_normativa = models.CharField(max_length=500)
 
     class Meta:
+        db_table = 'catalogo_ubicacion_geografica_presupuestaria'
         verbose_name = 'Clasificador geográfico presupuestario'
         verbose_name_plural = 'Clasificadores geográficos presupuestarios'
         constraints = [
@@ -379,42 +386,49 @@ class ClasificadorGeograficoPresupuestario(TimeStampedModel):
 class EntidadTransferencia(CatalogoBase):
     """Entidad otorgante o de transferencia"""
     class Meta:
+        db_table = 'catalogo_entidad_transferencia'
         verbose_name = 'Entidad de transferencia'
         verbose_name_plural = 'Entidades de transferencia'
 
 
 class FinalidadFuncion(CatalogoBase):
     class Meta:
+        db_table = 'catalogo_finalidad_funcion'
         verbose_name = 'Finalidad/Función'
         verbose_name_plural = 'Finalidades y funciones'
 
 
 class UnidadMedida(CatalogoBase):
     class Meta:
+        db_table = 'catalogo_unidad_medida'
         verbose_name = 'Unidad de medida'
         verbose_name_plural = 'Unidades de medida'
 
 
 class TipoOperacion(CatalogoBase):
     class Meta:
+        db_table = 'catalogo_tipo_operacion'
         verbose_name = 'Tipo de operación'
         verbose_name_plural = 'Tipos de operación'
 
 
 class TipoProducto(CatalogoBase):
     class Meta:
+        db_table = 'catalogo_tipo_producto'
         verbose_name = 'Tipo de producto'
         verbose_name_plural = 'Tipos de producto'
 
 
 class TipoProyecto(CatalogoBase):
     class Meta:
+        db_table = 'catalogo_tipo_proyecto'
         verbose_name = 'Tipo de proyecto'
         verbose_name_plural = 'Tipos de proyecto'
 
 
 class TipoFinanciamiento(CatalogoBase):
     class Meta:
+        db_table = 'catalogo_tipo_financiamiento'
         verbose_name = 'Tipo de financiamiento'
         verbose_name_plural = 'Tipos de financiamiento'
 
@@ -428,6 +442,7 @@ class VersionCatalogo(TimeStampedModel):
     fecha_aplicacion = models.DateTimeField(null=True, blank=True)
 
     class Meta:
+        db_table = 'catalogo_version_catalogo'
         verbose_name = 'Versión de catálogo'
         verbose_name_plural = 'Versiones de catálogo'
         ordering = ['-gestion', '-creado_en']

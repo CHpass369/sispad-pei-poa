@@ -41,7 +41,8 @@ class TestMigracionT4PreservaCatalogosLegacy(TransactionTestCase):
         self.apps = executor.loader.project_state(self.migrate_to).apps
 
     def tearDown(self):
-        MigrationExecutor(connection).migrate(self.migrate_to)
+        executor = MigrationExecutor(connection)
+        executor.migrate(executor.loader.graph.leaf_nodes())
         super().tearDown()
 
     def test_ids_codigos_y_linea_presupuestaria_legacy_siguen_disponibles(self):
