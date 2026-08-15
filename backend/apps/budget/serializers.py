@@ -1,11 +1,11 @@
 ﻿"""Serializers de la API V2 del ciclo presupuestario SIS-POA.
 
-Fase 1: gestiÃ³n fiscal (FiscalYearSerializer).
+Fase 1: gestión fiscal (FiscalYearSerializer).
 Fase 2: techo directivo (DirectiveCeiling, versiones, recursos, gastos
 obligatorios y documentos).
 
-Los montos (DecimalField) se serializan como string por convenciÃ³n de DRF
-(COERCE_DECIMAL_TO_STRING) y se respeta en la composiciÃ³n (str(Decimal)).
+Los montos (DecimalField) se serializan como string por convención de DRF
+(COERCE_DECIMAL_TO_STRING) y se respeta en la composición (str(Decimal)).
 """
 from decimal import Decimal
 
@@ -46,14 +46,14 @@ from .services import (
 
 
 class FiscalYearSerializer(serializers.ModelSerializer):
-    """GestiÃ³n fiscal del ciclo presupuestario (`apps.gestion.GestionFiscal`)."""
+    """Gestión fiscal del ciclo presupuestario (`apps.gestion.GestionFiscal`)."""
 
     estado_display = serializers.CharField(source='get_estado_display', read_only=True)
     gestion_anterior = serializers.SerializerMethodField()
     heredar_de = serializers.IntegerField(
         write_only=True, required=False, allow_null=True,
-        help_text='AÃ±o de la gestiÃ³n de la cual heredar la configuraciÃ³n '
-                  '(ciclos de formulaciÃ³n). Solo al crear.',
+        help_text='Año de la gestión de la cual heredar la configuración '
+                  '(ciclos de formulación). Solo al crear.',
     )
 
     class Meta:
@@ -83,7 +83,7 @@ class FiscalYearSerializer(serializers.ModelSerializer):
             origen = GestionFiscal.objects.filter(anio=heredar_de).first()
             if origen is None:
                 raise serializers.ValidationError({
-                    'heredar_de': f'No existe una gestiÃ³n para el aÃ±o {heredar_de}.',
+                    'heredar_de': f'No existe una gestión para el año {heredar_de}.',
                 })
 
         request = self.context.get('request')
@@ -95,7 +95,7 @@ class FiscalYearSerializer(serializers.ModelSerializer):
             gestion.save()
         except IntegrityError:
             raise serializers.ValidationError({
-                'anio': f'Ya existe una gestiÃ³n para el aÃ±o {validated_data["anio"]}.',
+                'anio': f'Ya existe una gestión para el año {validated_data["anio"]}.',
             })
 
         if origen is not None:
@@ -108,7 +108,7 @@ class FiscalYearSerializer(serializers.ModelSerializer):
 # ---------------------------------------------------------------------------
 
 def _detalle_catalogo(objeto):
-    """{'codigo', 'denominacion'} del catÃ¡logo o None."""
+    """{'codigo', 'denominacion'} del catálogo o None."""
     if objeto is None:
         return None
     return {'codigo': objeto.codigo, 'denominacion': objeto.denominacion}
@@ -122,7 +122,7 @@ def _detalle_unidad(objeto):
 
 
 def _serializar_montos(valor):
-    """Decimal â†’ str (convenciÃ³n COERCE_DECIMAL_TO_STRING de DRF) recursivo."""
+    """Decimal → str (convención COERCE_DECIMAL_TO_STRING de DRF) recursivo."""
     if isinstance(valor, Decimal):
         return str(valor)
     if isinstance(valor, dict):
@@ -203,7 +203,7 @@ class MandatoryExpenseSerializer(serializers.ModelSerializer):
 
 
 class DirectiveCeilingVersionSerializer(serializers.ModelSerializer):
-    """VersiÃ³n del techo con sus recursos y gastos obligatorios anidados."""
+    """Versión del techo con sus recursos y gastos obligatorios anidados."""
 
     estado_display = serializers.CharField(source='get_estado_display', read_only=True)
     fijado_por_email = serializers.SerializerMethodField()
@@ -225,7 +225,7 @@ class DirectiveCeilingVersionSerializer(serializers.ModelSerializer):
 
 
 class DirectiveCeilingSerializer(serializers.ModelSerializer):
-    """Techo directivo: gestiÃ³n, estado, versiÃ³n actual y composiciÃ³n anidada."""
+    """Techo directivo: gestión, estado, versión actual y composición anidada."""
 
     gestion_anio = serializers.IntegerField(source='gestion.anio', read_only=True)
     estado_display = serializers.CharField(source='get_estado_display', read_only=True)
@@ -276,7 +276,7 @@ class DirectiveCeilingSerializer(serializers.ModelSerializer):
 
         if DirectiveCeiling.objects.filter(gestion=gestion).exists():
             raise serializers.ValidationError({
-                'gestion': f'Ya existe un techo directivo para la gestiÃ³n {gestion.anio}.',
+                'gestion': f'Ya existe un techo directivo para la gestión {gestion.anio}.',
             })
 
         request = self.context.get('request')
@@ -293,7 +293,7 @@ class DirectiveCeilingSerializer(serializers.ModelSerializer):
 
 
 class BudgetDocumentSerializer(serializers.ModelSerializer):
-    """Documento de respaldo del techo; el upload valida mime y tamaÃ±o."""
+    """Documento de respaldo del techo; el upload valida mime y tamaño."""
 
     TAMANO_MAXIMO_BYTES = 20 * 1024 * 1024  # 20 MB
     MIMES_PERMITIDOS = {
@@ -339,13 +339,13 @@ class BudgetDocumentSerializer(serializers.ModelSerializer):
     def validate_archivo(self, archivo):
         if archivo.size > self.TAMANO_MAXIMO_BYTES:
             raise serializers.ValidationError(
-                'El archivo supera el tamaÃ±o mÃ¡ximo de 20 MB.'
+                'El archivo supera el tamaño máximo de 20 MB.'
             )
         mime = getattr(archivo, 'content_type', '') or ''
         if mime not in self.MIMES_PERMITIDOS:
             raise serializers.ValidationError(
                 f'Tipo de archivo no permitido ({mime or "desconocido"}). '
-                'Permitidos: PDF, imÃ¡genes, Excel, Word, CSV y texto.'
+                'Permitidos: PDF, imágenes, Excel, Word, CSV y texto.'
             )
         return archivo
 

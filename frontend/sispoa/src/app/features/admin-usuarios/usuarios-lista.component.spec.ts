@@ -15,7 +15,7 @@ describe('UsuariosListaComponent', () => {
 
   const mockUsuarios = [
     { id: 1, email: 'user1@test.com', first_name: 'User', last_name: 'One', is_active: true, rol_nombre: ['Admin'], date_joined: '2024-01-01' },
-    { id: 2, email: 'user2@test.com', first_name: 'User', last_name: 'Two', is_active: false, rol_nombre: ['TÃ©cnico'], date_joined: '2024-02-01' },
+    { id: 2, email: 'user2@test.com', first_name: 'User', last_name: 'Two', is_active: false, rol_nombre: ['Técnico'], date_joined: '2024-02-01' },
   ];
 
   beforeEach(async () => {

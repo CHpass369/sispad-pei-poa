@@ -14,8 +14,8 @@ describe('ModificacionesListaComponent', () => {
   let routerSpy: jasmine.SpyObj<Router>;
 
   const mockSolicitudes = [
-    { id: 1, tipo: 'PrÃ³rroga', entidad: 'UE 1', solicitado_por: 'User 1', estado: 'pendiente', fecha_solicitud: '2024-01-15' },
-    { id: 2, tipo: 'ReasignaciÃ³n', entidad: 'UE 2', solicitado_por: 'User 2', estado: 'aprobada', fecha_solicitud: '2024-02-20' },
+    { id: 1, tipo: 'Prórroga', entidad: 'UE 1', solicitado_por: 'User 1', estado: 'pendiente', fecha_solicitud: '2024-01-15' },
+    { id: 2, tipo: 'Reasignación', entidad: 'UE 2', solicitado_por: 'User 2', estado: 'aprobada', fecha_solicitud: '2024-02-20' },
   ];
 
   beforeEach(async () => {
@@ -82,12 +82,12 @@ describe('ModificacionesListaComponent', () => {
   it('should filter modifications when searching', () => {
     fixture.detectChanges();
 
-    component.busqueda = 'PrÃ³rroga';
+    component.busqueda = 'Prórroga';
     modificacionesServiceSpy.listar.and.returnValue(of([mockSolicitudes[0]] as any));
 
     component.cargar();
 
-    expect(modificacionesServiceSpy.listar).toHaveBeenCalledWith({ search: 'PrÃ³rroga' });
+    expect(modificacionesServiceSpy.listar).toHaveBeenCalledWith({ search: 'Prórroga' });
   });
 
   it('should handle results wrapper in response', () => {

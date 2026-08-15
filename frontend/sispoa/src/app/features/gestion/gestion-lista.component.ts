@@ -72,7 +72,7 @@ export class GestionListaComponent implements OnInit {
           this.cerrarFormulario();
           this.cargarGestiones();
         },
-        error: () => (this.error = 'Error al actualizar gestiÃ³n'),
+        error: () => (this.error = 'Error al actualizar gestión'),
       });
     } else {
       this.api.post<Gestion>('/gestiones/', this.form).subscribe({
@@ -80,7 +80,7 @@ export class GestionListaComponent implements OnInit {
           this.cerrarFormulario();
           this.cargarGestiones();
         },
-        error: () => (this.error = 'Error al crear gestiÃ³n'),
+        error: () => (this.error = 'Error al crear gestión'),
       });
     }
   }

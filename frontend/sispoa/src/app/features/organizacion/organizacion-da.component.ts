@@ -70,7 +70,7 @@ export class OrganizacionDaComponent implements OnInit {
 
   guardar(): void {
     if (!this.form.codigo || !this.form.nombre) {
-      this.error = 'CÃ³digo y nombre son obligatorios';
+      this.error = 'Código y nombre son obligatorios';
       return;
     }
 
@@ -83,12 +83,12 @@ export class OrganizacionDaComponent implements OnInit {
         this.cerrarFormulario();
         this.cargar();
       },
-      error: () => (this.error = 'Error al guardar direcciÃ³n administrativa'),
+      error: () => (this.error = 'Error al guardar dirección administrativa'),
     });
   }
 
   eliminar(id: number): void {
-    if (!confirm('Â¿Eliminar esta direcciÃ³n administrativa?')) return;
+    if (!confirm('¿Eliminar esta dirección administrativa?')) return;
     this.api.delete(`/api/v1/direcciones-administrativas/${id}/`).subscribe({
       next: () => this.cargar(),
       error: () => (this.error = 'Error al eliminar'),
