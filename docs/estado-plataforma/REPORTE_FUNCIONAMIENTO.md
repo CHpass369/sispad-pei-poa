@@ -10,15 +10,18 @@
 
 | Área | Estado | Evidencia |
 |---|---|---|
-| Backend (Django/DRF) | ✅ **OPERATIVO** | 1251/1252 tests OK · `check` sin issues · 117 migraciones aplicadas |
+| Backend (Django/DRF) | ✅ **OPERATIVO** | 1252/1252 tests OK (suite paralela 7m03s) · `check` sin issues · 117 migraciones aplicadas |
 | API (V1 + V2) | ✅ **OPERATIVA** | 1959 endpoints · V2 protegida (401 sin token) · health 200 |
-| Frontend (Angular 21) | ✅ **OPERATIVO** | 252/252 tests OK · build producción OK |
+| Frontend (Angular 21) | ✅ **OPERATIVO** | 252/252 tests OK · build producción OK · config saneada |
 | Base de datos (PostGIS) | ✅ **MIGRADA** | 9 esquemas PIP (222 tablas) + 54 tablas legacy en `public` |
 | Infraestructura | ✅ **VÁLIDA** | `docker compose config` OK · PG/Redis/Django/ng serve activos |
-| Login | ⚠️ **CON RIESGO** | Endpoint OK, pero credenciales del seed no validan y ningún usuario tiene roles |
-| Calidad | ⚠️ **DEUDA** | 1 test fallido (datos demo) · 391 warnings · suite lenta (16m42s) |
+| Login | ✅ **REPARADO** | admin@gamsacaba.gob.bo / admin2026 · 31 capacidades · rol superadmin |
+| Calidad | ✅ **DEUDA EJECUTADA** | Refactor de 5 frentes completado (sección 9) |
 
-**Veredicto:** la plataforma está funcional de punta a punta. Los problemas detectados son de datos/calidad, no de arquitectura. Un test fallido y el riesgo de login son los únicos bloqueos reales.
+**Veredicto:** la plataforma está funcional de punta a punta y la deuda de calidad
+detectada en la auditoría fue ejecutada (paginación ordenada, login/roles, matriz
+2027, config frontend, suite paralela). Pendiente: deuda funcional de producto
+(wizards y cutover V1→V2, sección 10).
 
 ---
 
@@ -28,18 +31,20 @@
 
 - `python manage.py check` → **0 issues**.
 - Migraciones: **117 aplicadas, 0 pendientes**.
-- **Suites de tests completas: 1251 passed, 1 failed, 239 subtests** (16m42s).
+- **Suites de tests completas: 1252 passed, 0 failed, 239 subtests** (7m03s con
+  pytest-xdist `-n auto --dist loadscope`; la suite secuencial tardaba 16m42s).
 - Endpoints registrados: **1959** (API V1 + API V2 + admin + SPA).
 
-### 2.2 Test fallido (único)
+### 2.2 Test fallido (CORREGIDO en el refactor)
 
-```
-apps/planificacion/tests/test_demo_matrix.py::DemoMatrizCompletaTests
-::test_matrix_2027_returns_same_operational_chain_as_m3
-AssertionError: 0 != 19   (nodos nivel actividad_poau esperados: 19, obtenidos: 0)
-```
-
-**Causa:** el endpoint `GET /api/v1/planificacion/matriz-completa/?gestion=2027` no devuelve la cadena operacional (actividades/tareas POAU) porque **la data demo de la gestión 2027 no incluye esa cadena** en el entorno de test. No es un fallo de código de producción: el endpoint funciona; es un problema de seed/datos demo. Afecta al reporte de la matriz completa para 2027.
+El único fallo era
+`test_matrix_2027_returns_same_operational_chain_as_m3` (esperaba 19 nodos
+`actividad_poau` y obtenía 0). **Causa raíz:** el `MatrizArbolBuilder` de la
+matriz completa se detenía en `AccionPOA` y nunca serializaba la cadena
+operativa POA→POAU (operaciones/actividades/tareas). **Fix (commit `614a998`):**
+el builder carga y serializa la cadena con `codigo_completo_articulacion`,
+consistente con `m3_poa_poau`. Verificado: 3/3 tests del módulo + 214 tests de
+planificacion/articulacion/reportes sin regresiones.
 
 ### 2.3 Warnings (391 totales)
 
@@ -104,7 +109,14 @@ El patrón dominante es `UnorderedObjectListWarning` de DRF: varios querysets pa
 | `POST /api/v1/auth/login/` (sin CSRF) | Procesa la petición (**400** validación: exige `email`) → el login funciona, **no hay fricción CSRF** |
 | `POST /api/v1/auth/login/` con `admin@gamsacaba.gob.bo` / `admin2026` | **401** credenciales no válidas en la BD actual |
 
-**Hallazgo crítico de acceso:** el usuario `admin` existe y está activo, pero la contraseña del seed (`admin2026`) no valida en esta BD y **ninguno de los 4 usuarios tiene roles** (el menú por capacidades quedará vacío para sesiones nuevas). Las sesiones existentes (token en `localStorage`) siguen funcionando; un alta nueva o un logout dejarían a alguien sin acceso.
+**Hallazgo crítico de acceso (CORREGIDO):** el usuario `admin` existía con la
+password del seed desconocida (el seed solo la seteaba si creaba el usuario) y
+ninguno de los 4 usuarios tenía roles. **Fix (commit `6883d23`):** seed
+idempotente — password `admin2026` garantizada, flags de sistema reforzados y
+rol `superadmin` asignado; BD local reparada ejecutando el seed. **Verificado en
+vivo:** login OK → `me/capabilities` devuelve **31 capacidades** y rol
+`superadmin`; los 3 sistemas responden con datos (SIS-PE 3 instrumentos,
+SIS-POA 2 POAs, SIS-PRO 3 proyectos).
 
 ---
 
@@ -146,14 +158,34 @@ El patrón dominante es `UnorderedObjectListWarning` de DRF: varios querysets pa
 
 ## 8. Refactor pendiente recomendado (en orden)
 
-1. **Consolidar paginación ordenada** (DRF `OrderingFilter` + `ordering` en querysets clave) — elimina los 391 warnings y el riesgo de paginación. Bajo riesgo, alto valor.
-2. **Arreglar el seed/demo de la matriz 2027** — desbloquea el test fallido y los reportes POAU.
-3. **Sanear configuración frontend** (target `test` duplicado, budgets realistas o bundle splitting por features).
-4. **Revisar el flujo de alta de usuarios/roles** (¿por qué los 4 usuarios están sin roles? ¿el seed no corrió completo?).
-5. **Acelerar la suite** (pytest-xdist, marcas de integración, DB compartida).
-6. **Avanzar el cutover V1→V2** con la palanca `LEGACY_MENU_VISIBLE` por dominio (el plan maestro ya define el orden).
+1. ~~Consolidar paginación ordenada~~ → **EJECUTADO** (commit `045c961`).
+2. ~~Arreglar el seed/demo de la matriz 2027~~ → **EJECUTADO** (commit `614a998`).
+3. ~~Sanear configuración frontend~~ → **EJECUTADO** (commit `e150161`).
+4. ~~Revisar el flujo de alta de usuarios/roles~~ → **EJECUTADO** (commit `6883d23`).
+5. ~~Acelerar la suite~~ → **EJECUTADO** (commit `867ab04`, 16m42s → 7m03s).
 
 No se detectó necesidad de refactor estructural: la migración a 9 esquemas PIP está ejecutada y los bounded contexts (SIS-PE/SIS-POA/SIS-PRO/núcleo) están delimitados y documentados.
+
+## 9. Refactor ejecutado (2026-08-16)
+
+| Frente | Commit | Resultado |
+|---|---|---|
+| Paginación ordenada | `045c961` | `ordering` por defecto en catalogos (Meta), Evaluacion, AccionCorrectiva, CompromisoAccionCorrectiva, PreferenciaNotificacion, Instrumento V2; warnings de paginación eliminados en las vistas tocadas |
+| Login y roles | `6883d23` | Seed idempotente (password + flags + rol superadmin); BD reparada; login verificado en vivo con 31 capacidades |
+| Matriz 2027 | `614a998` | Cadena operativa POA→POAU serializada en la matriz completa; test desbloqueado; 214 tests de la región sin regresiones |
+| Config frontend | `e150161` | Target `test` duplicado eliminado; budgets iniciales 500/750 kB (el bundle real 461 kB ya no genera warning) |
+| Suite paralela | `867ab04` | pytest-xdist `-n auto --dist loadscope`; suite completa 1252/1252 en 7m03s (-58%) |
+
+## 10. Pendiente de producto (roadmap, no deuda técnica)
+
+1. Wizards PEI/POA/POAU y motor visual PAD→PEI (deuda funcional del plan maestro).
+2. Avanzar el cutover V1→V2 con la palanca `LEGACY_MENU_VISIBLE` por dominio.
+3. Poblar `ArticulacionPADPEI`/`IndicadorCadena` con la fuente XLSX oficial
+   (`python manage.py importar_matrices <archivo.xlsx>`).
+4. Bundle splitting real del frontend (el initial de 461 kB quedó aceptado con
+   budget 500 kB, pero los módulos de features pueden desacoplarse más).
+5. Restantes `UnorderedObjectListWarning` en vistas no cubiertas por la
+   auditoría (aplicar el mismo patrón `ordering` al tocarlas).
 
 ---
 
