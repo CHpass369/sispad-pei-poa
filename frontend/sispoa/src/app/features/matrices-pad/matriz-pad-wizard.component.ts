@@ -836,15 +836,15 @@ export class MatrizPadWizardComponent implements OnInit {
       },
       error: () => { this.cargandoCatalogos = false; this.cdr.detectChanges(); },
     });
-    this.api.get<any>('/articulacion/metas-acuerdo/', { tipo_acuerdo: 'NDC' }).subscribe({
+    this.api.get<any>('/articulacion/acuerdos/', { tipo_acuerdo: 'NDC', page_size: 100 }).subscribe({
       next: (r) => { this.catalogoNDC = r.results || r || []; this.cdr.detectChanges(); },
       error: () => { this.catalogoNDC = []; },
     });
-    this.api.get<any>('/articulacion/metas-acuerdo/', { tipo_acuerdo: 'NDT' }).subscribe({
+    this.api.get<any>('/articulacion/acuerdos/', { tipo_acuerdo: 'NDT', page_size: 100 }).subscribe({
       next: (r) => { this.catalogoNDT = r.results || r || []; this.cdr.detectChanges(); },
       error: () => { this.catalogoNDT = []; },
     });
-    this.api.get<any>('/articulacion/metas-acuerdo/', { tipo_acuerdo: 'KMGBF' }).subscribe({
+    this.api.get<any>('/articulacion/acuerdos/', { tipo_acuerdo: 'COMPROMISO_3030', page_size: 100 }).subscribe({
       next: (r) => { this.catalogo3030 = r.results || r || []; this.cdr.detectChanges(); },
       error: () => { this.catalogo3030 = []; },
     });
