@@ -53,9 +53,9 @@ El sistema soporta autenticacion via OpenID Connect con Keycloak como proveedor 
 **Configuracion (activada cuando OIDC_RP_CLIENT_ID esta presente):**
 
 ```python
-OIDC_RP_CLIENT_ID = 'sispoa-frontend'
+OIDC_RP_CLIENT_ID = 'pip-frontend'
 OIDC_RP_CLIENT_SECRET = '<secret>'
-OIDC_OP_AUTHORITY = 'https://tu-dominio.gob.bo/auth/realms/sispoa'
+OIDC_OP_AUTHORITY = 'https://tu-dominio.gob.bo/auth/realms/pip'
 OIDC_RP_SIGN_ALGO = 'RS256'
 ```
 
@@ -66,8 +66,8 @@ OIDC_RP_SIGN_ALGO = 'RS256'
 - Los tokens de OIDC se validan via JWKS endpoint
 
 **Configuracion de Keycloak:**
-- Realm: `sispoa`
-- Client ID: `sispoa-frontend`
+- Realm: `pip`
+- Client ID: `pip-frontend`
 - Client Secret: configurado en `.env`
 - Redirect URIs: `https://tu-dominio.gob.bo/*`
 
@@ -655,7 +655,7 @@ async-net     → Redis, Celery Worker, Celery Beat
 - Puerto 5432 no expuesto al host (solo dentro de la red Docker)
 - Autenticacion por password
 - Base de datos dedicada (`gams_sis_poa`)
-- Usuario dedicado (`sispoa_user`) con permisos minimos
+- Usuario dedicado (`pip_user`) con permisos minimos
 
 ### 13.4 Redis
 
@@ -669,7 +669,7 @@ async-net     → Redis, Celery Worker, Celery Beat
 - Puerto 9000: API S3 (no expuesto al host)
 - Puerto 9001: Console (solo accessible desde el servidor)
 - Credenciales configuradas via `.env`
-- Bucket aislado (`sispoa-docs`)
+- Bucket aislado (`pip-docs`)
 
 ---
 

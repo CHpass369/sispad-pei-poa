@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "=== SISPOA Backend — Entrypoint ==="
+echo "=== PIP Backend — Entrypoint ==="
 
 echo "→ Ejecutando migraciones..."
 python manage.py migrate --noinput

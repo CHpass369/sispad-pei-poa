@@ -307,13 +307,13 @@ docker compose -f docker-compose.prod.yml ps
 Salida esperada:
 ```
 NAME                  STATUS                   PORTS
-sispoa-postgres       running (healthy)        5432/tcp
-sispoa-redis          running (healthy)        6379/tcp
-sispoa-backend        running                  0.0.0.0:8000->8000/tcp
-sispoa-nginx          running (healthy)        0.0.0.0:80->80/tcp
-sispoa-celery-worker  running                  8000/tcp
-sispoa-celery-beat    running                  8000/tcp
-sispoa-minio          running (healthy)        0.0.0.0:9001->9001/tcp
+pip-postgres       running (healthy)        5432/tcp
+pip-redis          running (healthy)        6379/tcp
+pip-backend        running                  0.0.0.0:8000->8000/tcp
+pip-nginx          running (healthy)        0.0.0.0:80->80/tcp
+pip-celery-worker  running                  8000/tcp
+pip-celery-beat    running                  8000/tcp
+pip-minio          running (healthy)        0.0.0.0:9001->9001/tcp
 ```
 
 ### 7.3 Uso de Recursos
@@ -359,7 +359,7 @@ ORDER BY creado_en DESC;
 
 ```bash
 # Conectar a PostgreSQL
-docker compose exec postgres-postgis psql -U sispoa_user -d gams_sis_poa
+docker compose exec postgres-postgis psql -U pip_user -d gams_pip
 
 # Comandos utiles dentro de psql
 \dt                          -- listar tablas
@@ -414,11 +414,11 @@ docker compose exec backend ls -la /app/staticfiles/
 
 ```bash
 # Verificar estado de MinIO
-docker compose exec minio mc alias set sispoa http://localhost:9000 sispoa_admin password
-docker compose exec minio mc admin info sispoa
+docker compose exec minio mc alias set pip http://localhost:9000 pip_admin password
+docker compose exec minio mc admin info pip
 
 # Verificar bucket
-docker compose exec minio mc ls sispoa/sispoa-docs/
+docker compose exec minio mc ls pip/pip-docs/
 ```
 
 ### 8.5 Redis sin conexion
@@ -436,7 +436,7 @@ docker compose exec redis redis-cli info memory
 
 ```bash
 # Ver consultas lentas en PostgreSQL
-docker compose exec postgres-postgis psql -U sispoa_user -d gams_sis_poa -c "
+docker compose exec postgres-postgis psql -U pip_user -d gams_pip -c "
 SELECT query, calls, mean_exec_time, total_exec_time
 FROM pg_stat_statements
 ORDER BY mean_exec_time DESC
@@ -444,7 +444,7 @@ LIMIT 10;
 "
 
 # Ver indices faltantes
-docker compose exec postgres-postgis psql -U sispoa_user -d gams_sis_poa -c "
+docker compose exec postgres-postgis psql -U pip_user -d gams_pip -c "
 SELECT schemaname, tablename, attname, n_distinct, correlation
 FROM pg_stats
 WHERE schemaname = 'public' AND n_distinct > 100

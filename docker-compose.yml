@@ -1,5 +1,5 @@
 # =============================================================================
-# SISPAD-PEI-POA — Infraestructura Docker
+# PIP-GAMS — Infraestructura Docker
 # Fase 1: Fundación — Servicios base (PostGIS, Redis, Backend, Frontend)
 # =============================================================================
 
@@ -12,14 +12,14 @@ x-django-env: &django-env
   DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}
   DB_ENGINE: ${DB_ENGINE:-django.contrib.gis.db.backends.postgis}
   DB_NAME: ${DB_NAME:-gams_pip}
-  DB_USER: ${DB_USER:-sispoa_user}
+  DB_USER: ${DB_USER:-pip_user}
   DB_PASSWORD: ${DB_PASSWORD:-changeme-segura}
-  DB_HOST: ${DB_HOST:-sispoa-postgres}
+  DB_HOST: ${DB_HOST:-pip-postgres}
   DB_PORT: ${DB_PORT:-5432}
   CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:4200,http://127.0.0.1:4200}
-  CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://sispoa-redis:6379/0}
-  CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://sispoa-redis:6379/0}
-  REDIS_URL: ${REDIS_URL:-redis://sispoa-redis:6379/1}
+  CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://pip-redis:6379/0}
+  CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://pip-redis:6379/0}
+  REDIS_URL: ${REDIS_URL:-redis://pip-redis:6379/1}
 
 # ------------------------------------------------------------------
 # Servicios
@@ -29,13 +29,13 @@ services:
   # --- PostgreSQL + PostGIS ---
   postgres-postgis:
     image: postgis/postgis:17-3.4
-    container_name: sispoa-postgres
+    container_name: pip-postgres
     profiles: [dev, full]
     restart: unless-stopped
     env_file: .env
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-gams_pip}
-      POSTGRES_USER: ${POSTGRES_USER:-sispoa_user}
+      POSTGRES_USER: ${POSTGRES_USER:-pip_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme-segura}
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -46,7 +46,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "pg_isready -U ${POSTGRES_USER:-sispoa_user} -d ${POSTGRES_DB:-gams_pip}",
+          "pg_isready -U ${POSTGRES_USER:-pip_user} -d ${POSTGRES_DB:-gams_pip}",
         ]
       interval: 10s
       timeout: 5s
@@ -58,7 +58,7 @@ services:
   # --- Redis ---
   redis:
     image: redis:7-alpine
-    container_name: sispoa-redis
+    container_name: pip-redis
     profiles: [dev, full]
     restart: unless-stopped
     volumes:
@@ -76,7 +76,7 @@ services:
     build:
       context: .
       dockerfile: infra/docker/backend/Dockerfile
-    container_name: sispoa-backend
+    container_name: pip-backend
     profiles: [dev, full]
     restart: unless-stopped
     env_file: .env
@@ -114,7 +114,7 @@ services:
     build:
       context: .
       dockerfile: infra/docker/frontend/Dockerfile
-    container_name: sispoa-frontend
+    container_name: pip-frontend
     profiles: [dev, full]
     restart: unless-stopped
     depends_on:
@@ -131,7 +131,7 @@ services:
   # Para evitar conflictos en perfil "full", comenta los ports del frontend
   # o usa solo un perfil a la vez.
   nginx-proxy:
-    container_name: sispoa-nginx
+    container_name: pip-nginx
     image: nginx:1.27-alpine
     profiles: [full]
     restart: unless-stopped
@@ -151,7 +151,7 @@ services:
 
   # --- Celery Worker (tareas asíncronas) ---
   celery-worker:
-    container_name: sispoa-celery-worker
+    container_name: pip-celery-worker
     build:
       context: .
       dockerfile: infra/docker/celery/Dockerfile
@@ -188,7 +188,7 @@ services:
 
   # --- Celery Beat (tareas programadas) ---
   celery-beat:
-    container_name: sispoa-celery-beat
+    container_name: pip-celery-beat
     build:
       context: .
       dockerfile: infra/docker/celery/Dockerfile
@@ -213,7 +213,7 @@ services:
 
   # --- MinIO S3 — almacenamiento de objetos (Fase 4) ---
   minio:
-    container_name: sispoa-minio
+    container_name: pip-minio
     image: minio/minio:RELEASE.2024-01-16T16-07-38Z
     command: server /data --console-address ":9001"
     profiles: [full]
@@ -221,7 +221,7 @@ services:
     volumes:
       - minio_data:/data
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-sispoa_admin}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-pip_admin}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-changeme-minio-segura}
     ports:
       - "9000:9000"
@@ -236,7 +236,7 @@ services:
 
   # --- GeoServer — servicios de mapas OGC (Fase 4) ---
   geoserver:
-    container_name: sispoa-geoserver
+    container_name: pip-geoserver
     image: oscarfonts/geoserver:2.25.0
     profiles: [full]
     restart: unless-stopped
@@ -267,7 +267,7 @@ services:
   # ADR-001 §16.3: Keycloak usa base de datos y credenciales SEPARADAS de los
   # datos de negocio (creada por infra/postgres/init/01-keycloak-db.sql).
   keycloak:
-    container_name: sispoa-keycloak
+    container_name: pip-keycloak
     image: quay.io/keycloak/keycloak:25.0.1
     command: start --import-realm
     profiles: [full]
@@ -278,7 +278,7 @@ services:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_BOOTSTRAP_ADMIN_USERNAME:-admin}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_BOOTSTRAP_ADMIN_PASSWORD:-keycloak_secret}
       KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://sispoa-postgres:5432/${KEYCLOAK_DB_NAME:-keycloak}
+      KC_DB_URL: jdbc:postgresql://pip-postgres:5432/${KEYCLOAK_DB_NAME:-keycloak}
       KC_DB_USERNAME: ${KEYCLOAK_DB_USER:-keycloak_user}
       KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-changeme-keycloak-db}
       KC_HOSTNAME: localhost
@@ -296,7 +296,7 @@ services:
           "CMD",
           "curl",
           "-f",
-          "http://localhost:8080/realms/sispoa/.well-known/openid-configuration",
+          "http://localhost:8080/realms/pip/.well-known/openid-configuration",
         ]
       interval: 30s
       timeout: 10s

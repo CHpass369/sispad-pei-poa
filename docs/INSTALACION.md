@@ -162,34 +162,34 @@ Actualizar `angular.json` para usar el proxy:
 | `DJANGO_SETTINGS_MODULE`          | Modulo de settings                                 | `config.settings`                                  |
 | `DB_ENGINE`                       | Backend de base de datos                           | `django.contrib.gis.db.backends.postgis`           |
 | `DB_NAME`                         | Nombre de la base de datos                         | `gams_sis_poa`                                     |
-| `DB_USER`                         | Usuario de la base de datos                        | `sispoa_user`                                      |
+| `DB_USER`                         | Usuario de la base de datos                        | `pip_user`                                      |
 | `DB_PASSWORD`                     | Contrasena de la base de datos                     | `changeme-segura`                                  |
-| `DB_HOST`                         | Host de la base de datos                           | `sispoa-postgres`                                  |
+| `DB_HOST`                         | Host de la base de datos                           | `pip-postgres`                                  |
 | `DB_PORT`                         | Puerto de la base de datos                         | `5432`                                             |
 | `POSTGRES_DB`                     | DB para el contenedor postgres                     | `gams_sis_poa`                                     |
-| `POSTGRES_USER`                   | User para el contenedor postgres                   | `sispoa_user`                                      |
+| `POSTGRES_USER`                   | User para el contenedor postgres                   | `pip_user`                                      |
 | `POSTGRES_PASSWORD`               | Password para el contenedor postgres               | `changeme-segura`                                  |
-| `REDIS_HOST`                      | Host de Redis                                      | `sispoa-redis`                                     |
+| `REDIS_HOST`                      | Host de Redis                                      | `pip-redis`                                     |
 | `REDIS_PORT`                      | Puerto de Redis                                    | `6379`                                             |
-| `REDIS_URL`                       | URL de Redis (cache)                               | `redis://sispoa-redis:6379/1`                      |
+| `REDIS_URL`                       | URL de Redis (cache)                               | `redis://pip-redis:6379/1`                      |
 | `CORS_ALLOWED_ORIGINS`            | Origenes CORS permitidos                           | `http://localhost:4200,http://127.0.0.1:4200`      |
-| `CELERY_BROKER_URL`               | Broker de Celery                                   | `redis://sispoa-redis:6379/0`                      |
-| `CELERY_RESULT_BACKEND`           | Backend de resultados Celery                       | `redis://sispoa-redis:6379/0`                      |
+| `CELERY_BROKER_URL`               | Broker de Celery                                   | `redis://pip-redis:6379/0`                      |
+| `CELERY_RESULT_BACKEND`           | Backend de resultados Celery                       | `redis://pip-redis:6379/0`                      |
 | `USE_S3`                          | Habilitar MinIO S3                                 | `False`                                            |
-| `MINIO_ENDPOINT`                  | Endpoint de MinIO                                  | `http://sispoa-minio:9000`                         |
-| `MINIO_ROOT_USER`                 | Usuario MinIO                                      | `sispoa_admin`                                     |
+| `MINIO_ENDPOINT`                  | Endpoint de MinIO                                  | `http://pip-minio:9000`                         |
+| `MINIO_ROOT_USER`                 | Usuario MinIO                                      | `pip_admin`                                     |
 | `MINIO_ROOT_PASSWORD`             | Contrasena MinIO                                   | `changeme-minio-segura`                            |
-| `MINIO_BUCKET_NAME`               | Bucket de MinIO                                    | `sispoa-docs`                                      |
-| `AWS_ACCESS_KEY_ID`               | Access Key (MinIO)                                 | `sispoa_admin`                                     |
+| `MINIO_BUCKET_NAME`               | Bucket de MinIO                                    | `pip-docs`                                      |
+| `AWS_ACCESS_KEY_ID`               | Access Key (MinIO)                                 | `pip_admin`                                     |
 | `AWS_SECRET_ACCESS_KEY`           | Secret Key (MinIO)                                 | `changeme-minio-segura`                            |
-| `AWS_STORAGE_BUCKET_NAME`         | Bucket name (MinIO)                                | `sispoa-docs`                                      |
+| `AWS_STORAGE_BUCKET_NAME`         | Bucket name (MinIO)                                | `pip-docs`                                      |
 | `AWS_S3_REGION_NAME`              | Region S3                                          | `us-east-1`                                        |
 | `GEOSERVER_ADMIN_USER`            | Usuario GeoServer                                  | `admin`                                            |
 | `GEOSERVER_ADMIN_PASSWORD`        | Contrasena GeoServer                               | `changeme-geoserver`                               |
-| `GEOSERVER_URL`                   | URL de GeoServer                                   | `http://sispoa-geoserver:8080/geoserver`           |
-| `OIDC_RP_CLIENT_ID`               | Client ID OIDC                                     | `sispoa-frontend`                                  |
+| `GEOSERVER_URL`                   | URL de GeoServer                                   | `http://pip-geoserver:8080/geoserver`           |
+| `OIDC_RP_CLIENT_ID`               | Client ID OIDC                                     | `pip-frontend`                                  |
 | `OIDC_RP_CLIENT_SECRET`           | Client Secret OIDC                                 | `changeme-oidc-secret`                             |
-| `OIDC_OP_AUTHORITY`               | Authority OIDC                                     | `http://sispoa-keycloak:8080/realms/sispoa`        |
+| `OIDC_OP_AUTHORITY`               | Authority OIDC                                     | `http://pip-keycloak:8080/realms/pip`        |
 | `KEYCLOAK_ADMIN`                  | Admin Keycloak                                     | `admin`                                            |
 | `KEYCLOAK_ADMIN_PASSWORD`         | Password Keycloak                                  | `changeme-keycloak`                                |
 | `KC_BOOTSTRAP_ADMIN_USERNAME`     | Bootstrap admin username                           | `admin`                                            |
@@ -229,7 +229,7 @@ docker compose --profile full up -d geoserver
 
 ### Configuracion basica
 
-1. Crear workspace: `sispoa`
+1. Crear workspace: `pip`
 2. Agregar Store PostGIS apuntando a la base de datos
 3. Publicar capas de distritos y OTBs
 
@@ -248,7 +248,7 @@ docker compose --profile full up -d minio
 
 ### Configuracion basica
 
-1. Crear bucket `sispoa-docs`
+1. Crear bucket `pip-docs`
 2. Configurar policy `readwrite` para el bucket
 3. Activar `USE_S3=True` en `.env`
 
@@ -267,13 +267,13 @@ docker compose --profile full up -d keycloak
 
 ### Importar realm
 
-El realm `sispoa` se importa automaticamente al iniciar Keycloak con `--import-realm`.
+El realm `pip` se importa automaticamente al iniciar Keycloak con `--import-realm`.
 
 Archivo de importacion: `infra/keycloak/realm-export.json`
 
 ### Configuracion OIDC en Django
 
-1. Crear variable `OIDC_RP_CLIENT_ID=sispoa-frontend` en `.env`
+1. Crear variable `OIDC_RP_CLIENT_ID=pip-frontend` en `.env`
 2. El backend detecta OIDC cuando `OIDC_RP_CLIENT_ID` esta presente
 3. SimpleJWT sigue siendo el metodo de autenticacion API principal
 

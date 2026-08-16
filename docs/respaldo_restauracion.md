@@ -28,8 +28,8 @@ El sistema SISPAD-PEI-POA requiere respaldar tres componentes criticos:
 
 # Salida esperada:
 # [2026-07-17 02:00:00] Iniciando backup de gams_sis_poa...
-# Backup creado: backups/sispoa_db_20260717_020000.dump
-# 15M    backups/sispoa_db_20260717_020000.dump
+# Backup creado: backups/pip_db_20260717_020000.dump
+# 15M    backups/pip_db_20260717_020000.dump
 # Backup validado correctamente
 ```
 
@@ -47,22 +47,22 @@ El sistema SISPAD-PEI-POA requiere respaldar tres componentes criticos:
 | `BACKUP_DIR` | `./backups` | Directorio de salida |
 | `DB_CONTAINER` | `postgres-postgis` | Nombre del contenedor |
 | `DB_NAME` | `gams_sis_poa` | Nombre de la base de datos |
-| `DB_USER` | `sispoa_user` | Usuario de PostgreSQL |
+| `DB_USER` | `pip_user` | Usuario de PostgreSQL |
 
 ### 2.2 Respaldo Manual
 
 ```bash
 # Backup directo con docker compose
 docker compose exec -T postgres-postgis pg_dump \
-  -U sispoa_user \
+  -U pip_user \
   -d gams_sis_poa \
   -F c \
   -v \
-  -f /tmp/sispoa_manual.dump
+  -f /tmp/pip_manual.dump
 
 # Copiar al host
-docker compose cp postgres-postgis:/tmp/sispoa_manual.dump ./backups/
-docker compose exec -T postgres-postgis rm -f /tmp/sispoa_manual.dump
+docker compose cp postgres-postgis:/tmp/pip_manual.dump ./backups/
+docker compose exec -T postgres-postgis rm -f /tmp/pip_manual.dump
 ```
 
 ### 2.3 Backup en formato SQL (texto)
@@ -70,22 +70,22 @@ docker compose exec -T postgres-postgis rm -f /tmp/sispoa_manual.dump
 ```bash
 # Solo si se necesita formato legible (sin compresion)
 docker compose exec -T postgres-postgis pg_dump \
-  -U sispoa_user \
+  -U pip_user \
   -d gams_sis_poa \
   -F p \
   -v \
-  -f /tmp/sispoa_text.sql
+  -f /tmp/pip_text.sql
 ```
 
 ### 2.4 Backup solo de esquema (sin datos)
 
 ```bash
 docker compose exec -T postgres-postgis pg_dump \
-  -U sispoa_user \
+  -U pip_user \
   -d gams_sis_poa \
   --schema-only \
   -F c \
-  -f /tmp/sispoa_schema.dump
+  -f /tmp/pip_schema.dump
 ```
 
 ---
@@ -101,7 +101,7 @@ docker compose exec -T postgres-postgis pg_dump \
 ./infra/backup/backup_minio.sh backups/minio
 
 # Salida esperada:
-# [date] Iniciando backup de MinIO bucket 'sispoa-docs'...
+# [date] Iniciando backup de MinIO bucket 'pip-docs'...
 # Backup MinIO completado: backups/minio/20260717_020000
 #    Archivos: 156
 ```
@@ -117,17 +117,17 @@ docker compose exec -T postgres-postgis pg_dump \
 | Variable | Default | Descripcion |
 |----------|---------|-------------|
 | `MINIO_CONTAINER` | `minio` | Nombre del contenedor |
-| `MINIO_ALIAS` | `sispoa` | Alias de mc |
-| `MINIO_BUCKET_NAME` | `sispoa-docs` | Nombre del bucket |
+| `MINIO_ALIAS` | `pip` | Alias de mc |
+| `MINIO_BUCKET_NAME` | `pip-docs` | Nombre del bucket |
 
 ### 3.2 Respaldo Manual
 
 ```bash
 # Configurar alias
-docker compose exec minio mc alias set sispoa http://localhost:9000 sispoa_admin password
+docker compose exec minio mc alias set pip http://localhost:9000 pip_admin password
 
 # Mirror del bucket
-docker compose exec minio mc mirror sispoa/sispoa-docs /tmp/minio_backup
+docker compose exec minio mc mirror pip/pip-docs /tmp/minio_backup
 
 # Copiar al host
 docker compose cp minio:/tmp/minio_backup ./backups/minio/
@@ -191,7 +191,7 @@ make backup
 
 ```
 backups/
-├── sispoa_db_20260717_020000.dump          # PostgreSQL
+├── pip_db_20260717_020000.dump          # PostgreSQL
 ├── backup_20260717_020000.log              # Log del backup DB
 ├── minio/
 │   └── 20260717_020000/                   # MinIO files
@@ -207,7 +207,7 @@ backups/
         ├── layers.json
         ├── styles.json
         └── data/
-            ├── sispoa/
+            ├── pip/
             └── ...
 ```
 
@@ -221,10 +221,10 @@ backups/
 
 ```bash
 # Ejecucion
-./infra/backup/restore_database.sh backups/sispoa_db_20260717_020000.dump
+./infra/backup/restore_database.sh backups/pip_db_20260717_020000.dump
 
 # Salida esperada:
-# [date] Iniciando restauracion de backups/sispoa_db_20260717_020000.dump...
+# [date] Iniciando restauracion de backups/pip_db_20260717_020000.dump...
 # Copiando backup al contenedor...
 # Restaurando base de datos gams_sis_poa...
 # Restauracion completada
@@ -244,11 +244,11 @@ backups/
 
 ```bash
 # Copiar backup al contenedor
-docker compose cp backups/sispoa_db.dump postgres-postgis:/tmp/restore.dump
+docker compose cp backups/pip_db.dump postgres-postgis:/tmp/restore.dump
 
 # Restaurar
 docker compose exec -T postgres-postgis pg_restore \
-  -U sispoa_user \
+  -U pip_user \
   -d gams_sis_poa \
   --clean \
   --if-exists \
@@ -268,11 +268,11 @@ Si la base de datos esta vacia o se necesita una restauracion limpia:
 ```bash
 # Crear base de datos si no existe
 docker compose exec postgres-postgis \
-  psql -U sispoa_user -d postgres -c "CREATE DATABASE gams_sis_poa;"
+  psql -U pip_user -d postgres -c "CREATE DATABASE gams_sis_poa;"
 
 # Restaurar
 docker compose exec -T postgres-postgis pg_restore \
-  -U sispoa_user \
+  -U pip_user \
   -d gams_sis_poa \
   --no-owner \
   --no-acl \
@@ -285,11 +285,11 @@ docker compose exec -T postgres-postgis pg_restore \
 ```bash
 # Contar tablas
 docker compose exec postgres-postgis \
-  psql -U sispoa_user -d gams_sis_poa -c "\dt" | wc -l
+  psql -U pip_user -d gams_sis_poa -c "\dt" | wc -l
 
 # Contar registros en tablas principales
 docker compose exec postgres-postgis \
-  psql -U sispoa_user -d gams_sis_poa -c "
+  psql -U pip_user -d gams_sis_poa -c "
   SELECT schemaname, relname, n_live_tup
   FROM pg_stat_user_tables
   ORDER BY n_live_tup DESC
@@ -310,7 +310,7 @@ docker compose exec postgres-postgis \
 ./infra/backup/restore_minio.sh backups/minio/20260717_020000
 
 # Salida esperada:
-# [date] Restaurando MinIO bucket 'sispoa-docs' desde backups/minio/20260717_020000...
+# [date] Restaurando MinIO bucket 'pip-docs' desde backups/minio/20260717_020000...
 # Restauracion MinIO completada
 ```
 
@@ -321,10 +321,10 @@ docker compose exec postgres-postgis \
 docker compose cp backups/minio/20260717_020000/. minio:/tmp/minio_restore/
 
 # Configurar alias
-docker compose exec minio mc alias set sispoa http://localhost:9000 sispoa_admin password
+docker compose exec minio mc alias set pip http://localhost:9000 pip_admin password
 
 # Restaurar (sobreescribe existentes)
-docker compose exec minio mc mirror --overwrite /tmp/minio_restore sispoa/sispoa-docs
+docker compose exec minio mc mirror --overwrite /tmp/minio_restore pip/pip-docs
 
 # Limpiar
 docker compose exec minio rm -rf /tmp/minio_restore
@@ -380,17 +380,17 @@ Seguir la seccion 2-5 de la guia de despliegue (`despliegue.md`).
 
 ```bash
 # Copiar el backup mas reciente al nuevo servidor
-scp backups/sispoa_db_*.dump sispoa@nuevo-servidor:/home/sispoa/backups/
+scp backups/pip_db_*.dump pip@nuevo-servidor:/home/pip/backups/
 
 # Ejecutar restauracion
-./infra/backup/restore_database.sh backups/sispoa_db_*.dump
+./infra/backup/restore_database.sh backups/pip_db_*.dump
 ```
 
 **Paso 3: Restaurar archivos MinIO**
 
 ```bash
 # Copiar respaldo de MinIO
-scp -r backups/minio/ sispoa@nuevo-servidor:/home/sispoa/backups/minio/
+scp -r backups/minio/ pip@nuevo-servidor:/home/pip/backups/minio/
 
 # Restaurar
 ./infra/backup/restore_minio.sh backups/minio/ultima_fecha
@@ -399,7 +399,7 @@ scp -r backups/minio/ sispoa@nuevo-servidor:/home/sispoa/backups/minio/
 **Paso 4: Restaurar GeoServer (si aplica)**
 
 ```bash
-scp -r backups/geoserver/ sispoa@nuevo-servidor:/home/sispoa/backups/geoserver/
+scp -r backups/geoserver/ pip@nuevo-servidor:/home/pip/backups/geoserver/
 ./infra/backup/restore_geoserver.sh backups/geoserver/ultima_fecha
 ```
 
@@ -443,7 +443,7 @@ docker compose exec -T postgres-postgis pg_restore -l /tmp/backup.dump | grep ta
 
 # Restaurar solo esa tabla
 docker compose exec -T postgres-postgis pg_restore \
-  -U sispoa_user \
+  -U pip_user \
   -d gams_sis_poa \
   --data-only \
   --table=tabla_nombre \
@@ -457,10 +457,10 @@ Para crear un punto de recuperacion antes de una operacion riesgosa:
 
 ```bash
 # Crear backup pre-operacion
-./infra/backup/backup_database.sh /home/sispoa/backups/pre_operacion
+./infra/backup/backup_database.sh /home/pip/backups/pre_operacion
 
 # Si la operacion falla, restaurar
-./infra/backup/restore_database.sh /home/sispoa/backups/pre_operacion/sispoa_db_*.dump
+./infra/backup/restore_database.sh /home/pip/backups/pre_operacion/pip_db_*.dump
 ```
 
 ---
@@ -486,19 +486,19 @@ Ejecutar mensualmente una restauracion de prueba en un entorno aislado:
 ```bash
 # 1. Crear base de datos temporal
 docker compose exec postgres-postgis \
-  psql -U sispoa_user -d postgres -c "CREATE DATABASE sispoa_test;"
+  psql -U pip_user -d postgres -c "CREATE DATABASE pip_test;"
 
 # 2. Restaurar en la base temporal
 docker compose exec -T postgres-postgis pg_restore \
-  -U sispoa_user \
-  -d sispoa_test \
+  -U pip_user \
+  -d pip_test \
   --no-owner \
   -v \
   /tmp/backup.dump
 
 # 3. Verificar conteos
 docker compose exec postgres-postgis \
-  psql -U sispoa_user -d sispoa_test -c "
+  psql -U pip_user -d pip_test -c "
   SELECT schemaname, relname, n_live_tup
   FROM pg_stat_user_tables
   WHERE schemaname = 'public'
@@ -507,7 +507,7 @@ docker compose exec postgres-postgis \
 
 # 4. Limpiar
 docker compose exec postgres-postgis \
-  psql -U sispoa_user -d postgres -c "DROP DATABASE sispoa_test;"
+  psql -U pip_user -d postgres -c "DROP DATABASE pip_test;"
 ```
 
 ### 10.3 Checklist de Verificacion
@@ -533,11 +533,11 @@ Recomendado: copiar backups a un segundo servidor o almacenamiento en la nube.
 ```bash
 # Ejemplo: copiar a servidor remoto via rsync
 rsync -avz --progress \
-  /home/sispoa/backups/ \
-  backup-remoto@servidor-secundario:/backups/sispoa/
+  /home/pip/backups/ \
+  backup-remoto@servidor-secundario:/backups/pip/
 
 # Ejemplo: copiar a S3 compatido (aws cli)
-aws s3 sync /home/sispoa/backups/ s3://mi-bucket-backups/sispoa/ \
+aws s3 sync /home/pip/backups/ s3://mi-bucket-backups/pip/ \
   --endpoint-url https://s3.amazonaws.com
 ```
 

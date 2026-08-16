@@ -49,9 +49,9 @@ Guia paso a paso para desplegar el sistema en un servidor de produccion usando D
 
 ```bash
 # Crear usuario dedicado (no root)
-sudo adduser sispoa --disabled-password
-sudo usermod -aG docker sispoa
-sudo su - sispoa
+sudo adduser pip --disabled-password
+sudo usermod -aG docker pip
+sudo su - pip
 ```
 
 ---
@@ -88,8 +88,8 @@ docker compose version
 ## 4. Clonar el Repositorio
 
 ```bash
-# Como usuario sispoa
-cd /home/sispoa
+# Como usuario pip
+cd /home/pip
 git clone https://github.com/tu-org/sispad-pei-poa.git
 cd sispad-pei-poa
 ```
@@ -142,33 +142,33 @@ DJANGO_ALLOWED_HOSTS=tu-dominio.gob.bo,localhost,127.0.0.1
 
 # Base de datos
 DB_ENGINE=django.contrib.gis.db.backends.postgis
-DB_NAME=gams_sis_poa
-DB_USER=sispoa_user
+DB_NAME=gams_pip
+DB_USER=pip_user
 DB_PASSWORD=<generado arriba>
-DB_HOST=sispoa-postgres
+DB_HOST=pip-postgres
 DB_PORT=5432
 
-POSTGRES_DB=gams_sis_poa
-POSTGRES_USER=sispoa_user
+POSTGRES_DB=gams_pip
+POSTGRES_USER=pip_user
 POSTGRES_PASSWORD=<generado arriba>
 
 # CORS
 CORS_ALLOWED_ORIGINS=https://tu-dominio.gob.bo
 
 # Redis
-REDIS_URL=redis://sispoa-redis:6379/1
-CELERY_BROKER_URL=redis://sispoa-redis:6379/0
-CELERY_RESULT_BACKEND=redis://sispoa-redis:6379/0
+REDIS_URL=redis://pip-redis:6379/1
+CELERY_BROKER_URL=redis://pip-redis:6379/0
+CELERY_RESULT_BACKEND=redis://pip-redis:6379/0
 
 # MinIO
 USE_S3=True
-MINIO_ENDPOINT=http://sispoa-minio:9000
-MINIO_ROOT_USER=sispoa_admin
+MINIO_ENDPOINT=http://pip-minio:9000
+MINIO_ROOT_USER=pip_admin
 MINIO_ROOT_PASSWORD=<generado arriba>
-MINIO_BUCKET_NAME=sispoa-docs
-AWS_ACCESS_KEY_ID=sispoa_admin
+MINIO_BUCKET_NAME=pip-docs
+AWS_ACCESS_KEY_ID=pip_admin
 AWS_SECRET_ACCESS_KEY=<generado arriba>
-AWS_STORAGE_BUCKET_NAME=sispoa-docs
+AWS_STORAGE_BUCKET_NAME=pip-docs
 AWS_S3_REGION_NAME=us-east-1
 
 # GeoServer
@@ -176,9 +176,9 @@ GEOSERVER_ADMIN_USER=admin
 GEOSERVER_ADMIN_PASSWORD=<generado arriba>
 
 # OIDC (opcional)
-OIDC_RP_CLIENT_ID=sispoa-frontend
+OIDC_RP_CLIENT_ID=pip-frontend
 OIDC_RP_CLIENT_SECRET=<generado arriba>
-OIDC_OP_AUTHORITY=https://tu-dominio.gob.bo/auth/realms/sispoa
+OIDC_OP_AUTHORITY=https://tu-dominio.gob.bo/auth/realms/pip
 ```
 
 ---
@@ -286,10 +286,10 @@ sudo certbot certonly --standalone \
 Copiar certificados a una ubicacion accesible:
 
 ```bash
-sudo mkdir -p /home/sispoa/sispad-pei-poa/certs
-sudo cp /etc/letsencrypt/live/tu-dominio.gob.bo/fullchain.pem /home/sispoa/sispad-pei-poa/certs/
-sudo cp /etc/letsencrypt/live/tu-dominio.gob.bo/privkey.pem /home/sispoa/sispad-pei-poa/certs/
-sudo chown -R sispoa:sispoa /home/sispoa/sispad-pei-poa/certs/
+sudo mkdir -p /home/pip/sispad-pei-poa/certs
+sudo cp /etc/letsencrypt/live/tu-dominio.gob.bo/fullchain.pem /home/pip/sispad-pei-poa/certs/
+sudo cp /etc/letsencrypt/live/tu-dominio.gob.bo/privkey.pem /home/pip/sispad-pei-poa/certs/
+sudo chown -R pip:pip /home/pip/sispad-pei-poa/certs/
 ```
 
 ### 8.4 Crear configuracion Nginx con SSL
@@ -367,7 +367,7 @@ docker compose -f docker-compose.prod.yml up -d nginx
 sudo crontab -e
 
 # Agregar linea (renueva cada 12 horas, verifica si necesita renovacion)
-0 */12 * * * certbot renew --quiet --deploy-hook "docker compose -f /home/sispoa/sispad-pei-poa/docker-compose.prod.yml exec -T nginx nginx -s reload"
+0 */12 * * * certbot renew --quiet --deploy-hook "docker compose -f /home/pip/sispad-pei-poa/docker-compose.prod.yml exec -T nginx nginx -s reload"
 ```
 
 ---
@@ -380,7 +380,7 @@ Crear `docker-compose.geo.yml` o agregar servicios al compose principal:
 
 ```yaml
 geoserver:
-  container_name: sispoa-geoserver
+  container_name: pip-geoserver
   image: geoserver/geoserver:latest
   restart: always
   environment:
@@ -400,7 +400,7 @@ geoserver:
 # Crear workspace via REST API
 curl -u admin:password -X POST \
   -H "Content-Type: application/json" \
-  -d '{"workspace":{"name":"sispoa"}}' \
+  -d '{"workspace":{"name":"pip"}}' \
   http://localhost:8080/geoserver/rest/workspaces
 ```
 
@@ -412,7 +412,7 @@ curl -u admin:password -X POST \
 
 ```yaml
 keycloak:
-  container_name: sispoa-keycloak
+  container_name: pip-keycloak
   image: quay.io/keycloak/keycloak:latest
   command: start
   restart: always
@@ -430,8 +430,8 @@ keycloak:
 ### 10.2 Importar realm
 
 ```bash
-docker cp infra/keycloak/realm-export.json sispoa-keycloak:/tmp/
-docker exec sispoa-keycloak /opt/keycloak/bin/kc.sh import --dir /tmp --override false
+docker cp infra/keycloak/realm-export.json pip-keycloak:/tmp/
+docker exec pip-keycloak /opt/keycloak/bin/kc.sh import --dir /tmp --override false
 ```
 
 ---
@@ -551,7 +551,7 @@ sudo systemctl start cron
 ### 13.2 Configurar cron para respaldos
 
 ```bash
-# Editar crontab del usuario sispoa
+# Editar crontab del usuario pip
 crontab -e
 ```
 
@@ -559,17 +559,17 @@ Agregar las siguientes lineas:
 
 ```cron
 # Backup diario de base de datos a las 2:00 AM
-0 2 * * * /home/sispoa/sispad-pei-poa/infra/backup/backup_database.sh /home/sispoa/backups >> /home/sispoa/backups/cron.log 2>&1
+0 2 * * * /home/pip/sispad-pei-poa/infra/backup/backup_database.sh /home/pip/backups >> /home/pip/backups/cron.log 2>&1
 
 # Backup semanal de MinIO (domingos a las 3:00 AM)
-0 3 * * 0 /home/sispoa/sispad-pei-poa/infra/backup/backup_minio.sh /home/sispoa/backups >> /home/sispoa/backups/cron.log 2>&1
+0 3 * * 0 /home/pip/sispad-pei-poa/infra/backup/backup_minio.sh /home/pip/backups >> /home/pip/backups/cron.log 2>&1
 
 # Backup semanal de GeoServer (domingos a las 4:00 AM)
-0 4 * * 0 /home/sispoa/sispad-pei-poa/infra/backup/backup_geoserver.sh /home/sispoa/backups >> /home/sispoa/backups/cron.log 2>&1
+0 4 * * 0 /home/pip/sispad-pei-poa/infra/backup/backup_geoserver.sh /home/pip/backups >> /home/pip/backups/cron.log 2>&1
 
 # Limpieza de backups antiguos (mantener 30 dias, ejecutar el dia 1 de cada mes)
-0 5 1 * * find /home/sispoa/backups -name "*.dump" -mtime +30 -delete
-0 5 1 * * find /home/sispoa/backups -name "*.log" -mtime +30 -delete
+0 5 1 * * find /home/pip/backups -name "*.dump" -mtime +30 -delete
+0 5 1 * * find /home/pip/backups -name "*.log" -mtime +30 -delete
 ```
 
 ### 13.3 Verificar cron
@@ -586,7 +586,7 @@ crontab -l
 
 ```bash
 # Pull de ultimos cambios
-cd /home/sispoa/sispad-pei-poa
+cd /home/pip/sispad-pei-poa
 git pull origin main
 
 # Reconstruir imagenes
@@ -611,7 +611,7 @@ docker compose -f docker-compose.prod.yml exec redis redis-cli FLUSHDB
 
 ```bash
 docker compose -f docker-compose.prod.yml exec postgres-postgis \
-  vacuumdb -U sispoa_user -d gams_sis_poa --full --analyze
+  vacuumdb -U pip_user -d gams_pip --full --analyze
 ```
 
 ### 14.4 Monitoreo de logs
@@ -637,7 +637,7 @@ docker compose -f docker-compose.prod.yml logs backend 2>&1 | grep -i error
 | `docker compose -f docker-compose.prod.yml logs -f` | Ver logs en tiempo real |
 | `docker compose -f docker-compose.prod.yml restart backend` | Reiniciar backend |
 | `docker compose -f docker-compose.prod.yml exec backend python manage.py shell` | Shell de Django |
-| `docker compose -f docker-compose.prod.yml exec postgres-postgis psql -U sispoa_user -d gams_sis_poa` | Shell de PostgreSQL |
+| `docker compose -f docker-compose.prod.yml exec postgres-postgis psql -U pip_user -d gams_pip` | Shell de PostgreSQL |
 | `docker compose -f docker-compose.prod.yml stop` | Detener todos los servicios |
 | `docker compose -f docker-compose.prod.yml start` | Iniciar todos los servicios |
 | `docker system df` | Ver uso de disco |

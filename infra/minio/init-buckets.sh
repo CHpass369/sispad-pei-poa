@@ -11,11 +11,11 @@
 
 set -e
 
-MC_HOST="${MC_HOST:-sispoa-minio:9000}"
-MC_ALIAS="${MC_ALIAS:-sispoa}"
-MC_ROOT_USER="${MINIO_ROOT_USER:-sispoa_admin}"
-MC_ROOT_PASSWORD="${MINIO_ROOT_PASSWORD:-sispoa_minio_secret}"
-BUCKET="${MINIO_BUCKET_NAME:-sispoa-docs}"
+MC_HOST="${MC_HOST:-pip-minio:9000}"
+MC_ALIAS="${MC_ALIAS:-pip}"
+MC_ROOT_USER="${MINIO_ROOT_USER:-pip_admin}"
+MC_ROOT_PASSWORD="${MINIO_ROOT_PASSWORD:-pip_minio_secret}"
+BUCKET="${MINIO_BUCKET_NAME:-pip-docs}"
 
 echo "Esperando a que MinIO esté listo..."
 until mc alias set ${MC_ALIAS} http://${MC_HOST} ${MC_ROOT_USER} ${MC_ROOT_PASSWORD} 2>/dev/null; do

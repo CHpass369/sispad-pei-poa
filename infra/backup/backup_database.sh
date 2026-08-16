@@ -7,9 +7,9 @@ set -e
 BACKUP_DIR="${1:-./backups}"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 DB_CONTAINER="${DB_CONTAINER:-postgres-postgis}"
-DB_NAME="${DB_NAME:-gams_sis_poa}"
-DB_USER="${DB_USER:-sispoa_user}"
-BACKUP_FILE="${BACKUP_DIR}/sispoa_db_${TIMESTAMP}.dump"
+DB_NAME="${DB_NAME:-gams_pip}"
+DB_USER="${DB_USER:-pip_user}"
+BACKUP_FILE="${BACKUP_DIR}/pip_db_${TIMESTAMP}.dump"
 LOG_FILE="${BACKUP_DIR}/backup_${TIMESTAMP}.log"
 
 mkdir -p "${BACKUP_DIR}"

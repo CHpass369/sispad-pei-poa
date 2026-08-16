@@ -20,18 +20,18 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 # Configuración desde entorno (con defaults alineados con .env.example)
 # ---------------------------------------------------------------------------
-GS_URL="${GS_URL:-http://sispoa-geoserver:8080/geoserver}"
+GS_URL="${GS_URL:-http://pip-geoserver:8080/geoserver}"
 GS_USER="${GEOSERVER_ADMIN_USER:-admin}"
 GS_PASS="${GEOSERVER_ADMIN_PASSWORD:-changeme-geoserver}"
-WS_NAME="${GEOSERVER_WORKSPACE:-sispoa}"
+WS_NAME="${GEOSERVER_WORKSPACE:-pip}"
 
-DB_HOST="${DB_HOST:-sispoa-postgres}"
+DB_HOST="${DB_HOST:-pip-postgres}"
 DB_PORT="${DB_PORT:-5432}"
-DB_NAME="${DB_NAME:-gams_sis_poa}"
-DB_USER="${DB_USER:-sispoa_user}"
+DB_NAME="${DB_NAME:-gams_pip}"
+DB_USER="${DB_USER:-pip_user}"
 DB_PASS="${DB_PASSWORD:-changeme-segura}"
 
-STORE_NAME="sispoa_postgis"
+STORE_NAME="pip_postgis"
 
 # ---------------------------------------------------------------------------
 # Layers a publicar (nombres de tabla = app_model en lowercase)

@@ -10,6 +10,9 @@ __pycache__/
 *.egg-info/
 dist/
 *.egg
+.pytest_cache/
+.coverage
+htmlcov/
 
 # Node / Angular
 node_modules/

@@ -1,6 +1,6 @@
 {
-  "realm": "sispoa",
-  "displayName": "SISPAD-PEI-POA Sacaba",
+  "realm": "pip",
+  "displayName": "PIP-GAMS Sacaba",
   "enabled": true,
   "sslRequired": "external",
   "registrationAllowed": false,
@@ -8,12 +8,12 @@
   "resetPasswordAllowed": true,
   "roles": {
     "realm": [
-      {"name": "default-roles-sispoa", "composite": false},
+      {"name": "default-roles-pip", "composite": false},
       {"name": "offline_access", "composite": false},
       {"name": "uma_authorization", "composite": false}
     ],
     "client": {
-      "sispoa-frontend": [
+      "pip-frontend": [
         {"name": "admin_poa"},
         {"name": "planificador"},
         {"name": "presupuesto"},
@@ -26,8 +26,8 @@
   },
   "clients": [
     {
-      "clientId": "sispoa-frontend",
-      "name": "SISPAD Frontend",
+      "clientId": "pip-frontend",
+      "name": "PIP Frontend",
       "enabled": true,
       "publicClient": true,
       "redirectUris": ["http://localhost/*", "http://localhost:4200/*"],
@@ -44,11 +44,11 @@
       "optionalClientScopes": ["address", "phone"]
     },
     {
-      "clientId": "sispoa-backend",
-      "name": "SISPAD Backend",
+      "clientId": "pip-backend",
+      "name": "PIP Backend",
       "enabled": true,
       "publicClient": false,
-      "secret": "sispoa_oidc_secret",
+      "secret": "pip_oidc_secret",
       "redirectUris": ["http://localhost/*"],
       "serviceAccountsEnabled": true,
       "protocol": "openid-connect"
@@ -63,8 +63,8 @@
       "enabled": true,
       "emailVerified": true,
       "credentials": [{"type": "password", "value": "admin123", "temporary": false}],
-      "realmRoles": ["default-roles-sispoa"],
-      "clientRoles": {"sispoa-frontend": ["admin_poa"]}
+      "realmRoles": ["default-roles-pip"],
+      "clientRoles": {"pip-frontend": ["admin_poa"]}
     },
     {
       "username": "tecnico",
@@ -74,8 +74,8 @@
       "enabled": true,
       "emailVerified": true,
       "credentials": [{"type": "password", "value": "tecnico123", "temporary": false}],
-      "realmRoles": ["default-roles-sispoa"],
-      "clientRoles": {"sispoa-frontend": ["tecnico"]}
+      "realmRoles": ["default-roles-pip"],
+      "clientRoles": {"pip-frontend": ["tecnico"]}
     }
   ]
 }

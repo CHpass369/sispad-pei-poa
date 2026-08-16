@@ -7,10 +7,10 @@ set -e
 BACKUP_DIR="${1:-./backups/minio}"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 MINIO_CONTAINER="${MINIO_CONTAINER:-minio}"
-MINIO_ALIAS="${MINIO_ALIAS:-sispoa}"
-MINIO_USER="${MINIO_ROOT_USER:-sispoa_admin}"
-MINIO_PASS="${MINIO_ROOT_PASSWORD:-sispoa_minio_secret}"
-BUCKET="${MINIO_BUCKET_NAME:-sispoa-docs}"
+MINIO_ALIAS="${MINIO_ALIAS:-pip}"
+MINIO_USER="${MINIO_ROOT_USER:-pip_admin}"
+MINIO_PASS="${MINIO_ROOT_PASSWORD:-pip_minio_secret}"
+BUCKET="${MINIO_BUCKET_NAME:-pip-docs}"
 BACKUP_PATH="${BACKUP_DIR}/${TIMESTAMP}"
 
 mkdir -p "${BACKUP_PATH}"

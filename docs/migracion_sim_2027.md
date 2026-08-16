@@ -59,7 +59,7 @@ dropdb --host HOST --port PUERTO --username USUARIO --force BASE
 createdb --host HOST --port PUERTO --username USUARIO --template template0 BASE
 pg_restore --host HOST --port PUERTO --username USUARIO \
   --dbname BASE --exit-on-error --no-owner --no-acl \
-  /ruta/sispoa_pre_t5_YYYYMMDDTHHMMSSZ_PID.dump
+  /ruta/pip_pre_t5_YYYYMMDDTHHMMSSZ_PID.dump
 python manage.py check
 ```
 

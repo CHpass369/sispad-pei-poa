@@ -7,7 +7,7 @@ set -e
 BACKUP_FILE="${1}"
 if [ -z "${BACKUP_FILE}" ]; then
   echo "❌ Uso: $0 <archivo_backup.dump>"
-  echo "   Ej: $0 ./backups/sispoa_db_20260101_120000.dump"
+  echo "   Ej: $0 ./backups/pip_db_20260101_120000.dump"
   exit 1
 fi
 
@@ -17,8 +17,8 @@ if [ ! -f "${BACKUP_FILE}" ]; then
 fi
 
 DB_CONTAINER="${DB_CONTAINER:-postgres-postgis}"
-DB_NAME="${DB_NAME:-gams_sis_poa}"
-DB_USER="${DB_USER:-sispoa_user}"
+DB_NAME="${DB_NAME:-gams_pip}"
+DB_USER="${DB_USER:-pip_user}"
 
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Iniciando restauración de ${BACKUP_FILE}..."
 

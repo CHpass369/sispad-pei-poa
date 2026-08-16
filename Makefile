@@ -1,5 +1,5 @@
 # ============================================
-# SISPAD-PEI-POA — Makefile
+# PIP-GAMS — Makefile
 # ============================================
 # Comandos para desarrollo local con Docker
 # Uso: make <target>

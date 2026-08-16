@@ -161,7 +161,7 @@ ORDER BY creado_en DESC;
 ### ✅ FASE B — Aplicada (config PostgreSQL)
 - `ALTER SYSTEM` (como superuser postgres): `work_mem 32MB`, `maintenance_work_mem 256MB`, `effective_cache_size 24GB`, `random_page_cost 1.1` — **activos** (context user, pg_reload_conf).
 - `shared_buffers 2GB` — persistido en `postgresql.auto.conf` pero **requiere reinicio del servicio** `postgresql-x64-16` (context postmaster; el reinicio necesita permisos de administrador — pendiente manual: `Restart-Service postgresql-x64-16`).
-- **Conexión real de la BD local**: HOST=localhost, PORT=**5432** (no 5433), USER=`sispoa`, PASSWORD=`sispoa_local_2026`, NAME=`gams_sis_poa`. Usuario `sispoa` no es superuser; `postgres`/`postgres` sí.
+- **Conexión real de la BD local**: HOST=localhost, PORT=**5432** (no 5433), USER=`sispoa`, PASSWORD=`sispoa_local_2026`, NAME=`gams_pip`. Usuario `sispoa` no es superuser; `postgres`/`postgres` sí.
 
 ### ✅ FASE C — Aplicada parcial (paginación dual; particionado documentado como NO viable)
 - **Paginación dual (cursor + page)** — `backend/apps/core/pagination.py`:

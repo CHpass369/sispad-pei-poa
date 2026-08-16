@@ -1,5 +1,5 @@
 # =============================================================================
-# SISPAD-PEI-POA — Infraestructura Docker (Produccion)
+# PIP-GAMS — Infraestructura Docker (Produccion)
 # Servicios optimizados para despliegue en produccion
 # =============================================================================
 
@@ -9,26 +9,26 @@ x-django-env: &django-env
   DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:?Configure DJANGO_ALLOWED_HOSTS en .env}
   DB_ENGINE: ${DB_ENGINE:-django.contrib.gis.db.backends.postgis}
   DB_NAME: ${DB_NAME:-gams_pip}
-  DB_USER: ${DB_USER:-sispoa_user}
+  DB_USER: ${DB_USER:-pip_user}
   DB_PASSWORD: ${DB_PASSWORD:?Configure DB_PASSWORD en .env}
-  DB_HOST: ${DB_HOST:-sispoa-postgres}
+  DB_HOST: ${DB_HOST:-pip-postgres}
   DB_PORT: ${DB_PORT:-5432}
   CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?Configure CORS_ALLOWED_ORIGINS en .env}
-  CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://sispoa-redis:6379/0}
-  CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://sispoa-redis:6379/0}
-  REDIS_URL: ${REDIS_URL:-redis://sispoa-redis:6379/1}
+  CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://pip-redis:6379/0}
+  CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://pip-redis:6379/0}
+  REDIS_URL: ${REDIS_URL:-redis://pip-redis:6379/1}
 
 services:
 
   # --- PostgreSQL + PostGIS ---
   postgres-postgis:
     image: postgis/postgis:17-3.4
-    container_name: sispoa-postgres
+    container_name: pip-postgres
     restart: always
     env_file: .env
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-gams_pip}
-      POSTGRES_USER: ${POSTGRES_USER:-sispoa_user}
+      POSTGRES_USER: ${POSTGRES_USER:-pip_user}
       POSTGRES_PASSWORD: ${DB_PASSWORD:?Configure DB_PASSWORD en .env}
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -38,7 +38,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "pg_isready -U ${POSTGRES_USER:-sispoa_user} -d ${POSTGRES_DB:-gams_pip}",
+          "pg_isready -U ${POSTGRES_USER:-pip_user} -d ${POSTGRES_DB:-gams_pip}",
         ]
       interval: 10s
       timeout: 5s
@@ -52,7 +52,7 @@ services:
   # --- Redis ---
   redis:
     image: redis:7-alpine
-    container_name: sispoa-redis
+    container_name: pip-redis
     restart: always
     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     volumes:
@@ -76,7 +76,7 @@ services:
       dockerfile: infra/docker/backend/Dockerfile
       args:
         - BUILD_ENV=production
-    container_name: sispoa-backend
+    container_name: pip-backend
     restart: always
     env_file: .env
     environment:
@@ -100,7 +100,7 @@ services:
 
   # --- Nginx (serves frontend static + reverse proxy a backend) ---
   nginx:
-    container_name: sispoa-nginx
+    container_name: pip-nginx
     image: nginx:alpine
     restart: always
     volumes:
@@ -132,7 +132,7 @@ services:
 
   # --- Celery Worker (tareas asincronas) ---
   celery-worker:
-    container_name: sispoa-celery-worker
+    container_name: pip-celery-worker
     build:
       context: .
       dockerfile: infra/docker/celery/Dockerfile
@@ -162,7 +162,7 @@ services:
 
   # --- Celery Beat (tareas programadas) ---
   celery-beat:
-    container_name: sispoa-celery-beat
+    container_name: pip-celery-beat
     build:
       context: .
       dockerfile: infra/docker/celery/Dockerfile
@@ -192,7 +192,7 @@ services:
 
   # --- MinIO S3 (almacenamiento de objetos) ---
   minio:
-    container_name: sispoa-minio
+    container_name: pip-minio
     image: minio/minio:latest
     command: server /data --console-address ":9001"
     restart: always

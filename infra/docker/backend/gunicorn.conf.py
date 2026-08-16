@@ -1,5 +1,5 @@
 """
-Gunicorn configuration for SISPOA backend.
+Gunicorn configuration for PIP backend.
 
 Workers:      4 (recommended: 2 * CPU cores + 1)
 Timeout:      120s (allows long-running report generation)
