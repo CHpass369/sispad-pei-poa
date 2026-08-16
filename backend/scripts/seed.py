@@ -30,6 +30,8 @@ for codigo, nombre, sistema in roles:
     )
 
 # Superusuario
+# Idempotente: también repara instalaciones existentes (password y flags de
+# sistema siempre asegurados, no solo al crear el usuario).
 admin, created = Usuario.objects.get_or_create(
     email='admin@gamsacaba.gob.bo',
     defaults={
@@ -39,9 +41,20 @@ admin, created = Usuario.objects.get_or_create(
         'is_superuser': True,
     }
 )
-if created:
+if created or not admin.check_password('admin2026'):
     admin.set_password('admin2026')
-    admin.save()
+admin.is_staff = True
+admin.is_superuser = True
+admin.save()
+
+# Rol de sistema del superusuario (el frontend consume roles/capacidades)
+rol_super, _ = Rol.objects.get_or_create(
+    codigo='superadmin',
+    defaults={'nombre': 'Superadministrador Técnico', 'es_sistema': True,
+              'descripcion': 'Superadministrador Técnico'}
+)
+if not admin.roles.filter(pk=rol_super.pk).exists():
+    admin.roles.add(rol_super)
 
 # Gestión 2026
 GestionFiscal.objects.get_or_create(
