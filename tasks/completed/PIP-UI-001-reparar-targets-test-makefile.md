@@ -93,4 +93,21 @@ Bajo. Riesgo: dependencias locales (Python, npm) con versiones distintas al cont
 
 ## FINAL REPORT
 
-Completar al cerrar con `/task-close`: targets corregidos, comandos finales, resultados de `make test-backend` y `make test-frontend`, deuda detectada (p.ej. si el contenedor frontend debería tener herramientas de test a futuro).
+Cerrada 2026-08-16.
+
+**Archivos modificados (1):** `Makefile` — targets `test-backend` (L56) y `test-frontend` (L59).
+
+**Comandos finales:**
+- `test-backend` → `cd backend && python -m pytest` (respeta pytest.ini: `-n auto --dist loadscope`)
+- `test-frontend` → `cd frontend/sispoa && npm test -- --watch=false`
+
+**Resultados de verificación (entorno local Windows, comandos exactos de los targets):**
+- Backend: `python -m pytest` (venv) → **1252 passed** en 5m59s
+- Frontend: `npm test -- --watch=false` → **TOTAL: 252 SUCCESS** (proceso termina solo; en una corrida previa Karma quedó idle post-suite y hubo que terminarlo)
+- `make` no está instalado en este entorno Windows → targets verificados por ejecución directa de sus comandos; la sintaxis make (sh, `&&`) es la misma que usa el resto del Makefile
+
+**Commits:** `f3ca2ef`.
+
+**Riesgos:** bajo; solo tooling. En Windows sin make se ejecutan los comandos directamente; prerequisitos documentados en el comentario del target.
+
+**Deuda detectada:** (1) el contenedor `frontend` (nginx) sigue sin herramientas de test — evaluar agregarlas a futuro si el equipo quiere tests en contenedor; (2) `make` no disponible en Windows puro — documentar WSL/MSYS como prerequisito si se usa el Makefile.

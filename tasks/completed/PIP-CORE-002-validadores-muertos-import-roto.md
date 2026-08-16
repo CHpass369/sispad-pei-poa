@@ -87,4 +87,26 @@ Medio. Riesgo: alguna función "sin llamador" sea invocada dinámicamente (por n
 
 ## FINAL REPORT
 
-Completar al cerrar con `/task-close`: funciones eliminadas vs conservadas, evidencia de ausencia de llamadores, decisión de dominio, tests ejecutados.
+Cerrada 2026-08-16.
+
+**Archivos modificados (1):** `backend/apps/core/validators.py` — 401 → 259 líneas.
+
+**Funciones ELIMINADAS (6, todas con 0 llamadores en backend/):**
+- `validar_accion_poa_sin_pei` (:104) — regla ACO↔AMP implementada en motor de articulación
+- `validar_accion_pei_sin_pad` (:115) — eliminó el import roto `apps.pad.models.PlanAnual` (clase inexistente); regla PAD↔PEI vive en `ArticulacionPADPEI`/motor
+- `validar_meta_sin_indicador` (:131) — import de negocio en core (violaba regla CORE)
+- `validar_indicador_sin_unidad` (:142) — regla SIS-PE acoplada a core
+- `validar_actividad_fuera_periodo` (:151) — regla SIS-POA
+- `validar_presupuesto_mayor_techo` (:177) — regla de techos implementada en budget V2
+
+**Conservadas (17):** 5 con llamadores vivos intactas (invariante): `validar_meta_no_negativa`, `validar_nombre_corto`, `validar_lineas_igual_total`, `validar_ejecucion_no_negativa`, `validar_valor_no_negativo`.
+
+**Evidencia de ausencia de llamadores:** censo de las 23 funciones contra todo `backend/*.py` (0 refs); 0 star imports; 0 strings `"validar_"`; 0 getattr dinámico. Ninguna de las 6 tenía tests propios.
+
+**Decisión de dominio:** reglas eliminadas tienen dueño implementado (articulacion, budget V2); CORE no depende de lógica de negocio (DOMAIN_BOUNDARIES). No se aplicó import defensivo: 0 llamadores, 0 tests, 0 refs de dominio activas.
+
+**Tests ejecutados:** `pytest apps/core -q` → 26 passed; suite completa → **1252 passed** (delta 0 vs baseline).
+
+**Commits:** `1a4db4d`.
+
+**Deuda detectada (registrada, no ejecutada):** (1) 12 funciones muertas adicionales del mismo módulo → candidatas a nueva tarea (mismo patrón de análisis); (2) `docs/ARQUITECTURA.md:484-495` sigue listando las 6 validaciones eliminadas → actualizar doc.

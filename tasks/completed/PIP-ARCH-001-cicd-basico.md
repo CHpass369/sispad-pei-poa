@@ -95,4 +95,21 @@ Medio. Riesgo principal: los tests locales asumen servicios (PostGIS, Redis, Min
 
 ## FINAL REPORT
 
-Completar al cerrar con `/task-close`: archivos creados, gates ejecutados en CI (si hubo merge), tiempo del pipeline, servicios requeridos, riesgos y deuda detectada.
+Cerrada 2026-08-16.
+
+**Archivos creados (1):** `.github/workflows/ci.yml` (93 líneas) — triggers `pull_request` + `push` (main, integrate/**) + `workflow_dispatch`; 2 jobs:
+- `backend` (ubuntu-latest): servicio `postgis/postgis:17-3.4` (misma imagen que docker-compose), setup-python **3.13** (real del repo: `backend/.venv/pyvenv.cfg` → CPython 3.13.11, no 3.14 como asumía la tarea), cache pip, `pip install -r requirements.txt`, gate `python -m pytest -q`
+- `frontend` (ubuntu-latest): setup-node **22** (Angular 21.2 sin .nvmrc/engines), cache npm, `npm ci`, gate `npm run build`
+- Lint ruff **omitido** y documentado: ruff no está en requirements.txt ni instalado en el venv → gate lint requiere tarea futura (versionar ruff + config)
+
+**Gates ejecutados localmente (mismos comandos del workflow):** `pytest -q` → 1252 passed (5m59s); `npm run build` → build producción OK (10.7s).
+
+**Servicios requeridos en CI:** PostgreSQL+PostGIS vía service container (pytest.ini → `config.settings` → postgis, TEST.template=template_postgis). `settings_test_sqlite.py` NO se usó: su propio docstring lo restringe (apps geo requieren PostGIS). Credenciales del service = valores de ejemplo, nunca secrets.
+
+**Validación:** YAML ok (`yaml.safe_load`); `act` no instalado localmente (no blocker; sintaxis estándar de GitHub Actions, key `on` entre comillas).
+
+**Commits:** `26c134c`.
+
+**Riesgos:** medio — la suite en CI creará N test DBs vía template PostGIS (mismo comportamiento que local); tiempos de build mitigados con cache pip/npm.
+
+**Deuda detectada:** (1) ruff sin versionar → gate lint ausente (proponer tarea: agregar ruff + config y habilitar job); (2) sin deploy automático por diseño (OUT OF SCOPE); (3) revisar si se desean secrets reales para la DB de CI a futuro.

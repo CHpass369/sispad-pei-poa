@@ -97,4 +97,19 @@ Bajo. Riesgo principal: algún componente dependa de un endpoint V1 que no exist
 
 ## FINAL REPORT
 
-Completar al cerrar con `/task-close`: archivos modificados, tests ejecutados, verificación de endpoints, riesgos, trabajo pendiente (p.ej. otros features con doble prefijo → `tasks/technical-debt/`).
+Cerrada 2026-08-16.
+
+**Archivos modificados (3):**
+- `frontend/sispoa/src/app/features/organizacion/organizacion-ue.component.ts` — 4 rutas sin prefijo (L35 GET, L78 PUT, L79 POST, L92 DELETE)
+- `frontend/sispoa/src/app/features/organizacion/organizacion-da.component.ts` — 4 rutas sin prefijo (mismo patrón)
+- `frontend/sispoa/src/app/features/organizacion/organizacion-tree.component.ts` — 1 ruta sin prefijo (L25 GET `/unidades/arbol/`)
+
+**Tests ejecutados:** suite frontend completa `npm test -- --watch=false` → 252/252 SUCCESS (sin regresiones vs baseline); `pytest apps/organizacion` → "no tests ran" (tests.py vacío pre-existente, ver deuda).
+
+**Verificación de endpoints:** `unidades-ejecutoras` (urls.py:12), `direcciones-administrativas` (urls.py:11), action `arbol` (views.py:24-25) confirmados en backend; ApiService antepone `environment.apiUrl` (api.service.ts:8). Grep `/api/v1/` en features/organizacion → 0 matches.
+
+**Commits:** `de1d126` (movimiento de tarea) + `d1de941` (fix).
+
+**Riesgos:** bajo; sin cambios de contratos ni tipos.
+
+**Trabajo pendiente / deuda:** `backend/apps/organizacion/tests.py` es un stub vacío — la app no tiene tests de backend (candidato a nueva tarea PIP-CORE). No se hallaron otros doble-prefijos en features productivas (specs con `/api/v1/` en expectOne son correctos: URL final prefijada).
