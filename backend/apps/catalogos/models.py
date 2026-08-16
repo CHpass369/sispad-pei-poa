@@ -158,6 +158,7 @@ class CatalogoBase(TimeStampedModel, ActivableModel, VigenciaModel):
     class Meta:
         abstract = True
         unique_together = [('codigo', 'gestion')]
+        ordering = ['codigo', 'gestion']
 
     def __str__(self):
         return f'[{self.codigo}] {self.denominacion}'

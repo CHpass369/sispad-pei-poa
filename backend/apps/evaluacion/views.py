@@ -23,6 +23,7 @@ class EvaluacionViewSet(viewsets.ModelViewSet):
     filterset_fields = ['plan', 'fiscal_year', 'evaluation_type', 'status', 'period']
     search_fields = ['conclusions', 'recommendations', 'responsible_team']
     ordering_fields = ['fiscal_year', 'evaluation_type', 'created_at']
+    ordering = ['-created_at']
 
     def get_serializer_class(self):
         if self.action == 'list':

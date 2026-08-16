@@ -29,6 +29,7 @@ class AccionCorrectivaViewSet(viewsets.ModelViewSet):
     ordering_fields = [
         'start_date', 'due_date', 'status', 'gestion', 'created_at',
     ]
+    ordering = ['-created_at']
 
     def get_serializer_class(self):
         if self.action == 'list':
@@ -74,6 +75,7 @@ class CompromisoAccionCorrectivaViewSet(viewsets.ModelViewSet):
     filterset_fields = ['accion_correctiva', 'status']
     search_fields = ['description', 'notes']
     ordering_fields = ['due_date', 'status', 'completed_at']
+    ordering = ['completed_at', 'due_date']
 
     def get_serializer_class(self):
         if self.action == 'list':

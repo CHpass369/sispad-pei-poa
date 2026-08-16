@@ -88,3 +88,4 @@ class PreferenciaNotificacionViewSet(viewsets.ModelViewSet):
     queryset = PreferenciaNotificacion.objects.all()
     serializer_class = PreferenciaNotificacionSerializer
     filterset_fields = ['user', 'receive_internal', 'receive_email', 'frequency']
+    ordering = ['-id']

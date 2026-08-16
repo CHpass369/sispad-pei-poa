@@ -40,6 +40,7 @@ CAPACIDADES_ESCRITURA_NODO = [
 class InstrumentoViewSet(viewsets.ModelViewSet):
     queryset = InstrumentoPlanificacion.objects.select_related('tipo')
     serializer_class = InstrumentoSerializer
+    ordering = ['-id']
 
     def get_permissions(self):
         if self.action in ('create', 'update', 'partial_update', 'destroy'):
