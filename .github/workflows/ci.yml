@@ -1,0 +1,93 @@
+# CI — Gates de calidad PIP (TASK PIP-ARCH-001)
+#
+# Ejecuta los mismos gates que el flujo local (fuente de verdad):
+#   backend : cd backend && python -m pytest -q        (pytest.ini: config.settings, -n auto)
+#   frontend: cd frontend/sispoa && npm ci && npm run build
+# Sin deploy automático. Fallo en cualquier gate -> workflow rojo.
+#
+# Servicios: la suite completa corre contra PostgreSQL + PostGIS
+# (pytest.ini -> config.settings -> django.contrib.gis.db.backends.postgis,
+# TEST.template=template_postgis, provisto por la imagen postgis).
+name: CI
+
+# "on" entre comillas: YAML 1.1 (PyYAML) lo leería como booleano; GitHub usa YAML 1.2.
+"on":
+  pull_request:
+  push:
+    branches:
+      - main
+      - integrate/**
+  workflow_dispatch:
+
+jobs:
+  backend:
+    name: Backend (pytest)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        # Misma imagen que docker-compose.yml (postgres-postgis).
+        image: postgis/postgis:17-3.4
+        env:
+          POSTGRES_DB: gams_pip
+          POSTGRES_USER: pip_user
+          POSTGRES_PASSWORD: changeme-segura
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pip_user -d gams_pip"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      # Coinciden con config/settings.py (os.environ.get). DB_ENGINE y
+      # DB_TEST_TEMPLATE usan los defaults del settings (postgis / template_postgis).
+      DB_NAME: gams_pip
+      DB_USER: pip_user
+      DB_PASSWORD: changeme-segura
+      DB_HOST: localhost
+      DB_PORT: '5432'
+    steps:
+      - uses: actions/checkout@v4
+
+      # Versión real del repo: backend/.venv/pyvenv.cfg -> CPython 3.13.11
+      - name: Setup Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      # Equivale local a: cd backend && .venv/Scripts/python.exe -m pip install -r requirements.txt
+      - name: Instalar dependencias backend
+        run: pip install -r requirements.txt
+        working-directory: backend
+
+      # Gate local real: cd backend && python -m pytest -q
+      # (pytest.ini: DJANGO_SETTINGS_MODULE=config.settings, addopts=-n auto --dist loadscope)
+      - name: Tests backend
+        run: python -m pytest -q
+        working-directory: backend
+
+  frontend:
+    name: Frontend (ng build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Angular 21.2 sin .nvmrc ni engines -> Node 22 LTS (soporta Angular 21).
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/sispoa/package-lock.json
+
+      # Gate local real: cd frontend/sispoa && npm ci
+      - name: Instalar dependencias frontend
+        run: npm ci
+        working-directory: frontend/sispoa
+
+      # Gate local real: cd frontend/sispoa && npm run build  (ng build, producción)
+      - name: Build de producción
+        run: npm run build
+        working-directory: frontend/sispoa
