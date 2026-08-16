@@ -39,18 +39,6 @@ export interface ValidacionTecho {
   mensaje: string;
 }
 
-export interface TechoV2 {
-  id: string;
-  gestion: number;
-  monto_total: string;
-  fuente: string;
-  fuente_codigo: string;
-  fuente_nombre: string;
-  organismo: string | null;
-  descripcion: string;
-  activo: boolean;
-}
-
 export interface ProgramacionFila {
   actividad_id: string;
   actividad_codigo: string;
@@ -115,17 +103,5 @@ export class SisPoaService {
     return this.http.get<{ poa: string; codigo: string; filas: ProgramacionFila[] }>(
       `${this.base}/poas/${id}/programaciones/`,
     );
-  }
-
-  listarTechos(params?: { gestion?: number; activo?: boolean }): Observable<Paginado<TechoV2>> {
-    return this.http.get<Paginado<TechoV2>>(`${this.base}/techos/`, { params: this.params(params) });
-  }
-
-  crearTecho(data: Partial<TechoV2>): Observable<TechoV2> {
-    return this.http.post<TechoV2>(`${this.base}/techos/`, data);
-  }
-
-  eliminarTecho(id: string): Observable<void> {
-    return this.http.delete<void>(`${this.base}/techos/${id}/`);
   }
 }

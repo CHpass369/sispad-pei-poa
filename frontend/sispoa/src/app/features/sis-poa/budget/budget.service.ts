@@ -719,6 +719,10 @@ export class BudgetService {
     return this.http.get<DirectiveCeiling>(`${this.base}/directive-ceilings/${id}/`);
   }
 
+  eliminarTecho(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.base}/directive-ceilings/${id}/`);
+  }
+
   composicionTecho(id: number): Observable<Composition> {
     return this.http.get<Composition>(
       `${this.base}/directive-ceilings/${id}/composition/`,

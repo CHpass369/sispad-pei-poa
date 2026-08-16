@@ -1,14 +1,18 @@
 import { Component, OnInit } from '@angular/core';
 import { PermissionsService } from '../../core/services/permissions.service';
-import { environment } from '../../../environments/environment';
-import { SisPoaService, TechoV2 } from './sis-poa.service';
-import { HttpClient } from '@angular/common/http';
+import {
+  BudgetService,
+  DetalleCatalogo,
+  DirectiveCeiling,
+  FiscalYear,
+} from './budget/budget.service';
 
-interface FuenteV1 {
-  id: string;
-  codigo: string;
-  denominacion: string;
-}
+const ORIGENES = [
+  { codigo: 'SIGEP', nombre: 'SIGEP' },
+  { codigo: 'MUNICIPAL', nombre: 'Recursos propios municipales' },
+  { codigo: 'SALDO', nombre: 'Saldo de caja y bancos' },
+  { codigo: 'OTRO', nombre: 'Otros' },
+];
 
 @Component({
   standalone: false,
@@ -16,7 +20,7 @@ interface FuenteV1 {
   template: `
     <div class="page-header">
       <h2>Techos Presupuestarios</h2>
-      <p class="text-secondary">Límites de programación por gestión y fuente</p>
+      <p class="text-secondary">Límites de programación por gestión (DirectiveCeiling)</p>
     </div>
     @if (error) {
       <div class="alert alert-error">{{ error }}</div>
@@ -24,20 +28,34 @@ interface FuenteV1 {
     @if (mensaje) {
       <div class="alert alert-success">{{ mensaje }}</div>
     }
-    
+
     @if (puedeGestionar) {
       <form (ngSubmit)="crear()" class="card form-inline">
         <div class="campo">
           <label>Gestión</label>
-          <input [(ngModel)]="form.gestion" name="g" type="number" required class="input" />
+          <select [(ngModel)]="form.gestion" name="g" required class="input">
+            <option value="" disabled>Seleccione...</option>
+            @for (gf of gestiones; track gf) {
+              <option [value]="gf.id">{{ gf.anio }}</option>
+            }
+          </select>
         </div>
         <div class="campo">
-          <label>Monto total</label>
-          <input [(ngModel)]="form.monto_total" name="m" type="number" required class="input" />
+          <label>Origen</label>
+          <select [(ngModel)]="form.origen" name="o" class="input">
+            @for (o of origenes; track o) {
+              <option [value]="o.codigo">{{ o.nombre }}</option>
+            }
+          </select>
+        </div>
+        <div class="campo">
+          <label>Monto (Bs)</label>
+          <input [(ngModel)]="form.monto" name="m" type="number" min="0" step="0.01" class="input" />
         </div>
         <div class="campo">
           <label>Fuente</label>
-          <select [(ngModel)]="form.fuente" name="f" required class="input">
+          <select [(ngModel)]="form.fuente" name="f" class="input">
+            <option value="">Sin fuente</option>
             @for (fuente of fuentes; track fuente) {
               <option [value]="fuente.id">{{ fuente.codigo }} — {{ fuente.denominacion }}</option>
             }
@@ -49,22 +67,22 @@ interface FuenteV1 {
         </div>
       </form>
     }
-    
+
     @if (cargando) {
       <div class="loading">Cargando techos...</div>
     }
     @if (!cargando) {
       <table class="data-table">
         <thead>
-          <tr><th>Gestión</th><th>Fuente</th><th>Monto</th><th>Estado</th><th></th></tr>
+          <tr><th>Gestión</th><th>Estado</th><th>Monto Bruto (Bs)</th><th>Fuentes</th><th></th></tr>
         </thead>
         <tbody>
-          @for (techo of techos; track techo) {
+          @for (techo of techos; track techo.id) {
             <tr>
-              <td>{{ techo.gestion }}</td>
-              <td>{{ techo.fuente_codigo }} — {{ techo.fuente_nombre }}</td>
-              <td>Bs {{ techo.monto_total }}</td>
-              <td><span class="badge">{{ techo.activo ? 'activo' : 'inactivo' }}</span></td>
+              <td>{{ techo.gestion_anio }}</td>
+              <td><span class="badge">{{ techo.estado_display }}</span></td>
+              <td>Bs {{ montoBruto(techo) }}</td>
+              <td>{{ fuentesDe(techo) }}</td>
               <td>
                 @if (puedeGestionar) {
                   <button class="btn btn-sm" (click)="eliminar(techo)">Eliminar</button>
@@ -85,7 +103,7 @@ interface FuenteV1 {
     .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; margin-bottom: 1rem; }
     .form-inline { display: flex; gap: 1rem; flex-wrap: wrap; }
     .campo label { display: block; font-size: 0.75rem; font-weight: 600; margin-bottom: 0.375rem; }
-    .input { padding: 0.5rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.875rem; min-width: 160px; }
+    .input { padding: 0.5rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.875rem; min-width: 160px; background: var(--surface); color: var(--text-primary); }
     .btn { display: inline-flex; align-items: center; padding: 0.5rem 0.875rem; border-radius: 6px; border: none; font-size: 0.8125rem; font-weight: 600; cursor: pointer; }
     .btn-primary { background: var(--primary); color: white; }
     .btn-sm { background: var(--mdc-red-50); color: var(--mdc-red-800); }
@@ -100,18 +118,20 @@ interface FuenteV1 {
   `],
 })
 export class SisPoaTechosComponent implements OnInit {
-  techos: TechoV2[] = [];
-  fuentes: FuenteV1[] = [];
+  techos: DirectiveCeiling[] = [];
+  gestiones: FiscalYear[] = [];
+  fuentes: DetalleCatalogo[] = [];
   cargando = true;
   error = '';
   mensaje = '';
-  form: { gestion: number | null; monto_total: number | null; fuente: string } = {
-    gestion: null, monto_total: null, fuente: '',
+  form: { gestion: string | null; origen: string; monto: number | null; fuente: string | null } = {
+    gestion: null, origen: 'SIGEP', monto: null, fuente: null,
   };
 
+  readonly origenes = ORIGENES;
+
   constructor(
-    private service: SisPoaService,
-    private http: HttpClient,
+    private service: BudgetService,
     private permissions: PermissionsService,
   ) {}
 
@@ -121,8 +141,20 @@ export class SisPoaTechosComponent implements OnInit {
 
   ngOnInit(): void {
     this.cargar();
-    this.http.get<{ results: FuenteV1[] }>(`${environment.apiUrl}/fuentes/`).subscribe({
-      next: (data) => { this.fuentes = data.results ?? []; },
+    this.cargarGestiones();
+    this.cargarFuentes();
+  }
+
+  private cargarGestiones(): void {
+    this.service.listar().subscribe({
+      next: (data) => { this.gestiones = data.results; },
+      error: () => undefined,
+    });
+  }
+
+  private cargarFuentes(): void {
+    this.service.opcionesCatalogo().subscribe({
+      next: (data) => { this.fuentes = data.fuentes ?? []; },
       error: () => undefined,
     });
   }
@@ -136,29 +168,60 @@ export class SisPoaTechosComponent implements OnInit {
   }
 
   crear(): void {
-    const { gestion, monto_total, fuente } = this.form;
-    if (!gestion || !monto_total || !fuente) {
-      this.error = 'Gestión, monto y fuente son requeridos';
+    const { gestion, origen, monto, fuente } = this.form;
+    if (!gestion) {
+      this.error = 'La gestión es requerida';
       return;
     }
     this.error = '';
-    this.service.crearTecho({
-      gestion, monto_total: String(monto_total), fuente,
-    } as Partial<TechoV2>).subscribe({
-      next: () => {
+    this.service.crearTecho({ gestion }).subscribe({
+      next: (techo) => {
+        const version = techo.version?.id;
+        if (monto !== null && monto !== undefined && version) {
+          this.service.crearRecurso({
+            version,
+            origen,
+            concepto: 'Carga inicial',
+            monto,
+            fuente: fuente ?? undefined,
+          }).subscribe({
+            next: () => {
+              this.mensaje = 'Techo y recurso registrados';
+              this.resetForm();
+              this.cargar();
+            },
+            error: () => { this.error = 'Techo creado, pero falló el recurso inicial'; },
+          });
+          return;
+        }
         this.mensaje = 'Techo registrado';
-        this.form = { gestion: null, monto_total: null, fuente: '' };
+        this.resetForm();
         this.cargar();
       },
-      error: () => { this.error = 'Error al crear el techo'; },
+      error: () => { this.error = 'No se pudo crear el techo (la gestión debe estar habilitada)'; },
     });
   }
 
-  eliminar(techo: TechoV2): void {
-    if (!confirm(`¿Eliminar el techo de ${techo.gestion} (${techo.fuente_codigo})?`)) return;
+  eliminar(techo: DirectiveCeiling): void {
+    if (!confirm(`¿Eliminar el techo directivo de la gestión ${techo.gestion_anio}?`)) return;
     this.service.eliminarTecho(techo.id).subscribe({
       next: () => { this.mensaje = 'Techo eliminado'; this.cargar(); },
       error: () => { this.error = 'Error al eliminar el techo'; },
     });
+  }
+
+  private resetForm(): void {
+    this.form = { gestion: null, origen: 'SIGEP', monto: null, fuente: null };
+  }
+
+  montoBruto(techo: DirectiveCeiling): string {
+    return techo.composicion?.techo_bruto ?? '0.00';
+  }
+
+  fuentesDe(techo: DirectiveCeiling): string {
+    const porFuente = techo.composicion?.por_fuente ?? [];
+    return porFuente.length
+      ? porFuente.map(f => f.fuente).join(', ')
+      : 'Sin fuentes';
   }
 }

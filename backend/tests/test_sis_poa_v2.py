@@ -452,6 +452,19 @@ def test_api_techos_lector_solo_lectura(poa_legacy, version_pei, lector_poa, fue
     assert response.status_code == 403
 
 
+def test_api_techos_deprecacion_blanda(poa_legacy, version_pei, formulador, fuente):
+    """PIP-POA-001: la ruta V2 legacy `techos` responde con headers RFC 8594.
+
+    Deprecación blanda (sin 410): la ruta sigue operativa pero avisa que la
+    fuente canónica es `/api/v2/sis-poa/budget/directive-ceilings/`.
+    """
+    response = _client(formulador).get('/api/v2/sis-poa/techos/?gestion=2027')
+    assert response.status_code == 200
+    assert response.headers['Deprecation'] == 'true'
+    assert response.headers['Sunset'] == 'Sun, 01 Jan 2027 00:00:00 GMT'
+    assert 'rel="deprecation"' in response.headers['Link']
+
+
 def test_api_programaciones_por_poa(poa_legacy, version_pei, formulador):
     importar_poa_v2()
     poa = PoAInstitucional.objects.get(codigo='P-2027')

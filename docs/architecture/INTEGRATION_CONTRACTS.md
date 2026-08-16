@@ -57,6 +57,23 @@ Contratos necesarios entre dominios del PIP-GAMS. Estado: **EXISTE** (implementa
 3. **C-11**: fuentefinanciamientoedtp sin FK al catálogo — debe pasar a catalogo_fuentefinanciamiento.
 4. **Strings en articulacion** (seguimientopresupuesto, asignacionobjetogasto): deben volverse contrato a presupuesto_* y catalogo_objetogasto.
 
+## 5. Contrato de cutover — techos legacy V2 → DirectiveCeiling
+
+Cutover de la ruta `/api/v2/sis-poa/techos/` (`techos.TechoPresupuestario`) hacia
+`/api/v2/sis-poa/budget/directive-ceilings/` (`budget.DirectiveCeiling`, ADR-005).
+Registro completo del mapeo de campos y endpoints en
+`docs/refactor-pip/LEGACY_DEPRECATION.md` §6.5.
+
+| Aspecto | Valor |
+|---|---|
+| Contrato | `directive-ceilings` (canónico) reemplaza `techos` (legacy V2) |
+| Deprecación | Blanda RFC 8594: `Deprecation: true`, `Sunset: Sun, 01 Jan 2027 00:00:00 GMT`, `Link: <...LEGACY_DEPRECATION.md>; rel="deprecation"` en `TechoViewSetV2.finalize_response` |
+| Gestión | `gestion` legacy = año; `gestion` canónico = FK GestionFiscal (`gestion_anio` read-only) |
+| Montos | `monto_total` → `composicion.techo_bruto`; los montos viven en `version.recursos[]` por origen |
+| Estado | `activo` (bool) → `estado` (BORRADOR…FIJADO) + `version_actual`/`version.numero` |
+| Frontend migrado | `features/techos` (2 vistas) y `features/sis-poa/sis-poa-techos.component.ts` → `BudgetService` |
+| Datos | Sin sync legacy→canónico en esta fase (data migration = tarea separada) |
+
 ## Referencias
 
 - `docs/refactor-pip/INTEGRATION_CONTRACTS.md` (refactor-pip) — nomenclatura previa.

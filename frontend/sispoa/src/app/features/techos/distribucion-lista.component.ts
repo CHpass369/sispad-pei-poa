@@ -1,5 +1,14 @@
 import { Component, OnInit } from '@angular/core';
-import { ApiService } from '../../core/services/api.service';
+import { BudgetService, DirectiveCeiling } from '../sis-poa/budget/budget.service';
+
+interface FilaDistribucion {
+  gestion: number;
+  estado: string;
+  estado_display: string;
+  fuente: string;
+  denominacion: string;
+  monto: string;
+}
 
 @Component({
   standalone: false,
@@ -8,234 +17,172 @@ import { ApiService } from '../../core/services/api.service';
     <div class="distribucion-lista">
       <div class="page-header">
         <h2>Distribución de Techos</h2>
-        <p class="text-secondary">Asignación de techos por unidad organizacional</p>
+        <p class="text-secondary">Desglose por fuente de financiamiento (composición de DirectiveCeiling)</p>
       </div>
-    
+
+      <!-- Gestión Filter -->
+      <div class="filter-bar">
+        <label for="gestion">Gestión:</label>
+        <select id="gestion" [ngModel]="gestion" (ngModelChange)="onGestionChange($event)" class="select-input">
+          @for (g of gestiones; track g) {
+            <option [value]="g">{{ g }}</option>
+          }
+        </select>
+      </div>
+
       <!-- Loading -->
-      @if (!items && !error && !showForm) {
+      @if (!items && !error) {
         <div class="loading">
           <p>Cargando distribuciones...</p>
         </div>
       }
-    
+
       <!-- Error -->
       @if (error) {
         <div class="alert alert-error">
           {{ error }}
         </div>
       }
-    
-      <!-- Save Success -->
-      @if (successMsg) {
-        <div class="alert alert-success">
-          {{ successMsg }}
-        </div>
-      }
-    
+
       <!-- Table Section -->
       @if (items) {
-        <div>
-          <div class="toolbar">
-            <h3>Distribuciones registradas</h3>
-            <button class="btn btn-primary" (click)="openForm()">
-              + Nueva Distribución
-            </button>
-          </div>
-          <div class="table-responsive">
-            <table>
-              <thead>
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Gestión</th>
+                <th>Estado</th>
+                <th>Fuente</th>
+                <th>Denominación</th>
+                <th>Monto (Bs)</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (d of items; track $index) {
                 <tr>
-                  <th>Unidad / DA / UE</th>
-                  <th>Monto Asignado (Bs)</th>
-                  <th>Gestión</th>
-                  <th>Acciones</th>
+                  <td>{{ d.gestion }}</td>
+                  <td><span class="badge" [class]="badgeClass(d.estado)">{{ d.estado_display }}</span></td>
+                  <td><strong>{{ d.fuente }}</strong></td>
+                  <td>{{ d.denominacion }}</td>
+                  <td class="text-right">{{ d.monto | number:'1.2-2' }}</td>
                 </tr>
-              </thead>
-              <tbody>
-                @for (d of items; track d) {
-                  <tr>
-                    <td>{{ d.unidad_nombre }}</td>
-                    <td class="text-right">{{ d.monto | number:'1.2-2' }}</td>
-                    <td>{{ d.gestion }}</td>
-                    <td>
-                      <button class="btn btn-sm btn-outline" (click)="editForm(d)">Editar</button>
-                    </td>
-                  </tr>
-                }
-                @if (items.length === 0) {
-                  <tr>
-                    <td colspan="4" class="empty">No hay distribuciones registradas</td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
+              }
+              @if (items.length === 0) {
+                <tr>
+                  <td colspan="5" class="empty">No hay distribuciones registradas para esta gestión</td>
+                </tr>
+              }
+            </tbody>
+          </table>
         </div>
       }
-    
-      <!-- Form Section -->
-      @if (showForm) {
-        <div class="form-section">
-          <h3>{{ editingId ? 'Editar' : 'Nueva' }} Distribución</h3>
-          <form (ngSubmit)="onSubmit()" #distForm="ngForm">
-            <div class="form-group">
-              <label for="unidad">Unidad / DA / UE</label>
-              <select id="unidad" [(ngModel)]="formData.unidad_id" name="unidad_id" required class="form-control">
-                <option value="" disabled>Seleccione una unidad...</option>
-                @for (u of unidades; track u) {
-                  <option [value]="u.id">{{ u.nombre }}</option>
-                }
-              </select>
-            </div>
-            <div class="form-group">
-              <label for="monto">Monto (Bs)</label>
-              <input
-                id="monto"
-                type="number"
-                step="0.01"
-                [(ngModel)]="formData.monto"
-                name="monto"
-                required
-                min="0"
-                class="form-control"
-                placeholder="0.00"
-                />
-              </div>
-              <div class="form-group">
-                <label for="gestionForm">Gestión</label>
-                <select id="gestionForm" [(ngModel)]="formData.gestion" name="gestion" required class="form-control">
-                  @for (g of gestiones; track g) {
-                    <option [value]="g">{{ g }}</option>
-                  }
-                </select>
-              </div>
-              <div class="form-actions">
-                <button type="submit" class="btn btn-primary" [disabled]="!distForm.form.valid">
-                  {{ editingId ? 'Actualizar' : 'Guardar' }}
-                </button>
-                <button type="button" class="btn btn-outline" (click)="cancelForm()">Cancelar</button>
-              </div>
-              @if (formError) {
-                <div class="alert alert-error">
-                  {{ formError }}
-                </div>
-              }
-            </form>
-          </div>
-        }
-      </div>
+    </div>
     `,
   styles: [`
     .page-header { margin-bottom: 1.5rem; }
     .page-header h2 { font-size: 1.5rem; margin-bottom: 0.25rem; }
     .text-secondary { color: var(--text-secondary); font-size: 0.875rem; }
-    .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
-    .toolbar h3 { font-size: 1rem; }
-    .btn { padding: 0.5rem 1rem; border-radius: 6px; border: none; font-size: 0.875rem; cursor: pointer; font-weight: 500; }
-    .btn-primary { background: var(--primary); color: white; }
-    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-primary); }
-    .btn-sm { padding: 0.25rem 0.625rem; font-size: 0.75rem; }
-    .table-responsive { overflow-x: auto; margin-bottom: 2rem; }
+    .filter-bar { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem; }
+    .filter-bar label { font-size: 0.875rem; font-weight: 500; color: var(--text-secondary); }
+    .select-input { padding: 0.5rem 0.75rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.875rem; background: var(--surface); color: var(--text-primary); }
+    .select-input:focus { outline: none; border-color: var(--primary); }
+    .table-responsive { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; }
     th, td { padding: 0.625rem 0.75rem; text-align: left; border-bottom: 1px solid var(--border); }
     th { font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; }
     .text-right { text-align: right; font-weight: 600; }
+    .badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; }
+    .badge-info { background: var(--mdc-blue-50); color: var(--mdc-blue-800); }
+    .badge-warning { background: var(--mdc-amber-50); color: #F57F17; }
+    .badge-danger { background: var(--mdc-red-50); color: var(--mdc-red-800); }
+    .badge-success { background: var(--mdc-green-50); color: var(--mdc-green-800); }
     .empty { text-align: center; padding: 2rem; color: var(--text-secondary); }
-    .form-section { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin-top: 1rem; }
-    .form-section h3 { font-size: 1rem; margin-bottom: 1.25rem; }
-    .form-group { margin-bottom: 1rem; }
-    .form-group label { display: block; font-size: 0.8125rem; font-weight: 500; margin-bottom: 0.375rem; color: var(--text-secondary); }
-    .form-control { width: 100%; max-width: 400px; padding: 0.5rem 0.75rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.875rem; background: var(--bg); color: var(--text-primary); }
-    .form-control:focus { outline: none; border-color: var(--primary); }
-    .form-actions { display: flex; gap: 0.75rem; margin-top: 1.5rem; }
     .loading { text-align: center; padding: 3rem; color: var(--text-secondary); }
-    .alert { padding: 0.75rem 1rem; border-radius: 6px; margin-top: 1rem; }
+    .alert { padding: 0.75rem 1rem; border-radius: 6px; }
     .alert-error { background: var(--mdc-red-50); color: var(--warn); }
-    .alert-success { background: var(--mdc-green-50); color: var(--mdc-green-800); margin-bottom: 1rem; }
   `]
 })
 export class DistribucionListaComponent implements OnInit {
-  items: any[] | null = null;
-  unidades: any[] = [];
-  gestiones = [2024, 2025, 2026, 2027];
-  showForm = false;
-  editingId: number | null = null;
-
-  formData = { unidad_id: '', monto: null, gestion: 2026 };
-  formError = '';
-  successMsg = '';
+  gestion = 0;
+  gestiones: number[] = [];
+  items: FilaDistribucion[] | null = null;
   error = '';
 
-  constructor(private api: ApiService) {}
+  constructor(private service: BudgetService) {}
 
   ngOnInit(): void {
+    this.cargarGestiones();
     this.load();
-    this.loadUnidades();
+  }
+
+  private cargarGestiones(): void {
+    this.service.listar().subscribe({
+      next: (data) => {
+        this.gestiones = data.results.map(g => g.anio);
+        const habilitada = data.results.find(g => g.estado === 'HABILITADA');
+        this.gestion = habilitada ? habilitada.anio : (this.gestiones[0] ?? 0);
+        if (this.gestion !== 0) {
+          this.load();
+        }
+      },
+      error: () => undefined,
+    });
+  }
+
+  onGestionChange(g: number): void {
+    this.gestion = g;
+    this.load();
   }
 
   private load(): void {
-    this.api.get<any[]>('/distribuciones-techo/').subscribe({
-      next: d => this.items = d,
+    this.items = null;
+    this.error = '';
+    this.service.listarTechos().subscribe({
+      next: d => this.items = this.flatMap(d.results.filter(t => t.gestion_anio === this.gestion)),
       error: e => this.error = 'Error al cargar distribuciones: ' + (e.message || e),
     });
   }
 
-  private loadUnidades(): void {
-    this.api.get<any[]>('/unidades/').subscribe({
-      next: d => this.unidades = d,
-    });
+  private flatMap(techos: DirectiveCeiling[]): FilaDistribucion[] {
+    const filas: FilaDistribucion[] = [];
+    for (const t of techos) {
+      const porFuente = t.composicion?.por_fuente ?? [];
+      if (porFuente.length === 0) {
+        filas.push({
+          gestion: t.gestion_anio,
+          estado: t.estado,
+          estado_display: t.estado_display,
+          fuente: 'SIN_FUENTE',
+          denominacion: 'Sin fuentes',
+          monto: '0.00',
+        });
+        continue;
+      }
+      for (const f of porFuente) {
+        filas.push({
+          gestion: t.gestion_anio,
+          estado: t.estado,
+          estado_display: t.estado_display,
+          fuente: f.fuente,
+          denominacion: f.denominacion,
+          monto: f.monto,
+        });
+      }
+    }
+    return filas;
   }
 
-  openForm(): void {
-    this.showForm = true;
-    this.editingId = null;
-    this.formData = { unidad_id: '', monto: null, gestion: 2026 };
-    this.formError = '';
-  }
-
-  editForm(d: any): void {
-    this.showForm = true;
-    this.editingId = d.id;
-    this.formData = {
-      unidad_id: d.unidad_id,
-      monto: d.monto,
-      gestion: d.gestion,
-    };
-    this.formError = '';
-  }
-
-  cancelForm(): void {
-    this.showForm = false;
-    this.editingId = null;
-    this.formData = { unidad_id: '', monto: null, gestion: 2026 };
-    this.formError = '';
-  }
-
-  onSubmit(): void {
-    this.formError = '';
-    this.successMsg = '';
-
-    const body = {
-      unidad_id: this.formData.unidad_id,
-      monto: this.formData.monto,
-      gestion: this.formData.gestion,
-    };
-
-    const request = this.editingId
-      ? this.api.put(`/distribuciones-techo/${this.editingId}/`, body)
-      : this.api.post('/distribuciones-techo/', body);
-
-    request.subscribe({
-      next: () => {
-        this.successMsg = this.editingId
-          ? 'Distribución actualizada correctamente'
-          : 'Distribución creada correctamente';
-        this.showForm = false;
-        this.editingId = null;
-        this.load();
-      },
-      error: e => this.formError = 'Error al guardar: ' + (e.message || e),
-    });
+  badgeClass(estado: string): string {
+    switch (estado) {
+      case 'EN_REVISION':
+      case 'APROBADO':
+        return 'badge-warning';
+      case 'OBSERVADO':
+        return 'badge-danger';
+      case 'FIJADO':
+        return 'badge-success';
+      default:
+        return 'badge-info';
+    }
   }
 }

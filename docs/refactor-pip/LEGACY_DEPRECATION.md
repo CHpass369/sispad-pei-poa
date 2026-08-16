@@ -35,6 +35,7 @@
 | 16 | `flujo_*` legacy (workflow POA) | `flujo_envio_formulacion`, `flujo_revision`, `flujo_observacion`, `flujo_aprobacion` | Flujo legacy de formulación | Medio | DEPRECATE datos en `public_legacy`; el motor V2 (`flujo_definicion`/`flujo_instancia` → `pip_core`) ya lo reemplaza | Tras cutover workflow V2 |
 | 17 | Jerarquía operativa legacy en `indicadores` (`operacion`, `tarea`, `producto`) | `indicadores_operacion/tarea/producto` | Duplicado de la jerarquía canónica de `poau` V2 | Medio (datos duplicados) | REMOVE_LATER: retirar tras cutover V2 y reconciliación (WP-14) | Tras validar jerarquía canónica SIS-POA |
 | 18 | Logs `logs/sispoa.log` | `settings.py:249` logging | Operación | Bajo (renombrar pierde rotación histórica) | RENAME con coexistencia temporal de archivos | Junto a la identidad visible |
+| 19 | Ruta V2 `/api/v2/sis-poa/techos/` (`TechoViewSetV2` sobre `techos.TechoPresupuestario`) | `backend/apps/techos/views_v2.py`, `config/urls_v2.py:149` | Frontend `features/sis-poa/sis-poa-techos.component.ts` (migrado en PIP-POA-001); posibles consumidores externos | Medio (divergencia de contrato con `directive-ceilings`; consumidores externos de la ruta) | **Deprecated API** blanda: headers `Deprecation`/`Sunset`/`Link` (RFC 8594) en toda respuesta, sin 410 inmediato; fuente canónica `budget.DirectiveCeiling` (`/api/v2/sis-poa/budget/directive-ceilings/`) | Sunset 2027-01-01 (alineado a API V1); retiro con tarea aprobada y monitoreo de consumidores |
 
 ## 3. Estrategias de deprecación (definiciones)
 
@@ -76,6 +77,7 @@ no retira ninguna compatibilidad (regla general §1).
 | Ítem | Estado |
 |---|---|
 | API V1 (`/api/v1/`) | **Marcada**: toda respuesta con path `api/v1/*` lleva `Deprecation: true`, `Sunset: Sun, 01 Jan 2027 00:00:00 GMT` y `Link: <.../LEGACY_DEPRECATION.md>; rel="deprecation"` (RFC 8594). Implementado como middleware `apps.core.middleware.DeprecationV1Middleware` (registrado en `MIDDLEWARE` de `config/settings.py` y `config/settings_test_sqlite.py`; `settings_production.py` lo hereda). Las fechas y el enlace son configurables vía `API_V1_SUNSET` / `API_V1_DEPRECATION_LINK`. **No** aplica a `/api/v2/` ni a `/health/`. |
+| Ruta V2 `/api/v2/sis-poa/techos/` | **Marcada (TASK PIP-POA-001)**: toda respuesta lleva `Deprecation: true`, `Sunset: Sun, 01 Jan 2027 00:00:00 GMT` y `Link: <.../LEGACY_DEPRECATION.md>; rel="deprecation"`. Implementado en `TechoViewSetV2.finalize_response` (`apps/techos/views_v2.py`). Ruta sigue operativa (deprecación blanda, sin 410). Contrato de cutover: §6.5. |
 | Apps `techos` y `presupuesto` | Ya marcadas `(legacy)` en su `verbose_name` (FASE 4); sin cambios en esta fase. |
 | Fix `VinculoViewSet` (BUG preexistente) | `config/urls_v2.py` importaba `VinculoViewSet` sin alias para dos routers: el segundo import (planificación) pisaba al de inversión, y `sis-pro/vinculos/` servía datos de SIS-PE. Corregido con alias `VinculoEstrategicoViewSet` (SIS-PE) y `VinculoProyectoViewSet` (SIS-PRO). |
 
@@ -102,3 +104,43 @@ Auditoría TASK PIP-PE-001 (2026-08-16, read-only; `docs/architecture/CADENA_OPE
 - **Aclaración de canonicidad**: la jerarquía canónica V2 del SIS-POA es `poau.models_v2` (`PoAInstitucional → AccionCortoPlazo → Operacion → Actividad → Tarea`), expuesta en `/api/v2/sis-poa/`. `articulacion_*` es la cadena de articulación SIS-PE y la **fuente legacy** del puente `poau/migration_v2.py` (su propio docstring la llama "cadena operativa legacy"). `indicadores_*` es un **duplicado adicional** de esa jerarquía con topología distinta (2 niveles, padre `planificacion.AcccionCortoPlazo`).
 - Consumidores a migrar antes del retiro: frontend `features/indicadores`, `features/portal-publico` (`GET /indicadores/`); backend `planificacion/views.py` (FormulacionViewSet), `workflow/consolidacion.py`, `reportes/services.py`, `scripts/seed_demo.py`, `poau/migration_v2.py:228`, comandos `importar_matriz_base`/`importar_reales`.
 - Plan de corte derivado: `tasks/backlog/PIP-PE-002` (reconciliación), `PIP-PE-003` (corte), `PIP-PE-004` (refactor puente). El alcance de REMOVE_LATER se **mantiene** (nada que cambiar): sigue tras cutover V2 y reconciliación.
+
+### 6.5 Contrato de cutover — techos V2 → DirectiveCeiling (TASK PIP-POA-001)
+
+Deprecación **blanda** de `/api/v2/sis-poa/techos/` (RFC 8594, §2 punto 19): la
+ruta sigue operativa y solo emite headers de aviso; **no** se usa 410 inmediato
+por el riesgo de consumidores externos. La fuente canónica es
+`budget.DirectiveCeiling` (ADR-005).
+
+#### 6.5.1 Mapeo de campos TechoPresupuestario ↔ DirectiveCeiling
+
+| `TechoPresupuestario` (legacy V2) | `DirectiveCeiling` (canónico) | Notas |
+|---|---|---|
+| `id` (UUID) | `id` (BigAuto) | Cambio de tipo de PK: los clientes no deben persistir el id legacy. |
+| `gestion` (PositiveInteger anio) | `gestion` (FK `GestionFiscal`) + `gestion_anio` (read-only) | El filtro `?gestion=` legacy espera un año; el canónico espera el PK de GestionFiscal. Filtrar por año: `?search=<anio>` (search_fields `gestion__anio`) o filtrado client-side. |
+| `monto_total` | `composicion.techo_bruto` (read-only, `str`) | El monto total canónico es la suma de los recursos de la versión actual por origen (SIGEP/MUNICIPAL/SALDO/OTRO). No existe `monto_total` directo en el modelo. |
+| `fuente` / `fuente_codigo` / `fuente_nombre` | `version.recursos[].fuente` / `composicion.por_fuente[]` | Legacy: un techo por fuente (1:N filas). Canónico: un techo por gestión con varios recursos, cada uno con su fuente. |
+| `organismo` | `version.recursos[].organismo` | Ídem anterior. |
+| `descripcion` | `version.recursos[].concepto` | Sin equivalente a nivel de cabecera. |
+| `activo` (bool) | `estado` (BORRADOR/EN_REVISION/OBSERVADO/APROBADO/FIJADO) | El ciclo de estados canónico reemplaza el flag binario. |
+| `version` (int) | `version_actual` + `version.numero` | El canónico implementa el patrón `VersionInstrumento` (versiones inmutables con checksum SHA-256). |
+| — | `composicion` (techo_bruto, techo_distribuible, gastos_obligatorios, por_fuente…) | Información nueva (§22) que no existía en legacy. |
+| `DistribucionTecho` (hijos por DA/UE/unidad) | `budget` Fase 4 (`allocations`/`distributions`) | La distribución por unidad del legacy es cubierta por la distribución presupuestaria canónica (fuera del alcance de PIP-POA-001). |
+
+#### 6.5.2 Equivalencia de endpoints
+
+| Operación | Legacy V2 | Canónico |
+|---|---|---|
+| Listar | `GET /api/v2/sis-poa/techos/?gestion=<anio>` | `GET /api/v2/sis-poa/budget/directive-ceilings/?search=<anio>` (o filtro client-side por `gestion_anio`) |
+| Crear | `POST /api/v2/sis-poa/techos/` `{gestion, monto_total, fuente}` | `POST .../directive-ceilings/` `{gestion}` → luego `POST .../resources/` `{version, origen, concepto, monto, fuente}` (por recurso) |
+| Detalle | `GET /api/v2/sis-poa/techos/{id}/` | `GET .../directive-ceilings/{id}/` (incluye `version` y `composicion`) |
+| Actualizar | `PUT/PATCH /api/v2/sis-poa/techos/{id}/` | `PATCH .../directive-ceilings/{id}/` (solo `gestion`; montos viven en `resources`) |
+| Eliminar | `DELETE /api/v2/sis-poa/techos/{id}/` | `DELETE .../directive-ceilings/{id}/` (cap. `sis_poa.budget.manage`) |
+| Composición | — | `GET .../directive-ceilings/{id}/composition/` (§22: montos por origen, techo bruto/distribuible, por fuente) |
+| Ciclo de vida | — | `POST .../directive-ceilings/{id}/submit|observe|approve|freeze/` |
+
+#### 6.5.3 Contrato de deprecación aplicado
+
+- Toda respuesta de `/api/v2/sis-poa/techos/*` lleva `Deprecation: true`, `Sunset: Sun, 01 Jan 2027 00:00:00 GMT` y `Link: <.../LEGACY_DEPRECATION.md>; rel="deprecation"` (implementado en `TechoViewSetV2.finalize_response`, `apps/techos/views_v2.py`).
+- El retiro (404/eliminación) queda pendiente de tarea aprobada, monitoreo de consumidores y la ventana mínima (§4.4); alineado al Sunset de API V1.
+- **Deuda/riesgo**: no hay sync de datos legacy → canónico en esta fase (INVARIANTE: los datos `techos_*` no se borran ni transforman sin data migration aprobada). La migración de filas `TechoPresupuestario` a `DirectiveCeiling`+recursos es una tarea de datos separada si la operación la exige.
