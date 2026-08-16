@@ -108,7 +108,7 @@ import { PortalPublicoService, ResumenEjecucion } from './portal-publico.service
     .stat-valor { font-size: 1.5rem; font-weight: 700; }
     .stat-label { font-size: 0.8125rem; color: var(--text-secondary); margin-top: 0.25rem; }
     .progress-bar { height: 6px; background: rgba(0,0,0,0.1); border-radius: 3px; margin-top: 0.5rem; overflow: hidden; }
-    .progress-fill { height: 100%; background: #2E7D32; border-radius: 3px; }
+    .progress-fill { height: 100%; background: var(--mdc-green-800); border-radius: 3px; }
     .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem; }
     .chart-card { margin-bottom: 1rem; }
     .chart-card.full-width { margin-bottom: 1rem; }
@@ -118,7 +118,7 @@ import { PortalPublicoService, ResumenEjecucion } from './portal-publico.service
     .bar-label { min-width: 120px; font-size: 0.8125rem; text-align: right; }
     .bar-track { flex: 1; height: 20px; background: var(--border); border-radius: 4px; overflow: hidden; }
     .bar-fill { height: 100%; background: var(--primary); border-radius: 4px; transition: width 0.5s; }
-    .bar-fill-alt { background: #2E7D32; }
+    .bar-fill-alt { background: var(--mdc-green-800); }
     .bar-value { min-width: 100px; font-size: 0.8125rem; font-weight: 600; }
     .empty-chart { text-align: center; color: var(--text-secondary); font-size: 0.875rem; padding: 1rem; }
     .monthly-bars { display: flex; align-items: flex-end; gap: 0.5rem; height: 200px; padding-top: 1rem; }
@@ -128,7 +128,7 @@ import { PortalPublicoService, ResumenEjecucion } from './portal-publico.service
     .month-label { font-size: 0.6875rem; color: var(--text-secondary); margin-top: 0.5rem; }
     .loading { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .alert { padding: 0.75rem 1rem; border-radius: 6px; margin-top: 1rem; }
-    .alert-error { background: #FFEBEE; color: var(--warn); }
+    .alert-error { background: var(--mdc-red-50); color: var(--warn); }
     @media (max-width: 768px) { .charts-row { grid-template-columns: 1fr; } }
   `]
 })

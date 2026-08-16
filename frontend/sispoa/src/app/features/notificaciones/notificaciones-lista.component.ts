@@ -75,10 +75,10 @@ import { NotificacionesService, Notificacion, ResumenNotificaciones } from './no
     .notificacion-enlace { font-size: 0.8125rem; color: var(--primary); text-decoration: none; font-weight: 600; }
     .notificacion-enlace:hover { text-decoration: underline; }
     .badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.6875rem; font-weight: 600; text-transform: uppercase; }
-    .badge-info { background: #E3F2FD; color: #1565C0; }
-    .badge-alerta, .badge-warning { background: #FFF3E0; color: #E65100; }
-    .badge-error { background: #FFEBEE; color: #C62828; }
-    .badge-exito, .badge-success { background: #E8F5E9; color: #2E7D32; }
+    .badge-info { background: var(--mdc-blue-50); color: var(--mdc-blue-800); }
+    .badge-alerta, .badge-warning { background: var(--mdc-amber-50); color: #E65100; }
+    .badge-error { background: var(--mdc-red-50); color: var(--mdc-red-800); }
+    .badge-exito, .badge-success { background: var(--mdc-green-50); color: var(--mdc-green-800); }
     .badge-sistema { background: #F3E5F5; color: #6A1B9A; }
     .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
     .btn { display: inline-flex; align-items: center; padding: 0.5rem 1rem; border-radius: 6px; border: none; font-size: 0.875rem; font-weight: 600; cursor: pointer; }
@@ -89,7 +89,7 @@ import { NotificacionesService, Notificacion, ResumenNotificaciones } from './no
     .empty { text-align: center; padding: 3rem; color: var(--text-secondary); }
     .loading { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .alert { padding: 0.75rem 1rem; border-radius: 6px; margin-top: 1rem; }
-    .alert-error { background: #FFEBEE; color: var(--warn); }
+    .alert-error { background: var(--mdc-red-50); color: var(--warn); }
   `]
 })
 export class NotificacionesListaComponent implements OnInit {

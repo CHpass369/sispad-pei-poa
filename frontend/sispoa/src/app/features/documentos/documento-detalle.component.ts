@@ -102,16 +102,16 @@ import { DocumentosService, Documento } from './documentos.service';
     .info-row label { font-size: 0.8125rem; color: var(--text-secondary); font-weight: 500; }
     .info-row span { font-size: 0.875rem; font-weight: 500; }
     .badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.75rem; }
-    .badge-info { background: #E3F2FD; color: #1565C0; }
+    .badge-info { background: var(--mdc-blue-50); color: var(--mdc-blue-800); }
     .acciones-panel { display: flex; gap: 0.75rem; margin-top: 1rem; }
     .btn { display: inline-flex; align-items: center; padding: 0.5rem 1rem; border-radius: 6px; border: none; font-size: 0.875rem; font-weight: 600; cursor: pointer; }
     .btn-primary { background: var(--primary); color: white; }
     .btn-primary:hover { background: var(--primary-dark, #303F9F); }
-    .btn-danger { background: #C62828; color: white; }
+    .btn-danger { background: var(--mdc-red-800); color: white; }
     .btn-danger:hover { background: #B71C1C; }
     .loading { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .alert { padding: 0.75rem 1rem; border-radius: 6px; margin-top: 1rem; }
-    .alert-error { background: #FFEBEE; color: var(--warn); }
+    .alert-error { background: var(--mdc-red-50); color: var(--warn); }
 
     @media (max-width: 768px) {
       .detalle-layout { grid-template-columns: 1fr; }

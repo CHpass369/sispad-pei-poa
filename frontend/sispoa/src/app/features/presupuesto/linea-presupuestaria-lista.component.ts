@@ -73,7 +73,7 @@ import { ApiService } from '../../core/services/api.service';
     .empty { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .loading { text-align: center; padding: 3rem; color: var(--text-secondary); }
     .alert { padding: 0.75rem 1rem; border-radius: 6px; }
-    .alert-error { background: #FFEBEE; color: var(--warn); }
+    .alert-error { background: var(--mdc-red-50); color: var(--warn); }
   `]
 })
 export class LineaPresupuestariaListaComponent implements OnInit {

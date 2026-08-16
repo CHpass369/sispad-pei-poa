@@ -92,9 +92,9 @@ interface PlanNodo {
     .planes-container { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; }
     .plan-item { display: flex; align-items: center; gap: 0.5rem; padding: 0.625rem 0.75rem; border-radius: 4px; margin-bottom: 2px; font-size: 0.875rem; }
     .plan-item:hover { background: var(--hover, #fafafa); }
-    .plan-item.tipo-pdesa { border-left: 3px solid #1565C0; font-weight: 700; font-size: 1rem; }
+    .plan-item.tipo-pdesa { border-left: 3px solid var(--mdc-blue-800); font-weight: 700; font-size: 1rem; }
     .plan-item.tipo-ptdi { border-left: 3px solid #6A1B9A; font-weight: 600; }
-    .plan-item.tipo-pei { border-left: 3px solid #2E7D32; }
+    .plan-item.tipo-pei { border-left: 3px solid var(--mdc-green-800); }
     .plan-item.tipo-pad { border-left: 3px solid #E65100; }
     .plan-toggle { cursor: pointer; user-select: none; font-size: 0.75rem; color: var(--text-secondary); min-width: 16px; }
     .plan-nombre { flex: 1; }
@@ -103,20 +103,20 @@ interface PlanNodo {
     .plan-desc { padding: 0.25rem 0.75rem 0.5rem 40px; font-size: 0.8125rem; color: var(--text-secondary); line-height: 1.4; }
     .badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.6875rem; font-weight: 600; }
     .badge-tipo { text-transform: uppercase; }
-    .badge-pdesa { background: #E3F2FD; color: #1565C0; }
+    .badge-pdesa { background: var(--mdc-blue-50); color: var(--mdc-blue-800); }
     .badge-ptdi { background: #F3E5F5; color: #6A1B9A; }
-    .badge-pei { background: #E8F5E9; color: #2E7D32; }
-    .badge-pad { background: #FFF3E0; color: #E65100; }
-    .badge-estado-completo, .badge-estado-aprobado { background: #E8F5E9; color: #2E7D32; }
-    .badge-estado-en_curso, .badge-estado-en-curso { background: #FFF3E0; color: #E65100; }
-    .badge-estado-borrador, .badge-estado-pendiente { background: #F5F5F5; color: #616161; }
+    .badge-pei { background: var(--mdc-green-50); color: var(--mdc-green-800); }
+    .badge-pad { background: var(--mdc-amber-50); color: #E65100; }
+    .badge-estado-completo, .badge-estado-aprobado { background: var(--mdc-green-50); color: var(--mdc-green-800); }
+    .badge-estado-en_curso, .badge-estado-en-curso { background: var(--mdc-amber-50); color: #E65100; }
+    .badge-estado-borrador, .badge-estado-pendiente { background: var(--mdc-grey-50); color: #616161; }
     .btn { display: inline-flex; align-items: center; padding: 0.5rem 1rem; border-radius: 6px; border: none; font-size: 0.875rem; font-weight: 600; cursor: pointer; }
     .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-primary); }
     .btn-outline:hover { background: var(--hover, #f5f5f5); }
     .empty { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .loading { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .alert { padding: 0.75rem 1rem; border-radius: 6px; margin-top: 1rem; }
-    .alert-error { background: #FFEBEE; color: var(--warn); }
+    .alert-error { background: var(--mdc-red-50); color: var(--warn); }
   `]
 })
 export class PortalPlanesComponent implements OnInit {

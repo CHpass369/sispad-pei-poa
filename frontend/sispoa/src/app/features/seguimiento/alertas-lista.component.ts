@@ -65,18 +65,18 @@ import { SeguimientoService, Alerta } from './seguimiento.service';
     .alerta-actividad { font-size: 0.8125rem; color: var(--text-secondary); }
     .alerta-actions { display: flex; justify-content: flex-end; }
     .badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
-    .badge-alta, .badge-alto { background: #FFEBEE; color: #C62828; }
-    .badge-media, .badge-medio { background: #FFF3E0; color: #E65100; }
-    .badge-baja, .badge-bajo { background: #E8F5E9; color: #2E7D32; }
+    .badge-alta, .badge-alto { background: var(--mdc-red-50); color: var(--mdc-red-800); }
+    .badge-media, .badge-medio { background: var(--mdc-amber-50); color: #E65100; }
+    .badge-baja, .badge-bajo { background: var(--mdc-green-50); color: var(--mdc-green-800); }
     .btn { display: inline-flex; align-items: center; padding: 0.5rem 1rem; border-radius: 6px; border: none; font-size: 0.875rem; font-weight: 600; cursor: pointer; }
     .btn-sm { padding: 0.25rem 0.5rem; font-size: 0.8125rem; }
-    .btn-success { background: #2E7D32; color: white; }
+    .btn-success { background: var(--mdc-green-800); color: white; }
     .btn-success:disabled { opacity: 0.5; cursor: not-allowed; }
     .empty { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .loading { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .alert { padding: 0.75rem 1rem; border-radius: 6px; margin-top: 1rem; }
-    .alert-error { background: #FFEBEE; color: var(--warn); }
-    .alert-success { background: #E8F5E9; color: #2E7D32; }
+    .alert-error { background: var(--mdc-red-50); color: var(--warn); }
+    .alert-success { background: var(--mdc-green-50); color: var(--mdc-green-800); }
   `]
 })
 export class AlertasListaComponent implements OnInit {

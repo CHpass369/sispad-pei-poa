@@ -97,9 +97,9 @@ import {
     .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem; font-size: 0.875rem; }
     .cadena { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; font-size: 0.8125rem; }
     .paso { display: inline-flex; align-items: center; gap: 0.25rem; }
-    .tipo { font-size: 0.6875rem; background: #F5F5F5; padding: 0.125rem 0.375rem; border-radius: 4px; color: var(--text-secondary); }
+    .tipo { font-size: 0.6875rem; background: var(--mdc-grey-50); padding: 0.125rem 0.375rem; border-radius: 4px; color: var(--text-secondary); }
     .flecha { color: var(--text-secondary); }
-    .badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.6875rem; font-weight: 600; background: #E3F2FD; color: #1565C0; }
+    .badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.6875rem; font-weight: 600; background: var(--mdc-blue-50); color: var(--mdc-blue-800); }
     .form-inline { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
     .input { padding: 0.5rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.875rem; }
     .btn { display: inline-flex; align-items: center; padding: 0.5rem 0.875rem; border-radius: 6px; border: none; font-size: 0.8125rem; font-weight: 600; cursor: pointer; }
@@ -108,7 +108,7 @@ import {
     .lista li { padding: 0.375rem 0; border-bottom: 1px solid var(--border); }
     .loading { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .alert { padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1rem; }
-    .alert-error { background: #FFEBEE; color: var(--warn); }
+    .alert-error { background: var(--mdc-red-50); color: var(--warn); }
   `],
 })
 export class SisProDetalleComponent implements OnInit {

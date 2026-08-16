@@ -133,9 +133,9 @@ import {
       border-bottom: 1px solid var(--border);
       vertical-align: top;
     }
-    .matriz-table tbody tr:hover td { background: #F0F7F3; }
+    .matriz-table tbody tr:hover td { background: var(--mdc-hover); }
     .matriz-table tbody tr:nth-child(even) td { background: #FAFCFA; }
-    .matriz-table tbody tr:nth-child(even):hover td { background: #F0F7F3; }
+    .matriz-table tbody tr:nth-child(even):hover td { background: var(--mdc-hover); }
 
     .codigo {
       font-family: 'Courier New', monospace;

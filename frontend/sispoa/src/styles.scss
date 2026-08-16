@@ -43,12 +43,26 @@
   --sidebar-bg: var(--pip-green-900);
   --sidebar-text: #C4D9CB;
   --header-bg: var(--pip-card);
-  --success: #2E7D32;
-  --info: #1565C0;
+  --success: var(--mdc-green-800);
+  --info: var(--mdc-blue-800);
   --background: var(--pip-surface);
   --hover: #EDF1EE;
   --card-accent: var(--pip-green-500);
   --primary-bg: var(--pip-green-100);
+
+  /* ============ Semántica Material → PIP (unificación de la piel en componentes internos) ============ */
+  --mdc-green-50:  var(--pip-green-100);   /* #E8F5E9 → fondo verde suave */
+  --mdc-green-800: var(--pip-green-700);   /* #2E7D32/#1B5E3B → verde institucional */
+  --mdc-blue-50:   #DCEEFF;                /* #E3F2FD → azul suave (sistemas SIS-PE) */
+  --mdc-blue-800:  #0F4C81;                /* #1565C0 → azul institucional profundo */
+  --mdc-red-50:    #FFEBEE;                /* rojo suave (errores) — mantener */
+  --mdc-red-800:   #C0392B;                /* #C62828 → rojo PIP */
+  --mdc-amber-50:  var(--pip-gold-soft);   /* #FFF3E0/#FFF8E1 → ámbar suave */
+  --mdc-amber-800: var(--pip-warn);        /* #B9770E → ámbar institucional */
+  --mdc-grey-50:   #EDF1EE;                /* #F5F5F5/#FAFAFA → gris con tinte verde */
+  --mdc-hover:     #F0F7F3;                /* hover con tinte verde */
+  --mdc-warn:      var(--pip-warn);
+  --mdc-danger:    var(--pip-danger);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -167,10 +181,10 @@ th {
   font-size: 0.75rem;
   font-weight: 500;
 }
-.badge-success { background: #E8F5E9; color: #2E7D32; }
-.badge-warning { background: #FFF8E1; color: #F57F17; }
-.badge-danger { background: #FFEBEE; color: #C62828; }
-.badge-info { background: #E3F2FD; color: #1565C0; }
+.badge-success { background: var(--mdc-green-50); color: var(--mdc-green-800); }
+.badge-warning { background: var(--mdc-amber-50); color: #F57F17; }
+.badge-danger { background: var(--mdc-red-50); color: var(--mdc-red-800); }
+.badge-info { background: var(--mdc-blue-50); color: var(--mdc-blue-800); }
 
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }

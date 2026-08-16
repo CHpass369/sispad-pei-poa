@@ -205,21 +205,21 @@ export interface ResultadoDraft {
     .tj-input:focus { border-color: var(--primary); }
 
     .btn-toggle { background: none; border: 1px solid var(--border); border-radius: 4px; cursor: pointer; font-size: 0.625rem; line-height: 1; padding: 0.25rem 0.3rem; color: var(--primary-dark); flex: none; }
-    .btn-toggle:hover { background: #E8F5E9; }
+    .btn-toggle:hover { background: var(--mdc-green-50); }
 
     .codigo { font-family: monospace; font-weight: 600; color: var(--primary-dark); white-space: nowrap; font-size: 0.75rem; }
     .codigo.child { color: #00695C; }
 
     .check-fin { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.75rem; color: var(--text-secondary); cursor: pointer; }
     .check-fin input { cursor: pointer; }
-    .check-fin.check-on { color: #1B5E3B; font-weight: 600; }
+    .check-fin.check-on { color: var(--mdc-green-800); font-weight: 600; }
 
-    .btn-outline-danger { color: #C62828; border-color: #EF9A9A; background: #fff; }
-    .btn-outline-danger:hover { background: #FFEBEE; }
+    .btn-outline-danger { color: var(--mdc-red-800); border-color: #EF9A9A; background: #fff; }
+    .btn-outline-danger:hover { background: var(--mdc-red-50); }
     .btn-sm { font-size: 0.6875rem; padding: 0.25rem 0.5rem; white-space: nowrap; }
     .col-acciones { gap: 0.375rem; flex-wrap: wrap; }
 
-    .fila-incompleta { background: #FFF8E1; }
+    .fila-incompleta { background: var(--mdc-amber-50); }
     .fila-incompleta:hover { background: #FFF3D6; }
     .fila-incompleta .tj-input { border-color: #F9A825; }
 

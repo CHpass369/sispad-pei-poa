@@ -1,4 +1,4 @@
-﻿import { Component, OnInit } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { AdminUsuariosService, AdminUsuario } from './admin-usuarios.service';
 
@@ -82,21 +82,21 @@ import { AdminUsuariosService, AdminUsuario } from './admin-usuarios.service';
     .data-table td { padding: 0.75rem 1rem; border-top: 1px solid var(--border); font-size: 0.875rem; }
     .data-table tr:hover td { background: var(--hover, #fafafa); }
     .badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.75rem; margin-right: 0.25rem; }
-    .badge-info { background: #E3F2FD; color: #1565C0; }
-    .badge-success { background: #E8F5E9; color: #2E7D32; }
-    .badge-danger { background: #FFEBEE; color: #C62828; }
+    .badge-info { background: var(--mdc-blue-50); color: var(--mdc-blue-800); }
+    .badge-success { background: var(--mdc-green-50); color: var(--mdc-green-800); }
+    .badge-danger { background: var(--mdc-red-50); color: var(--mdc-red-800); }
     .btn { display: inline-flex; align-items: center; padding: 0.5rem 1rem; border-radius: 6px; border: none; font-size: 0.875rem; font-weight: 600; cursor: pointer; }
     .btn-primary { background: var(--primary); color: white; }
     .btn-primary:hover { background: var(--primary-dark, #303F9F); }
     .btn-sm { padding: 0.25rem 0.5rem; font-size: 0.8125rem; }
     .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-primary); }
     .btn-outline:hover { background: var(--hover, #f5f5f5); }
-    .btn-danger { background: #C62828; color: white; }
+    .btn-danger { background: var(--mdc-red-800); color: white; }
     .btn-danger:hover { background: #B71C1C; }
     .empty { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .loading { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .alert { padding: 0.75rem 1rem; border-radius: 6px; margin-top: 1rem; }
-    .alert-error { background: #FFEBEE; color: var(--warn); }
+    .alert-error { background: var(--mdc-red-50); color: var(--warn); }
   `]
 })
 export class UsuariosListaComponent implements OnInit {

@@ -81,8 +81,8 @@ import { SeguimientoService, ReporteSeguimiento } from './seguimiento.service';
     .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-primary); }
     .btn-outline:hover { background: var(--hover, #f5f5f5); }
     .alert { padding: 0.75rem 1rem; border-radius: 6px; margin-top: 1rem; }
-    .alert-error { background: #FFEBEE; color: var(--warn); }
-    .alert-success { background: #E8F5E9; color: #2E7D32; }
+    .alert-error { background: var(--mdc-red-50); color: var(--warn); }
+    .alert-success { background: var(--mdc-green-50); color: var(--mdc-green-800); }
   `]
 })
 export class RegistroSeguimientoComponent implements OnInit {

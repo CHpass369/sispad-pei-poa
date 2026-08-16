@@ -578,7 +578,7 @@ import {
 
     .stepper { display: flex; gap: 0.375rem; margin-bottom: 1.75rem; overflow-x: auto; padding: 0.5rem 0; }
     .step { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.375rem 0.75rem; border-radius: 8px; font-size: 0.8125rem; white-space: nowrap; opacity: 0.5; }
-    .step.active { opacity: 1; background: #E8F5E9; }
+    .step.active { opacity: 1; background: var(--mdc-green-50); }
     .step.completed { opacity: 0.8; color: var(--primary); }
     .step-circle { width: 28px; height: 28px; border-radius: 50%; background: var(--border); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8125rem; color: var(--text-secondary); }
     .step.active .step-circle { background: var(--primary); color: white; }
@@ -636,8 +636,8 @@ import {
     .card-header-row h4, .card-header-row h5 { margin: 0; color: var(--primary-dark); }
     .card-header-row h4 { font-size: 1.0625rem; }
     .card-header-row h5 { font-size: 0.9375rem; }
-    .btn-outline-danger { color: #C62828; border-color: #EF9A9A; background: #fff; }
-    .btn-outline-danger:hover { background: #FFEBEE; }
+    .btn-outline-danger { color: var(--mdc-red-800); border-color: #EF9A9A; background: #fff; }
+    .btn-outline-danger:hover { background: var(--mdc-red-50); }
     .btn-sm { font-size: 0.875rem; padding: 0.375rem 0.75rem; }
     .resultado-actions { display: flex; align-items: center; gap: 1.25rem; margin-top: 1.25rem; flex-wrap: wrap; }
 
@@ -657,11 +657,11 @@ import {
     .form-nav { display: flex; align-items: center; justify-content: space-between; margin-top: 1.75rem; padding-top: 1.25rem; border-top: 1px solid var(--border); }
     .step-counter { font-size: 0.875rem; color: var(--text-secondary); font-weight: 500; }
     .btn-guardar { background: var(--success); }
-    .btn-guardar:hover { background: #1B5E3B; }
+    .btn-guardar:hover { background: var(--mdc-green-800); }
 
     .alert { padding: 0.875rem 1.25rem; border-radius: 8px; font-size: 0.9375rem; margin-bottom: 1.25rem; }
-    .alert-success { background: #E8F5E9; color: #1B5E3B; border: 1px solid #A5D6A7; }
-    .alert-danger { background: #FFEBEE; color: #C62828; border: 1px solid #EF9A9A; }
+    .alert-success { background: var(--mdc-green-50); color: var(--mdc-green-800); border: 1px solid #A5D6A7; }
+    .alert-danger { background: var(--mdc-red-50); color: var(--mdc-red-800); border: 1px solid #EF9A9A; }
 
     @media (max-width: 768px) {
       .form-grid { grid-template-columns: 1fr; }

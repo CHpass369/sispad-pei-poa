@@ -29,14 +29,14 @@ import {
     .detalle-grid b { font-size: 0.6875rem; text-transform: uppercase; color: var(--text-secondary); display: block; }
     pre.json { background: #263238; color: #ECEFF1; border-radius: 6px; padding: 0.75rem; font-size: 0.75rem; overflow: auto; max-height: 320px; white-space: pre-wrap; word-break: break-word; }
     .badge { display: inline-block; padding: 0.1875rem 0.5rem; border-radius: 999px; font-size: 0.6875rem; font-weight: 600; }
-    .badge-crear { background: #E8F5E9; color: #2E7D32; }
-    .badge-modificar { background: #E3F2FD; color: #1565C0; }
-    .badge-anular { background: #FFEBEE; color: #C62828; }
+    .badge-crear { background: var(--mdc-green-50); color: var(--mdc-green-800); }
+    .badge-modificar { background: var(--mdc-blue-50); color: var(--mdc-blue-800); }
+    .badge-anular { background: var(--mdc-red-50); color: var(--mdc-red-800); }
     .badge-aprobar { background: #F3E5F5; color: #6A1B9A; }
-    .badge-enviar { background: #FFF3E0; color: #E65100; }
+    .badge-enviar { background: var(--mdc-amber-50); color: #E65100; }
     .badge-cerrar { background: #ECEFF1; color: #455A64; }
     .acciones { display: flex; gap: 0.375rem; }
-    .alert-error { background: #FFEBEE; color: #C62828; border-radius: 6px; padding: 0.625rem 0.875rem; margin: 0.75rem 0; font-size: 0.875rem; }
+    .alert-error { background: var(--mdc-red-50); color: var(--mdc-red-800); border-radius: 6px; padding: 0.625rem 0.875rem; margin: 0.75rem 0; font-size: 0.875rem; }
     .loading, .empty { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .paginado { display: flex; justify-content: flex-end; align-items: center; gap: 0.75rem; margin-top: 0.75rem; font-size: 0.8125rem; }
     .btn:disabled { opacity: 0.5; cursor: not-allowed; }

@@ -121,10 +121,10 @@ import { NormativaService, Normativa, ReglaNormativa } from './normativa.service
     .info-item span { font-size: 0.9375rem; font-weight: 500; }
     .info-item.full-width { grid-column: 1 / -1; }
     .badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.75rem; }
-    .badge-info { background: #E3F2FD; color: #1565C0; }
-    .badge-borrador { background: #F5F5F5; color: #616161; }
-    .badge-vigente { background: #E8F5E9; color: #2E7D32; }
-    .badge-obsoleta { background: #FFEBEE; color: #C62828; }
+    .badge-info { background: var(--mdc-blue-50); color: var(--mdc-blue-800); }
+    .badge-borrador { background: var(--mdc-grey-50); color: #616161; }
+    .badge-vigente { background: var(--mdc-green-50); color: var(--mdc-green-800); }
+    .badge-obsoleta { background: var(--mdc-red-50); color: var(--mdc-red-800); }
     .seccion { margin-bottom: 2rem; }
     .seccion h3 { font-size: 1.125rem; margin-bottom: 1rem; }
     .contenido-card { padding: 1.5rem; }
@@ -136,7 +136,7 @@ import { NormativaService, Normativa, ReglaNormativa } from './normativa.service
     .data-table tr:hover td { background: var(--hover, #fafafa); }
     .loading { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .alert { padding: 0.75rem 1rem; border-radius: 6px; margin-top: 1rem; }
-    .alert-error { background: #FFEBEE; color: var(--warn); }
+    .alert-error { background: var(--mdc-red-50); color: var(--warn); }
   `]
 })
 export class NormativaDetalleComponent implements OnInit {

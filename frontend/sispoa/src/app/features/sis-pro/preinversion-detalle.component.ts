@@ -167,20 +167,20 @@ import {
     .mt { margin-top: 0.75rem; }
     .btn { display: inline-flex; align-items: center; padding: 0.5rem 0.875rem; border-radius: 6px; border: none; font-size: 0.8125rem; font-weight: 600; cursor: pointer; text-decoration: none; }
     .btn-primary { background: var(--primary); color: white; }
-    .btn-sm { background: #E3F2FD; color: #1565C0; }
-    .btn-wizard { background: #FFF3E0; color: #E65100; }
+    .btn-sm { background: var(--mdc-blue-50); color: var(--mdc-blue-800); }
+    .btn-wizard { background: var(--mdc-amber-50); color: #E65100; }
     .float-right { margin-left: auto; }
-    .badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.6875rem; font-weight: 600; background: #E3F2FD; color: #1565C0; }
+    .badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.6875rem; font-weight: 600; background: var(--mdc-blue-50); color: var(--mdc-blue-800); }
     .estado { background: #F3E5F5; color: #6A1B9A; }
     .resumen { display: flex; gap: 1.5rem; flex-wrap: wrap; font-size: 0.8125rem; }
     .validacion { margin-top: 1rem; padding: 0.75rem; border-radius: 6px; font-size: 0.8125rem; }
-    .ok { color: #2E7D32; font-weight: 600; }
-    .ko { color: #C62828; font-weight: 600; }
+    .ok { color: var(--mdc-green-800); font-weight: 600; }
+    .ko { color: var(--mdc-red-800); font-weight: 600; }
     .validacion ul { margin: 0.5rem 0 0; padding-left: 1.25rem; }
     .loading { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .alert { padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1rem; }
-    .alert-error { background: #FFEBEE; color: var(--warn); }
-    .alert-success { background: #E8F5E9; color: #2E7D32; }
+    .alert-error { background: var(--mdc-red-50); color: var(--warn); }
+    .alert-success { background: var(--mdc-green-50); color: var(--mdc-green-800); }
   `],
 })
 export class PreinversionDetalleComponent implements OnInit {

@@ -15,7 +15,7 @@ import { ApiService } from '../../core/services/api.service';
       <div class="builder-layout">
         <!-- Nivel 1: PDES -->
         <div class="level-panel">
-          <div class="panel-header" style="background:#1B5E3B">
+          <div class="panel-header" style="background:var(--mdc-green-800)">
             <h3>PDES</h3>
             <small>Acción PDES</small>
           </div>
@@ -105,7 +105,7 @@ import { ApiService } from '../../core/services/api.service';
     
           <!-- Vincular panel -->
           <div class="level-panel vincular-panel">
-            <div class="panel-header" style="background:#1565C0">
+            <div class="panel-header" style="background:var(--mdc-blue-800)">
               <h3>Vincular</h3>
               <small>Crear articulación</small>
             </div>
@@ -197,11 +197,11 @@ import { ApiService } from '../../core/services/api.service';
     .selector input { font-size: 0.75rem; padding: 0.375rem; }
     .item-list { flex: 1; overflow-y: auto; max-height: 350px; }
     .item { padding: 0.5rem; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.1s; }
-    .item:hover { background: #F0F7F3; }
-    .item.selected { background: #E8F5E9; border-left: 3px solid var(--primary); }
+    .item:hover { background: var(--mdc-hover); }
+    .item.selected { background: var(--mdc-green-50); border-left: 3px solid var(--primary); }
     .item strong { display: block; font-size: 0.75rem; }
     .item-desc { display: block; font-size: 0.6875rem; color: var(--text-secondary); margin-top: 0.125rem; }
-    .item-year { float: right; font-size: 0.6875rem; background: #E3F2FD; padding: 0.125rem 0.375rem; border-radius: 3px; }
+    .item-year { float: right; font-size: 0.6875rem; background: var(--mdc-blue-50); padding: 0.125rem 0.375rem; border-radius: 3px; }
     .item-count { float: right; font-size: 0.625rem; background: var(--primary); color: white; padding: 0.125rem 0.375rem; border-radius: 3px; }
     .empty-hint { text-align: center; color: var(--text-secondary); font-size: 0.75rem; padding: 1rem; }
     .btn-full { width: 100%; justify-content: center; margin-top: 0.25rem; }
@@ -211,8 +211,8 @@ import { ApiService } from '../../core/services/api.service';
     .vinculacion-form select { font-size: 0.75rem; padding: 0.375rem; }
     .selected-item { font-size: 0.8125rem; font-weight: 600; padding: 0.375rem; background: var(--bg); border-radius: 4px; }
     .vinculacion-step { margin-top: 0.5rem; }
-    .msg { margin-top: 0.5rem; padding: 0.375rem; border-radius: 4px; font-size: 0.75rem; background: #E8F5E9; color: var(--success); }
-    .msg.error { background: #FFEBEE; color: var(--warn); }
+    .msg { margin-top: 0.5rem; padding: 0.375rem; border-radius: 4px; font-size: 0.75rem; background: var(--mdc-green-50); color: var(--success); }
+    .msg.error { background: var(--mdc-red-50); color: var(--warn); }
     .resumen-card { padding: 1rem; }
     .resumen-card h4 { font-size: 0.875rem; margin-bottom: 0.75rem; }
     .cadena { display: flex; flex-direction: column; gap: 0.5rem; }
@@ -220,7 +220,7 @@ import { ApiService } from '../../core/services/api.service';
     .eslabon-cabecera { background: var(--bg); padding: 0.375rem 0.625rem; font-weight: 600; font-size: 0.75rem; }
     .eslabon-body { padding: 0.375rem 0.625rem; display: flex; flex-wrap: wrap; gap: 0.25rem; }
     .eslabon-hijo { display: flex; align-items: center; gap: 0.25rem; }
-    .acp-tag { font-size: 0.6875rem; background: #E3F2FD; padding: 0.125rem 0.375rem; border-radius: 3px; }
+    .acp-tag { font-size: 0.6875rem; background: var(--mdc-blue-50); padding: 0.125rem 0.375rem; border-radius: 3px; }
     @media (max-width: 900px) { .builder-layout { grid-template-columns: 1fr 1fr; } }
   `]
 })

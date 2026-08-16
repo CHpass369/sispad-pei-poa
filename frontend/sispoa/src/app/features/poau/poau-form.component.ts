@@ -129,8 +129,8 @@ import { ApiService } from '../../core/services/api.service';
     .cell-total { text-align:right; font-weight:600; }
     .cell-avance { text-align:center; }
     .msg-box { margin-top:0.5rem; padding:0.5rem; border-radius:4px; font-size:0.8125rem; }
-    .msg-box.error { background:#FFEBEE; color:var(--warn); }
-    .msg-box.success { background:#E8F5E9; color:var(--success); }
+    .msg-box.error { background:var(--mdc-red-50); color:var(--warn); }
+    .msg-box.success { background:var(--mdc-green-50); color:var(--success); }
     .btn-sm { font-size:0.75rem; padding:0.25rem 0.5rem; }
   `]
 })

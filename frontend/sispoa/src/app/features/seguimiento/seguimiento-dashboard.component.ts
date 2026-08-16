@@ -92,29 +92,29 @@ import { SeguimientoService, Semaforo, DashboardData, Alerta } from './seguimien
     .indicador { text-align: center; }
     .indicador-label { font-size: 0.8125rem; color: var(--text-secondary); margin-bottom: 0.5rem; }
     .indicador-valor { font-size: 1.75rem; font-weight: 700; }
-    .indicador.verde .indicador-valor { color: #2E7D32; }
+    .indicador.verde .indicador-valor { color: var(--mdc-green-800); }
     .indicador.amarillo .indicador-valor { color: #F57F17; }
-    .indicador.rojo .indicador-valor { color: #C62828; }
+    .indicador.rojo .indicador-valor { color: var(--mdc-red-800); }
     .seccion { margin-bottom: 2rem; }
     .seccion h3 { font-size: 1.125rem; margin-bottom: 1rem; }
     .semaforo-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; }
     .semaforo-item { display: flex; align-items: center; gap: 1rem; }
-    .semaforo-item.semaforo-verde { border-left: 4px solid #2E7D32; }
+    .semaforo-item.semaforo-verde { border-left: 4px solid var(--mdc-green-800); }
     .semaforo-item.semaforo-amarillo { border-left: 4px solid #F57F17; }
-    .semaforo-item.semaforo-rojo { border-left: 4px solid #C62828; }
+    .semaforo-item.semaforo-rojo { border-left: 4px solid var(--mdc-red-800); }
     .semaforo-dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
-    .dot-verde { background: #2E7D32; }
+    .dot-verde { background: var(--mdc-green-800); }
     .dot-amarillo { background: #F57F17; }
-    .dot-rojo { background: #C62828; }
+    .dot-rojo { background: var(--mdc-red-800); }
     .semaforo-info strong { font-size: 0.875rem; display: block; margin-bottom: 0.25rem; }
     .semaforo-avances { display: flex; gap: 1rem; font-size: 0.8125rem; color: var(--text-secondary); }
     .alerta-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; margin-bottom: 0.5rem; }
     .alerta-mensaje { flex: 1; font-size: 0.875rem; }
     .alerta-actividad { font-size: 0.8125rem; color: var(--text-secondary); }
     .badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
-    .badge-alta, .badge-alto { background: #FFEBEE; color: #C62828; }
-    .badge-media, .badge-medio { background: #FFF3E0; color: #E65100; }
-    .badge-baja, .badge-bajo { background: #E8F5E9; color: #2E7D32; }
+    .badge-alta, .badge-alto { background: var(--mdc-red-50); color: var(--mdc-red-800); }
+    .badge-media, .badge-medio { background: var(--mdc-amber-50); color: #E65100; }
+    .badge-baja, .badge-bajo { background: var(--mdc-green-50); color: var(--mdc-green-800); }
     .empty { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .loading { text-align: center; padding: 2rem; color: var(--text-secondary); }
   `]

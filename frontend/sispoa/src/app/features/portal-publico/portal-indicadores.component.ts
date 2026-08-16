@@ -78,16 +78,16 @@ import { PortalPublicoService, IndicadorPublico } from './portal-publico.service
     .indicador-meta { display: flex; justify-content: space-between; font-size: 0.8125rem; margin-bottom: 0.75rem; color: var(--text-secondary); }
     .progress-bar { height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; margin-bottom: 0.5rem; }
     .progress-fill { height: 100%; border-radius: 4px; transition: width 0.5s; }
-    .fill-ok { background: #2E7D32; }
+    .fill-ok { background: var(--mdc-green-800); }
     .fill-warn { background: #F57F17; }
-    .fill-danger { background: #C62828; }
+    .fill-danger { background: var(--mdc-red-800); }
     .indicador-fuente { font-size: 0.75rem; color: var(--text-secondary); font-style: italic; }
     .badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.6875rem; font-weight: 600; }
-    .badge-tipo { background: #E3F2FD; color: #1565C0; text-transform: uppercase; }
+    .badge-tipo { background: var(--mdc-blue-50); color: var(--mdc-blue-800); text-transform: uppercase; }
     .empty { text-align: center; padding: 2rem; color: var(--text-secondary); grid-column: 1 / -1; }
     .loading { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .alert { padding: 0.75rem 1rem; border-radius: 6px; margin-top: 1rem; }
-    .alert-error { background: #FFEBEE; color: var(--warn); }
+    .alert-error { background: var(--mdc-red-50); color: var(--warn); }
   `]
 })
 export class PortalIndicadoresComponent implements OnInit {

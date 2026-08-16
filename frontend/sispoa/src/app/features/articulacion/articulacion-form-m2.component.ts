@@ -200,11 +200,11 @@ import { Router } from '@angular/router';
 
     .form-nav { display: flex; align-items: center; justify-content: space-between; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border); }
     .btn-guardar { background: var(--success); }
-    .btn-guardar:hover { background: #1B5E3B; }
+    .btn-guardar:hover { background: var(--mdc-green-800); }
 
     .alert { padding: 0.75rem 1rem; border-radius: 6px; font-size: 0.8125rem; margin-bottom: 1rem; }
-    .alert-success { background: #E8F5E9; color: #1B5E3B; border: 1px solid #A5D6A7; }
-    .alert-danger { background: #FFEBEE; color: #C62828; border: 1px solid #EF9A9A; }
+    .alert-success { background: var(--mdc-green-50); color: var(--mdc-green-800); border: 1px solid #A5D6A7; }
+    .alert-danger { background: var(--mdc-red-50); color: var(--mdc-red-800); border: 1px solid #EF9A9A; }
 
     @media (max-width: 768px) {
       .form-grid { grid-template-columns: 1fr; }

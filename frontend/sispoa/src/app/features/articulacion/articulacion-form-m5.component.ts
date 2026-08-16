@@ -183,22 +183,22 @@ import { Router } from '@angular/router';
       border-bottom: 1px solid var(--border);
     }
     .search-item:last-child { border-bottom: none; }
-    .search-item:hover { background: #F0F7F3; }
+    .search-item:hover { background: var(--mdc-hover); }
     .obj-codigo { font-family: 'Courier New', monospace; font-weight: 600; font-size: 0.6875rem; color: var(--primary); white-space: nowrap; }
     .obj-desc { color: var(--text-secondary); }
 
-    .selected-objeto { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; padding: 0.5rem; background: #E8F5E9; border-radius: 6px; font-size: 0.8125rem; }
+    .selected-objeto { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; padding: 0.5rem; background: var(--mdc-green-50); border-radius: 6px; font-size: 0.8125rem; }
     .btn-xs { font-size: 0.6875rem; padding: 0.125rem 0.375rem; margin-left: auto; }
     .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
     .btn-outline:hover { border-color: var(--primary); color: var(--primary); }
 
     .form-nav { display: flex; align-items: center; justify-content: space-between; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border); }
     .btn-guardar { background: var(--success); }
-    .btn-guardar:hover { background: #1B5E3B; }
+    .btn-guardar:hover { background: var(--mdc-green-800); }
 
     .alert { padding: 0.75rem 1rem; border-radius: 6px; font-size: 0.8125rem; margin-bottom: 1rem; }
-    .alert-success { background: #E8F5E9; color: #1B5E3B; border: 1px solid #A5D6A7; }
-    .alert-danger { background: #FFEBEE; color: #C62828; border: 1px solid #EF9A9A; }
+    .alert-success { background: var(--mdc-green-50); color: var(--mdc-green-800); border: 1px solid #A5D6A7; }
+    .alert-danger { background: var(--mdc-red-50); color: var(--mdc-red-800); border: 1px solid #EF9A9A; }
 
     @media (max-width: 768px) {
       .form-grid { grid-template-columns: 1fr; }

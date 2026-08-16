@@ -74,18 +74,18 @@ import { NodoV2, SisPeService, VersionV2 } from './sis-pe.service';
     .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; margin-bottom: 1rem; }
     .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem; font-size: 0.875rem; }
     .checksum { font-family: monospace; font-size: 0.6875rem; color: var(--text-secondary); word-break: break-all; }
-    .badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.6875rem; font-weight: 600; background: #E3F2FD; color: #1565C0; }
+    .badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.6875rem; font-weight: 600; background: var(--mdc-blue-50); color: var(--mdc-blue-800); }
     .actions { margin-top: 1rem; display: flex; gap: 0.5rem; }
     .btn { display: inline-flex; align-items: center; padding: 0.5rem 0.875rem; border-radius: 6px; border: none; font-size: 0.8125rem; font-weight: 600; cursor: pointer; }
-    .btn-sm { background: #E3F2FD; color: #1565C0; }
-    .btn-approve { background: #2E7D32; color: white; }
+    .btn-sm { background: var(--mdc-blue-50); color: var(--mdc-blue-800); }
+    .btn-approve { background: var(--mdc-green-800); color: white; }
     .verify-box { margin-top: 0.75rem; font-size: 0.8125rem; }
     .section-title { margin: 1.25rem 0 0.5rem; font-size: 1rem; }
     .loading { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .empty { text-align: center; padding: 1rem; color: var(--text-secondary); }
     .alert { padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1rem; }
-    .alert-error { background: #FFEBEE; color: var(--warn); }
-    .alert-success { background: #E8F5E9; color: #2E7D32; }
+    .alert-error { background: var(--mdc-red-50); color: var(--warn); }
+    .alert-success { background: var(--mdc-green-50); color: var(--mdc-green-800); }
   `],
 })
 export class SisPeVersionComponent implements OnInit {

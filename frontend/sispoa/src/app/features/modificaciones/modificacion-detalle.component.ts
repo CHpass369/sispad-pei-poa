@@ -104,10 +104,10 @@ import { ModificacionesService, SolicitudModificacion } from './modificaciones.s
     .info-item span { font-size: 0.9375rem; font-weight: 500; }
     .info-item.full-width { grid-column: 1 / -1; }
     .badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.75rem; }
-    .badge-pendiente { background: #FFF3E0; color: #E65100; }
-    .badge-aprobada { background: #E8F5E9; color: #2E7D32; }
-    .badge-rechazada { background: #FFEBEE; color: #C62828; }
-    .badge-en_revision, .badge-en-revision { background: #E3F2FD; color: #1565C0; }
+    .badge-pendiente { background: var(--mdc-amber-50); color: #E65100; }
+    .badge-aprobada { background: var(--mdc-green-50); color: var(--mdc-green-800); }
+    .badge-rechazada { background: var(--mdc-red-50); color: var(--mdc-red-800); }
+    .badge-en_revision, .badge-en-revision { background: var(--mdc-blue-50); color: var(--mdc-blue-800); }
     .seccion { margin-bottom: 2rem; }
     .seccion h3 { font-size: 1.125rem; margin-bottom: 1rem; }
     .form-card { padding: 1.25rem; }
@@ -118,15 +118,15 @@ import { ModificacionesService, SolicitudModificacion } from './modificaciones.s
     textarea.form-control { resize: vertical; }
     .acciones-resolucion { display: flex; gap: 0.75rem; justify-content: flex-end; }
     .btn { display: inline-flex; align-items: center; padding: 0.5rem 1rem; border-radius: 6px; border: none; font-size: 0.875rem; font-weight: 600; cursor: pointer; }
-    .btn-success { background: #2E7D32; color: white; }
+    .btn-success { background: var(--mdc-green-800); color: white; }
     .btn-success:hover { background: #1B5E20; }
     .btn-success:disabled, .btn-danger:disabled { opacity: 0.5; cursor: not-allowed; }
-    .btn-danger { background: #C62828; color: white; }
+    .btn-danger { background: var(--mdc-red-800); color: white; }
     .btn-danger:hover { background: #B71C1C; }
     .loading { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .alert { padding: 0.75rem 1rem; border-radius: 6px; margin-top: 1rem; }
-    .alert-error { background: #FFEBEE; color: var(--warn); }
-    .alert-success { background: #E8F5E9; color: #2E7D32; }
+    .alert-error { background: var(--mdc-red-50); color: var(--warn); }
+    .alert-success { background: var(--mdc-green-50); color: var(--mdc-green-800); }
   `]
 })
 export class ModificacionDetalleComponent implements OnInit {

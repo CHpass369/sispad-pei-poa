@@ -75,11 +75,11 @@ import { EvaluacionService, Evaluacion } from './evaluacion.service';
     .data-table td { padding: 0.75rem 1rem; border-top: 1px solid var(--border); font-size: 0.875rem; }
     .data-table tr:hover td { background: var(--hover, #fafafa); }
     .badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.75rem; }
-    .badge-borrador { background: #F5F5F5; color: #616161; }
-    .badge-en_curso, .badge-en-curso { background: #E3F2FD; color: #1565C0; }
-    .badge-completada, .badge-finalizada { background: #E8F5E9; color: #2E7D32; }
-    .badge-aprobada { background: #E8F5E9; color: #2E7D32; }
-    .badge-cancelada { background: #FFEBEE; color: #C62828; }
+    .badge-borrador { background: var(--mdc-grey-50); color: #616161; }
+    .badge-en_curso, .badge-en-curso { background: var(--mdc-blue-50); color: var(--mdc-blue-800); }
+    .badge-completada, .badge-finalizada { background: var(--mdc-green-50); color: var(--mdc-green-800); }
+    .badge-aprobada { background: var(--mdc-green-50); color: var(--mdc-green-800); }
+    .badge-cancelada { background: var(--mdc-red-50); color: var(--mdc-red-800); }
     .btn { display: inline-flex; align-items: center; padding: 0.5rem 1rem; border-radius: 6px; border: none; font-size: 0.875rem; font-weight: 600; cursor: pointer; }
     .btn-primary { background: var(--primary); color: white; }
     .btn-primary:hover { background: var(--primary-dark, #303F9F); }
@@ -89,7 +89,7 @@ import { EvaluacionService, Evaluacion } from './evaluacion.service';
     .empty { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .loading { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .alert { padding: 0.75rem 1rem; border-radius: 6px; margin-top: 1rem; }
-    .alert-error { background: #FFEBEE; color: var(--warn); }
+    .alert-error { background: var(--mdc-red-50); color: var(--warn); }
   `]
 })
 export class EvaluacionListaComponent implements OnInit {

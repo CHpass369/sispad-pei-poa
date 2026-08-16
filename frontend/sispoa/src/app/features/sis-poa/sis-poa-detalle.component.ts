@@ -77,20 +77,20 @@ import {
     .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem; font-size: 0.875rem; }
     .actions { margin-top: 1rem; }
     .btn { display: inline-flex; align-items: center; padding: 0.5rem 0.875rem; border-radius: 6px; border: none; font-size: 0.8125rem; font-weight: 600; cursor: pointer; }
-    .btn-sm { background: #E3F2FD; color: #1565C0; }
+    .btn-sm { background: var(--mdc-blue-50); color: var(--mdc-blue-800); }
     .btn-primary { background: var(--primary); color: white; }
     .form-inline { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
     .input { padding: 0.5rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.875rem; }
     .data-table { width: 100%; border-collapse: collapse; }
     .data-table th, .data-table td { padding: 0.5rem 0.625rem; text-align: left; border-bottom: 1px solid var(--border); font-size: 0.8125rem; }
-    .badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.6875rem; font-weight: 600; background: #E3F2FD; color: #1565C0; }
+    .badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.6875rem; font-weight: 600; background: var(--mdc-blue-50); color: var(--mdc-blue-800); }
     .techo { margin-top: 0.75rem; padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.8125rem; }
-    .techo.ok { background: #E8F5E9; color: #2E7D32; }
-    .techo.excede { background: #FFEBEE; color: #C62828; }
+    .techo.ok { background: var(--mdc-green-50); color: var(--mdc-green-800); }
+    .techo.excede { background: var(--mdc-red-50); color: var(--mdc-red-800); }
     .loading { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .empty { text-align: center; padding: 1rem; color: var(--text-secondary); }
     .alert { padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1rem; }
-    .alert-error { background: #FFEBEE; color: var(--warn); }
+    .alert-error { background: var(--mdc-red-50); color: var(--warn); }
   `],
 })
 export class SisPoaDetalleComponent implements OnInit {

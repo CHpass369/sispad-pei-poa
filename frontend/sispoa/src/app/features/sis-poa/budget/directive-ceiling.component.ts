@@ -40,7 +40,7 @@ const TIPOS_DOCUMENTO = [
     .comp-card .etiqueta { font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); }
     .comp-card .monto { font-size: 1.05rem; font-weight: 700; margin-top: 0.25rem; }
     .comp-card.destacada { border-color: var(--primary); background: #F4F8FD; }
-    .comp-card.resalta { border-color: #2E7D32; background: #F1F8F2; }
+    .comp-card.resalta { border-color: var(--mdc-green-800); background: #F1F8F2; }
     .data-table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
     .data-table th, .data-table td { padding: 0.625rem 0.75rem; text-align: left; border-bottom: 1px solid var(--border); font-size: 0.8125rem; }
     .form-inline { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: flex-end; }
@@ -48,7 +48,7 @@ const TIPOS_DOCUMENTO = [
     .input { padding: 0.5rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.875rem; min-width: 140px; }
     .btn-sm { background: var(--surface); border: 1px solid var(--border); }
     .btn-sm:hover { border-color: var(--primary); color: var(--primary); }
-    .btn-danger { background: #FFEBEE; color: #C62828; }
+    .btn-danger { background: var(--mdc-red-50); color: var(--mdc-red-800); }
     .btn-danger:hover { background: #FFCDD2; }
     .acciones { display: flex; gap: 0.5rem; flex-wrap: wrap; }
     .loading { text-align: center; padding: 2rem; color: var(--text-secondary); }

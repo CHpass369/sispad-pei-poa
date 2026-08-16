@@ -151,8 +151,8 @@ import { ApiService } from '../../core/services/api.service';
     .form-actions { display: flex; gap: 0.75rem; margin-top: 1.5rem; }
     .loading { text-align: center; padding: 3rem; color: var(--text-secondary); }
     .alert { padding: 0.75rem 1rem; border-radius: 6px; margin-top: 1rem; }
-    .alert-error { background: #FFEBEE; color: var(--warn); }
-    .alert-success { background: #E8F5E9; color: #2E7D32; margin-bottom: 1rem; }
+    .alert-error { background: var(--mdc-red-50); color: var(--warn); }
+    .alert-success { background: var(--mdc-green-50); color: var(--mdc-green-800); margin-bottom: 1rem; }
   `]
 })
 export class DistribucionListaComponent implements OnInit {

@@ -25,7 +25,7 @@ import { NodoV2 } from './sis-pe.service';
     .node { display: flex; gap: 0.5rem; align-items: baseline; padding: 0.25rem 0; font-size: 0.8125rem; }
     .code { font-weight: 700; color: var(--primary); min-width: 90px; }
     .name { flex: 1; }
-    .tipo { font-size: 0.6875rem; color: var(--text-secondary); background: #F5F5F5; padding: 0.125rem 0.375rem; border-radius: 4px; }
+    .tipo { font-size: 0.6875rem; color: var(--text-secondary); background: var(--mdc-grey-50); padding: 0.125rem 0.375rem; border-radius: 4px; }
   `],
 })
 export class SisPeArbolComponent {

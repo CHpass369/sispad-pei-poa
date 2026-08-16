@@ -366,7 +366,7 @@ import { Router } from '@angular/router';
 
     .stepper { display: flex; gap: 0.25rem; margin-bottom: 1.5rem; overflow-x: auto; padding: 0.5rem 0; }
     .step { display: flex; align-items: center; gap: 0.375rem; cursor: pointer; padding: 0.25rem 0.5rem; border-radius: 6px; font-size: 0.6875rem; white-space: nowrap; opacity: 0.5; }
-    .step.active { opacity: 1; background: #E8F5E9; }
+    .step.active { opacity: 1; background: var(--mdc-green-50); }
     .step.completed { opacity: 0.8; color: var(--primary); }
     .step-circle { width: 22px; height: 22px; border-radius: 50%; background: var(--border); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.6875rem; color: var(--text-secondary); }
     .step.active .step-circle { background: var(--primary); color: white; }
@@ -400,11 +400,11 @@ import { Router } from '@angular/router';
     .form-nav { display: flex; align-items: center; justify-content: space-between; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border); }
     .step-counter { font-size: 0.75rem; color: var(--text-secondary); font-weight: 500; }
     .btn-guardar { background: var(--success); }
-    .btn-guardar:hover { background: #1B5E3B; }
+    .btn-guardar:hover { background: var(--mdc-green-800); }
 
     .alert { padding: 0.75rem 1rem; border-radius: 6px; font-size: 0.8125rem; margin-bottom: 1rem; }
-    .alert-success { background: #E8F5E9; color: #1B5E3B; border: 1px solid #A5D6A7; }
-    .alert-danger { background: #FFEBEE; color: #C62828; border: 1px solid #EF9A9A; }
+    .alert-success { background: var(--mdc-green-50); color: var(--mdc-green-800); border: 1px solid #A5D6A7; }
+    .alert-danger { background: var(--mdc-red-50); color: var(--mdc-red-800); border: 1px solid #EF9A9A; }
 
     @media (max-width: 768px) {
       .form-grid { grid-template-columns: 1fr; }

@@ -292,8 +292,8 @@ import { ApiService } from '../../core/services/api.service';
     .summary-item { padding: 0.75rem; background: var(--bg); border-radius: 6px; }
     .summary-item strong { display: block; font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.25rem; }
     .alert { padding: 0.75rem 1rem; border-radius: 6px; margin-top: 1rem; font-size: 0.875rem; }
-    .alert-error { background: #FFEBEE; color: var(--warn); }
-    .alert-success { background: #E8F5E9; color: var(--success); }
+    .alert-error { background: var(--mdc-red-50); color: var(--warn); }
+    .alert-success { background: var(--mdc-green-50); color: var(--success); }
     .btn-sm { padding: 0.25rem 0.625rem; font-size: 0.75rem; }
     @media (max-width: 768px) {
       .row { flex-direction: column; gap: 0; }

@@ -141,7 +141,7 @@ import { MatrizCompletaTreeComponent } from './matriz-completa-tree.component';
       color: var(--text-secondary);
     }
     .estado-card.error .estado-content {
-      color: #C62828;
+      color: var(--mdc-red-800);
     }
     .error-icon { font-size: 1.5rem; }
     .error-detail {

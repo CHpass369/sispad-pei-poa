@@ -84,12 +84,12 @@ import { ApiService } from '../../core/services/api.service';
     th, td { padding: 0.625rem 0.75rem; text-align: left; border-bottom: 1px solid var(--border); }
     th { font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; }
     .badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; }
-    .badge-ok { background: #E8F5E9; color: #2E7D32; }
+    .badge-ok { background: var(--mdc-green-50); color: var(--mdc-green-800); }
     .badge-muted { background: #ECEFF1; color: #546E7A; }
     .empty { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .loading { text-align: center; padding: 3rem; color: var(--text-secondary); }
     .alert { padding: 0.75rem 1rem; border-radius: 6px; }
-    .alert-error { background: #FFEBEE; color: var(--warn); }
+    .alert-error { background: var(--mdc-red-50); color: var(--warn); }
   `]
 })
 export class ProgramaListaComponent implements OnInit {

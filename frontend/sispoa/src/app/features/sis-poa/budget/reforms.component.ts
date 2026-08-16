@@ -39,28 +39,28 @@ interface FilaMovimiento {
     .fila-mov { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.5rem; align-items: end; margin-bottom: 0.5rem; }
     .btn-sm { background: var(--surface); border: 1px solid var(--border); }
     .btn-sm:hover { border-color: var(--primary); color: var(--primary); }
-    .btn-danger { background: #FFEBEE; color: #C62828; }
+    .btn-danger { background: var(--mdc-red-50); color: var(--mdc-red-800); }
     .btn-danger:hover { background: #FFCDD2; }
-    .btn-success { background: #2E7D32; color: white; }
+    .btn-success { background: var(--mdc-green-800); color: white; }
     .btn-success:hover { background: #1B5E20; }
     .btn-success:disabled { opacity: 0.5; cursor: not-allowed; }
     .acciones { display: flex; gap: 0.375rem; flex-wrap: wrap; }
-    .alert-error { background: #FFEBEE; color: #C62828; border-radius: 6px; padding: 0.625rem 0.875rem; margin: 0.75rem 0; font-size: 0.875rem; }
-    .alert-success { background: #E8F5E9; color: #2E7D32; border-radius: 6px; padding: 0.625rem 0.875rem; margin: 0.75rem 0; font-size: 0.875rem; }
+    .alert-error { background: var(--mdc-red-50); color: var(--mdc-red-800); border-radius: 6px; padding: 0.625rem 0.875rem; margin: 0.75rem 0; font-size: 0.875rem; }
+    .alert-success { background: var(--mdc-green-50); color: var(--mdc-green-800); border-radius: 6px; padding: 0.625rem 0.875rem; margin: 0.75rem 0; font-size: 0.875rem; }
     .loading, .empty { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .badge { display: inline-block; padding: 0.1875rem 0.5rem; border-radius: 999px; font-size: 0.6875rem; font-weight: 600; }
     .badge-borrador { background: #ECEFF1; color: #455A64; }
-    .badge-revision { background: #FFF3E0; color: #E65100; }
-    .badge-observada { background: #FFEBEE; color: #C62828; }
-    .badge-aprobada { background: #E3F2FD; color: #1565C0; }
-    .badge-aplicada { background: #E8F5E9; color: #2E7D32; }
+    .badge-revision { background: var(--mdc-amber-50); color: #E65100; }
+    .badge-observada { background: var(--mdc-red-50); color: var(--mdc-red-800); }
+    .badge-aprobada { background: var(--mdc-blue-50); color: var(--mdc-blue-800); }
+    .badge-aplicada { background: var(--mdc-green-50); color: var(--mdc-green-800); }
     .badge-rechazada { background: #FBE9E7; color: #BF360C; }
     .fila-seleccionable { cursor: pointer; }
     .fila-seleccionable:hover { background: #F4F8FD; }
     .fila-seleccionada { background: #E3F0FD !important; }
     .detalle-saldos { display: inline-flex; gap: 0.75rem; font-size: 0.75rem; }
     .detalle-saldos .antes { color: var(--text-secondary); text-decoration: line-through; }
-    .detalle-saldos .despues { color: #2E7D32; font-weight: 700; }
+    .detalle-saldos .despues { color: var(--mdc-green-800); font-weight: 700; }
   `],
 })
 export class ReformsComponent implements OnInit {

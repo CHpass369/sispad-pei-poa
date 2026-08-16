@@ -93,12 +93,12 @@ import { ApiService } from '../../core/services/api.service';
     .text-right { text-align: right; font-weight: 600; }
     .text-warn { color: var(--warn); }
     .badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; }
-    .badge-ok { background: #E8F5E9; color: #2E7D32; }
-    .badge-warn { background: #FFF8E1; color: #F57F17; }
+    .badge-ok { background: var(--mdc-green-50); color: var(--mdc-green-800); }
+    .badge-warn { background: var(--mdc-amber-50); color: #F57F17; }
     .empty { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .loading { text-align: center; padding: 3rem; color: var(--text-secondary); }
     .alert { padding: 0.75rem 1rem; border-radius: 6px; }
-    .alert-error { background: #FFEBEE; color: var(--warn); }
+    .alert-error { background: var(--mdc-red-50); color: var(--warn); }
   `]
 })
 export class TechoListaComponent implements OnInit {

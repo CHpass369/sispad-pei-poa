@@ -377,10 +377,10 @@ import {
     .text-secondary { color: var(--text-secondary); font-size: 0.875rem; }
     .stepper { display: flex; gap: 0.25rem; margin-bottom: 1.5rem; overflow-x: auto; padding: 0.5rem 0; }
     .step { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; padding: 0.375rem 0.75rem; cursor: pointer; min-width: 80px; border-radius: 8px; }
-    .step:hover { background: #F5F5F5; }
+    .step:hover { background: var(--mdc-grey-50); }
     .step-circle { width: 1.75rem; height: 1.75rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8125rem; font-weight: 700; background: #E0E0E0; color: var(--text-secondary); }
     .step.active .step-circle { background: var(--primary); color: white; }
-    .step.completed .step-circle { background: #2E7D32; color: white; }
+    .step.completed .step-circle { background: var(--mdc-green-800); color: white; }
     .step-label { font-size: 0.6875rem; color: var(--text-secondary); text-align: center; white-space: nowrap; }
     .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem; }
     .step-title { margin-top: 0; font-size: 1.125rem; }
@@ -392,10 +392,10 @@ import {
     .tipologia-row { display: flex; align-items: center; gap: 0.5rem; }
     .semafaro { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
     .chip { display: inline-block; padding: 0.25rem 0.625rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; }
-    .verde { background: #E8F5E9; color: #2E7D32; }
-    .rojo { background: #FFEBEE; color: #C62828; }
-    .gris { background: #F5F5F5; color: var(--text-secondary); }
-    .badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.6875rem; font-weight: 600; background: #E3F2FD; color: #1565C0; }
+    .verde { background: var(--mdc-green-50); color: var(--mdc-green-800); }
+    .rojo { background: var(--mdc-red-50); color: var(--mdc-red-800); }
+    .gris { background: var(--mdc-grey-50); color: var(--text-secondary); }
+    .badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.6875rem; font-weight: 600; background: var(--mdc-blue-50); color: var(--mdc-blue-800); }
     .condiciones, .secciones { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0.75rem; }
     .condicion, .seccion { border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem; }
     .recuadro-critica { border-color: #EF9A9A; background: #FFF8F8; }
@@ -410,7 +410,7 @@ import {
     .mini-lista li { padding: 0.25rem 0; border-bottom: 1px solid var(--border); }
     .total { text-align: right; font-size: 0.875rem; }
     .acciones { margin-top: 1rem; display: flex; flex-direction: column; gap: 0.5rem; align-items: flex-start; }
-    .errores { padding: 0.75rem; background: #FFEBEE; border-radius: 6px; font-size: 0.8125rem; color: #C62828; }
+    .errores { padding: 0.75rem; background: var(--mdc-red-50); border-radius: 6px; font-size: 0.8125rem; color: var(--mdc-red-800); }
     .errores ul { margin: 0.25rem 0 0; padding-left: 1.25rem; }
     .documentos { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
     .doc-card { border: 1px solid var(--border); border-radius: 8px; padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem; }
@@ -424,10 +424,10 @@ import {
     .nav-info { font-size: 0.8125rem; color: var(--text-secondary); }
     .btn { display: inline-flex; align-items: center; padding: 0.5rem 0.875rem; border-radius: 6px; border: none; font-size: 0.8125rem; font-weight: 600; cursor: pointer; text-decoration: none; }
     .btn-primary { background: var(--primary); color: white; }
-    .btn-sm { background: #E3F2FD; color: #1565C0; padding: 0.375rem 0.625rem; }
+    .btn-sm { background: var(--mdc-blue-50); color: var(--mdc-blue-800); padding: 0.375rem 0.625rem; }
     .alert { padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1rem; }
-    .alert-error { background: #FFEBEE; color: var(--warn); }
-    .alert-success { background: #E8F5E9; color: #2E7D32; }
+    .alert-error { background: var(--mdc-red-50); color: var(--warn); }
+    .alert-success { background: var(--mdc-green-50); color: var(--mdc-green-800); }
     @media (max-width: 640px) { .stepper { gap: 0; } .step { min-width: 60px; padding: 0.25rem 0.375rem; } }
   `],
 })

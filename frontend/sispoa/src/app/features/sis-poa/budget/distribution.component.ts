@@ -26,7 +26,7 @@ import {
     .card-resumen .etiqueta { font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); }
     .card-resumen .valor { font-size: 1.125rem; font-weight: 700; margin-top: 0.25rem; }
     .card-resumen.destacada { border-color: var(--primary); background: #F4F8FD; }
-    .card-resumen.resalta { border-color: #2E7D32; background: #F1F8F2; }
+    .card-resumen.resalta { border-color: var(--mdc-green-800); background: #F1F8F2; }
     .seccion { margin-top: 1.5rem; }
     .seccion h3 { font-size: 0.9375rem; margin-bottom: 0.75rem; }
     .data-table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
@@ -40,14 +40,14 @@ import {
     .fila-fuente { display: flex; gap: 0.5rem; align-items: flex-end; margin-bottom: 0.5rem; flex-wrap: wrap; }
     .btn-sm { background: var(--surface); border: 1px solid var(--border); }
     .btn-sm:hover { border-color: var(--primary); color: var(--primary); }
-    .btn-danger { background: #FFEBEE; color: #C62828; }
+    .btn-danger { background: var(--mdc-red-50); color: var(--mdc-red-800); }
     .btn-danger:hover { background: #FFCDD2; }
-    .btn-success { background: #2E7D32; color: white; }
+    .btn-success { background: var(--mdc-green-800); color: white; }
     .btn-success:hover { background: #1B5E20; }
     .btn-success:disabled { opacity: 0.5; cursor: not-allowed; }
     .acciones { display: flex; gap: 0.375rem; flex-wrap: wrap; }
-    .alert-error { background: #FFEBEE; color: #C62828; border-radius: 6px; padding: 0.625rem 0.875rem; margin: 0.75rem 0; font-size: 0.875rem; }
-    .alert-success { background: #E8F5E9; color: #2E7D32; border-radius: 6px; padding: 0.625rem 0.875rem; margin: 0.75rem 0; font-size: 0.875rem; }
+    .alert-error { background: var(--mdc-red-50); color: var(--mdc-red-800); border-radius: 6px; padding: 0.625rem 0.875rem; margin: 0.75rem 0; font-size: 0.875rem; }
+    .alert-success { background: var(--mdc-green-50); color: var(--mdc-green-800); border-radius: 6px; padding: 0.625rem 0.875rem; margin: 0.75rem 0; font-size: 0.875rem; }
     .loading, .empty { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .tooltip-wrap { position: relative; display: inline-block; }
     .tooltip-wrap .tooltip-text { visibility: hidden; background: #333; color: #fff; text-align: center; border-radius: 4px; padding: 0.25rem 0.5rem; position: absolute; bottom: 125%; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 0.75rem; z-index: 10; }

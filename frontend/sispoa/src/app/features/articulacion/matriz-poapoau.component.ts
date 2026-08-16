@@ -223,16 +223,16 @@ export function buildOperacionTree(rows: any[]): {
       white-space: nowrap;
     }
     .matriz-table td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); vertical-align: top; }
-    .matriz-table tbody tr:hover td { background: #F0F7F3; }
+    .matriz-table tbody tr:hover td { background: var(--mdc-hover); }
 
     .fila-op { cursor: pointer; }
-    .fila-op td { background: #E8F5E9; font-weight: 500; border-bottom: 2px solid #C8E6C9; }
+    .fila-op td { background: var(--mdc-green-50); font-weight: 500; border-bottom: 2px solid #C8E6C9; }
     .fila-op:hover td { background: #C8E6C9; }
 
     .fila-act td { padding: 0; }
     .jerarquia-wrapper { padding: 0.5rem 1rem 0.5rem 1.5rem; background: #FAFCFA; }
     .act-header { display: flex; align-items: center; gap: 0.625rem; cursor: pointer; padding: 0.375rem 0; }
-    .act-header:hover { background: #F0F7F3; border-radius: 4px; }
+    .act-header:hover { background: var(--mdc-hover); border-radius: 4px; }
     .act-nombre { flex: 1; font-size: 0.8125rem; }
     .act-meta { font-size: 0.75rem; color: var(--text-secondary); margin-right: auto; }
     .codigo-sub { font-family: 'Courier New', monospace; font-weight: 600; font-size: 0.75rem; color: var(--primary-dark); }

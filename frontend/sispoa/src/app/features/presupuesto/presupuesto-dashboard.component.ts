@@ -92,7 +92,7 @@ import { ApiService } from '../../core/services/api.service';
     .text-secondary { color: var(--text-secondary); font-size: 0.875rem; }
     .finance-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
     .finance-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; }
-    .finance-card.highlight { border-left: 4px solid var(--accent); background: #FFF8E1; }
+    .finance-card.highlight { border-left: 4px solid var(--accent); background: var(--mdc-amber-50); }
     .finance-card.text-warn { border-left: 4px solid var(--warn); }
     .finance-label { display: block; font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.25rem; text-transform: uppercase; }
     .finance-value { font-size: 1.375rem; font-weight: 700; color: var(--primary); }
@@ -105,12 +105,12 @@ import { ApiService } from '../../core/services/api.service';
     th, td { padding: 0.625rem 0.75rem; text-align: left; border-bottom: 1px solid var(--border); }
     th { font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; }
     .badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; }
-    .badge-ok { background: #E8F5E9; color: #2E7D32; }
-    .badge-warn { background: #FFF8E1; color: #F57F17; }
-    .badge-danger { background: #FFEBEE; color: #C62828; }
+    .badge-ok { background: var(--mdc-green-50); color: var(--mdc-green-800); }
+    .badge-warn { background: var(--mdc-amber-50); color: #F57F17; }
+    .badge-danger { background: var(--mdc-red-50); color: var(--mdc-red-800); }
     .loading { text-align: center; padding: 3rem; color: var(--text-secondary); }
     .alert { padding: 0.75rem 1rem; border-radius: 6px; }
-    .alert-error { background: #FFEBEE; color: var(--warn); }
+    .alert-error { background: var(--mdc-red-50); color: var(--warn); }
   `]
 })
 export class PresupuestoDashboardComponent implements OnInit {

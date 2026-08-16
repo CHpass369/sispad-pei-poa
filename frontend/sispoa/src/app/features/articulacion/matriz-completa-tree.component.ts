@@ -12,14 +12,14 @@ import { NodoArbol } from './matrices-contracts';
 import { MatrizCompletaService } from './matriz-completa.service';
 
 const NIVEL_COLORS: Record<string, string> = {
-  eje: '#1565C0',
+  eje: 'var(--mdc-blue-800)',
   meta: '#42A5F5',
   resultado: '#90CAF9',
-  componente: '#2E7D32',
+  componente: 'var(--mdc-green-800)',
   accion: '#66BB6A',
   pad: '#EF6C00',
   pei: '#7B1FA2',
-  poa: '#C62828',
+  poa: 'var(--mdc-red-800)',
 };
 
 const NIVEL_LABELS: Record<string, string> = {
@@ -201,9 +201,9 @@ const NIVEL_LABELS: Record<string, string> = {
       border-bottom: 1px solid var(--border);
       vertical-align: middle;
     }
-    .tr-nodo:hover td { background: #F0F7F3; }
+    .tr-nodo:hover td { background: var(--mdc-hover); }
     .tr-nodo:nth-child(even) td { background: #FAFCFA; }
-    .tr-nodo:nth-child(even):hover td { background: #F0F7F3; }
+    .tr-nodo:nth-child(even):hover td { background: var(--mdc-hover); }
 
     .td-codigo { white-space: nowrap; }
     .btn-expand {
@@ -252,8 +252,8 @@ const NIVEL_LABELS: Record<string, string> = {
     }
     .chip {
       font-size: 0.625rem;
-      background: #E8F5E9;
-      color: #2E7D32;
+      background: var(--mdc-green-50);
+      color: var(--mdc-green-800);
       padding: 1px 6px;
       border-radius: 8px;
       white-space: nowrap;
@@ -264,7 +264,7 @@ const NIVEL_LABELS: Record<string, string> = {
     .td-acciones { text-align: center; }
 
     .btn-articular {
-      background: #FFF3E0;
+      background: var(--mdc-amber-50);
       border: 1px solid #FFCC80;
       color: #E65100;
       padding: 0.25rem 0.5rem;
@@ -305,7 +305,7 @@ const NIVEL_LABELS: Record<string, string> = {
       color: var(--text-secondary);
       padding: 2px 6px;
     }
-    .btn-cerrar:hover { color: #C62828; }
+    .btn-cerrar:hover { color: var(--mdc-red-800); }
     .picker-search { margin-bottom: 0.5rem; }
     .picker-input {
       width: 100%;
@@ -337,8 +337,8 @@ const NIVEL_LABELS: Record<string, string> = {
       transition: background 0.1s;
     }
     .picker-item:last-child { border-bottom: none; }
-    .picker-item:hover { background: #E3F2FD; }
-    .picker-item-selected { background: #E8F5E9; }
+    .picker-item:hover { background: var(--mdc-blue-50); }
+    .picker-item-selected { background: var(--mdc-green-50); }
     .picker-item-codigo {
       font-family: 'Courier New', monospace;
       font-weight: 700;
@@ -348,7 +348,7 @@ const NIVEL_LABELS: Record<string, string> = {
     }
     .picker-item-nombre { flex: 1; font-size: 0.8125rem; }
     .picker-item-check {
-      color: #2E7D32;
+      color: var(--mdc-green-800);
       font-weight: 700;
       font-size: 1rem;
     }
@@ -373,12 +373,12 @@ const NIVEL_LABELS: Record<string, string> = {
       text-align: center;
     }
     .picker-feedback.success {
-      background: #E8F5E9;
-      color: #2E7D32;
+      background: var(--mdc-green-50);
+      color: var(--mdc-green-800);
     }
     .picker-feedback.error {
-      background: #FFEBEE;
-      color: #C62828;
+      background: var(--mdc-red-50);
+      color: var(--mdc-red-800);
     }
 
     .td-children {

@@ -86,9 +86,9 @@ import { ApiService } from '../../core/services/api.service';
     .header-right { display: flex; align-items: center; gap: 1rem; }
     .text-secondary { color: var(--text-secondary); font-size: 0.875rem; }
     .badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
-    .badge-role { background: #E3F2FD; color: #1565C0; text-transform: uppercase; }
+    .badge-role { background: var(--mdc-blue-50); color: var(--mdc-blue-800); text-transform: uppercase; }
     .notif-bell { position: relative; cursor: pointer; font-size: 1.25rem; padding: 0.25rem; }
-    .notif-count { position: absolute; top: -4px; right: -4px; background: #C62828; color: white; font-size: 0.625rem; padding: 0.125rem 0.375rem; border-radius: 10px; font-weight: 700; }
+    .notif-count { position: absolute; top: -4px; right: -4px; background: var(--mdc-red-800); color: white; font-size: 0.625rem; padding: 0.125rem 0.375rem; border-radius: 10px; font-weight: 700; }
     .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
     .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; }
     .stat-card { text-align: center; }
@@ -107,7 +107,7 @@ import { ApiService } from '../../core/services/api.service';
     .profile-details span { font-size: 0.8125rem; color: var(--text-secondary); }
     .loading { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .alert { padding: 0.75rem 1rem; border-radius: 6px; margin-top: 1rem; }
-    .alert-error { background: #FFEBEE; color: var(--warn); }
+    .alert-error { background: var(--mdc-red-50); color: var(--warn); }
   `]
 })
 export class DashboardComponent implements OnInit {

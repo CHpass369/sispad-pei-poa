@@ -109,14 +109,14 @@ import { ApiService } from '../../core/services/api.service';
       white-space: nowrap; position: sticky; top: 0; z-index: 1;
     }
     .matriz-table td { padding: 0.5rem 0.625rem; border-bottom: 1px solid var(--border); vertical-align: top; }
-    .matriz-table tbody tr:hover { background: #F0F7F3; }
+    .matriz-table tbody tr:hover { background: var(--mdc-hover); }
     .amp-cell { background: var(--bg); font-size: 0.8125rem; vertical-align: middle !important; }
     .amp-desc { background: var(--bg); font-size: 0.8125rem; }
     .producto { font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.25rem; }
     .programa-link { margin-top: 0.25rem; }
     .programa-link small { color: var(--primary); }
     .formula-cell { font-family: 'Courier New', monospace; font-size: 0.75rem; max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
-    code { font-size: 0.75rem; background: #E8F5E9; padding: 0.125rem 0.375rem; border-radius: 3px; }
+    code { font-size: 0.75rem; background: var(--mdc-green-50); padding: 0.125rem 0.375rem; border-radius: 3px; }
     .empty { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .table-footer { padding: 0.75rem; font-size: 0.75rem; color: var(--text-secondary); }
   `]

@@ -95,9 +95,9 @@ interface TreeNode {
     .tree-container { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; }
     .tree-item { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.75rem; border-radius: 4px; margin-bottom: 2px; font-size: 0.875rem; }
     .tree-item:hover { background: var(--hover, #fafafa); }
-    .tree-item.tipo-pdesa { border-left: 3px solid #1565C0; font-weight: 600; }
+    .tree-item.tipo-pdesa { border-left: 3px solid var(--mdc-blue-800); font-weight: 600; }
     .tree-item.tipo-ptdi { border-left: 3px solid #6A1B9A; }
-    .tree-item.tipo-pei { border-left: 3px solid #2E7D32; }
+    .tree-item.tipo-pei { border-left: 3px solid var(--mdc-green-800); }
     .tree-item.tipo-pad { border-left: 3px solid #E65100; }
     .tree-item.tipo-poau { border-left: 3px solid #00838F; }
     .tree-toggle { cursor: pointer; user-select: none; font-size: 0.75rem; color: var(--text-secondary); min-width: 16px; }
@@ -107,21 +107,21 @@ interface TreeNode {
     .tree-monto { font-size: 0.8125rem; font-weight: 600; margin-left: 0.5rem; }
     .badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.6875rem; font-weight: 600; }
     .badge-tipo { text-transform: uppercase; }
-    .badge-pdesa { background: #E3F2FD; color: #1565C0; }
+    .badge-pdesa { background: var(--mdc-blue-50); color: var(--mdc-blue-800); }
     .badge-ptdi { background: #F3E5F5; color: #6A1B9A; }
-    .badge-pei { background: #E8F5E9; color: #2E7D32; }
-    .badge-pad { background: #FFF3E0; color: #E65100; }
+    .badge-pei { background: var(--mdc-green-50); color: var(--mdc-green-800); }
+    .badge-pad { background: var(--mdc-amber-50); color: #E65100; }
     .badge-poau { background: #E0F7FA; color: #00838F; }
-    .badge-completo, .badge-aprobado { background: #E8F5E9; color: #2E7D32; }
-    .badge-en_curso, .badge-en-curso { background: #FFF3E0; color: #E65100; }
-    .badge-pendiente, .badge-borrador { background: #F5F5F5; color: #616161; }
+    .badge-completo, .badge-aprobado { background: var(--mdc-green-50); color: var(--mdc-green-800); }
+    .badge-en_curso, .badge-en-curso { background: var(--mdc-amber-50); color: #E65100; }
+    .badge-pendiente, .badge-borrador { background: var(--mdc-grey-50); color: #616161; }
     .btn { display: inline-flex; align-items: center; padding: 0.5rem 1rem; border-radius: 6px; border: none; font-size: 0.875rem; font-weight: 600; cursor: pointer; }
     .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-primary); }
     .btn-outline:hover { background: var(--hover, #f5f5f5); }
     .empty { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .loading { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .alert { padding: 0.75rem 1rem; border-radius: 6px; margin-top: 1rem; }
-    .alert-error { background: #FFEBEE; color: var(--warn); }
+    .alert-error { background: var(--mdc-red-50); color: var(--warn); }
   `]
 })
 export class ConsolidacionDetalleComponent implements OnInit {

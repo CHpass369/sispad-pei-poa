@@ -91,7 +91,7 @@ import { AdminUsuariosService, AdminUsuario, AdminRol } from './admin-usuarios.s
     .btn-outline:hover { background: var(--hover, #f5f5f5); }
     .loading { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .alert { padding: 0.75rem 1rem; border-radius: 6px; margin-top: 1rem; }
-    .alert-error { background: #FFEBEE; color: var(--warn); }
+    .alert-error { background: var(--mdc-red-50); color: var(--warn); }
   `]
 })
 export class UsuarioFormComponent implements OnInit {

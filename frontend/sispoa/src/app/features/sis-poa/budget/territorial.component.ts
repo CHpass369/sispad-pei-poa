@@ -36,12 +36,12 @@ export const METODOS: { valor: string; etiqueta: string; usaPoblacion: boolean; 
     .acciones { display: flex; gap: 0.375rem; flex-wrap: wrap; }
     .btn-sm { background: var(--surface); border: 1px solid var(--border); }
     .btn-sm:hover { border-color: var(--primary); color: var(--primary); }
-    .alert-error { background: #FFEBEE; color: #C62828; border-radius: 6px; padding: 0.625rem 0.875rem; margin: 0.75rem 0; font-size: 0.875rem; }
-    .alert-success { background: #E8F5E9; color: #2E7D32; border-radius: 6px; padding: 0.625rem 0.875rem; margin: 0.75rem 0; font-size: 0.875rem; }
+    .alert-error { background: var(--mdc-red-50); color: var(--mdc-red-800); border-radius: 6px; padding: 0.625rem 0.875rem; margin: 0.75rem 0; font-size: 0.875rem; }
+    .alert-success { background: var(--mdc-green-50); color: var(--mdc-green-800); border-radius: 6px; padding: 0.625rem 0.875rem; margin: 0.75rem 0; font-size: 0.875rem; }
     .loading, .empty { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .total-badge { display: inline-block; border-radius: 999px; padding: 0.25rem 0.625rem; font-size: 0.75rem; font-weight: 700; }
-    .total-badge.ok { background: #E8F5E9; color: #2E7D32; }
-    .total-badge.bad { background: #FFEBEE; color: #C62828; }
+    .total-badge.ok { background: var(--mdc-green-50); color: var(--mdc-green-800); }
+    .total-badge.bad { background: var(--mdc-red-50); color: var(--mdc-red-800); }
     .fila-distribucion { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 0.375rem; cursor: pointer; font-size: 0.8125rem; }
     .fila-distribucion:hover { border-color: var(--primary); }
     .fila-distribucion.seleccionada { border-color: var(--primary); background: #F4F8FD; }

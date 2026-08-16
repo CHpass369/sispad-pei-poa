@@ -38,15 +38,15 @@ interface PasosDef {
     .data-table th, .data-table td { padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid var(--border); font-size: 0.8125rem; }
     .data-table th { font-weight: 600; }
     .acciones { display: flex; gap: 0.5rem; margin-top: 1rem; flex-wrap: wrap; }
-    .alert-error { background: #FFEBEE; color: #C62828; border-radius: 6px; padding: 0.625rem 0.875rem; margin: 0.75rem 0; font-size: 0.875rem; }
-    .alert-success { background: #E8F5E9; color: #2E7D32; border-radius: 6px; padding: 0.625rem 0.875rem; margin: 0.75rem 0; font-size: 0.875rem; }
+    .alert-error { background: var(--mdc-red-50); color: var(--mdc-red-800); border-radius: 6px; padding: 0.625rem 0.875rem; margin: 0.75rem 0; font-size: 0.875rem; }
+    .alert-success { background: var(--mdc-green-50); color: var(--mdc-green-800); border-radius: 6px; padding: 0.625rem 0.875rem; margin: 0.75rem 0; font-size: 0.875rem; }
     .loading, .empty { text-align: center; padding: 1.5rem; color: var(--text-secondary); }
     .badge { display: inline-block; padding: 0.2rem 0.5rem; border-radius: 999px; font-size: 0.6875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
-    .badge-success { background: #E8F5E9; color: #2E7D32; }
-    .badge-warning { background: #FFF8E1; color: #F57F17; }
-    .badge-error { background: #FFEBEE; color: #C62828; }
+    .badge-success { background: var(--mdc-green-50); color: var(--mdc-green-800); }
+    .badge-warning { background: var(--mdc-amber-50); color: #F57F17; }
+    .badge-error { background: var(--mdc-red-50); color: var(--mdc-red-800); }
     .badge-critical { background: #B71C1C; color: #fff; }
-    .badge-info { background: #E3F2FD; color: #1565C0; }
+    .badge-info { background: var(--mdc-blue-50); color: var(--mdc-blue-800); }
     .estado-archivo { font-size: 0.8125rem; color: var(--text-secondary); margin-top: 0.5rem; word-break: break-all; }
     .resumen-conteos { display: flex; gap: 0.75rem; flex-wrap: wrap; margin: 0.75rem 0; }
     .resumen-conteos .item { border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 0.875rem; font-size: 0.8125rem; }

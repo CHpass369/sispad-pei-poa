@@ -138,25 +138,25 @@ import { CondicionITCP, ITCP, PreinversionService } from './preinversion.service
     .input { padding: 0.5rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.875rem; font-family: inherit; }
     .semafaro { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
     .chip { padding: 0.25rem 0.625rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; }
-    .verde { background: #E8F5E9; color: #2E7D32; }
-    .rojo { background: #FFEBEE; color: #C62828; }
-    .gris { background: #FFF3E0; color: #E65100; }
+    .verde { background: var(--mdc-green-50); color: var(--mdc-green-800); }
+    .rojo { background: var(--mdc-red-50); color: var(--mdc-red-800); }
+    .gris { background: var(--mdc-amber-50); color: #E65100; }
     .data-table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
     .data-table th, .data-table td { padding: 0.5rem 0.625rem; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
     .no-aplica td { opacity: 0.6; }
     .texto { white-space: pre-wrap; }
-    .badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.6875rem; font-weight: 600; background: #E3F2FD; color: #1565C0; }
+    .badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.6875rem; font-weight: 600; background: var(--mdc-blue-50); color: var(--mdc-blue-800); }
     .estado { background: #F3E5F5; color: #6A1B9A; }
     .acciones { display: flex; gap: 0.5rem; flex-wrap: wrap; }
     .btn { display: inline-flex; align-items: center; padding: 0.5rem 0.875rem; border-radius: 6px; border: none; font-size: 0.8125rem; font-weight: 600; cursor: pointer; }
     .btn-primary { background: var(--primary); color: white; }
-    .btn-sm { background: #E3F2FD; color: #1565C0; }
-    .errores { margin-top: 1rem; padding: 0.75rem; background: #FFEBEE; border-radius: 6px; font-size: 0.8125rem; color: #C62828; }
+    .btn-sm { background: var(--mdc-blue-50); color: var(--mdc-blue-800); }
+    .errores { margin-top: 1rem; padding: 0.75rem; background: var(--mdc-red-50); border-radius: 6px; font-size: 0.8125rem; color: var(--mdc-red-800); }
     .errores ul { margin: 0.25rem 0 0; padding-left: 1.25rem; }
     .loading { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .alert { padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1rem; }
-    .alert-error { background: #FFEBEE; color: var(--warn); }
-    .alert-success { background: #E8F5E9; color: #2E7D32; }
+    .alert-error { background: var(--mdc-red-50); color: var(--warn); }
+    .alert-success { background: var(--mdc-green-50); color: var(--mdc-green-800); }
   `],
 })
 export class PreinversionItcpComponent implements OnInit {

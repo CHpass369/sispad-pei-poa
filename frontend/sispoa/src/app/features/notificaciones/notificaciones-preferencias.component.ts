@@ -88,8 +88,8 @@ import { NotificacionesService, PreferenciaNotificacion } from './notificaciones
     .empty { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .loading { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .alert { padding: 0.75rem 1rem; border-radius: 6px; margin-top: 1rem; }
-    .alert-success { background: #E8F5E9; color: #2E7D32; }
-    .alert-error { background: #FFEBEE; color: var(--warn); }
+    .alert-success { background: var(--mdc-green-50); color: var(--mdc-green-800); }
+    .alert-error { background: var(--mdc-red-50); color: var(--warn); }
   `]
 })
 export class NotificacionesPreferenciasComponent implements OnInit {
