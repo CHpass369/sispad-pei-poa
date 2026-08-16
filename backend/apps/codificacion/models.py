@@ -617,18 +617,29 @@ class LineamientoPAD(CatalogoSegmentoBase):
         related_name='lineamientos_pad',
         verbose_name='Entidad territorial CGEO',
     )
+    componente = models.ForeignKey(
+        ComponentePDESA,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='lineamientos_pad',
+        verbose_name='Componente PDESA',
+        help_text='Componente del PDESA al que pertenece el lineamiento (cascada del wizard).',
+    )
 
     class Meta(CatalogoSegmentoBase.Meta):
         verbose_name = 'Lineamiento PAD'
         verbose_name_plural = 'Lineamientos PAD'
         constraints = [
             models.UniqueConstraint(
-                fields=['entidad_territorial', 'codigo', 'version_catalogo'],
-                name='uniq_lineamiento_pad_territorio_codigo_version',
+                fields=['entidad_territorial', 'componente', 'codigo', 'version_catalogo'],
+                condition=models.Q(componente__isnull=False),
+                name='uniq_lineamiento_pad_territorio_componente_codigo_version',
             ),
         ]
         indexes = [
             models.Index(fields=['entidad_territorial', 'activo']),
+            models.Index(fields=['componente']),
         ]
 
 

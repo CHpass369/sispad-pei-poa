@@ -7,6 +7,8 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 
 from apps.codificacion.models import (
+    ComponentePDESA,
+    EjePGDESA,
     EntidadCodificadora,
     EntidadTerritorialCGEO,
     LineamientoPAD,
@@ -213,14 +215,35 @@ class TestLineamientoPAD:
             lineamiento.full_clean()
 
     def test_unique_territorio_codigo_version(self, version_pad, sacaba):
+        # El constraint de unicidad aplica por (entidad, componente, codigo, version):
+        # sin componente las filas no chocan; con el mismo componente sí.
         LineamientoPAD.objects.create(
             codigo='02', denominacion='A',
             entidad_territorial=sacaba, version_catalogo=version_pad,
         )
+        # Sin componente: permitido (componente nullable).
+        LineamientoPAD.objects.create(
+            codigo='02', denominacion='B',
+            entidad_territorial=sacaba, version_catalogo=version_pad,
+        )
+        # Con el mismo componente: colisión.
+        eje = EjePGDESA.objects.create(
+            codigo='01', denominacion='Eje test', version_catalogo=version_pad,
+        )
+        componente = ComponentePDESA.objects.create(
+            codigo='01', denominacion='Componente test',
+            version_catalogo=version_pad, eje=eje,
+        )
+        LineamientoPAD.objects.create(
+            codigo='02', denominacion='C',
+            entidad_territorial=sacaba, version_catalogo=version_pad,
+            componente=componente,
+        )
         with pytest.raises(IntegrityError):
             LineamientoPAD.objects.create(
-                codigo='02', denominacion='B',
+                codigo='02', denominacion='D',
                 entidad_territorial=sacaba, version_catalogo=version_pad,
+                componente=componente,
             )
 
     def test_mismo_codigo_en_otra_version_es_valido(self, version_pad, sacaba):
