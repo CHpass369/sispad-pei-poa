@@ -92,3 +92,13 @@ no retira ninguna compatibilidad (regla general §1).
 
 - **Sunset sugerido API V1: 2027-01-01** (`API_V1_SUNSET` en `config/settings.py`), 1-2 ciclos de gestión tras el cutover completo de cada dominio (§2 punto 1).
 - El retiro (404/eliminación) solo tras la ventana de observación, con monitoreo de consumidores y respaldo `-Fc` verificado (§4).
+
+### 6.4 Evidencia de auditoría — punto 17 (cadena operativa `indicadores_*`)
+
+Auditoría TASK PIP-PE-001 (2026-08-16, read-only; `docs/architecture/CADENA_OPERATIVA_EQUIVALENCIA.md`):
+
+- **`indicadores_*` está vacío** (0 registros en `operacion`, `tarea`, `producto`, `indicador`, `metaprogramada`): el retiro **no requiere reconciliación de datos** y su riesgo de datos es nulo.
+- La cadena canónica `poau` V2 ya está poblada y **reconciliada** desde `articulacion` (lote `poa-2027`, `LegacyMigrationMap` = `reconciliado`, 4 niveles).
+- **Aclaración de canonicidad**: la jerarquía canónica V2 del SIS-POA es `poau.models_v2` (`PoAInstitucional → AccionCortoPlazo → Operacion → Actividad → Tarea`), expuesta en `/api/v2/sis-poa/`. `articulacion_*` es la cadena de articulación SIS-PE y la **fuente legacy** del puente `poau/migration_v2.py` (su propio docstring la llama "cadena operativa legacy"). `indicadores_*` es un **duplicado adicional** de esa jerarquía con topología distinta (2 niveles, padre `planificacion.AcccionCortoPlazo`).
+- Consumidores a migrar antes del retiro: frontend `features/indicadores`, `features/portal-publico` (`GET /indicadores/`); backend `planificacion/views.py` (FormulacionViewSet), `workflow/consolidacion.py`, `reportes/services.py`, `scripts/seed_demo.py`, `poau/migration_v2.py:228`, comandos `importar_matriz_base`/`importar_reales`.
+- Plan de corte derivado: `tasks/backlog/PIP-PE-002` (reconciliación), `PIP-PE-003` (corte), `PIP-PE-004` (refactor puente). El alcance de REMOVE_LATER se **mantiene** (nada que cambiar): sigue tras cutover V2 y reconciliación.
