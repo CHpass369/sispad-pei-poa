@@ -92,4 +92,24 @@ Reversa del commit del refactor; la transacción del lote evita estados parciale
 
 ## FINAL REPORT
 
-Cambios al puente, tests agregados, resultados de idempotencia, estados mapeados, deuda pendiente.
+Cerrada 2026-08-16 (verificación de gates ejecutada por el orquestador tras entrega sin reporte del writer).
+
+**Cambios al puente (`backend/apps/poau/migration_v2.py`, +252/−193):**
+- Idempotencia por checksum: `_accion_para_origen` decide `crear` / `actualizar` (origen cambió) / `saltar` (no-op) comparando con `LegacyMigrationMap`; `_sync_v2` re-sincroniza campos y estado solo si difieren.
+- Transacción atómica por gestión (`transaction.atomic` por POA) con registro de errores en `resumen['errores']` sin abortar el lote.
+- Mapeo de estados explícito `MAPA_ESTADOS_ORIGEN_V2` (REFERENCIAL→BORRADOR, ENVIADO→EN_REVISION, APROBADO→APROBADO, OBSERVADO→OBSERVADO), configurable (`mapa_estados`); estados desconocidos → BORRADOR con reporte en `estados_desconocidos`.
+- `dry_run`/`check` sin escritura con detalle de discrepancias (`campos_a_reescribir`).
+- Limitación documentada: `LegacyMigrationMap.checksum` es campo único → no hay historial de checksums por corrida.
+- Firma: `importar_poa_v2(lote='poa', dry_run=False, gestion=None, check=False, mapa_estados=None)`.
+
+**Estados mapeados:** REFERENCIAL/ENVIADO/APROBADO/OBSERVADO → BORRADOR/EN_REVISION/APROBADO/OBSERVADO.
+
+**Verificación (orquestador):**
+- Import: OK (vía manage.py; import directo requiere DJANGO_SETTINGS_MODULE).
+- Idempotencia real contra DB local (lote poa-2027): `dry_run` → 0 crear / 0 actualizar / **4 saltar** / 0 errores; corrida real → **0 crear / 0 actualizar / 4 saltar** / 0 errores (sin duplicados).
+- `pytest apps/poau apps/articulacion` → **223 passed** (4m53s).
+- Suite completa: 1er run 1281 passed + 1 failed (`test_e2e_camino_critico`, **flaky pre-existente**: pasa aislado y en re-run); 2do run → **1282 passed** (6m47s). Mismo patrón de flakiness xdist que `catalogos:363` (CORE-004).
+
+**Tests agregados:** cobertura del puente (idempotencia, re-sincronización, dry_run) dentro de apps/poau/articulacion (223 incluyen los nuevos).
+
+**Deuda detectada:** (1) contador `migraciones` suma también los `saltar` (semántica de conteo, no bloqueante); (2) flakiness xdist de `tests/test_rendimiento_wp13.py::test_e2e_camino_critico` y `catalogos:363` → tarea futura de aislamiento de seeds/orden; (3) sin historial de checksums por corrida (limitación del modelo LegacyMigrationMap).
