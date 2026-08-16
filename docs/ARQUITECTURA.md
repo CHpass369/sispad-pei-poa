@@ -479,18 +479,21 @@ Los umbrales son configurables via `UmbralConfiguracion`:
 
 ## Validaciones Criticas (Seccion 37)
 
-```python
-# validators.py
-validar_ponderaciones_suma_100(items)      # Ponderaciones = 100%
-validar_fechas_consistentes(inicio, fin)   # Inicio < Fin
-validar_codigo_unico(modelo, cod, gestion) # Unicidad por gestion
-validar_meta_no_negativa(valor)            # Meta >= 0
-validar_lineas_igual_total(lineas, total)  # Suma lineas = Total
-validar_sin_circulares(origen, destino)    # Sin referencias circulares
-validar_accion_poa_sin_pei(accion)         # ACP articulada a AMP
-validar_accion_pei_sin_pad(accion)         # AMP articulada a PAD
-validar_meta_sin_indicador(meta)           # Meta con indicadores
-validar_indicador_sin_unidad(ind)          # Indicador con unidad
-validar_actividad_fuera_periodo(act, g)    # Actividad dentro de gestion
-validar_presupuesto_mayor_techo(pres, techo) # Presupuesto <= Techo
-```
+Estado real al 2026-08-16 tras `PIP-CORE-002` y `PIP-CORE-003` (eliminación de validadores muertos en `backend/apps/core/validators.py`): las reglas de negocio viven en su dominio canónico (motor de articulación, budget V2, seguimiento, workflow, documentos), no en core (regla CORE, ver `docs/architecture/DOMAIN_BOUNDARIES.md`).
+
+| Validador (histórico) | Estado actual | Dueño de la regla |
+| --------------------- | ------------- | ----------------- |
+| `validar_ponderaciones_suma_100` | **Conservado** (pendiente traslado a SIS-PE) | Sin dueño implementado — traslado a SIS-PE (deuda PIP-CORE-003) |
+| `validar_fechas_consistentes` | Eliminado | `gestion/services.py` (`validar_fechas_gestion`) |
+| `validar_codigo_unico` | Eliminado | Constraints de unicidad (p.ej. `budget/models.py`) |
+| `validar_meta_no_negativa` | **Vivo** (en uso) | core/indicadores |
+| `validar_lineas_igual_total` | **Vivo** (en uso) | `presupuesto/services.py` |
+| `validar_sin_circulares` | Eliminado (disfuncional: `_padre_field` inexistente) | — |
+| `validar_accion_poa_sin_pei` | Eliminado | Motor de articulación (`articulacion`) |
+| `validar_accion_pei_sin_pad` | Eliminado (import roto `PlanAnual`) | `ArticulacionPADPEI` / motor |
+| `validar_meta_sin_indicador` | Eliminado | SIS-PE (`indicadores`) |
+| `validar_indicador_sin_unidad` | Eliminado | SIS-PE (`indicadores`) |
+| `validar_actividad_fuera_periodo` | Eliminado | SIS-POA |
+| `validar_presupuesto_mayor_techo` | Eliminado | budget V2 (techos) |
+
+Decisión de dominio y censo de llamadores: `tasks/completed/PIP-CORE-002-validadores-muertos-import-roto.md` y `tasks/completed/PIP-CORE-003-validadores-muertos-restantes.md`.
