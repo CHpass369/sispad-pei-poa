@@ -117,4 +117,61 @@ describe('SidebarComponent', () => {
     // Los legacy con rol siguen regidos por roles.
     expect(rutas).toContain('/inversion');
   });
+
+  // --- Contexto del sistema por ruta de módulo (bug: el menú perdía el SIS
+  // al navegar a módulos legacy/V2 fuera del prefijo /sis-*) ---
+  function rutasVisibles(): string[] {
+    return component['visibleSections'].flatMap(s => s.items).map(i => i.route);
+  }
+
+  function navegarA(url: string): void {
+    (component as unknown as { router: { url: string } })['router'] = { url } as never;
+    component['rebuildMenu']();
+    fixture.detectChanges();
+  }
+
+  it('should keep SIS-PE context when navigating to /matrices-pad (V2 fuera de /sis-*)', () => {
+    navegarA('/matrices-pad');
+    const rutas = rutasVisibles();
+    expect(rutas).toContain('/sis-pe/dashboard');
+    expect(rutas).toContain('/matrices-pad');
+    expect(rutas).not.toContain('/dashboard');
+  });
+
+  it('should keep SIS-PE context on legacy routes of the system', () => {
+    navegarA('/articulador');
+    const rutas = rutasVisibles();
+    expect(rutas).toContain('/sis-pe/instrumentos');
+    expect(rutas).toContain('/articulador');
+  });
+
+  it('should keep SIS-POA context on legacy routes (POAU, Recursos, Formulación)', () => {
+    for (const ruta of ['/poau', '/recursos', '/planificacion/formulacion']) {
+      navegarA(ruta);
+      expect(rutasVisibles()).toContain('/sis-poa/poas');
+    }
+  });
+
+  it('should keep SIS-PRO context on legacy /inversion', () => {
+    navegarA('/inversion');
+    const rutas = rutasVisibles();
+    expect(rutas).toContain('/sis-pro/proyectos');
+    expect(rutas).toContain('/inversion');
+  });
+
+  it('should show PLATAFORMA (Selección/Dashboard/Notificaciones) only on platform routes', () => {
+    navegarA('/dashboard');
+    const rutas = rutasVisibles();
+    expect(rutas).toContain('/sistemas');
+    expect(rutas).toContain('/dashboard');
+    expect(rutas).toContain('/notificaciones');
+    expect(rutas).not.toContain('/sis-pe/dashboard');
+    expect(rutas).not.toContain('/sis-poa/poas');
+    expect(rutas).not.toContain('/sis-pro/proyectos');
+  });
+
+  it('should ignore query strings when detecting the system context', () => {
+    navegarA('/sis-pe/instrumentos?gestion=2027');
+    expect(rutasVisibles()).toContain('/sis-pe/dashboard');
+  });
 });

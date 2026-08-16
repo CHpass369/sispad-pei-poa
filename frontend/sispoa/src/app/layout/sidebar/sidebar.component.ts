@@ -21,6 +21,28 @@ interface NavSection {
   items: NavItem[];
 }
 
+/** Rutas de plataforma que pertenecen a un sistema (módulos legacy V1 y
+ *  módulos V2 insertados en su SIS). El sidebar mantiene el contexto del
+ *  sistema cuando la URL navega a estas rutas (fuera del prefijo /sis-*). */
+const RUTAS_POR_SISTEMA: Record<string, string> = {
+  // SIS-PE
+  '/articulador': 'sis-pe',
+  '/articulacion': 'sis-pe',
+  '/indicadores': 'sis-pe',
+  '/territorio': 'sis-pe',
+  '/evaluacion': 'sis-pe',
+  '/matrices-pad': 'sis-pe',
+  // SIS-POA
+  '/poau': 'sis-poa',
+  '/recursos': 'sis-poa',
+  '/planificacion': 'sis-poa',
+  '/seguimiento': 'sis-poa',
+  '/modificaciones': 'sis-poa',
+  '/consolidacion': 'sis-poa',
+  // SIS-PRO
+  '/inversion': 'sis-pro',
+};
+
 @Component({
   standalone: false,
   selector: 'app-sidebar',
@@ -303,9 +325,13 @@ export class SidebarComponent implements OnInit, OnDestroy {
 
   private rebuildMenu(): void {
     const url = this.router.url;
-    this.sistemaActual = ['sis-pe', 'sis-poa', 'sis-pro'].find(
-      s => url.startsWith(`/${s}`),
-    ) ?? '';
+    // Prefijos V2 (/sis-*) primero; luego módulos de plataforma que
+    // pertenecen a un sistema (legacy V1 o V2 insertado en su SIS).
+    const primerSegmento = '/' + (url.split('?')[0].split('/')[1] ?? '');
+    this.sistemaActual =
+      ['sis-pe', 'sis-poa', 'sis-pro'].find(s => url.startsWith(`/${s}`)) ??
+      RUTAS_POR_SISTEMA[primerSegmento] ??
+      '';
 
     if (this.sistemaActual) {
       // Dentro de un sistema: selector + módulos del SIS (V2 y V1 insertados)
