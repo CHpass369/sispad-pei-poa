@@ -6,9 +6,12 @@ from rest_framework import serializers
 from apps.articulacion.models import (
     AccionPOA,
     AcuerdoInternacional,
+    ActividadPOAU,
     ArticulacionPADPEI,
+    OperacionPOAU,
     ProductoPAD,
     ResultadoPAD,
+    TareaPOAU,
 )
 from .models import (
     Plan, NodoPlanificacion, AccionMedianoPlazo, AccionCortoPlazo,
@@ -223,6 +226,35 @@ class MatrizArbolBuilder:
         for action in actions:
             self.actions_by_pei[action.producto_pei_id].append(action)
 
+        # Cadena operativa POA → POAU (operaciones, actividades, tareas) para
+        # la gestión; se serializa debajo de cada AccionPOA.
+        action_ids = [action.id for action in actions]
+        self.operations_by_action = defaultdict(list)
+        operations = list(
+            OperacionPOAU.objects.filter(accion_poa_id__in=action_ids)
+            .order_by('accion_poa_id', 'codigo_operacion')
+        )
+        for operation in operations:
+            self.operations_by_action[operation.accion_poa_id].append(operation)
+
+        operation_ids = [operation.id for operation in operations]
+        self.activities_by_operation = defaultdict(list)
+        activities = list(
+            ActividadPOAU.objects.filter(operacion_id__in=operation_ids)
+            .order_by('operacion_id', 'codigo_actividad')
+        )
+        for activity in activities:
+            self.activities_by_operation[activity.operacion_id].append(activity)
+
+        activity_ids = [activity.id for activity in activities]
+        self.tasks_by_activity = defaultdict(list)
+        tasks = list(
+            TareaPOAU.objects.filter(actividad_id__in=activity_ids)
+            .order_by('actividad_id', 'codigo_tarea')
+        )
+        for task in tasks:
+            self.tasks_by_activity[task.actividad_id].append(task)
+
         self._complete_code_cache = {}
 
     def _complete_code(self, node):
@@ -396,8 +428,7 @@ class MatrizArbolBuilder:
             'hijos': [resultado_node],
         }
 
-    @staticmethod
-    def _serialize_accion_poa(action):
+    def _serialize_accion_poa(self, action):
         return {
             'tipo': 'accion_poa',
             'id': str(action.id),
@@ -408,6 +439,51 @@ class MatrizArbolBuilder:
             'nombre': action.denominacion,
             'producto_pei_id': str(action.producto_pei_id),
             'gestion': action.gestion,
-            'hijos': [],
+            'hijos': [
+                self._serialize_operacion_poau(operation)
+                for operation in self.operations_by_action.get(action.id, [])
+            ],
             'articulaciones': [],
+        }
+
+    def _serialize_operacion_poau(self, operation):
+        return {
+            'tipo': 'operacion_poau',
+            'id': str(operation.id),
+            'nivel': 'operacion_poau',
+            'codigo': operation.codigo_operacion,
+            'codigo_completo': operation.codigo_completo_articulacion,
+            'nombre': operation.denominacion,
+            'denominacion': operation.denominacion,
+            'hijos': [
+                self._serialize_actividad_poau(activity)
+                for activity in self.activities_by_operation.get(operation.id, [])
+            ],
+        }
+
+    def _serialize_actividad_poau(self, activity):
+        return {
+            'tipo': 'actividad_poau',
+            'id': str(activity.id),
+            'nivel': 'actividad_poau',
+            'codigo': activity.codigo_actividad,
+            'codigo_completo': activity.codigo_completo_articulacion,
+            'nombre': activity.denominacion,
+            'denominacion': activity.denominacion,
+            'hijos': [
+                self._serialize_tarea_poau(task)
+                for task in self.tasks_by_activity.get(activity.id, [])
+            ],
+        }
+
+    def _serialize_tarea_poau(self, task):
+        return {
+            'tipo': 'tarea_poau',
+            'id': str(task.id),
+            'nivel': 'tarea_poau',
+            'codigo': task.codigo_tarea,
+            'codigo_completo': task.codigo_completo_articulacion,
+            'nombre': task.denominacion,
+            'denominacion': task.denominacion,
+            'hijos': [],
         }
