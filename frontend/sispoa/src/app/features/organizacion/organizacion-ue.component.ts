@@ -32,7 +32,7 @@ export class OrganizacionUeComponent implements OnInit {
 
   cargar(): void {
     this.cargando = true;
-    this.api.get<UnidadEjecutora[]>('/api/v1/unidades-ejecutoras/').subscribe({
+    this.api.get<UnidadEjecutora[]>('/unidades-ejecutoras/').subscribe({
       next: (data) => {
         this.unidades = data;
         this.cargando = false;
@@ -75,8 +75,8 @@ export class OrganizacionUeComponent implements OnInit {
     }
 
     const obs = this.editando && this.idEditar
-      ? this.api.put<UnidadEjecutora>(`/api/v1/unidades-ejecutoras/${this.idEditar}/`, this.form)
-      : this.api.post<UnidadEjecutora>('/api/v1/unidades-ejecutoras/', this.form);
+      ? this.api.put<UnidadEjecutora>(`/unidades-ejecutoras/${this.idEditar}/`, this.form)
+      : this.api.post<UnidadEjecutora>('/unidades-ejecutoras/', this.form);
 
     obs.subscribe({
       next: () => {
@@ -89,7 +89,7 @@ export class OrganizacionUeComponent implements OnInit {
 
   eliminar(id: number): void {
     if (!confirm('¿Eliminar esta unidad ejecutora?')) return;
-    this.api.delete(`/api/v1/unidades-ejecutoras/${id}/`).subscribe({
+    this.api.delete(`/unidades-ejecutoras/${id}/`).subscribe({
       next: () => this.cargar(),
       error: () => (this.error = 'Error al eliminar'),
     });

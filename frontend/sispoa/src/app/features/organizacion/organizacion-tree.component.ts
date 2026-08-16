@@ -22,7 +22,7 @@ export class OrganizacionTreeComponent implements OnInit {
 
   cargarArbol(): void {
     this.cargando = true;
-    this.api.get<UnidadOrganizacional[]>('/api/v1/unidades/arbol/').subscribe({
+    this.api.get<UnidadOrganizacional[]>('/unidades/arbol/').subscribe({
       next: (data) => {
         this.arbol = data;
         this.cargando = false;

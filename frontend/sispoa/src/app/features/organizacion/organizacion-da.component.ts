@@ -32,7 +32,7 @@ export class OrganizacionDaComponent implements OnInit {
 
   cargar(): void {
     this.cargando = true;
-    this.api.get<DireccionAdministrativa[]>('/api/v1/direcciones-administrativas/').subscribe({
+    this.api.get<DireccionAdministrativa[]>('/direcciones-administrativas/').subscribe({
       next: (data) => {
         this.direcciones = data;
         this.cargando = false;
@@ -75,8 +75,8 @@ export class OrganizacionDaComponent implements OnInit {
     }
 
     const obs = this.editando && this.idEditar
-      ? this.api.put<DireccionAdministrativa>(`/api/v1/direcciones-administrativas/${this.idEditar}/`, this.form)
-      : this.api.post<DireccionAdministrativa>('/api/v1/direcciones-administrativas/', this.form);
+      ? this.api.put<DireccionAdministrativa>(`/direcciones-administrativas/${this.idEditar}/`, this.form)
+      : this.api.post<DireccionAdministrativa>('/direcciones-administrativas/', this.form);
 
     obs.subscribe({
       next: () => {
@@ -89,7 +89,7 @@ export class OrganizacionDaComponent implements OnInit {
 
   eliminar(id: number): void {
     if (!confirm('¿Eliminar esta dirección administrativa?')) return;
-    this.api.delete(`/api/v1/direcciones-administrativas/${id}/`).subscribe({
+    this.api.delete(`/direcciones-administrativas/${id}/`).subscribe({
       next: () => this.cargar(),
       error: () => (this.error = 'Error al eliminar'),
     });
