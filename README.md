@@ -100,6 +100,15 @@ npm run build                # genera dist/sispoa
 - **API V1**: `/api/v1/docs/` — legado, con headers de deprecación (Sunset 2027-01-01)
 - **API V2**: `/api/v2/` con namespaces `platform/`, `sis-pe/`, `sis-poa/`, `sis-pro/`, `me/`
 
+## Gobernanza de desarrollo
+
+El repositorio se desarrolla con tareas formales registradas en `tasks/`, reglas de trabajo en `AGENTS.md`, agentes/skills/comandos en `.opencode/` y arquitectura de referencia en `docs/architecture/`.
+
+- [AGENTS.md](AGENTS.md) — reglas universales de desarrollo (search before create, plan before build, scope, commits)
+- [docs/architecture/](docs/architecture/) — arquitectura de referencia (mapa del sistema, límites de dominio, propiedad de datos, contratos)
+- [tasks/TASK_TEMPLATE.md](tasks/TASK_TEMPLATE.md) — plantilla obligatoria de tareas
+- [.opencode/](.opencode/) — agentes, skills y comandos de desarrollo asistido
+
 ## Licencia
 
 Uso institucional - GAM Sacaba
