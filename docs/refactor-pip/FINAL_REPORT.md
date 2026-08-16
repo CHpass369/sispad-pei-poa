@@ -86,8 +86,15 @@ SISPOA a PIP. Cada fase tuvo commits reales, verificaciones (tests, build,
 - Tablas MERGE/SPLIT (`poau_poau`, `articulacion_accionpoa`, `indicadores_*`,
   `evaluacion_*`): requieren decisión de datos antes de migrar.
 - DNS `sispoa.gamsacaba.gob.bo`, bucket `sispoa-docs`, realm Keycloak
-  `sispoa`: fase de despliegue/infraestructura.
-  (plan en `DATA_MIGRATION_PLAN.md`).
+  `sispoa`: la infraestructura del REPO (docker-compose, .env.example, scripts,
+  realm-export, nginx, docs de despliegue) ya fue renombrada a `pip-*`
+  (contenedores `pip-postgres`/`pip-redis`/`pip-minio`/`pip-keycloak`/...,
+  bucket `pip-docs`, realm `pip`); el DNS y los nombres en el servidor real de
+  despliegue quedan pendientes de coordinar en la fase de despliegue.
+- `ArticulacionPADPEI` con 0 filas en BD: la cadena PAD a PEI se puebla con el
+  management command `python manage.py importar_matrices <matrices.xlsx>` (la
+  fuente XLSX de matrices de articulación es externa, no está versionada en el
+  repo) o con el seed `core/demo_articuladores.py` para datos de demostración.
 - API V1: sigue activa, ahora con headers de deprecación (Sunset 2027-01-01).
 - Apps `techos` y `presupuesto` (legacy v1): conviven con `budget` v2 mediante
   la palanca de cutover `LEGACY_MENU_VISIBLE`.
@@ -155,9 +162,11 @@ SISPOA a PIP. Cada fase tuvo commits reales, verificaciones (tests, build,
 6. Integración SIS-PRO completa (contrato `IntegracionPoaContract` listo).
 7. Seguimiento integral.
 8. Dashboards / BI.
-9. Migración física de esquemas PostgreSQL (según `DATA_MIGRATION_PLAN.md`:
-   backup, `CREATE SCHEMA`, `MIGRATE`, `VALIDATE`, `SWITCH`, `DEPRECATE`).
-10. Renombrar `tokenKey` y base de datos cuando se coordine con el despliegue.
+9. Cutover de datos de tablas MERGE/SPLIT que siguen en `public` (según
+   `DATA_MIGRATION_PLAN.md`); la migración física de esquemas ya se ejecutó
+   (sección 5).
+10. Coordinar el DNS del despliegue (`pip.gamsacaba.gob.bo` propuesto) con la
+    migración de infraestructura del repo a `pip-*`.
 
 ## 12. Qué debe hacerse después
 
