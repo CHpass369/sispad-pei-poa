@@ -53,11 +53,13 @@ dbshell:
 test:
 	docker compose exec backend python -m pytest
 
+# Gates de testing locales (fuente de verdad: pytest.ini para backend; Karma/Jasmine para frontend).
+# Requieren Python (backend/.venv) y Node (frontend/sispoa/node_modules) instalados localmente.
 test-backend:
-	docker compose exec backend python -m pytest apps/ -v
+	cd backend && python -m pytest
 
 test-frontend:
-	docker compose exec frontend npm test -- --watch=false
+	cd frontend/sispoa && npm test -- --watch=false
 
 # --- Calidad ---
 lint:
