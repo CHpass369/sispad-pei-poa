@@ -63,7 +63,7 @@ test-frontend:
 
 # --- Calidad ---
 lint:
-	docker compose exec backend ruff check . || echo "ruff no instalado"
+	cd backend && python -m ruff check .
 
 format:
 	docker compose exec backend ruff format . || echo "ruff no instalado"

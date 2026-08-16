@@ -2,6 +2,7 @@
 #
 # Ejecuta los mismos gates que el flujo local (fuente de verdad):
 #   backend : cd backend && python -m pytest -q        (pytest.ini: config.settings, -n auto)
+#   backend : cd backend && python -m ruff check .     (backend/pyproject.toml — PIP-ARCH-002)
 #   frontend: cd frontend/sispoa && npm ci && npm run build
 # Sin deploy automático. Fallo en cualquier gate -> workflow rojo.
 #
@@ -66,6 +67,14 @@ jobs:
       # (pytest.ini: DJANGO_SETTINGS_MODULE=config.settings, addopts=-n auto --dist loadscope)
       - name: Tests backend
         run: python -m pytest -q
+        working-directory: backend
+
+      # Gate local real: cd backend && python -m ruff check .
+      # Config versionada en backend/pyproject.toml (TASK PIP-ARCH-002).
+      # Reusa la instalación de requirements.txt del job (ruff==0.16.3);
+      # no requiere el servicio Postgres.
+      - name: Lint backend (ruff)
+        run: python -m ruff check .
         working-directory: backend
 
   frontend:

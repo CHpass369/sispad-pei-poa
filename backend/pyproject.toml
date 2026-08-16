@@ -1,0 +1,28 @@
+# Ruff configuration — PIP backend (TASK PIP-ARCH-002).
+#
+# Bootstrap gate: the legacy codebase does not pass ruff's full default rule
+# set (2375 violations on ruff 0.16.3 defaults; 284 on the classic E4/E7/E9/F
+# set). Select pins the classic default and `ignore` defers the 9 rules the
+# pre-existing debt violates (223 unused-imports alone). The CI gate stays
+# green today while blocking regressions on the selected rules.
+#
+# Expanding select / trimming ignores is a follow-up task (see FINAL REPORT).
+# Keep in sync with `make lint` -> `cd backend && python -m ruff check .`.
+[tool.ruff]
+line-length = 88
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
+ignore = [
+    # Pre-existing debt (counts on ruff 0.16.3). Deferred, not fixed in bulk.
+    "E401",  # multiple-imports-on-one-line          (5)
+    "E402",  # module-import-not-at-top-of-file      (4)
+    "E731",  # lambda-assignment                     (2)
+    "E741",  # ambiguous-variable-name               (5)
+    "F401",  # unused-import                         (223)
+    "F541",  # f-string-missing-placeholders         (9)
+    "F811",  # redefined-while-unused                (8)
+    "F821",  # undefined-name                        (2)
+    "F841",  # unused-variable                       (26)
+]
