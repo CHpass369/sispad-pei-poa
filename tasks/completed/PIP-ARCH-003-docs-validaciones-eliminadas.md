@@ -72,4 +72,10 @@ Ninguno.
 
 ## FINAL REPORT
 
-Completar al cerrar: líneas modificadas, referencias agregadas.
+Cerrada 2026-08-16.
+
+**Líneas modificadas:** `docs/ARQUITECTURA.md` sección "Validaciones Criticas (Seccion 37)" (L480-496) reemplazada por tabla de estado real de los 12 validadores históricos: 8 eliminados (incl. los 6 de PIP-CORE-002), 2 vivos (`validar_meta_no_negativa`, `validar_lineas_igual_total`), 1 conservado pendiente de traslado a SIS-PE (`validar_ponderaciones_suma_100`), 1 eliminado disfuncional (`validar_sin_circulares`).
+
+**Referencias agregadas:** decisión y censo en `tasks/completed/PIP-CORE-002-...` y `PIP-CORE-003-...`; regla CORE en `docs/architecture/DOMAIN_BOUNDARIES.md`.
+
+**Commit:** `e85aea7`. Verificación: grep de nombres de funciones → solo referencias históricas/decisión, ninguna como activa.

@@ -100,4 +100,18 @@ Medio. Riesgo principal: divergencia de contrato entre TechoPresupuestario y Dir
 
 ## FINAL REPORT
 
-Completar al cerrar con `/task-close`: contrato definido, vistas migradas, contrato de deprecación aplicado, tests ejecutados, consumidores detectados, deuda (p.ej. sync de datos legacy si aplica).
+Cerrada 2026-08-16.
+
+**Contrato definido:** equivalencia TechoPresupuestario ↔ DirectiveCeiling documentada (PK UUID→BigAuto, gestion año→FK GestionFiscal, monto_total→composicion.techo_bruto, fuente/organismo→version.recursos[], activo→estado+version_actual, descripcion→recursos[].concepto; create = POST directive-ceilings/{gestion} + POST resources; composition disponible). Registrado en `docs/refactor-pip/LEGACY_DEPRECATION.md` §6.5 (fila #19) e `INTEGRATION_CONTRACTS.md` §5.
+
+**Contrato de deprecación aplicado (BLANDA, RFC 8594):** headers `Deprecation: true`, `Sunset: Sun, 01 Jan 2027 00:00:00 GMT` (alineado con V1), `Link: <...LEGACY_DEPRECATION.md>; rel="deprecation"` en toda respuesta de `TechoViewSetV2` (override `finalize_response`). Ruta intacta, sin 410, V1 intacto.
+
+**Vistas migradas:** feature `techos/` (techo-lista + distribucion-lista → BudgetService/composición canónica), consumidor real adicional detectado: `sis-poa-techos.component.ts` (migrado a BudgetService; servicios legacy `TechoV2/listarTechos/crearTecho/eliminarTecho` removidos + specs).
+
+**Tests ejecutados:** frontend `npm test` → **249/249 SUCCESS** (252 − 3 specs legacy removidos); backend `pytest apps/techos apps/budget` → **216 passed**; `pytest tests/test_sis_poa_v2.py` → **21 passed** (incl. `test_api_techos_deprecacion_blanda`); suite completa → **1282 passed**. Verificación de contrato contra DB local: directive-ceilings 200 count 1; techos V2 200 con los 3 headers RFC 8594. ruff sobre archivos tocados → limpio.
+
+**Consumidores detectados:** la ruta legacy solo la usaba el frontend del repo (migrado); consumidores externos no identificables desde el repo → deprecación blanda + ventana de observación antes de retiro 404 (tarea futura aprobada).
+
+**Commits:** `cd05227` (cutover) + `9c8e83c` (limpieza de staging).
+
+**Deuda:** (1) sin sync de datos legacy→canónico (requiere data migration aprobada, tarea separada — la vista legacy queda vacía hasta cargar canónico); (2) alta de recursos asume `origen='SIGEP'` por defecto; (3) la vista distribución pierde alta por unidad (equivalente = distribución presupuestaria Fase 4, fuera de alcance).

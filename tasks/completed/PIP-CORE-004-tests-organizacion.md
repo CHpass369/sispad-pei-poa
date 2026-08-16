@@ -77,4 +77,14 @@ Bajo. Riesgo: fixtures/models dependan de datos de seed; mitigación: crear obje
 
 ## FINAL REPORT
 
-Completar al cerrar: tests creados, cobertura de endpoints, totales de suite.
+Cerrada 2026-08-16.
+
+**Tests creados (29) en `backend/apps/organizacion/tests.py`:** `TestContratoURLsV1` (4, verifica que reverse() resuelve a `/api/v1/...` sin doble prefijo), `TestAutenticacion` (3, 401 sin auth), `TestUnidadEjecutoraAPI` (8, listado+shape+filtro gestion+CRUD), `TestDireccionAdministrativaAPI` (5), `TestArbolUnidadesAPI` (5, árbol anidado, excluye inactivas), `TestUnidadOrganizacionalAPI` (2), `TestTiposUnidadAPI`/`TestAsignacionUsuarioUnidadAPI` (2).
+
+**Patrón:** pytest-django (config.settings), `APIClient.force_authenticate` con superadmin, fixtures locales espejo + factories que crean objetos en-test (sin depender de seeds).
+
+**Totales de suite:** `pytest apps/organizacion` → **29 passed**; suite completa → **1281 passed** (1252 base + 29).
+
+**Commit:** `8944107`.
+
+**Deuda detectada:** (1) `apps/catalogos/test_t4_clasificadores.py:363` flaky por seed exacto dependiente del scheduling de xdist (falla intermitente pre-existente, ajeno a organizacion); (2) `AsignacionUsuarioUnidad` sin `Meta.ordering` → UnorderedObjectListWarning; (3) serializers con `fields='__all__'` exponen `created_by/updated_by` escribibles (inconsistencia menor).

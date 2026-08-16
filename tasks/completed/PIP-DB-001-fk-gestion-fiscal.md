@@ -106,4 +106,18 @@ En fase 1 no aplica (no se altera nada). Para fases 2+: por cada app, migración
 
 ## FINAL REPORT
 
-Completar al cerrar con `/task-close`: inventario final, conteos de huérfanos, plan por app creado en backlog, riesgos confirmados y deuda detectada (p.ej. convenciones de campo inconsistentes).
+Cerrada 2026-08-16.
+
+**Inventario final:** 24 apps con campo `gestion*` entero sin FK (76 campos: 63 `gestion*` + 13 con nombre distinto como `anio`/`fiscal_year`); 71 `PositiveIntegerField`, 5 `IntegerField` (articulacion); 2 campos abstractos propagados (core.VersionableModel, catalogos.CatalogoBase → 13 subclases). Detalle completo en `docs/architecture/GESTION_FISCAL_AUDIT.md`.
+
+**Conteos de huérfanos (DB local accesible, GestionFiscal count=2 → 2026/2027):** huérfanos confirmados en 7 tablas: `planificacion.NodoPlanificacion` (604 filas, 2021/2025), `ArticulacionPlanificacion` (61, 2021), `codificacion.VersionCatalogoPlan` (2021/2025), `normativa.VersionNormativa` (2015/2021), `poau.PoAInstitucional` (2028), `inversion.CostoProyecto` (2028), `planificacion.Plan` (rangos plurianuales — NO gestiones operativas). ~30 tablas vacías → FK directa sin data migration.
+
+**Plan por app creado en backlog (6 tareas derivadas):** PIP-DB-002 (CORE, sin data migration), PIP-DB-003 (SHARED, data migration VersionCatalogoPlan), PIP-DB-004 (SIS-PE, renombres `fiscal_year`→`gestion`), PIP-DB-005 (SIS-POA, PoAInstitucional 2028), PIP-DB-006 (SIS-PRO, CostoProyecto 2028), PIP-DB-007 (casos complejos articulacion/planificacion/normativa).
+
+**Decisión documentada:** `ON DELETE PROTECT` en toda FK nueva; rangos plurianuales NO fuerzan FK (excepción gobernada); unificar convención `gestion` + `PositiveIntegerField`.
+
+**Commit:** `2812836`.
+
+**Riesgos confirmados:** R1 alto (data migration que invente gestiones falsas 2015/2021/2025/2028 corrompería la canónica), R2 alto (604+ filas huérfanas), R3 medio (IntegerField articulacion), R4 medio (5 convenciones de nombre, renombrar rompe contratos V1), R5 bajo (bases abstractas → 14 tablas a la vez).
+
+**Deuda detectada:** budget/gestion usan FK con CASCADE (gobernanza pide PROTECT — tarea separada); `auditoria.gestion` null=True; excepción plurianual sin regla escrita.

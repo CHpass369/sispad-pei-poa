@@ -99,4 +99,18 @@ No aplica en esta fase (sin cambios funcionales). Las fases de convergencia tend
 
 ## FINAL REPORT
 
-Completar al cerrar con `/task-close`: documento de equivalencia, números de la auditoría, tareas derivadas creadas, impacto frontend documentado, riesgos y deuda detectada (p.ej. puente `poau/migration_v2.py` sin idempotencia).
+Cerrada 2026-08-16.
+
+**Documento de equivalencia:** `docs/architecture/CADENA_OPERATIVA_EQUIVALENCIA.md`. Hallazgo central: la cadena canónica V2 real es **`poau.models_v2`** (PoAInstitucional → AccionCortoPlazo → Operacion → Actividad → Tarea), no `articulacion_*` (que es la cadena de articulación SIS-PE y fuente legacy del puente). `indicadores_*` es duplicado adicional con topología de 2 niveles (padre `planificacion.AcccionCortoPlazo`). Mapeo completo de 5 implementaciones × 5 niveles con campos y reglas.
+
+**Números de la auditoría (DB local):** articulacion 1/1/1/1 (2027 REFERENCIAL); **indicadores 0/0/0/0/0 (VACÍO)**; poau V1 0/0; poau V2 2/1/1/1/1/3 (2027+2028); planificacion ACP 0; LegacyMigrationMap 4 (lote poa-2027, reconciliado). Divergencias: indicadores vacío → corte sin reconciliación; PoAInstitucional P-2028 sin acciones + programación 2028 colgada (gestión huérfana).
+
+**Impacto frontend del corte documentado:** features `indicadores` (GET /indicadores/ roto) y `portal-publico` (público) → migrar; sidebar `/indicadores` ocultable vía cutover.config.ts; backend consumidores: planificacion/views.py, workflow/consolidacion.py, reportes/services.py, seed_demo.py, poau/migration_v2.py:228, comandos importar_matriz_base/importar_reales.
+
+**Tareas derivadas creadas (3):** PIP-PE-002 (reconciliación), PIP-PE-003 (corte indicadores legacy), PIP-PE-004 (refactor puente poau/migration_v2.py). LEGACY_DEPRECATION.md §6.4 actualizado con evidencia; alcance REMOVE_LATER se mantiene.
+
+**Commit:** `4007777`.
+
+**Riesgos:** medio — si aparecen datos en `indicadores_*` antes del corte, la reconciliación deja de ser trivial.
+
+**Deuda detectada:** `poau/migration_v2.py` sin idempotencia total (get_or_create no re-sincroniza), sin transacción/rollback, estados forzados a `borrador`, campos en JSON no tipado, mapa sin checksum por corrida; `AccionPOA.gestion`/`PoAInstitucional.gestion` enteros sueltos (PIP-DB-005/007).
