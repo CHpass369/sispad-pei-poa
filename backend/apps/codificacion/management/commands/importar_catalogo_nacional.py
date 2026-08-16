@@ -614,9 +614,9 @@ class Command(BaseCommand):
     def _importar_ejes_pgdesa_marco(self, filas, version):
         """02_PGDESA_EJES → EjePGDESA (código 01..07).
 
-        El modelo EjePGDESA no tiene campo ``objetivo_impacto``; se conserva
-        concatenado a la denominación ('<eje> — <objetivo_impacto>'), dentro
-        del límite de 500 caracteres del campo.
+        ``denominacion`` guarda solo el nombre del eje; el objetivo de
+        impacto del PGDES se guarda en ``objetivo_impacto`` (campo propio
+        desde la normalización del catálogo, autocompletado en la Matriz PAD).
         """
         ejes = {}
         for fila in filas:
@@ -625,14 +625,12 @@ class Command(BaseCommand):
                 continue
             eje = _texto(fila['eje'])
             objetivo = _texto(fila['objetivo_impacto'])
-            denominacion = (
-                f'{eje} — {objetivo}' if objetivo and objetivo != eje else eje
-            )
             obj, _ = EjePGDESA.objects.update_or_create(
                 codigo=codigo,
                 version_catalogo=version,
                 defaults={
-                    'denominacion': denominacion[:500],
+                    'denominacion': eje[:500],
+                    'objetivo_impacto': objetivo if objetivo != eje else '',
                     'activo': True,
                 },
             )
@@ -657,16 +655,13 @@ class Command(BaseCommand):
             codigo = str(correlativos[eje.pk]).zfill(2)
             nombre = _texto(fila['componente'])
             objetivo = _texto(fila['objetivo_efecto'])
-            denominacion = (
-                f'{nombre} — {objetivo}'
-                if objetivo and objetivo != nombre else nombre
-            )
             obj, _ = ComponentePDESA.objects.update_or_create(
                 eje=eje,
                 codigo=codigo,
                 version_catalogo=version,
                 defaults={
-                    'denominacion': denominacion[:500],
+                    'denominacion': nombre[:500],
+                    'objetivo_efecto': objetivo if objetivo != nombre else '',
                     'activo': True,
                 },
             )

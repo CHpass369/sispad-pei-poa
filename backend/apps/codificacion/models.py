@@ -167,6 +167,11 @@ class EjePGDESA(CatalogoSegmentoBase):
         related_name='ejes_pgdesa',
         verbose_name='Versión de catálogo',
     )
+    objetivo_impacto = models.TextField(
+        blank=True,
+        verbose_name='Objetivo de impacto',
+        help_text='Objetivo de impacto del PGDES (autocompletado en la Matriz PAD).',
+    )
 
     class Meta(CatalogoSegmentoBase.Meta):
         verbose_name = 'Eje PGDESA'
@@ -193,6 +198,11 @@ class ComponentePDESA(CatalogoSegmentoBase):
         on_delete=models.CASCADE,
         related_name='componentes',
         verbose_name='Eje PGDESA',
+    )
+    objetivo_efecto = models.TextField(
+        blank=True,
+        verbose_name='Objetivo de efecto',
+        help_text='Objetivo de efecto del PDES (autocompletado en la Matriz PAD).',
     )
 
     class Meta(CatalogoSegmentoBase.Meta):
