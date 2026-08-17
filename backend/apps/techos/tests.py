@@ -7,6 +7,7 @@ from django.db.models import Sum
 from django.utils import timezone
 
 from apps.accounts.models import Usuario
+from apps.gestion.models import GestionFiscal
 from apps.catalogos.models import FuenteFinanciamiento, OrganismoFinanciador
 from apps.organizacion.models import (
     TipoUnidad, UnidadOrganizacional, DireccionAdministrativa,
@@ -45,21 +46,24 @@ class TechosBaseTestCase(TestCase):
             denominacion='Gobierno Municipal',
             fecha_vigencia_desde=self.vig,
         )
+        self.gestion = GestionFiscal.objects.get_or_create(
+            anio=2026, defaults={'estado': 'abierta'},
+        )[0]
         self.tipo_unidad = TipoUnidad.objects.create(
             codigo='SEC', nombre='Secretaría', nivel=1,
         )
         self.unidad = UnidadOrganizacional.objects.create(
             codigo='SEC-01', nombre='Secretaría General',
-            sigla='SG', tipo=self.tipo_unidad, gestion=2026,
+            sigla='SG', tipo=self.tipo_unidad, gestion=self.gestion,
             fecha_vigencia_desde=self.vig,
         )
         self.da = DireccionAdministrativa.objects.create(
             codigo='DA-01', nombre='Dirección Administrativa',
-            gestion=2026, fecha_vigencia_desde=self.vig,
+            gestion=self.gestion, fecha_vigencia_desde=self.vig,
         )
         self.ue = UnidadEjecutora.objects.create(
             codigo='UE-01', nombre='Unidad Ejecutora 1',
-            da=self.da, gestion=2026, fecha_vigencia_desde=self.vig,
+            da=self.da, gestion=self.gestion, fecha_vigencia_desde=self.vig,
         )
         self.programa = ProgramaPresupuestario.objects.create(
             codigo='000', nombre='Programa Test',

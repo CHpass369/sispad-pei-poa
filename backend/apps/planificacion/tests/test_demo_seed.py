@@ -407,11 +407,15 @@ class DemoSeedTest(TestCase):
         # servicio de limpieza (limpieza_datos_simulados) reconoce.
         unidad = None
         from apps.organizacion.models import TipoUnidad, UnidadOrganizacional
+        from apps.gestion.models import GestionFiscal
         tipo, _ = TipoUnidad.objects.get_or_create(
             codigo='SEC-TEST', defaults={'nombre': 'Secretaría Test', 'nivel': 1}
         )
+        gf = GestionFiscal.objects.get_or_create(
+            anio=GESTION, defaults={'estado': 'abierta'},
+        )[0]
         unidad = UnidadOrganizacional.objects.create(
-            codigo='ORG-DEMO', gestion=GESTION,
+            codigo='ORG-DEMO', gestion=gf,
             nombre='Unidad demostrativa', sigla='DEMO', tipo=tipo,
             fecha_vigencia_desde=date(GESTION, 1, 1), activo=True,
         )

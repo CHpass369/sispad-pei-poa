@@ -322,10 +322,16 @@ class Command(BaseCommand):
     # 5. RECURSOS DEL TECHO (ORIGEN SIGEP)
     # ============================================================
     def _catalogo(self, modelo, codigo):
+        from django.db.models import ForeignKey
+        campo_gestion = modelo._meta.get_field('gestion')
+        kwargs = {'codigo': codigo}
+        if isinstance(campo_gestion, ForeignKey):
+            # PIP-DB-002: organizacion.gestion es FK a GestionFiscal.
+            kwargs['gestion__anio'] = self.gestion_anio
+        else:
+            kwargs['gestion'] = self.gestion_anio
         try:
-            return modelo.objects.get(
-                codigo=codigo, gestion=self.gestion_anio
-            )
+            return modelo.objects.get(**kwargs)
         except modelo.DoesNotExist:
             raise CommandError(
                 f'No se encontró {modelo._meta.verbose_name} "{codigo}" '

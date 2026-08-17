@@ -221,42 +221,48 @@ with transaction.atomic():
     tipo_uni = g(TipoUnidad, codigo='UNI', nombre='Unidad', nivel=5)
     tipo_ue = g(TipoUnidad, codigo='UE', nombre='Unidad Ejecutora', nivel=3)
 
+    # Gestión fiscal 2026 (PIP-DB-002: gestion es FK a GestionFiscal)
+    from apps.gestion.models import GestionFiscal as _GF
+    gf_2026, _ = _GF.objects.get_or_create(
+        anio=2026, defaults={'estado': 'formulacion'},
+    )
+
     # Direcciones Administrativas
-    da_100 = g(DireccionAdministrativa, codigo='100', nombre='Direccion Administrativa Municipal', gestion=2026)
-    da_200 = g(DireccionAdministrativa, codigo='200', nombre='Secretaria de Planificacion y Desarrollo Territorial', gestion=2026)
-    da_300 = g(DireccionAdministrativa, codigo='300', nombre='Secretaria de Obras Publicas e Infraestructura', gestion=2026)
+    da_100 = g(DireccionAdministrativa, codigo='100', nombre='Direccion Administrativa Municipal', gestion=gf_2026)
+    da_200 = g(DireccionAdministrativa, codigo='200', nombre='Secretaria de Planificacion y Desarrollo Territorial', gestion=gf_2026)
+    da_300 = g(DireccionAdministrativa, codigo='300', nombre='Secretaria de Obras Publicas e Infraestructura', gestion=gf_2026)
 
     # Unidades Ejecutoras
-    ue_100 = g(UnidadEjecutora, codigo='UE-100', nombre='UE Administrativa Municipal', da=da_100, gestion=2026)
-    ue_200 = g(UnidadEjecutora, codigo='UE-200', nombre='UE Planificacion Territorial', da=da_200, gestion=2026)
-    ue_300 = g(UnidadEjecutora, codigo='UE-300', nombre='UE Obras Publicas', da=da_300, gestion=2026)
+    ue_100 = g(UnidadEjecutora, codigo='UE-100', nombre='UE Administrativa Municipal', da=da_100, gestion=gf_2026)
+    ue_200 = g(UnidadEjecutora, codigo='UE-200', nombre='UE Planificacion Territorial', da=da_200, gestion=gf_2026)
+    ue_300 = g(UnidadEjecutora, codigo='UE-300', nombre='UE Obras Publicas', da=da_300, gestion=gf_2026)
 
     # Unidades Organizacionales (jerarquia)
     uo_gam = g(UnidadOrganizacional, codigo='GAM', nombre='Gobierno Autonomo Municipal de Sacaba',
-               sigla='GAM SACABA', tipo=tipo_mae, gestion=2026, responsable=u_mae, padre=None)
+               sigla='GAM SACABA', tipo=tipo_mae, gestion=gf_2026, responsable=u_mae, padre=None)
     uo_sec_plan = g(UnidadOrganizacional, codigo='SEC-PLA', nombre='Secretaria de Planificacion y Desarrollo Territorial',
-                     sigla='SPTD', tipo=tipo_sec, gestion=2026, responsable=u_plan, padre=uo_gam)
+                     sigla='SPTD', tipo=tipo_sec, gestion=gf_2026, responsable=u_plan, padre=uo_gam)
     uo_sec_op = g(UnidadOrganizacional, codigo='SEC-OBR', nombre='Secretaria de Obras Publicas',
-                   sigla='SOP', tipo=tipo_sec, gestion=2026, responsable=u_jefe_obras, padre=uo_gam)
+                   sigla='SOP', tipo=tipo_sec, gestion=gf_2026, responsable=u_jefe_obras, padre=uo_gam)
     uo_dir_plan = g(UnidadOrganizacional, codigo='DIR-PLA', nombre='Direccion de Planificacion',
-                     tipo=tipo_dir, gestion=2026, responsable=u_jefe_plan, padre=uo_sec_plan)
+                     tipo=tipo_dir, gestion=gf_2026, responsable=u_jefe_plan, padre=uo_sec_plan)
     uo_dir_cata = g(UnidadOrganizacional, codigo='DIR-CAT', nombre='Direccion de Catastro Multifinalitario y Administracion de Tierras',
-                     tipo=tipo_dir, gestion=2026, responsable=u_jefe_plan, padre=uo_sec_plan)
+                     tipo=tipo_dir, gestion=gf_2026, responsable=u_jefe_plan, padre=uo_sec_plan)
     uo_upl = g(UnidadOrganizacional, codigo='UPL', nombre='Unidad de Planificacion Estrategica',
-                tipo=tipo_uni, gestion=2026, responsable=u_tecnico, padre=uo_dir_plan)
+                tipo=tipo_uni, gestion=gf_2026, responsable=u_tecnico, padre=uo_dir_plan)
     uo_upre = g(UnidadOrganizacional, codigo='UPRE', nombre='Unidad de Presupuesto',
-                 tipo=tipo_uni, gestion=2026, responsable=u_pres, padre=uo_dir_plan)
+                 tipo=tipo_uni, gestion=gf_2026, responsable=u_pres, padre=uo_dir_plan)
     uo_dir_obras = g(UnidadOrganizacional, codigo='DIR-OBR', nombre='Direccion de Proyectos de Inversion',
-                      tipo=tipo_dir, gestion=2026, responsable=u_jefe_obras, padre=uo_sec_op)
+                      tipo=tipo_dir, gestion=gf_2026, responsable=u_jefe_obras, padre=uo_sec_op)
     uo_uip = g(UnidadOrganizacional, codigo='UIP', nombre='Unidad de Inversion Publica',
-                tipo=tipo_uni, gestion=2026, responsable=u_jefe_obras, padre=uo_dir_obras)
+                tipo=tipo_uni, gestion=gf_2026, responsable=u_jefe_obras, padre=uo_dir_obras)
     uo_umant = g(UnidadOrganizacional, codigo='UMANT', nombre='Unidad de Mantenimiento',
-                  tipo=tipo_uni, gestion=2026, responsable=u_tecnico, padre=uo_dir_obras)
+                  tipo=tipo_uni, gestion=gf_2026, responsable=u_tecnico, padre=uo_dir_obras)
 
     # Asignaciones usuario-unidad
-    g(AsignacionUsuarioUnidad, usuario=u_tecnico, unidad=uo_upl, es_responsable_poa=True, gestion=2026)
-    g(AsignacionUsuarioUnidad, usuario=u_jefe_obras, unidad=uo_uip, es_responsable_poa=True, gestion=2026)
-    g(AsignacionUsuarioUnidad, usuario=u_jefe_plan, unidad=uo_upre, es_responsable_poa=True, gestion=2026)
+    g(AsignacionUsuarioUnidad, usuario=u_tecnico, unidad=uo_upl, es_responsable_poa=True, gestion=gf_2026)
+    g(AsignacionUsuarioUnidad, usuario=u_jefe_obras, unidad=uo_uip, es_responsable_poa=True, gestion=gf_2026)
+    g(AsignacionUsuarioUnidad, usuario=u_jefe_plan, unidad=uo_upre, es_responsable_poa=True, gestion=gf_2026)
 
     # -----------------------------------------------------------------
     # 4. GESTION FISCAL

@@ -187,13 +187,13 @@ class Command(BaseCommand):
         self._importar_distritos()
 
         # 6. Secretarías (unidades organizacionales)
-        self._importar_secretarias(gestion_anio)
+        self._importar_secretarias(gestion)
 
         # 7. Direcciones administrativas
-        das = self._importar_direcciones(gestion_anio)
+        das = self._importar_direcciones(gestion)
 
         # 8. Unidades ejecutoras
-        self._importar_ues(gestion_anio, das)
+        self._importar_ues(gestion, das)
 
         self.stdout.write(self.style.SUCCESS(
             f'Importación de catálogos completada exitosamente (gestión {gestion_anio})'
@@ -329,7 +329,8 @@ class Command(BaseCommand):
     # ============================================================
     # 6. SECRETARÍAS (UNIDADES ORGANIZACIONALES)
     # ============================================================
-    def _importar_secretarias(self, gestion_anio):
+    def _importar_secretarias(self, gestion):
+        gestion_anio = gestion.anio
         tipo_sec, _ = TipoUnidad.objects.get_or_create(
             codigo='SEC', defaults={'nombre': 'Secretaría', 'nivel': 1},
         )
@@ -342,7 +343,7 @@ class Command(BaseCommand):
         creadas = actualizadas = 0
         for codigo, sigla, nombre in SECRETARIAS:
             _, creada = UnidadOrganizacional.objects.update_or_create(
-                codigo=codigo, gestion=gestion_anio,
+                codigo=codigo, gestion=gestion,
                 defaults={
                     'nombre': nombre,
                     'sigla': sigla,
@@ -363,12 +364,13 @@ class Command(BaseCommand):
     # ============================================================
     # 7. DIRECCIONES ADMINISTRATIVAS
     # ============================================================
-    def _importar_direcciones(self, gestion_anio):
+    def _importar_direcciones(self, gestion):
+        gestion_anio = gestion.anio
         das = {}
         creadas = actualizadas = 0
         for codigo, nombre in DIRECCIONES_ADMINISTRATIVAS:
             da, creada = DireccionAdministrativa.objects.update_or_create(
-                codigo=codigo, gestion=gestion_anio,
+                codigo=codigo, gestion=gestion,
                 defaults={
                     'nombre': nombre,
                     'fecha_vigencia_desde': date(gestion_anio, 1, 1),
@@ -389,11 +391,12 @@ class Command(BaseCommand):
     # ============================================================
     # 8. UNIDADES EJECUTORAS
     # ============================================================
-    def _importar_ues(self, gestion_anio, das):
+    def _importar_ues(self, gestion, das):
+        gestion_anio = gestion.anio
         creadas = actualizadas = 0
         for codigo, da_codigo, nombre in UNIDADES_EJECUTORAS:
             _, creada = UnidadEjecutora.objects.update_or_create(
-                codigo=codigo, da=das[da_codigo], gestion=gestion_anio,
+                codigo=codigo, da=das[da_codigo], gestion=gestion,
                 defaults={
                     'nombre': nombre,
                     'fecha_vigencia_desde': date(gestion_anio, 1, 1),

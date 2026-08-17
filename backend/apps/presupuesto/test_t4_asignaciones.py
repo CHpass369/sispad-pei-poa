@@ -20,6 +20,7 @@ from apps.catalogos.models import (
     OrganismoFinanciador,
     VersionClasificador,
 )
+from apps.gestion.models import GestionFiscal
 from apps.organizacion.models import (
     DireccionAdministrativa,
     TipoUnidad,
@@ -115,14 +116,18 @@ def estructura_t4():
     da = DireccionAdministrativa.objects.create(
         codigo='DA-FUENTE',
         nombre='Dirección Administrativa fuente',
-        gestion=2026,
+        gestion=GestionFiscal.objects.get_or_create(
+            anio=2026, defaults={'estado': 'abierta'},
+        )[0],
         fecha_vigencia_desde=inicio,
     )
     ue = UnidadEjecutora.objects.create(
         codigo='UE-FUENTE',
         nombre='Unidad Ejecutora fuente',
         da=da,
-        gestion=2026,
+        gestion=GestionFiscal.objects.get_or_create(
+            anio=2026, defaults={'estado': 'abierta'},
+        )[0],
         fecha_vigencia_desde=inicio,
     )
     programa = ProgramaPresupuestario.objects.create(codigo='400', nombre='Programa fuente', gestion=2026)
@@ -137,7 +142,9 @@ def estructura_t4():
         codigo='UNI-T4',
         nombre='Unidad T4',
         tipo=tipo_unidad,
-        gestion=2026,
+        gestion=GestionFiscal.objects.get_or_create(
+            anio=2026, defaults={'estado': 'abierta'},
+        )[0],
         fecha_vigencia_desde=inicio,
     )
     fuente = FuenteFinanciamiento.objects.create(
@@ -237,7 +244,9 @@ class TestCategoriaProgramatica:
         otra_da = DireccionAdministrativa.objects.create(
             codigo='DA-2025',
             nombre='DA anterior',
-            gestion=2025,
+            gestion=GestionFiscal.objects.get_or_create(
+                anio=2025, defaults={'estado': 'abierta'},
+            )[0],
             fecha_vigencia_desde=date(2025, 1, 1),
         )
 
@@ -284,11 +293,15 @@ class TestCategoriaProgramatica:
             fecha_vigencia_desde=inicio,
         )
         otra_da = DireccionAdministrativa.objects.create(
-            codigo='DA-OTRA', nombre='Otra DA', gestion=2026,
+            codigo='DA-OTRA', nombre='Otra DA', gestion=GestionFiscal.objects.get_or_create(
+                anio=2026, defaults={'estado': 'abierta'},
+            )[0],
             fecha_vigencia_desde=inicio,
         )
         otra_ue = UnidadEjecutora.objects.create(
-            codigo='UE-OTRA', nombre='Otra UE', da=otra_da, gestion=2026,
+            codigo='UE-OTRA', nombre='Otra UE', da=otra_da, gestion=GestionFiscal.objects.get_or_create(
+                anio=2026, defaults={'estado': 'abierta'},
+            )[0],
             fecha_vigencia_desde=inicio,
         )
         otro_programa = ProgramaPresupuestario.objects.create(
@@ -301,7 +314,9 @@ class TestCategoriaProgramatica:
             codigo='02', nombre='Otra actividad', proyecto=otro_proyecto, gestion=2026,
         )
         da_2025 = DireccionAdministrativa.objects.create(
-            codigo='DA25BULK', nombre='DA 2025', gestion=2025,
+            codigo='DA25BULK', nombre='DA 2025', gestion=GestionFiscal.objects.get_or_create(
+                anio=2025, defaults={'estado': 'abierta'},
+            )[0],
             fecha_vigencia_desde=date(2025, 1, 1),
         )
         version_incorrecta = crear_version(

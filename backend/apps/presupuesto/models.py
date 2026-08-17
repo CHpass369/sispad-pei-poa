@@ -192,8 +192,11 @@ class CategoriaProgramatica(TimeStampedModel):
             errors['version_clasificador'] = 'La versión debe ser de categoría programática.'
         for field in ('entidad', 'da', 'ue', 'programa', 'proyecto', 'actividad'):
             related = getattr(self, field, None)
-            if related is not None and gestion is not None and related.gestion != gestion:
-                errors[field] = 'La gestión del componente no coincide con la versión.'
+            if related is not None and gestion is not None:
+                # PIP-DB-002: da/ue gestion es FK a GestionFiscal; normalizar a anio.
+                valor_gestion = getattr(related.gestion, 'anio', related.gestion)
+                if valor_gestion != gestion:
+                    errors[field] = 'La gestión del componente no coincide con la versión.'
         if self.ue_id and self.da_id and self.ue.da_id != self.da_id:
             errors['ue'] = 'La unidad ejecutora no pertenece a la dirección administrativa.'
         if self.proyecto_id and self.programa_id and self.proyecto.programa_id != self.programa_id:
@@ -359,6 +362,8 @@ class AsignacionPresupuestariaUnidad(TimeStampedModel):
             ),
         }
         for field, related_gestion in relations.items():
+            # PIP-DB-002: unidad.gestion es FK a GestionFiscal; normalizar a anio.
+            related_gestion = getattr(related_gestion, 'anio', related_gestion)
             if related_gestion != self.gestion:
                 errors[field] = 'La relación debe estar versionada en la gestión de la asignación.'
 

@@ -137,12 +137,16 @@ class SolicitudModificacionViewSetTests(TestCase):
     def test_verificar_compatibilidad(self):
         from apps.poau.models import POAU
         from apps.organizacion.models import TipoUnidad, UnidadOrganizacional
+        from apps.gestion.models import GestionFiscal
 
         tipo = TipoUnidad.objects.create(
             codigo='COMP', nombre='Comparabilidad', nivel=1,
         )
         unidad = UnidadOrganizacional.objects.create(
-            codigo='UC', nombre='Unidad Compat', tipo=tipo, gestion=2026,
+            codigo='UC', nombre='Unidad Compat', tipo=tipo,
+            gestion=GestionFiscal.objects.get_or_create(
+                anio=2026, defaults={'estado': 'abierta'},
+            )[0],
             fecha_vigencia_desde=date(2026, 1, 1),
         )
         poau = POAU.objects.create(

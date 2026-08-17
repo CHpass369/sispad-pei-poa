@@ -38,21 +38,21 @@ class POAUBaseTestCase(TestCase):
         )
         self.unidad = UnidadOrganizacional.objects.create(
             codigo='SEC-01', nombre='Secretaría General',
-            sigla='SG', tipo=self.tipo_unidad, gestion=2026,
+            sigla='SG', tipo=self.tipo_unidad, gestion=self.gestion,
             fecha_vigencia_desde=self.vig,
         )
         self.unidad_2 = UnidadOrganizacional.objects.create(
             codigo='SEC-02', nombre='Secretaría de Obras',
-            sigla='SO', tipo=self.tipo_unidad, gestion=2026,
+            sigla='SO', tipo=self.tipo_unidad, gestion=self.gestion,
             fecha_vigencia_desde=self.vig,
         )
         self.da = DireccionAdministrativa.objects.create(
             codigo='DA-01', nombre='Dirección Administrativa',
-            gestion=2026, fecha_vigencia_desde=self.vig,
+            gestion=self.gestion, fecha_vigencia_desde=self.vig,
         )
         self.ue = UnidadEjecutora.objects.create(
             codigo='UE-01', nombre='Unidad Ejecutora 1',
-            da=self.da, gestion=2026, fecha_vigencia_desde=self.vig,
+            da=self.da, gestion=self.gestion, fecha_vigencia_desde=self.vig,
         )
         self.fuente = FuenteFinanciamiento.objects.create(
             codigo='41-113', gestion=2026,

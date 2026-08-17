@@ -27,11 +27,15 @@ def usuario_cap(rol_planificador, db):
 @pytest.fixture
 def unidad(db):
     from datetime import date
+    from apps.gestion.models import GestionFiscal
     tipo, _ = TipoUnidad.objects.get_or_create(
         codigo='SEC-TEST', defaults={'nombre': 'Secretaría Test', 'nivel': 1},
     )
+    gestion_2026, _ = GestionFiscal.objects.get_or_create(
+        anio=2026, defaults={'estado': 'preparacion'},
+    )
     u, _ = UnidadOrganizacional.objects.get_or_create(
-        codigo='SEC-CAP', gestion=2026,
+        codigo='SEC-CAP', gestion=gestion_2026,
         defaults={
             'nombre': 'Secretaría de Capacidades',
             'sigla': 'SECCAP',

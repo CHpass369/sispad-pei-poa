@@ -8,6 +8,7 @@ from rest_framework.test import APIClient
 from rest_framework import status
 
 from apps.accounts.models import Usuario
+from apps.gestion.models import GestionFiscal
 from apps.acciones_correctivas.models import (
     AccionCorrectiva, CompromisoAccionCorrectiva,
 )
@@ -44,7 +45,9 @@ class AccionCorrectivaViewSetTests(TestCase):
             codigo='U-AC',
             nombre='Unidad de Acciones Correctivas',
             tipo=self.tipo_unidad,
-            gestion=2026,
+            gestion=GestionFiscal.objects.get_or_create(
+                anio=2026, defaults={'estado': 'abierta'},
+            )[0],
             fecha_vigencia_desde=date(2026, 1, 1),
         )
 
@@ -300,7 +303,10 @@ class AccionCorrectivaModelTests(TestCase):
             codigo='AC-M', nombre='AC Modelo', nivel=1,
         )
         self.unidad = UnidadOrganizacional.objects.create(
-            codigo='U-AC-M', nombre='Unidad AC Modelo', tipo=tipo, gestion=2026,
+            codigo='U-AC-M', nombre='Unidad AC Modelo', tipo=tipo,
+            gestion=GestionFiscal.objects.get_or_create(
+                anio=2026, defaults={'estado': 'abierta'},
+            )[0],
             fecha_vigencia_desde=date(2026, 1, 1),
         )
         poau = POAU.objects.create(
@@ -421,7 +427,9 @@ class CompromisoAccionCorrectivaModelTests(TestCase):
         )
         self.unidad = UnidadOrganizacional.objects.create(
             codigo='U-COMP-M', nombre='Unidad Compromiso', tipo=tipo,
-            gestion=2026, fecha_vigencia_desde=date(2026, 1, 1),
+            gestion=GestionFiscal.objects.get_or_create(
+                anio=2026, defaults={'estado': 'abierta'},
+            )[0], fecha_vigencia_desde=date(2026, 1, 1),
         )
         poau = POAU.objects.create(
             unidad=self.unidad, gestion=2026, codigo='POAU-COMP-M',

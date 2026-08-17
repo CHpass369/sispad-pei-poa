@@ -80,16 +80,16 @@ class WorkflowBaseTestCase(TestCase):
         )
         self.unidad = UnidadOrganizacional.objects.create(
             codigo='SEC-01', nombre='Secretaría General',
-            sigla='SG', tipo=self.tipo_unidad, gestion=2026,
+            sigla='SG', tipo=self.tipo_unidad, gestion=self.gestion,
             fecha_vigencia_desde=date(2026, 1, 1),
         )
         self.da = DireccionAdministrativa.objects.create(
             codigo='DA-01', nombre='Dirección Administrativa',
-            gestion=2026, fecha_vigencia_desde=date(2026, 1, 1),
+            gestion=self.gestion, fecha_vigencia_desde=date(2026, 1, 1),
         )
         self.ue = UnidadEjecutora.objects.create(
             codigo='UE-01', nombre='Unidad Ejecutora 1',
-            da=self.da, gestion=2026, fecha_vigencia_desde=date(2026, 1, 1),
+            da=self.da, gestion=self.gestion, fecha_vigencia_desde=date(2026, 1, 1),
         )
         self.vig = date(2026, 1, 1)
         self.fuente = FuenteFinanciamiento.objects.create(
@@ -764,9 +764,12 @@ class APIClientWorkflowTest(APITestCase):
         tipo = TipoUnidad.objects.create(
             codigo='API', nombre='Tipo API', nivel=1,
         )
+        gestion_api = GestionFiscal.objects.get_or_create(
+            anio=2026, defaults={'estado': 'abierta'},
+        )[0]
         unidad = UnidadOrganizacional.objects.create(
             codigo='API-SEC', nombre='Unidad API',
-            tipo=tipo, gestion=2026,
+            tipo=tipo, gestion=gestion_api,
             fecha_vigencia_desde=date(2026, 1, 1),
         )
         envio_data = {

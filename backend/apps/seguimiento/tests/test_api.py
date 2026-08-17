@@ -9,6 +9,7 @@ from rest_framework.test import APIClient
 from rest_framework import status
 
 from apps.accounts.models import Usuario
+from apps.gestion.models import GestionFiscal
 from apps.seguimiento.models import (
     ReporteSeguimiento, EntradaSeguimiento, Alerta, UmbralConfiguracion,
 )
@@ -31,6 +32,7 @@ class ReporteSeguimientoViewSetTests(TestCase):
         self.client.force_authenticate(user=self.user)
 
         from apps.organizacion.models import TipoUnidad, UnidadOrganizacional
+        from apps.gestion.models import GestionFiscal
         self.tipo_unidad = TipoUnidad.objects.create(
             codigo='SEC-S',
             nombre='Secretaría Seguimiento',
@@ -40,7 +42,9 @@ class ReporteSeguimientoViewSetTests(TestCase):
             codigo='U-SEG',
             nombre='Unidad de Seguimiento',
             tipo=self.tipo_unidad,
-            gestion=2026,
+            gestion=GestionFiscal.objects.get_or_create(
+                anio=2026, defaults={'estado': 'abierta'},
+            )[0],
             fecha_vigencia_desde=date(2026, 1, 1),
         )
 
@@ -383,7 +387,10 @@ class AlertaModelTests(TestCase):
             codigo='AL-T', nombre='Alerta Tipo', nivel=1,
         )
         self.unidad = UnidadOrganizacional.objects.create(
-            codigo='U-AL', nombre='Unidad Alerta', tipo=tipo, gestion=2026,
+            codigo='U-AL', nombre='Unidad Alerta', tipo=tipo,
+            gestion=GestionFiscal.objects.get_or_create(
+                anio=2026, defaults={'estado': 'abierta'},
+            )[0],
             fecha_vigencia_desde=date(2026, 1, 1),
         )
         self.reporte = ReporteSeguimiento.objects.create(
@@ -467,7 +474,10 @@ class EntradaSeguimientoModelTests(TestCase):
             codigo='ENT-T', nombre='Entrada Tipo', nivel=1,
         )
         self.unidad = UnidadOrganizacional.objects.create(
-            codigo='U-ENT', nombre='Unidad Entrada', tipo=tipo, gestion=2026,
+            codigo='U-ENT', nombre='Unidad Entrada', tipo=tipo,
+            gestion=GestionFiscal.objects.get_or_create(
+                anio=2026, defaults={'estado': 'abierta'},
+            )[0],
             fecha_vigencia_desde=date(2026, 1, 1),
         )
         self.reporte = ReporteSeguimiento.objects.create(

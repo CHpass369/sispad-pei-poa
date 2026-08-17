@@ -42,11 +42,15 @@ from apps.poau.models_v2 import (
 @pytest.fixture
 def ue(db):
     from apps.organizacion.models import DireccionAdministrativa
+    from apps.gestion.models import GestionFiscal
     tipo, _ = TipoUnidad.objects.get_or_create(
         codigo='UE-T', defaults={'nombre': 'UE', 'nivel': 2},
     )
+    gestion_2027, _ = GestionFiscal.objects.get_or_create(
+        anio=2027, defaults={'estado': 'abierta'},
+    )
     unidad, _ = UnidadOrganizacional.objects.get_or_create(
-        codigo='UE-2027', gestion=2027,
+        codigo='UE-2027', gestion=gestion_2027,
         defaults={
             'nombre': 'Unidad Ejecutora', 'sigla': 'UE',
             'tipo': tipo, 'fecha_vigencia_desde': date(2027, 1, 1),
@@ -54,14 +58,14 @@ def ue(db):
     )
     da, _ = DireccionAdministrativa.objects.get_or_create(
         codigo='DA-2027', defaults={
-            'nombre': 'Dirección', 'gestion': 2027,
+            'nombre': 'Dirección', 'gestion': gestion_2027,
             'fecha_vigencia_desde': date(2027, 1, 1),
         },
     )
     ejecutora, _ = UnidadEjecutora.objects.get_or_create(
         codigo='UE-2027', defaults={
             'nombre': 'UE', 'da': da, 'unidad_organizacional': unidad,
-            'fecha_vigencia_desde': date(2027, 1, 1), 'gestion': 2027,
+            'fecha_vigencia_desde': date(2027, 1, 1), 'gestion': gestion_2027,
         },
     )
     return ejecutora

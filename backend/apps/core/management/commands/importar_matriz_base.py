@@ -501,9 +501,23 @@ class Command(BaseCommand):
             cod = "".join(c for c in key if c.isalnum() or c in "_-")[:20]
             if not cod:
                 cod = "GEN"
+            # PIP-DB-002: gestion es FK a GestionFiscal. La matriz histórica
+            # usa 2021 (año sin GestionFiscal en la canónica): NO se inventa la
+            # gestión (invariante PIP-DB-007); se degrada a la gestión vigente
+            # más antigua con advertencia explícita.
+            from apps.gestion.models import GestionFiscal
+            gestion_gf = GestionFiscal.objects.filter(anio=2021).first()
+            if gestion_gf is None:
+                gestion_gf = GestionFiscal.objects.order_by("anio").first()
+                self.stdout.write(self.style.WARNING(
+                    f"[matriz] Sin GestionFiscal 2021: unidad '{key}' "
+                    f"asociada a gestión "
+                    f"{gestion_gf.anio if gestion_gf else 'N/A'} "
+                    "(caso histórico pendiente de PIP-DB-007)."
+                ))
             obj, _ = UnidadOrganizacional.objects.get_or_create(
                 codigo=cod,
-                gestion=2021,
+                gestion=gestion_gf,
                 defaults={
                     "nombre": nombre[:300],
                     "sigla": key[:30],

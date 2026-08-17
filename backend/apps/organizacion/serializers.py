@@ -9,6 +9,8 @@ class TipoUnidadSerializer(serializers.ModelSerializer):
 
 
 class UnidadOrganizacionalSerializer(serializers.ModelSerializer):
+    gestion_anio = serializers.IntegerField(source='gestion.anio', read_only=True)
+
     class Meta:
         model = UnidadOrganizacional
         fields = '__all__'
@@ -17,10 +19,11 @@ class UnidadOrganizacionalSerializer(serializers.ModelSerializer):
 
 class UnidadOrganizacionalTreeSerializer(serializers.ModelSerializer):
     hijas = serializers.SerializerMethodField()
+    gestion_anio = serializers.IntegerField(source='gestion.anio', read_only=True)
 
     class Meta:
         model = UnidadOrganizacional
-        fields = ['id', 'codigo', 'nombre', 'sigla', 'tipo', 'tipo_id', 'hijas', 'gestion', 'activo']
+        fields = ['id', 'codigo', 'nombre', 'sigla', 'tipo', 'tipo_id', 'hijas', 'gestion', 'gestion_anio', 'activo']
 
     def get_hijas(self, obj):
         hijas = obj.hijas.filter(activo=True)
@@ -28,18 +31,24 @@ class UnidadOrganizacionalTreeSerializer(serializers.ModelSerializer):
 
 
 class DireccionAdministrativaSerializer(serializers.ModelSerializer):
+    gestion_anio = serializers.IntegerField(source='gestion.anio', read_only=True)
+
     class Meta:
         model = DireccionAdministrativa
         fields = '__all__'
 
 
 class UnidadEjecutoraSerializer(serializers.ModelSerializer):
+    gestion_anio = serializers.IntegerField(source='gestion.anio', read_only=True)
+
     class Meta:
         model = UnidadEjecutora
         fields = '__all__'
 
 
 class AsignacionUsuarioUnidadSerializer(serializers.ModelSerializer):
+    gestion_anio = serializers.IntegerField(source='gestion.anio', read_only=True)
+
     class Meta:
         model = AsignacionUsuarioUnidad
         fields = '__all__'

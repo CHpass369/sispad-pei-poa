@@ -247,12 +247,12 @@ def nodo_amp(plan_pei, db):
 
 
 @pytest.fixture
-def unidad_organizacional(db):
+def unidad_organizacional(db, gestion):
     tipo, _ = TipoUnidad.objects.get_or_create(
         codigo='SEC-TEST', defaults={'nombre': 'Secretaría Test', 'nivel': 1}
     )
     u, _ = UnidadOrganizacional.objects.get_or_create(
-        codigo='TEST-SEC', gestion=2026,
+        codigo='TEST-SEC', gestion=gestion,
         defaults={
             'nombre': 'Secretaría de Test',
             'sigla': 'TEST',

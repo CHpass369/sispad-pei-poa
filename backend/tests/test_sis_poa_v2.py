@@ -294,8 +294,12 @@ def test_comparar_duplicados_poa(poa_legacy):
     tipo, _ = TipoUnidad.objects.get_or_create(
         codigo='SEC-X', defaults={'nombre': 'Secretaría', 'nivel': 1},
     )
+    from apps.gestion.models import GestionFiscal
+    gestion_2027, _ = GestionFiscal.objects.get_or_create(
+        anio=2027, defaults={'estado': 'abierta'},
+    )
     unidad, _ = UnidadOrganizacional.objects.get_or_create(
-        codigo='SEC-X-2027', gestion=2027,
+        codigo='SEC-X-2027', gestion=gestion_2027,
         defaults={
             'nombre': 'Secretaría X', 'tipo': tipo,
             'fecha_vigencia_desde': _date(2027, 1, 1),

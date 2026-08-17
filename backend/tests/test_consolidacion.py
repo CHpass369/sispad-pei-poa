@@ -32,11 +32,11 @@ class TestConsolidacion:
         from datetime import date
         from apps.organizacion.models import DireccionAdministrativa, UnidadEjecutora
         da, _ = DireccionAdministrativa.objects.get_or_create(
-            codigo='99', gestion=2026,
+            codigo='99', gestion=gestion,
             defaults={'nombre': 'DA Test', 'fecha_vigencia_desde': date(2026, 1, 1)}
         )
         ue, _ = UnidadEjecutora.objects.get_or_create(
-            codigo='99', da=da, gestion=2026,
+            codigo='99', da=da, gestion=gestion,
             defaults={'nombre': 'UE Test', 'fecha_vigencia_desde': date(2026, 1, 1)}
         )
         fuente = fuentes.first()

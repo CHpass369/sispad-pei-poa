@@ -371,10 +371,14 @@ def _write_records(rows, reader, report):
     end = first["date_end"] or date(GESTION, 12, 31)
 
     area_type, _ = _get_or_create(TipoUnidad, {"codigo": "SIM-2027-AREA"}, {"nombre": "Área organizacional simulada SIM-2027", "nivel": 3}, report, "TipoUnidad")
+    from apps.gestion.models import GestionFiscal
+    gestion_gf, _ = GestionFiscal.objects.get_or_create(
+        anio=GESTION, defaults={'estado': 'abierta'},
+    )
     unit, _ = _get_or_create(
         UnidadOrganizacional,
-        {"codigo": base_code, "gestion": GESTION},
-        {"nombre": f"{first['organization'].get('E') or 'JURÍDICA'} — SIM-2027", "sigla": organization_code, "tipo": area_type, "gestion": GESTION, "fecha_vigencia_desde": start, "fecha_vigencia_hasta": end},
+        {"codigo": base_code, "gestion": gestion_gf},
+        {"nombre": f"{first['organization'].get('E') or 'JURÍDICA'} — SIM-2027", "sigla": organization_code, "tipo": area_type, "gestion": gestion_gf, "fecha_vigencia_desde": start, "fecha_vigencia_hasta": end},
         report,
         "UnidadOrganizacional",
     )

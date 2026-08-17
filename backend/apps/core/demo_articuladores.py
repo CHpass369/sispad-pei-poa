@@ -882,8 +882,17 @@ class DemoArticuladoresSeeder:
 
     def _source_unit(self):
         unit_code = f'SIM-2027-{self.source.unit_code}'
+        gf = self._get(
+            GestionFiscal, 'gestion_fiscal', anio=self.gestion,
+            defaults={
+                'estado': GestionFiscal.Estado.ABIERTA,
+                'descripcion': 'Gestión demostrativa 2027 abierta para formulación provisional.',
+                'anio_inicio_plurianual': 2026,
+                'anio_fin_plurianual': 2030,
+            },
+        )
         unit = UnidadOrganizacional.objects.filter(
-            codigo=unit_code, gestion=self.gestion,
+            codigo=unit_code, gestion=gf,
         ).first()
         if unit:
             self._track(unit, False, 'unidad_fuente')
@@ -894,7 +903,7 @@ class DemoArticuladoresSeeder:
         )
         unit = UnidadOrganizacional.objects.create(
             codigo=unit_code,
-            gestion=self.gestion,
+            gestion=gf,
             nombre=self.source.unit_name,
             sigla='DJR',
             tipo=unit_type,
@@ -1017,16 +1026,25 @@ class DemoArticuladoresSeeder:
     def _seed_budget(self, source_objects, native_objects):
         start = date(self.gestion, 1, 1)
         unit = native_objects['unit']
+        gf = self._get(
+            GestionFiscal, 'gestion_fiscal', anio=self.gestion,
+            defaults={
+                'estado': GestionFiscal.Estado.ABIERTA,
+                'descripcion': 'Gestión demostrativa 2027 abierta para formulación provisional.',
+                'anio_inicio_plurianual': 2026,
+                'anio_fin_plurianual': 2030,
+            },
+        )
         da = self._get(
             DireccionAdministrativa, 'direccion_administrativa',
-            codigo='91', gestion=self.gestion,
+            codigo='91', gestion=gf,
             defaults={
                 'nombre': 'Dirección Administrativa 91 — Gestión institucional',
                 'fecha_vigencia_desde': start,
             },
         )
         ue = self._get(
-            UnidadEjecutora, 'unidad_ejecutora', codigo='91', da=da, gestion=self.gestion,
+            UnidadEjecutora, 'unidad_ejecutora', codigo='91', da=da, gestion=gf,
             defaults={
                 'nombre': 'Unidad Ejecutora 91 — Dirección Jurídica',
                 'unidad_organizacional': unit,

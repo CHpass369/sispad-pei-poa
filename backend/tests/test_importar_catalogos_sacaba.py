@@ -44,10 +44,10 @@ def test_command_carga_catalogos_completos(db):
         ).count() == 1
     assert FuenteFinanciamiento.objects.filter(gestion=2027).count() == 21
     assert OrganismoFinanciador.objects.filter(gestion=2027).count() == 11
-    assert DireccionAdministrativa.objects.filter(gestion=2027).count() == 5
-    assert UnidadEjecutora.objects.filter(gestion=2027).count() == 11
+    assert DireccionAdministrativa.objects.filter(gestion__anio=2027).count() == 5
+    assert UnidadEjecutora.objects.filter(gestion__anio=2027).count() == 11
     assert UnidadOrganizacional.objects.filter(
-        gestion=2027, tipo__codigo='SEC',
+        gestion__anio=2027, tipo__codigo='SEC',
     ).count() >= 8
     if TIENE_TERRITORIO:
         assert Distrito.objects.count() == 12
@@ -99,11 +99,11 @@ def test_fuentes_y_organismos_versionados(db):
 
 def test_ues_apuntan_a_da_correcta(db):
     _cargar_catalogos()
-    ue_6 = UnidadEjecutora.objects.get(codigo='6', gestion=2027)
+    ue_6 = UnidadEjecutora.objects.get(codigo='6', gestion__anio=2027)
     assert ue_6.da.codigo == '3'
     assert ue_6.da.nombre == 'ADMINISTRACION CONCEJO MUNICIPAL'
     assert ue_6.nombre == 'CONCEJO MUNICIPAL'
 
-    ue_2 = UnidadEjecutora.objects.get(codigo='2', gestion=2027)
+    ue_2 = UnidadEjecutora.objects.get(codigo='2', gestion__anio=2027)
     assert ue_2.da.codigo == '2'
     assert ue_2.da.nombre == 'HOSPITAL DE SEGUNDO NIVEL MEXICO'

@@ -2,6 +2,7 @@ import uuid
 from django.db import models
 from django.conf import settings
 from apps.core.models import TimeStampedModel, ActivableModel, VigenciaModel
+from apps.gestion.models import GestionFiscal
 
 
 class TipoUnidad(models.Model):
@@ -34,13 +35,16 @@ class UnidadOrganizacional(TimeStampedModel, ActivableModel, VigenciaModel):
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
         null=True, blank=True, related_name='unidades_responsable'
     )
-    gestion = models.PositiveIntegerField()
+    gestion = models.ForeignKey(
+        GestionFiscal, on_delete=models.PROTECT, db_column='gestion',
+        related_name='+', verbose_name='Gestión fiscal',
+    )
     orden = models.PositiveIntegerField(default=0)
 
     class Meta:
         verbose_name = 'Unidad organizacional'
         verbose_name_plural = 'Unidades organizacionales'
-        ordering = ['gestion', 'tipo__nivel', 'orden']
+        ordering = ['gestion__anio', 'tipo__nivel', 'orden']
         unique_together = [('codigo', 'gestion')]
 
     def __str__(self):
@@ -51,7 +55,10 @@ class DireccionAdministrativa(TimeStampedModel, ActivableModel, VigenciaModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     codigo = models.CharField(max_length=10)
     nombre = models.CharField(max_length=200)
-    gestion = models.PositiveIntegerField()
+    gestion = models.ForeignKey(
+        GestionFiscal, on_delete=models.PROTECT, db_column='gestion',
+        related_name='+', verbose_name='Gestión fiscal',
+    )
     responsable = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
         null=True, blank=True, related_name='das_responsable'
@@ -61,7 +68,7 @@ class DireccionAdministrativa(TimeStampedModel, ActivableModel, VigenciaModel):
         verbose_name = 'Dirección Administrativa'
         verbose_name_plural = 'Direcciones Administrativas'
         unique_together = [('codigo', 'gestion')]
-        ordering = ['gestion', 'codigo']
+        ordering = ['gestion__anio', 'codigo']
 
     def __str__(self):
         return f'{self.codigo} - {self.nombre}'
@@ -82,7 +89,10 @@ class UnidadEjecutora(TimeStampedModel, ActivableModel, VigenciaModel):
         UnidadOrganizacional, on_delete=models.PROTECT,
         related_name='ues_asociadas', null=True, blank=True
     )
-    gestion = models.PositiveIntegerField()
+    gestion = models.ForeignKey(
+        GestionFiscal, on_delete=models.PROTECT, db_column='gestion',
+        related_name='+', verbose_name='Gestión fiscal',
+    )
     responsable = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
         null=True, blank=True, related_name='ues_responsable'
@@ -92,7 +102,7 @@ class UnidadEjecutora(TimeStampedModel, ActivableModel, VigenciaModel):
         verbose_name = 'Unidad Ejecutora'
         verbose_name_plural = 'Unidades Ejecutoras'
         unique_together = [('codigo', 'da', 'gestion')]
-        ordering = ['gestion', 'da__codigo', 'codigo']
+        ordering = ['gestion__anio', 'da__codigo', 'codigo']
 
     def __str__(self):
         return f'UE {self.codigo} - {self.nombre} ({self.da.codigo})'
@@ -109,7 +119,10 @@ class AsignacionUsuarioUnidad(TimeStampedModel):
         related_name='asignaciones_usuarios'
     )
     es_responsable_poa = models.BooleanField(default=False)
-    gestion = models.PositiveIntegerField()
+    gestion = models.ForeignKey(
+        GestionFiscal, on_delete=models.PROTECT, db_column='gestion',
+        related_name='+', verbose_name='Gestión fiscal',
+    )
     activo = models.BooleanField(default=True)
 
     class Meta:

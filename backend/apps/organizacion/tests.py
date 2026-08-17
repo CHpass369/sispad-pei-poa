@@ -19,6 +19,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from apps.accounts.models import Usuario
+from apps.gestion.models import GestionFiscal
 from apps.organizacion.models import (
     TipoUnidad, UnidadOrganizacional, DireccionAdministrativa,
     UnidadEjecutora, AsignacionUsuarioUnidad,
@@ -69,36 +70,45 @@ def tipo_direccion(db):
 
 
 @pytest.fixture
-def unidad(db, tipo_unidad):
+def gestion_fiscal(db):
+    """Gestión fiscal 2026 para los fixtures (PIP-DB-002: gestion es FK)."""
+    gf, _ = GestionFiscal.objects.get_or_create(
+        anio=2026, defaults={'estado': 'preparacion'},
+    )
+    return gf
+
+
+@pytest.fixture
+def unidad(db, tipo_unidad, gestion_fiscal):
     return UnidadOrganizacional.objects.create(
         codigo='SEC-001', nombre='Secretaría de Test', sigla='SEC',
-        tipo=tipo_unidad, gestion=2026,
+        tipo=tipo_unidad, gestion=gestion_fiscal,
         fecha_vigencia_desde=datetime.date(2026, 1, 1),
     )
 
 
 @pytest.fixture
-def unidad_hija(db, unidad, tipo_direccion):
+def unidad_hija(db, unidad, tipo_direccion, gestion_fiscal):
     return UnidadOrganizacional.objects.create(
         codigo='DIR-001', nombre='Dirección de Test', sigla='DIR',
-        tipo=tipo_direccion, padre=unidad, gestion=2026,
+        tipo=tipo_direccion, padre=unidad, gestion=gestion_fiscal,
         fecha_vigencia_desde=datetime.date(2026, 1, 1),
     )
 
 
 @pytest.fixture
-def da(db):
+def da(db, gestion_fiscal):
     return DireccionAdministrativa.objects.create(
-        codigo='DA01', nombre='Dirección Administrativa 01', gestion=2026,
+        codigo='DA01', nombre='Dirección Administrativa 01', gestion=gestion_fiscal,
         fecha_vigencia_desde=datetime.date(2026, 1, 1),
     )
 
 
 @pytest.fixture
-def ue(db, da, unidad):
+def ue(db, da, unidad, gestion_fiscal):
     return UnidadEjecutora.objects.create(
         codigo='UE01', nombre='Unidad Ejecutora 01',
-        da=da, unidad_organizacional=unidad, gestion=2026,
+        da=da, unidad_organizacional=unidad, gestion=gestion_fiscal,
         fecha_vigencia_desde=datetime.date(2026, 1, 1),
     )
 
@@ -157,7 +167,8 @@ class TestUnidadEjecutoraAPI:
         assert item['nombre'] == 'Unidad Ejecutora 01'
         assert str(item['da']) == str(ue.da_id)
         assert str(item['unidad_organizacional']) == str(ue.unidad_organizacional_id)
-        assert item['gestion'] == 2026
+        assert item['gestion'] == ue.gestion_id
+        assert item['gestion_anio'] == 2026
         assert item['activo'] is True
         assert item['fecha_vigencia_desde'] == '2026-01-01'
         assert item['fecha_vigencia_hasta'] is None
@@ -178,19 +189,19 @@ class TestUnidadEjecutoraAPI:
         resp = auth_client.get(reverse('unidadejecutora-detail', args=[uuid.uuid4()]))
         assert resp.status_code == status.HTTP_404_NOT_FOUND
 
-    def test_create_201(self, auth_client, da):
+    def test_create_201(self, auth_client, da, gestion_fiscal):
         resp = auth_client.post(reverse('unidadejecutora-list'), {
             'codigo': 'UE02', 'nombre': 'Unidad Ejecutora 02',
-            'da': str(da.id), 'gestion': 2026,
+            'da': str(da.id), 'gestion': str(gestion_fiscal.id),
             'fecha_vigencia_desde': '2026-01-01',
         }, format='json')
         assert resp.status_code == status.HTTP_201_CREATED
         assert resp.data['codigo'] == 'UE02'
         assert str(resp.data['da']) == str(da.id)
 
-    def test_create_400_sin_da(self, auth_client):
+    def test_create_400_sin_da(self, auth_client, gestion_fiscal):
         resp = auth_client.post(reverse('unidadejecutora-list'), {
-            'codigo': 'UE03', 'nombre': 'Sin DA', 'gestion': 2026,
+            'codigo': 'UE03', 'nombre': 'Sin DA', 'gestion': str(gestion_fiscal.id),
             'fecha_vigencia_desde': '2026-01-01',
         }, format='json')
         assert resp.status_code == status.HTTP_400_BAD_REQUEST
@@ -224,21 +235,21 @@ class TestDireccionAdministrativaAPI:
         assert item['id'] == str(da.id)
         assert item['codigo'] == 'DA01'
         assert item['nombre'] == 'Dirección Administrativa 01'
-        assert item['gestion'] == 2026
+        assert item['gestion_anio'] == 2026
         assert item['activo'] is True
         assert item['fecha_vigencia_desde'] == '2026-01-01'
 
-    def test_create_201(self, auth_client):
+    def test_create_201(self, auth_client, gestion_fiscal):
         resp = auth_client.post(reverse('direccionadministrativa-list'), {
             'codigo': 'DA02', 'nombre': 'Dirección Administrativa 02',
-            'gestion': 2026, 'fecha_vigencia_desde': '2026-01-01',
+            'gestion': str(gestion_fiscal.id), 'fecha_vigencia_desde': '2026-01-01',
         }, format='json')
         assert resp.status_code == status.HTTP_201_CREATED
         assert resp.data['codigo'] == 'DA02'
 
-    def test_create_400_sin_codigo(self, auth_client):
+    def test_create_400_sin_codigo(self, auth_client, gestion_fiscal):
         resp = auth_client.post(reverse('direccionadministrativa-list'), {
-            'nombre': 'Sin código', 'gestion': 2026,
+            'nombre': 'Sin código', 'gestion': str(gestion_fiscal.id),
             'fecha_vigencia_desde': '2026-01-01',
         }, format='json')
         assert resp.status_code == status.HTTP_400_BAD_REQUEST
@@ -273,7 +284,7 @@ class TestArbolUnidadesAPI:
         assert root['codigo'] == 'SEC-001'
         assert root['nombre'] == 'Secretaría de Test'
         assert root['sigla'] == 'SEC'
-        assert root['gestion'] == 2026
+        assert root['gestion_anio'] == 2026
         assert root['activo'] is True
         assert str(root['tipo']) == str(unidad.tipo_id)
         assert str(root['tipo_id']) == str(unidad.tipo_id)
@@ -283,10 +294,13 @@ class TestArbolUnidadesAPI:
         assert hijas['codigo'] == 'DIR-001'
         assert hijas['hijas'] == []
 
-    def test_arbol_filtro_gestion(self, auth_client, tipo_unidad, unidad):
+    def test_arbol_filtro_gestion(self, auth_client, tipo_unidad, unidad, gestion_fiscal):
+        gf_2027, _ = GestionFiscal.objects.get_or_create(
+            anio=2027, defaults={'estado': 'preparacion'},
+        )
         otra = UnidadOrganizacional.objects.create(
             codigo='SEC-2027', nombre='Secretaría 2027', sigla='S27',
-            tipo=tipo_unidad, gestion=2027,
+            tipo=tipo_unidad, gestion=gf_2027,
             fecha_vigencia_desde=datetime.date(2027, 1, 1),
         )
         resp = auth_client.get(reverse('unidadorganizacional-arbol'), {'gestion': 2026})
@@ -296,10 +310,10 @@ class TestArbolUnidadesAPI:
         assert 'SEC-2027' not in codigos
         assert UnidadOrganizacional.objects.filter(codigo='SEC-2027').exists()
 
-    def test_arbol_excluye_hijas_inactivas(self, auth_client, unidad, tipo_direccion):
+    def test_arbol_excluye_hijas_inactivas(self, auth_client, unidad, tipo_direccion, gestion_fiscal):
         inactiva = UnidadOrganizacional.objects.create(
             codigo='DIR-X', nombre='Dirección Inactiva', sigla='DIX',
-            tipo=tipo_direccion, padre=unidad, gestion=2026,
+            tipo=tipo_direccion, padre=unidad, gestion=gestion_fiscal,
             fecha_vigencia_desde=datetime.date(2026, 1, 1), activo=False,
         )
         resp = auth_client.get(reverse('unidadorganizacional-arbol'))
@@ -307,11 +321,11 @@ class TestArbolUnidadesAPI:
         assert resp.data[0]['hijas'] == []
         assert inactiva.id
 
-    def test_arbol_solo_raices(self, auth_client, unidad, tipo_direccion):
+    def test_arbol_solo_raices(self, auth_client, unidad, tipo_direccion, gestion_fiscal):
         """Una hija nunca aparece como raíz; si la raíz se inactiva, queda vacío."""
         UnidadOrganizacional.objects.create(
             codigo='DIR-001', nombre='Dirección de Test', sigla='DIR',
-            tipo=tipo_direccion, padre=unidad, gestion=2026,
+            tipo=tipo_direccion, padre=unidad, gestion=gestion_fiscal,
             fecha_vigencia_desde=datetime.date(2026, 1, 1),
         )
         resp = auth_client.get(reverse('unidadorganizacional-arbol'))
@@ -340,10 +354,10 @@ class TestUnidadOrganizacionalAPI:
         assert resp.data['count'] == 1
         assert resp.data['results'][0]['codigo'] == 'SEC-001'
 
-    def test_create_201(self, auth_client, tipo_unidad):
+    def test_create_201(self, auth_client, tipo_unidad, gestion_fiscal):
         resp = auth_client.post(reverse('unidadorganizacional-list'), {
             'codigo': 'SEC-002', 'nombre': 'Secretaría 002', 'sigla': 'S02',
-            'tipo': str(tipo_unidad.id), 'gestion': 2026,
+            'tipo': str(tipo_unidad.id), 'gestion': str(gestion_fiscal.id),
             'fecha_vigencia_desde': '2026-01-01',
         }, format='json')
         assert resp.status_code == status.HTTP_201_CREATED
@@ -363,9 +377,9 @@ class TestTiposUnidadAPI:
 
 
 class TestAsignacionUsuarioUnidadAPI:
-    def test_list_200(self, auth_client, admin_user, unidad):
+    def test_list_200(self, auth_client, admin_user, unidad, gestion_fiscal):
         AsignacionUsuarioUnidad.objects.create(
-            usuario=admin_user, unidad=unidad, gestion=2026,
+            usuario=admin_user, unidad=unidad, gestion=gestion_fiscal,
         )
         resp = auth_client.get(reverse('asignacionusuariounidad-list'))
         assert resp.status_code == status.HTTP_200_OK

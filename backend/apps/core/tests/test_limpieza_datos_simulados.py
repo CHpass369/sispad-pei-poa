@@ -12,6 +12,7 @@ from django.test import TestCase
 from apps.accounts.models import Rol
 from apps.articulacion.models import AcuerdoInternacional, LineamientoPAD, ResultadoPAD
 from apps.core.services.limpieza_datos_simulados import CleanupError
+from apps.gestion.models import GestionFiscal
 from apps.organizacion.models import TipoUnidad, UnidadOrganizacional
 from apps.pad.models import SectorPAD
 from apps.planificacion.models import Plan
@@ -62,7 +63,9 @@ def _seed_demo_data():
     TipoUnidad.objects.create(codigo="UE", nombre="Unidad Ejecutora", nivel=3, activo=True)
 
     demo_unit = UnidadOrganizacional.objects.create(
-        codigo="ORG-DEMO", gestion=2026,
+        codigo="ORG-DEMO", gestion=GestionFiscal.objects.get_or_create(
+            anio=2026, defaults={'estado': 'abierta'},
+        )[0],
         nombre="Unidad demostrativa", sigla="DEMO",
         tipo=unit_type,
         fecha_vigencia_desde=date(2026, 1, 1),
@@ -187,7 +190,9 @@ class LimpiezaDatosSimuladosTest(TestCase):
         )
         colliding_unit = UnidadOrganizacional.objects.create(
             codigo="GAM",
-            gestion=2026,
+            gestion=GestionFiscal.objects.get_or_create(
+                anio=2026, defaults={'estado': 'abierta'},
+            )[0],
             nombre="Gobierno Autónomo Municipal legítimo",
             sigla="GAM",
             tipo=unit_type,

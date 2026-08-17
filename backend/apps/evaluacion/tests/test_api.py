@@ -9,6 +9,7 @@ from rest_framework.test import APIClient
 from rest_framework import status
 
 from apps.accounts.models import Usuario
+from apps.gestion.models import GestionFiscal
 from apps.evaluacion.models import (
     Evaluacion, CriterioEvaluacion, ResultadoEvaluacion,
     LeccionAprendida, Recomendacion,
@@ -156,7 +157,9 @@ class EvaluacionViewSetTests(TestCase):
             codigo='U001',
             nombre='Unidad Test',
             tipo=tipo_unidad,
-            gestion=2026,
+            gestion=GestionFiscal.objects.get_or_create(
+                anio=2026, defaults={'estado': 'abierta'},
+            )[0],
             fecha_vigencia_desde=date(2026, 1, 1),
         )
         poau = POAU.objects.create(
@@ -212,7 +215,9 @@ class EvaluacionViewSetTests(TestCase):
             codigo='UE-01',
             nombre='Unidad Ejecutora Test',
             tipo=tipo_unidad,
-            gestion=2026,
+            gestion=GestionFiscal.objects.get_or_create(
+                anio=2026, defaults={'estado': 'abierta'},
+            )[0],
             fecha_vigencia_desde=date(2026, 1, 1),
         )
         POAU.objects.create(
@@ -241,7 +246,9 @@ class EvaluacionViewSetTests(TestCase):
             codigo='SEC-01',
             nombre='Secretaría Test',
             tipo=tipo_unidad,
-            gestion=2026,
+            gestion=GestionFiscal.objects.get_or_create(
+                anio=2026, defaults={'estado': 'abierta'},
+            )[0],
             fecha_vigencia_desde=date(2026, 1, 1),
         )
         POAU.objects.create(
@@ -516,11 +523,15 @@ class ResultadoEvaluacionModelTests(TestCase):
 
     def test_resultado_str_con_poau(self):
         from apps.organizacion.models import TipoUnidad, UnidadOrganizacional
+        from apps.gestion.models import GestionFiscal
         from apps.poau.models import POAU
 
         tipo = TipoUnidad.objects.create(codigo='DIR2', nombre='Dir', nivel=1)
         unidad = UnidadOrganizacional.objects.create(
-            codigo='U-R', nombre='Unidad R', tipo=tipo, gestion=2026,
+            codigo='U-R', nombre='Unidad R', tipo=tipo,
+            gestion=GestionFiscal.objects.get_or_create(
+                anio=2026, defaults={'estado': 'abierta'},
+            )[0],
             fecha_vigencia_desde=date(2026, 1, 1),
         )
         poau = POAU.objects.create(

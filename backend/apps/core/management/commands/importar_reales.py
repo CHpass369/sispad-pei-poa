@@ -29,6 +29,13 @@ from apps.presupuesto.models import ProgramaPresupuestario
 from apps.gestion.models import GestionFiscal
 
 GESTION = 2026
+
+
+def _gestion_fiscal():
+    """Instancia de GestionFiscal para la gestión del comando (PIP-DB-002)."""
+    return GestionFiscal.objects.get_or_create(
+        anio=GESTION, defaults={'estado': 'preparacion'},
+    )[0]
 VIGENCIA = date(2026, 1, 1)
 
 
@@ -156,7 +163,7 @@ class Command(BaseCommand):
             # Crear unidad organizacional para la secretaría
             nombre_sec = secretarias_map.get(sigla, f'Secretaría {sigla}')
             UnidadOrganizacional.objects.get_or_create(
-                codigo=sigla, gestion=GESTION,
+                codigo=sigla, gestion=_gestion_fiscal(),
                 defaults={
                     'nombre': nombre_sec,
                     'sigla': sigla,
@@ -241,7 +248,7 @@ class Command(BaseCommand):
             # ---- DA ----
             if da_cod and da_cod not in das_creadas:
                 da_obj, _ = DireccionAdministrativa.objects.get_or_create(
-                    codigo=da_cod, gestion=GESTION,
+                    codigo=da_cod, gestion=_gestion_fiscal(),
                     defaults={
                         'nombre': f'DA {da_cod}',
                         'fecha_vigencia_desde': VIGENCIA,
@@ -253,7 +260,7 @@ class Command(BaseCommand):
             ue_key = (da_cod, ue_cod)
             if ue_cod and ue_key not in ues_creadas and da_cod in das_creadas:
                 ue_obj, _ = UnidadEjecutora.objects.get_or_create(
-                    codigo=ue_cod, da=das_creadas[da_cod], gestion=GESTION,
+                    codigo=ue_cod, da=das_creadas[da_cod], gestion=_gestion_fiscal(),
                     defaults={
                         'nombre': f'UE {ue_cod}',
                         'fecha_vigencia_desde': VIGENCIA,
