@@ -41,10 +41,14 @@ class WorkflowBaseTestCase(TestCase):
     """Base test case with shared fixtures for workflow tests."""
 
     def setUp(self):
-        self.gestion = GestionFiscal.objects.create(
-            anio=2026, estado='formulacion',
-            anio_inicio_plurianual=2026, anio_fin_plurianual=2028,
-        )
+        self.gestion = GestionFiscal.objects.get_or_create(
+            anio=2026,
+            defaults={
+                'estado': 'formulacion',
+                'anio_inicio_plurianual': 2026,
+                'anio_fin_plurianual': 2028,
+            },
+        )[0]
         self.user_admin = Usuario.objects.create_user(
             email='admin@gamsacaba.gob.bo', password='test123',
             first_name='Admin', last_name='User',
@@ -93,22 +97,22 @@ class WorkflowBaseTestCase(TestCase):
         )
         self.vig = date(2026, 1, 1)
         self.fuente = FuenteFinanciamiento.objects.create(
-            codigo='41-113', gestion=2026,
+            codigo='41-113', gestion=self.gestion,
             denominacion='Coparticipación Tributaria',
             fecha_vigencia_desde=self.vig,
         )
         self.organismo = OrganismoFinanciador.objects.create(
-            codigo='GOB-MUN', gestion=2026,
+            codigo='GOB-MUN', gestion=self.gestion,
             denominacion='Gobierno Municipal',
             fecha_vigencia_desde=self.vig,
         )
         self.objeto_gasto = ObjetoGasto.objects.create(
-            codigo='10000', gestion=2026,
+            codigo='10000', gestion=self.gestion,
             denominacion='Servicios Personales',
             fecha_vigencia_desde=self.vig,
         )
         self.finalidad = FinalidadFuncion.objects.create(
-            codigo='01', gestion=2026,
+            codigo='01', gestion=self.gestion,
             denominacion='Función General',
             fecha_vigencia_desde=self.vig,
         )
@@ -590,9 +594,13 @@ class DateRangeValidationTest(WorkflowBaseTestCase):
     """Tests de validación de rangos de fecha."""
 
     def test_gestion_fiscal_plurianual(self):
+        # PIP-DB-003: gestion.0003 siembra 2026/2027; se usa un anio propio
+        # para validar el horizonte plurianual sin colisión.
         gf = GestionFiscal.objects.create(
-            anio=2027, estado='preparacion',
-            anio_inicio_plurianual=2026, anio_fin_plurianual=2028,
+            anio=2031,
+            estado='preparacion',
+            anio_inicio_plurianual=2030,
+            anio_fin_plurianual=2032,
         )
         self.assertGreaterEqual(gf.anio, gf.anio_inicio_plurianual)
         self.assertLessEqual(gf.anio, gf.anio_fin_plurianual)

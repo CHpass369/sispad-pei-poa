@@ -31,24 +31,24 @@ class TechosBaseTestCase(TestCase):
             first_name='Admin', last_name='Techos',
             is_staff=True,
         )
+        self.gestion = GestionFiscal.objects.get_or_create(
+            anio=2026, defaults={'estado': 'abierta'},
+        )[0]
         self.fuente = FuenteFinanciamiento.objects.create(
-            codigo='41-113', gestion=2026,
+            codigo='41-113', gestion=self.gestion,
             denominacion='Coparticipación Tributaria',
             fecha_vigencia_desde=self.vig,
         )
         self.fuente_2 = FuenteFinanciamiento.objects.create(
-            codigo='20-210', gestion=2026,
+            codigo='20-210', gestion=self.gestion,
             denominacion='Recursos Específicos',
             fecha_vigencia_desde=self.vig,
         )
         self.organismo = OrganismoFinanciador.objects.create(
-            codigo='GOB-MUN', gestion=2026,
+            codigo='GOB-MUN', gestion=self.gestion,
             denominacion='Gobierno Municipal',
             fecha_vigencia_desde=self.vig,
         )
-        self.gestion = GestionFiscal.objects.get_or_create(
-            anio=2026, defaults={'estado': 'abierta'},
-        )[0]
         self.tipo_unidad = TipoUnidad.objects.create(
             codigo='SEC', nombre='Secretaría', nivel=1,
         )

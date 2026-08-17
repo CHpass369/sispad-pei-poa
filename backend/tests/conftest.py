@@ -92,52 +92,52 @@ def gestion(db):
 
 
 @pytest.fixture
-def fuentes(db):
+def fuentes(db, gestion):
     """Fuentes de financiamiento básicas."""
     vig = date(2026, 1, 1)
     FuenteFinanciamiento.objects.get_or_create(
-        codigo='41-113', gestion=2026,
+        codigo='41-113', gestion=gestion,
         defaults={'denominacion': 'CT - Coparticipación Tributaria',
                   'fecha_vigencia_desde': vig}
     )
     FuenteFinanciamiento.objects.get_or_create(
-        codigo='20-210', gestion=2026,
+        codigo='20-210', gestion=gestion,
         defaults={'denominacion': 'RE - Recursos Específicos',
                   'fecha_vigencia_desde': vig}
     )
     FuenteFinanciamiento.objects.get_or_create(
-        codigo='41-119', gestion=2026,
+        codigo='41-119', gestion=gestion,
         defaults={'denominacion': 'IDH - Impuesto Directo a Hidrocarburos',
                   'fecha_vigencia_desde': vig}
     )
-    return FuenteFinanciamiento.objects.filter(gestion=2026)
+    return FuenteFinanciamiento.objects.filter(gestion=gestion)
 
 
 @pytest.fixture
-def objetos_gasto(db):
+def objetos_gasto(db, gestion):
     """Objetos del gasto básicos."""
     vig = date(2026, 1, 1)
     ObjetoGasto.objects.get_or_create(
-        codigo='10000', gestion=2026,
+        codigo='10000', gestion=gestion,
         defaults={'denominacion': 'SERVICIOS PERSONALES',
                   'fecha_vigencia_desde': vig}
     )
     ObjetoGasto.objects.get_or_create(
-        codigo='20000', gestion=2026,
+        codigo='20000', gestion=gestion,
         defaults={'denominacion': 'SERVICIOS NO PERSONALES',
                   'fecha_vigencia_desde': vig}
     )
-    return ObjetoGasto.objects.filter(gestion=2026)
+    return ObjetoGasto.objects.filter(gestion=gestion)
 
 
 @pytest.fixture
-def unidades_medida(db):
+def unidades_medida(db, gestion):
     vig = date(2026, 1, 1)
     UnidadMedida.objects.get_or_create(
-        codigo='UN', gestion=2026,
+        codigo='UN', gestion=gestion,
         defaults={'denominacion': 'Unidad', 'fecha_vigencia_desde': vig}
     )
-    return UnidadMedida.objects.filter(gestion=2026)
+    return UnidadMedida.objects.filter(gestion=gestion)
 
 
 @pytest.fixture

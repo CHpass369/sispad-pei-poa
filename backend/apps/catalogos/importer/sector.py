@@ -10,6 +10,7 @@ from apps.catalogos.importer.base import (
     leer_items_clasificador,
     orden_bfs,
     profundidad,
+    resolver_gestion,
     upsert,
     vigencia_desde,
 )
@@ -22,12 +23,13 @@ def importar(reporte, gestion):
     reporte.fuente = f'SECTOR_ECONOMICO ({len(filas)})'
     por_uuid = {fila['item_uuid']: fila for fila in filas}
     sector_por_item = {}
+    gestion_fiscal = resolver_gestion(gestion)
     for fila in filas:
         padre = sector_por_item.get(fila.get('parent_uuid'))
         profundidad_item = profundidad(fila, por_uuid)
         obj = upsert(
             SectorEconomicoPresupuestario,
-            claves={'codigo': fila['codigo'], 'gestion': gestion},
+            claves={'codigo': fila['codigo'], 'gestion': gestion_fiscal},
             valores={
                 'denominacion': fila['denominacion'] or f'Sector {fila["codigo"]}',
                 'descripcion': fila['descripcion'] or '',
@@ -51,6 +53,6 @@ def importar(reporte, gestion):
         )
         sector_por_item[fila['item_uuid']] = obj
     reporte.conteos_modelo['SectorEconomicoPresupuestario'] = (
-        SectorEconomicoPresupuestario.objects.filter(gestion=gestion).count()
+        SectorEconomicoPresupuestario.objects.filter(gestion__anio=gestion).count()
     )
     return reporte

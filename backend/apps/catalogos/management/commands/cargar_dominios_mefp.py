@@ -17,6 +17,7 @@ from django.db import transaction
 from apps.catalogos.models import (
     UnidadMedida, TipoOperacion, TipoProducto, TipoProyecto, TipoFinanciamiento,
 )
+from apps.gestion.models import GestionFiscal
 
 GESTION_DEFAULT = 2027
 NORMA = 'RM N. 271/2026 - Clasificadores Presupuestarios Gestion 2027'
@@ -32,6 +33,16 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         gestion = options['gestion']
         vigencia = date(gestion, 1, 1)
+        # PIP-DB-003: gestion es FK a GestionFiscal; se resuelve la instancia
+        # (siembra idempotente: se crea la gestión de trabajo si no existe).
+        gestion_fiscal, _ = GestionFiscal.objects.get_or_create(
+            anio=gestion,
+            defaults={
+                'estado': GestionFiscal.Estado.PREPARACION,
+                'descripcion': 'Gestión de trabajo (cargar_dominios_mefp).',
+                'activa': True,
+            },
+        )
         creados = 0
         actualizados = 0
 
@@ -39,7 +50,7 @@ class Command(BaseCommand):
             nonlocal creados, actualizados
             for codigo, denominacion, descripcion in items:
                 _, created = modelo.objects.update_or_create(
-                    codigo=codigo, gestion=gestion,
+                    codigo=codigo, gestion=gestion_fiscal,
                     defaults={
                         'denominacion': denominacion,
                         'descripcion': descripcion,
@@ -109,9 +120,9 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS(
             f'Dominios gestion {gestion}: {creados} creados, {actualizados} actualizados '
-            f'(UM {UnidadMedida.objects.filter(gestion=gestion).count()}, '
-            f'TO {TipoOperacion.objects.filter(gestion=gestion).count()}, '
-            f'TP {TipoProducto.objects.filter(gestion=gestion).count()}, '
-            f'TProy {TipoProyecto.objects.filter(gestion=gestion).count()}, '
-            f'TFin {TipoFinanciamiento.objects.filter(gestion=gestion).count()}).'
+            f'(UM {UnidadMedida.objects.filter(gestion__anio=gestion).count()}, '
+            f'TO {TipoOperacion.objects.filter(gestion__anio=gestion).count()}, '
+            f'TP {TipoProducto.objects.filter(gestion__anio=gestion).count()}, '
+            f'TProy {TipoProyecto.objects.filter(gestion__anio=gestion).count()}, '
+            f'TFin {TipoFinanciamiento.objects.filter(gestion__anio=gestion).count()}).'
         ))

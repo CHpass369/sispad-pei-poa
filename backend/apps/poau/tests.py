@@ -29,10 +29,14 @@ class POAUBaseTestCase(TestCase):
             email='responsable@gamsacaba.gob.bo', password='test123',
             first_name='Responsable', last_name='POAU',
         )
-        self.gestion = GestionFiscal.objects.create(
-            anio=2026, estado='abierta',
-            anio_inicio_plurianual=2026, anio_fin_plurianual=2028,
-        )
+        self.gestion = GestionFiscal.objects.get_or_create(
+            anio=2026,
+            defaults={
+                'estado': 'abierta',
+                'anio_inicio_plurianual': 2026,
+                'anio_fin_plurianual': 2028,
+            },
+        )[0]
         self.tipo_unidad = TipoUnidad.objects.create(
             codigo='SEC', nombre='Secretaría', nivel=1,
         )
@@ -55,17 +59,17 @@ class POAUBaseTestCase(TestCase):
             da=self.da, gestion=self.gestion, fecha_vigencia_desde=self.vig,
         )
         self.fuente = FuenteFinanciamiento.objects.create(
-            codigo='41-113', gestion=2026,
+            codigo='41-113', gestion=self.gestion,
             denominacion='Coparticipación Tributaria',
             fecha_vigencia_desde=self.vig,
         )
         self.objeto_gasto = ObjetoGasto.objects.create(
-            codigo='10000', gestion=2026,
+            codigo='10000', gestion=self.gestion,
             denominacion='Servicios Personales',
             fecha_vigencia_desde=self.vig,
         )
         self.objeto_gasto_2 = ObjetoGasto.objects.create(
-            codigo='20000', gestion=2026,
+            codigo='20000', gestion=self.gestion,
             denominacion='Servicios No Personales',
             fecha_vigencia_desde=self.vig,
         )

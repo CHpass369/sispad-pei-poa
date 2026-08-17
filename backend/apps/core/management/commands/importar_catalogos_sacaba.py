@@ -169,19 +169,19 @@ class Command(BaseCommand):
         # 2. Versiones oficiales y vigentes del clasificador
         hash_fuente = self._hash_fuente(options['clasificadores_pdf'])
         version_fuentes = self._crear_version(
-            VersionClasificador.TIPO_FUENTE_FINANCIAMIENTO, gestion_anio,
+            VersionClasificador.TIPO_FUENTE_FINANCIAMIENTO, gestion,
             hash_fuente,
         )
         version_organismos = self._crear_version(
-            VersionClasificador.TIPO_ORGANISMO_FINANCIADOR, gestion_anio,
+            VersionClasificador.TIPO_ORGANISMO_FINANCIADOR, gestion,
             hash_fuente,
         )
 
         # 3. Fuentes de financiamiento
-        self._importar_fuentes(gestion_anio, version_fuentes)
+        self._importar_fuentes(gestion, version_fuentes)
 
         # 4. Organismos financiadores
-        self._importar_organismos(gestion_anio, version_organismos)
+        self._importar_organismos(gestion, version_organismos)
 
         # 5. Distritos
         self._importar_distritos()
@@ -229,10 +229,11 @@ class Command(BaseCommand):
         # Sin PDF: hash del propio código de la versión (64 hex, estable).
         return hashlib.sha256(CODIGO_FUENTE_VERSION.encode()).hexdigest()
 
-    def _crear_version(self, tipo, gestion_anio, hash_fuente):
+    def _crear_version(self, tipo, gestion, hash_fuente):
+        gestion_anio = gestion.anio
         version, creada = VersionClasificador.objects.update_or_create(
             tipo=tipo,
-            gestion=gestion_anio,
+            gestion=gestion,
             vigente=True,
             defaults={
                 'norma': NORMA,
@@ -254,11 +255,12 @@ class Command(BaseCommand):
     # ============================================================
     # 3. FUENTES DE FINANCIAMIENTO
     # ============================================================
-    def _importar_fuentes(self, gestion_anio, version):
+    def _importar_fuentes(self, gestion, version):
+        gestion_anio = gestion.anio
         creadas = actualizadas = 0
         for codigo, denominacion in FUENTES_FINANCIAMIENTO:
             _, creada = FuenteFinanciamiento.objects.update_or_create(
-                codigo=codigo, gestion=gestion_anio,
+                codigo=codigo, gestion=gestion,
                 defaults={
                     'denominacion': denominacion,
                     'version_clasificador': version,
@@ -279,11 +281,12 @@ class Command(BaseCommand):
     # ============================================================
     # 4. ORGANISMOS FINANCIADORES
     # ============================================================
-    def _importar_organismos(self, gestion_anio, version):
+    def _importar_organismos(self, gestion, version):
+        gestion_anio = gestion.anio
         creados = actualizados = 0
         for codigo, denominacion in ORGANISMOS_FINANCIADORES:
             _, creado = OrganismoFinanciador.objects.update_or_create(
-                codigo=codigo, gestion=gestion_anio,
+                codigo=codigo, gestion=gestion,
                 defaults={
                     'denominacion': denominacion,
                     'version_clasificador': version,

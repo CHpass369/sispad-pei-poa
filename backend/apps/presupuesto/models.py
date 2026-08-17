@@ -184,7 +184,14 @@ class CategoriaProgramatica(TimeStampedModel):
         errors = {}
         if self.entidad_id and self.entidad.codigo != '1312':
             errors['entidad'] = 'La categoría programática debe pertenecer a la entidad 1312.'
-        gestion = self.version_clasificador.gestion if self.version_clasificador_id else None
+        gestion = (
+            getattr(
+                self.version_clasificador.gestion,
+                'anio',
+                self.version_clasificador.gestion,
+            )
+            if self.version_clasificador_id else None
+        )
         if self.version_clasificador_id and (
             self.version_clasificador.tipo
             != VersionClasificador.TIPO_CATEGORIA_PROGRAMATICA

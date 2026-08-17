@@ -10,6 +10,10 @@ from apps.articulacion.models import AccionPOA, ProductoPEI, ResultadoPEI
 from apps.codificacion.models import EjecucionMigracionSIM, HomologacionCodigo
 from apps.codificacion.services.migracion_sim import MigracionSIMService
 
+# PIP-DB-003: el servicio resuelve el año int a GestionFiscal y lanza si no
+# existe; se garantiza la gestión 2027 para toda llamada vía servicio/comando.
+pytestmark = pytest.mark.usefixtures('gestion_fiscal_2027')
+
 
 @pytest.fixture
 def cadena_minima(db):

@@ -47,7 +47,9 @@ from .services import (
 
 
 def crear_gestion(anio, **extra):
-    return GestionFiscal.objects.create(anio=anio, **extra)
+    # PIP-DB-003: gestion.0003 siembra 2026/2027; get_or_create evita
+    # colisiones de unicidad con la semilla (idempotente).
+    return GestionFiscal.objects.get_or_create(anio=anio, defaults=extra)[0]
 
 
 # ===========================================================================
@@ -66,15 +68,15 @@ class TechoDirectivoBase(TestCase):
         self.client.force_authenticate(user=self.admin)
         self.gestion = crear_gestion(2030, estado='HABILITADA')
         self.fuente = FuenteFinanciamiento.objects.create(
-            codigo='11', denominacion='Tesoro General', gestion=2030,
+            codigo='11', denominacion='Tesoro General', gestion=self.gestion,
             fecha_vigencia_desde=timezone.now().date(),
         )
         self.organismo = OrganismoFinanciador.objects.create(
             codigo='111', denominacion='Tesoro General de la Nación',
-            gestion=2030, fecha_vigencia_desde=timezone.now().date(),
+            gestion=self.gestion, fecha_vigencia_desde=timezone.now().date(),
         )
         self.rubro = RubroRecurso.objects.create(
-            codigo='11', denominacion='Impuestos municipales', gestion=2030,
+            codigo='11', denominacion='Impuestos municipales', gestion=self.gestion,
             fecha_vigencia_desde=timezone.now().date(),
         )
         resp = self.client.post(
@@ -503,12 +505,14 @@ class FiscalYearApiTests(TestCase):
     # -- Creación ------------------------------------------------------------
 
     def test_crear_gestion_nueva(self):
-        resp = self.client.post(self.url, {'anio': 2028}, format='json')
+        # anio bajo (sin gestiones previas, incluso con la semilla 2026/2027)
+        # garantiza gestion_anterior None de forma determinista.
+        resp = self.client.post(self.url, {'anio': 2020}, format='json')
         self.assertEqual(resp.status_code, 201, resp.data)
-        self.assertEqual(resp.data['anio'], 2028)
+        self.assertEqual(resp.data['anio'], 2020)
         self.assertEqual(resp.data['estado'], 'preparacion')
         self.assertIsNone(resp.data['gestion_anterior'])
-        self.assertTrue(GestionFiscal.objects.filter(anio=2028).exists())
+        self.assertTrue(GestionFiscal.objects.filter(anio=2020).exists())
 
     def test_crear_gestion_duplicada_rechazada(self):
         crear_gestion(2028)
@@ -1126,7 +1130,7 @@ class ImportadorBase(TestCase):
                                ('20', 'Recursos específicos'),
                                ('11', 'Tesoro general')):
             FuenteFinanciamiento.objects.create(
-                codigo=codigo, denominacion=nombre, gestion=2030,
+                codigo=codigo, denominacion=nombre, gestion=self.gestion,
                 fecha_vigencia_desde=timezone.now().date(),
             )
         prog = ProgrammaticCategory.objects.create(
@@ -1366,7 +1370,7 @@ class ImportadorValidacionTests(ImportadorBase):
             fila_detalle(),
         ])
         # Quitar la fuente 41 del catálogo → CT/IDH quedan inválidas.
-        FuenteFinanciamiento.objects.filter(codigo='41', gestion=2030).delete()
+        FuenteFinanciamiento.objects.filter(codigo='41', gestion__anio=2030).delete()
         importacion.errores.all().delete()
         validar_importacion(importacion)
         importacion.refresh_from_db()
@@ -1855,11 +1859,11 @@ class FijacionDistribucionBase(DistribucionBase):
         """Gestión nueva HABILITADA con techo fijado de `monto` (1 fuente)."""
         gestion = crear_gestion(anio, estado='HABILITADA')
         fuente = FuenteFinanciamiento.objects.create(
-            codigo=str(anio), denominacion=f'Fuente {anio}', gestion=anio,
+            codigo=str(anio), denominacion=f'Fuente {anio}', gestion=gestion,
             fecha_vigencia_desde=timezone.now().date(),
         )
         organismo = OrganismoFinanciador.objects.create(
-            codigo=str(anio) + '1', denominacion=f'Origen {anio}', gestion=anio,
+            codigo=str(anio) + '1', denominacion=f'Origen {anio}', gestion=gestion,
             fecha_vigencia_desde=timezone.now().date(),
         )
         resp = self.client.post(
@@ -2422,7 +2426,7 @@ class ControlSummaryTests(DistribucionBase):
         aprobar_distribucion(version, self.admin)
         fijar_distribucion(version, self.admin)
         objeto = ObjetoGasto.objects.create(
-            codigo='25220', denominacion='Papelería', gestion=2030,
+            codigo='25220', denominacion='Papelería', gestion=self.gestion,
             fecha_vigencia_desde=timezone.now().date(),
         )
         self.assertEqual(
@@ -2595,12 +2599,12 @@ class ControlConcurrenciaTests(TransactionTestCase):
         )
         self.gestion = crear_gestion(2040, estado='HABILITADA')
         self.fuente = FuenteFinanciamiento.objects.create(
-            codigo='11', denominacion='Tesoro General', gestion=2040,
+            codigo='11', denominacion='Tesoro General', gestion=self.gestion,
             fecha_vigencia_desde=timezone.now().date(),
         )
         self.organismo = OrganismoFinanciador.objects.create(
             codigo='111', denominacion='Tesoro General de la Nación',
-            gestion=2040, fecha_vigencia_desde=timezone.now().date(),
+            gestion=self.gestion, fecha_vigencia_desde=timezone.now().date(),
         )
         ceiling = DirectiveCeiling.objects.create(gestion=self.gestion)
         version = DirectiveCeilingVersion.objects.create(
@@ -2814,7 +2818,7 @@ class ControlApiTests(DistribucionBase):
         aprobar_distribucion(version, self.admin)
         fijar_distribucion(version, self.admin)
         objeto = ObjetoGasto.objects.create(
-            codigo='25220', denominacion='Papelería', gestion=2030,
+            codigo='25220', denominacion='Papelería', gestion=self.gestion,
             fecha_vigencia_desde=timezone.now().date(),
         )
         resp = self.client.post(
@@ -2894,27 +2898,27 @@ class ObjetosGastoBase(TestCase):
         self.client.force_authenticate(user=self.admin)
         self.gestion = crear_gestion(2045, estado='HABILITADA')
         self.fuente = FuenteFinanciamiento.objects.create(
-            codigo='11', denominacion='Tesoro General', gestion=2045,
+            codigo='11', denominacion='Tesoro General', gestion=self.gestion,
             fecha_vigencia_desde=timezone.now().date(),
         )
         self.organismo = OrganismoFinanciador.objects.create(
             codigo='111', denominacion='Tesoro General de la Nación',
-            gestion=2045, fecha_vigencia_desde=timezone.now().date(),
+            gestion=self.gestion, fecha_vigencia_desde=timezone.now().date(),
         )
         self.objeto_25220 = ObjetoGasto.objects.create(
-            codigo='25220', denominacion='Papelería y útiles', gestion=2045,
+            codigo='25220', denominacion='Papelería y útiles', gestion=self.gestion,
             fecha_vigencia_desde=timezone.now().date(),
         )
         self.objeto_34200 = ObjetoGasto.objects.create(
-            codigo='34200', denominacion='Pasajes al interior', gestion=2045,
+            codigo='34200', denominacion='Pasajes al interior', gestion=self.gestion,
             fecha_vigencia_desde=timezone.now().date(),
         )
         self.objeto_43110 = ObjetoGasto.objects.create(
-            codigo='43110', denominacion='Maquinaria y equipo', gestion=2045,
+            codigo='43110', denominacion='Maquinaria y equipo', gestion=self.gestion,
             fecha_vigencia_desde=timezone.now().date(),
         )
         self.objeto_42310 = ObjetoGasto.objects.create(
-            codigo='42310', denominacion='Muebles de oficina', gestion=2045,
+            codigo='42310', denominacion='Muebles de oficina', gestion=self.gestion,
             fecha_vigencia_desde=timezone.now().date(),
         )
 
@@ -3043,11 +3047,11 @@ class ProgramacionObjetosGastoTests(ObjetosGastoBase):
     def test_programar_en_version_no_fijada_rechazado(self):
         gestion = crear_gestion(2046, estado='HABILITADA')
         fuente = FuenteFinanciamiento.objects.create(
-            codigo='46', denominacion='Fuente 2046', gestion=2046,
+            codigo='46', denominacion='Fuente 2046', gestion=gestion,
             fecha_vigencia_desde=timezone.now().date(),
         )
         organismo = OrganismoFinanciador.objects.create(
-            codigo='461', denominacion='Origen 2046', gestion=2046,
+            codigo='461', denominacion='Origen 2046', gestion=gestion,
             fecha_vigencia_desde=timezone.now().date(),
         )
         ceiling = DirectiveCeiling.objects.create(gestion=gestion)
@@ -3074,7 +3078,7 @@ class ProgramacionObjetosGastoTests(ObjetosGastoBase):
         self.assertEqual(resp.status_code, 201, resp.data)
         allocation = Allocation.objects.get(pk=resp.data['id'])
         objeto = ObjetoGasto.objects.create(
-            codigo='25220', denominacion='Papelería', gestion=2046,
+            codigo='25220', denominacion='Papelería', gestion=gestion,
             fecha_vigencia_desde=timezone.now().date(),
         )
         resp = self.client.post(
@@ -3595,15 +3599,15 @@ class ReformulacionTiposTests(ReformulacionBase):
         # Gestión 2042: techo 1000 en fuente A + 1000 en fuente B.
         gestion = crear_gestion(2042, estado='HABILITADA')
         fuente_a = FuenteFinanciamiento.objects.create(
-            codigo='41', denominacion='Fuente A (cambio)', gestion=2042,
+            codigo='41', denominacion='Fuente A (cambio)', gestion=gestion,
             fecha_vigencia_desde=timezone.now().date(),
         )
         fuente_b = FuenteFinanciamiento.objects.create(
-            codigo='42', denominacion='Fuente B (cambio)', gestion=2042,
+            codigo='42', denominacion='Fuente B (cambio)', gestion=gestion,
             fecha_vigencia_desde=timezone.now().date(),
         )
         organismo = OrganismoFinanciador.objects.create(
-            codigo='411', denominacion='Origen A (cambio)', gestion=2042,
+            codigo='411', denominacion='Origen A (cambio)', gestion=gestion,
             fecha_vigencia_desde=timezone.now().date(),
         )
         resp = self.client.post(
@@ -3708,7 +3712,7 @@ class ReformulacionTiposTests(ReformulacionBase):
         self.preparar_distribucion_fijada()
         a = self.apertura('Apertura A')
         fuente_extra = FuenteFinanciamiento.objects.create(
-            codigo='51', denominacion='Fuente sin techo', gestion=2030,
+            codigo='51', denominacion='Fuente sin techo', gestion=self.gestion,
             fecha_vigencia_desde=timezone.now().date(),
         )
         resp = self.crear_api(
@@ -4038,11 +4042,11 @@ class FlujoCompletoE2ETests(TestCase):
         # --------------------------------------------------------------
         fuente = FuenteFinanciamiento.objects.create(
             codigo='41', denominacion='Coparticipación tributaria',
-            gestion=self.ANIO, fecha_vigencia_desde=timezone.now().date(),
+            gestion=gestion, fecha_vigencia_desde=timezone.now().date(),
         )
         organismo = OrganismoFinanciador.objects.create(
             codigo='113', denominacion='Organismo financiador SIGEP',
-            gestion=self.ANIO, fecha_vigencia_desde=timezone.now().date(),
+            gestion=gestion, fecha_vigencia_desde=timezone.now().date(),
         )
 
         resp = self._post('directive-ceilings/', {'gestion': str(gestion.id)})
@@ -4228,7 +4232,7 @@ class FlujoCompletoE2ETests(TestCase):
             ('42310', 'Muebles de oficina'),
         ):
             objetos[codigo] = ObjetoGasto.objects.create(
-                codigo=codigo, denominacion=denominacion, gestion=self.ANIO,
+                codigo=codigo, denominacion=denominacion, gestion=gestion,
                 fecha_vigencia_desde=timezone.now().date(),
             )
         for codigo, monto in (('25220', '100000.00'),

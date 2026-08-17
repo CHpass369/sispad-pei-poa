@@ -32,7 +32,7 @@ def test_command_carga_catalogos_completos(db):
 
     assert GestionFiscal.objects.filter(anio=2027).count() == 1
     assert VersionClasificador.objects.filter(
-        gestion=2027, vigente=True,
+        gestion__anio=2027, vigente=True,
         clasificacion_fuente=VersionClasificador.FUENTE_OFICIAL,
     ).count() == 2
     for tipo in (
@@ -40,10 +40,10 @@ def test_command_carga_catalogos_completos(db):
         VersionClasificador.TIPO_ORGANISMO_FINANCIADOR,
     ):
         assert VersionClasificador.objects.filter(
-            tipo=tipo, gestion=2027, vigente=True,
+            tipo=tipo, gestion__anio=2027, vigente=True,
         ).count() == 1
-    assert FuenteFinanciamiento.objects.filter(gestion=2027).count() == 21
-    assert OrganismoFinanciador.objects.filter(gestion=2027).count() == 11
+    assert FuenteFinanciamiento.objects.filter(gestion__anio=2027).count() == 21
+    assert OrganismoFinanciador.objects.filter(gestion__anio=2027).count() == 11
     assert DireccionAdministrativa.objects.filter(gestion__anio=2027).count() == 5
     assert UnidadEjecutora.objects.filter(gestion__anio=2027).count() == 11
     assert UnidadOrganizacional.objects.filter(
@@ -67,7 +67,7 @@ def test_version_clasificador_oficial_tiene_norma(db):
     _cargar_catalogos()
     version = VersionClasificador.objects.get(
         tipo=VersionClasificador.TIPO_FUENTE_FINANCIAMIENTO,
-        gestion=2027, vigente=True,
+        gestion__anio=2027, vigente=True,
     )
     assert version.norma == (
         'RM N° 271 de 31/07/2026 - Directrices de Formulación Presupuestaria 2027'
@@ -80,20 +80,20 @@ def test_version_clasificador_oficial_tiene_norma(db):
 
 def test_fuentes_y_organismos_versionados(db):
     _cargar_catalogos()
-    fuente = FuenteFinanciamiento.objects.get(codigo='41', gestion=2027)
+    fuente = FuenteFinanciamiento.objects.get(codigo='41', gestion__anio=2027)
     assert fuente.version_clasificador is not None
     assert fuente.version_clasificador.tipo == (
         VersionClasificador.TIPO_FUENTE_FINANCIAMIENTO
     )
-    assert fuente.version_clasificador.gestion == 2027
+    assert fuente.version_clasificador.gestion.anio == 2027
     assert fuente.fecha_vigencia_desde == date(2027, 1, 1)
 
-    organismo = OrganismoFinanciador.objects.get(codigo='113', gestion=2027)
+    organismo = OrganismoFinanciador.objects.get(codigo='113', gestion__anio=2027)
     assert organismo.version_clasificador is not None
     assert organismo.version_clasificador.tipo == (
         VersionClasificador.TIPO_ORGANISMO_FINANCIADOR
     )
-    assert organismo.version_clasificador.gestion == 2027
+    assert organismo.version_clasificador.gestion.anio == 2027
     assert organismo.fecha_vigencia_desde == date(2027, 1, 1)
 
 

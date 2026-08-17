@@ -14,6 +14,26 @@ from datetime import date
 from django.db import connection
 
 from apps.catalogos.models import VersionClasificador
+from apps.gestion.models import GestionFiscal
+
+
+def resolver_gestion(gestion):
+    """Resuelve un año a la instancia GestionFiscal de los modelos FK-izados.
+
+    Los importadores (siembra ETL) crean la gestión si no existe, igual que el
+    lote L0: nunca se inventa fuera de la siembra de catálogos (PIP-DB-003).
+    """
+    if isinstance(gestion, GestionFiscal):
+        return gestion
+    gestion_fiscal, _ = GestionFiscal.objects.get_or_create(
+        anio=int(gestion),
+        defaults={
+            'estado': GestionFiscal.Estado.PREPARACION,
+            'descripcion': 'Creada por el importador del catálogo maestro.',
+            'activa': True,
+        },
+    )
+    return gestion_fiscal
 
 
 def vigencia_desde(gestion):
@@ -161,14 +181,15 @@ def version_clasificador(tipo, gestion, procedencia):
     Nunca marca vigente: la vigencia exige fuente oficial completa (RM 249
     para 2026 ya sembrada; la homologación 2027 queda fuera de alcance).
     """
+    gestion_fiscal = resolver_gestion(gestion)
     version = VersionClasificador.objects.filter(
-        tipo=tipo, gestion=gestion,
+        tipo=tipo, gestion=gestion_fiscal,
     ).first()
     if version is not None:
         return version
     return VersionClasificador.objects.create(
         tipo=tipo,
-        gestion=gestion,
+        gestion=gestion_fiscal,
         norma='',
         fecha_norma=None,
         codigo_fuente='',

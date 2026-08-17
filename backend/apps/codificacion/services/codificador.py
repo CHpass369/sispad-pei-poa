@@ -2,6 +2,7 @@
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 
+from apps.gestion.models import GestionFiscal
 from apps.codificacion.models import (
     NIVEL_ARTICULACION_CHOICES,
     CodigoSegmentadoModel,
@@ -68,13 +69,26 @@ class CodificadorService:
             raise ValidationError({'entidad': 'Entidad codificadora inválida.'})
         if entidad.codigo != cls.ENTIDAD_CODIFICADORA or not entidad.activo:
             raise ValidationError({'entidad': 'Solo se admite la entidad activa 1312.'})
-        if not isinstance(gestion, int) or isinstance(gestion, bool) or gestion < 1:
-            raise ValidationError({'gestion': 'La gestión debe ser un entero positivo.'})
+
+        # PIP-DB-003: gestion es FK a GestionFiscal (año → instancia).
+        if isinstance(gestion, GestionFiscal):
+            gestion_fiscal = gestion
+        else:
+            if not isinstance(gestion, int) or isinstance(gestion, bool) or gestion < 1:
+                raise ValidationError({'gestion': 'La gestión debe ser un entero positivo.'})
+            gestion_fiscal = GestionFiscal.objects.filter(anio=gestion).first()
+            if gestion_fiscal is None:
+                raise ValidationError({
+                    'gestion': (
+                        f'La gestión {gestion} no existe en GestionFiscal '
+                        '(PIP-DB-003: no se inventan gestiones).'
+                    ),
+                })
 
         clave = {
             'nivel': nivel,
             'padre_id': padre_id,
-            'gestion': gestion,
+            'gestion': gestion_fiscal,
             'entidad': entidad,
         }
         try:
@@ -465,13 +479,30 @@ class CodificadorService:
             bloqueada, cls.CAMPO_LEGACY_POR_MODELO[nombre_modelo],
         )
         contexto = cls._contexto(bloqueada)
+        # PIP-DB-003: gestion es FK; se resuelve el año a GestionFiscal sin
+        # inventar gestiones (no se cambia _gestion, usado contra años int).
+        gestion_anio = cls._gestion(contexto)
+        gestion_fiscal = (
+            gestion_anio
+            if isinstance(gestion_anio, GestionFiscal)
+            else GestionFiscal.objects.filter(anio=gestion_anio).first()
+            if gestion_anio is not None
+            else None
+        )
+        if gestion_fiscal is None:
+            raise ValidationError({
+                'gestion': (
+                    'La gestión del registro no existe en GestionFiscal '
+                    '(PIP-DB-003: no se inventan gestiones).'
+                ),
+            })
         HomologacionCodigo.objects.create(
             tipo_entidad=cls.NIVEL_POR_MODELO[nombre_modelo],
             entidad_id=bloqueada.pk,
             codigo_anterior=codigo_anterior,
             codigo_nuevo=bloqueada.codigo_completo_articulacion,
             motivo=str(motivo).strip(),
-            gestion=cls._gestion(contexto),
+            gestion=gestion_fiscal,
             usuario=usuario,
             documento_respaldo=str(documento_respaldo).strip(),
         )

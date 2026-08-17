@@ -157,6 +157,7 @@ def cadena_codificable(db, entidad_1312):
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures('gestion_fiscal_2027', 'gestion_fiscal_2028')
 class TestSiguienteCorrelativo:
     def test_incrementa_la_misma_clave(self, entidad_1312):
         padre_id = uuid.uuid4()
@@ -171,7 +172,7 @@ class TestSiguienteCorrelativo:
         assert (primero, segundo) == (1, 2)
         assert SecuenciaCodigo.objects.get(
             nivel='operacion_poau', padre_id=padre_id,
-            gestion=2027, entidad=entidad_1312,
+            gestion__anio=2027, entidad=entidad_1312,
         ).ultimo_valor == 2
 
     def test_reinicia_por_padre(self, entidad_1312):
@@ -215,10 +216,10 @@ class TestSiguienteCorrelativo:
         ('tarea_poau', 999),
     ])
     def test_rechaza_secuencia_agotada_sin_avanzar(
-        self, entidad_1312, nivel, maximo,
+        self, entidad_1312, gestion_fiscal_2027, nivel, maximo,
     ):
         secuencia = SecuenciaCodigo.objects.create(
-            nivel=nivel, padre_id=uuid.uuid4(), gestion=2027,
+            nivel=nivel, padre_id=uuid.uuid4(), gestion=gestion_fiscal_2027,
             entidad=entidad_1312, ultimo_valor=maximo,
         )
 
@@ -235,10 +236,10 @@ class TestSiguienteCorrelativo:
         ('actividad_poau', 998, 999),
     ])
     def test_emite_ultimo_correlativo_valido(
-        self, entidad_1312, nivel, penultimo, maximo,
+        self, entidad_1312, gestion_fiscal_2027, nivel, penultimo, maximo,
     ):
         secuencia = SecuenciaCodigo.objects.create(
-            nivel=nivel, padre_id=uuid.uuid4(), gestion=2027,
+            nivel=nivel, padre_id=uuid.uuid4(), gestion=gestion_fiscal_2027,
             entidad=entidad_1312, ultimo_valor=penultimo,
         )
 
@@ -250,7 +251,7 @@ class TestSiguienteCorrelativo:
 
 
 @pytest.mark.django_db(transaction=True)
-def test_carrera_inicial_crea_una_secuencia_sin_duplicar():
+def test_carrera_inicial_crea_una_secuencia_sin_duplicar(gestion_fiscal_2027):
     entidad, _ = EntidadCodificadora.objects.get_or_create(
         codigo='1312', defaults={'denominacion': 'GAM Sacaba'},
     )
@@ -284,7 +285,7 @@ def test_carrera_inicial_crea_una_secuencia_sin_duplicar():
     assert sorted([resultados.get_nowait(), resultados.get_nowait()]) == [1, 2]
     assert SecuenciaCodigo.objects.filter(
         nivel='tarea_poau', padre_id=padre_id,
-        gestion=2027, entidad_id=entidad_id,
+        gestion__anio=2027, entidad_id=entidad_id,
         ultimo_valor=2,
     ).count() == 1
 
@@ -488,6 +489,7 @@ class TestValidacionesDeDominio:
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures('gestion_fiscal_2027')
 class TestPromocionOficial:
     def test_promueve_crea_homologacion_y_persiste_codigo(
         self, cadena_codificable, usuario_codificador,
@@ -630,7 +632,7 @@ class TestPromocionOficial:
 
 @pytest.mark.django_db(transaction=True)
 def test_promocion_concurrente_crea_una_sola_homologacion(
-    cadena_codificable, usuario_codificador,
+    cadena_codificable, usuario_codificador, gestion_fiscal_2027,
 ):
     tarea_id = cadena_codificable['tarea'].pk
     usuario_id = usuario_codificador.pk
@@ -671,7 +673,7 @@ def test_promocion_concurrente_crea_una_sola_homologacion(
 
 @pytest.mark.django_db
 def test_constraint_impide_homologacion_duplicada(
-    cadena_codificable, usuario_codificador,
+    cadena_codificable, usuario_codificador, gestion_fiscal_2027,
 ):
     tarea = CodificadorService.promover_a_oficial(
         cadena_codificable['tarea'], usuario=usuario_codificador,

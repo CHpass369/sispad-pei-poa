@@ -33,6 +33,7 @@ from apps.codificacion.models import (
     SecuenciaCodigo,
 )
 from apps.codificacion.services.codificador import CodificadorService
+from apps.gestion.models import GestionFiscal
 from apps.pad.models import LineamientoEstrategico
 from apps.poau.models import EjecucionFinanciera, EjecucionFisica, POAU, POAUActividad
 
@@ -59,6 +60,16 @@ class MigracionSIMService:
         if not isinstance(gestion, int) or isinstance(gestion, bool) or gestion < 1:
             raise ValidationError({'gestion': 'La gestión debe ser un entero positivo.'})
         self.gestion = gestion
+        # PIP-DB-003: gestion es FK a GestionFiscal; se resuelve la instancia
+        # sin inventar gestiones (el año int se mantiene para filtros int).
+        self.gestion_fiscal = GestionFiscal.objects.filter(anio=gestion).first()
+        if self.gestion_fiscal is None:
+            raise ValidationError({
+                'gestion': (
+                    f'La gestión {gestion} no existe en GestionFiscal '
+                    '(PIP-DB-003: no se inventan gestiones).'
+                ),
+            })
         self.usuario = usuario
 
     @staticmethod
@@ -107,7 +118,7 @@ class MigracionSIMService:
         sequence = SecuenciaCodigo.objects.filter(
             nivel=level,
             padre_id=parent_id,
-            gestion=self.gestion,
+            gestion=self.gestion_fiscal,
             entidad=entidad,
         ).first()
         return sequence.ultimo_valor if sequence else 0
@@ -400,7 +411,7 @@ class MigracionSIMService:
     def auditar(self):
         manifest = self.construir_manifiesto()
         EjecucionMigracionSIM.objects.create(
-            gestion=self.gestion,
+            gestion=self.gestion_fiscal,
             modo=EjecucionMigracionSIM.MODO_DRY_RUN,
             manifest_hash=manifest['manifest_hash'],
             manifest=manifest,
@@ -475,7 +486,7 @@ class MigracionSIMService:
             defaults={
                 'codigo_anterior': entry['codigo_anterior'],
                 'motivo': self.MOTIVO,
-                'gestion': self.gestion,
+                'gestion': self.gestion_fiscal,
                 'usuario': self.usuario,
                 'documento_respaldo': 'Manifiesto SHA-256 ' + manifest_hash,
             },
@@ -539,7 +550,7 @@ class MigracionSIMService:
         lineamientos = self._consolidar_lineamientos(locked_manifest)
 
         EjecucionMigracionSIM.objects.create(
-            gestion=self.gestion,
+            gestion=self.gestion_fiscal,
             modo=EjecucionMigracionSIM.MODO_COMMIT,
             manifest_hash=expected_hash,
             manifest=locked_manifest,

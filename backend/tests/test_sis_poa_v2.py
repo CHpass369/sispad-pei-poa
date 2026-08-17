@@ -207,8 +207,12 @@ def test_dry_run_no_escribe(poa_legacy):
 def fuente(db):
     from datetime import date as _date
     from apps.catalogos.models import FuenteFinanciamiento
+    from apps.gestion.models import GestionFiscal
+    gestion_2027, _ = GestionFiscal.objects.get_or_create(
+        anio=2027, defaults={'estado': 'abierta'},
+    )
     f, _ = FuenteFinanciamiento.objects.get_or_create(
-        codigo='41-113', gestion=2027,
+        codigo='41-113', gestion=gestion_2027,
         defaults={
             'denominacion': 'CT - Coparticipación',
             'fecha_vigencia_desde': _date(2027, 1, 1),

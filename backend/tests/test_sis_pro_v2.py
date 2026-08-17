@@ -73,8 +73,12 @@ def ue(db):
 
 @pytest.fixture
 def fuente_proyecto(db):
+    from apps.gestion.models import GestionFiscal
+    gestion_2027, _ = GestionFiscal.objects.get_or_create(
+        anio=2027, defaults={'estado': 'abierta'},
+    )
     f, _ = FuenteFinanciamiento.objects.get_or_create(
-        codigo='20-210', gestion=2027,
+        codigo='20-210', gestion=gestion_2027,
         defaults={
             'denominacion': 'Recursos Específicos',
             'fecha_vigencia_desde': date(2027, 1, 1),

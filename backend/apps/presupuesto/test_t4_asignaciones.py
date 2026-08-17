@@ -38,14 +38,17 @@ pytestmark = pytest.mark.django_db
 
 
 def crear_version(tipo, gestion=2026, codigo_fuente=None):
+    gestion_fiscal = GestionFiscal.objects.get_or_create(
+        anio=gestion, defaults={'estado': 'abierta'},
+    )[0]
     version = VersionClasificador.objects.filter(
-        tipo=tipo, gestion=gestion, vigente=True
+        tipo=tipo, gestion=gestion_fiscal, vigente=True
     ).first()
     if version:
         return version
     return VersionClasificador.objects.create(
         tipo=tipo,
-        gestion=gestion,
+        gestion=gestion_fiscal,
         norma='RM MEFP 249/2025',
         fecha_norma=date(2025, 6, 24),
         codigo_fuente=codigo_fuente or f'RM-249-{tipo}',
@@ -97,9 +100,12 @@ def crear_cadena_operativa(gestion=2026):
 
 @pytest.fixture
 def estructura_t4():
+    gestion_2026 = GestionFiscal.objects.get_or_create(
+        anio=2026, defaults={'estado': 'abierta'},
+    )[0]
     categoria_version = VersionClasificador.objects.get(
         tipo=VersionClasificador.TIPO_CATEGORIA_PROGRAMATICA,
-        gestion=2026,
+        gestion__anio=2026,
         vigente=False,
     )
     fuente_version = crear_version(VersionClasificador.TIPO_FUENTE_FINANCIAMIENTO)
@@ -109,25 +115,21 @@ def estructura_t4():
     entidad = ClasificadorInstitucional.objects.create(
         codigo='1312',
         denominacion='Gobierno Autónomo Municipal de Sacaba',
-        gestion=2026,
+        gestion=gestion_2026,
         fecha_vigencia_desde=inicio,
         fuente_normativa='Clasificadores 2026, PDF p. 15',
     )
     da = DireccionAdministrativa.objects.create(
         codigo='DA-FUENTE',
         nombre='Dirección Administrativa fuente',
-        gestion=GestionFiscal.objects.get_or_create(
-            anio=2026, defaults={'estado': 'abierta'},
-        )[0],
+        gestion=gestion_2026,
         fecha_vigencia_desde=inicio,
     )
     ue = UnidadEjecutora.objects.create(
         codigo='UE-FUENTE',
         nombre='Unidad Ejecutora fuente',
         da=da,
-        gestion=GestionFiscal.objects.get_or_create(
-            anio=2026, defaults={'estado': 'abierta'},
-        )[0],
+        gestion=gestion_2026,
         fecha_vigencia_desde=inicio,
     )
     programa = ProgramaPresupuestario.objects.create(codigo='400', nombre='Programa fuente', gestion=2026)
@@ -142,35 +144,34 @@ def estructura_t4():
         codigo='UNI-T4',
         nombre='Unidad T4',
         tipo=tipo_unidad,
-        gestion=GestionFiscal.objects.get_or_create(
-            anio=2026, defaults={'estado': 'abierta'},
-        )[0],
+        gestion=gestion_2026,
         fecha_vigencia_desde=inicio,
     )
     fuente = FuenteFinanciamiento.objects.create(
         codigo='20',
         denominacion='Recursos específicos',
-        gestion=2026,
+        gestion=gestion_2026,
         fecha_vigencia_desde=inicio,
         version_clasificador=fuente_version,
     )
     organismo = OrganismoFinanciador.objects.create(
         codigo='210',
         denominacion='Recursos específicos GAM/GAIOC',
-        gestion=2026,
+        gestion=gestion_2026,
         fecha_vigencia_desde=inicio,
         version_clasificador=organismo_version,
     )
     objeto = ObjetoGasto.objects.create(
         codigo='11210',
         denominacion='Objeto T4',
-        gestion=2026,
+        gestion=gestion_2026,
         fecha_vigencia_desde=inicio,
         version_clasificador=objeto_version,
         nivel=ObjetoGasto.NIVEL_DETALLE,
     )
     operacion, actividad, tarea = crear_cadena_operativa()
     return {
+        'gestion': gestion_2026,
         'categoria_version': categoria_version,
         'entidad': entidad,
         'da': da,
@@ -238,7 +239,7 @@ class TestCategoriaProgramatica:
         otra_entidad = ClasificadorInstitucional.objects.create(
             codigo='9999',
             denominacion='Otra entidad',
-            gestion=2026,
+            gestion=estructura_t4['gestion'],
             fecha_vigencia_desde=date(2026, 1, 1),
         )
         otra_da = DireccionAdministrativa.objects.create(
@@ -289,7 +290,7 @@ class TestCategoriaProgramatica:
 
         inicio = date(2026, 1, 1)
         otra_entidad = ClasificadorInstitucional.objects.create(
-            codigo='9999', denominacion='Otra entidad', gestion=2026,
+            codigo='9999', denominacion='Otra entidad', gestion=estructura_t4['gestion'],
             fecha_vigencia_desde=inicio,
         )
         otra_da = DireccionAdministrativa.objects.create(
@@ -356,7 +357,7 @@ class TestCategoriaProgramatica:
         otra_entidad = ClasificadorInstitucional.objects.create(
             codigo='9999',
             denominacion='Otra entidad',
-            gestion=2026,
+            gestion=estructura_t4['gestion'],
             fecha_vigencia_desde=date(2026, 1, 1),
         )
 

@@ -100,5 +100,11 @@ def test_reverse_y_forward_sql_controlan_trigger_append_only():
             fila_update.pk,
         )
     finally:
+        # PIP-DB-003: las filas insertadas con modelos históricos (gestion
+        # int) quedan con gestion_fk NULL y bloquean el SET NOT NULL de la
+        # migración 0013 al migrar a leaf; se limpian antes. TRUNCATE sortea
+        # el trigger row-level append-only.
+        with connection.cursor() as cursor:
+            cursor.execute('TRUNCATE codificacion_homologacioncodigo')
         executor.loader.build_graph()
         executor.migrate(executor.loader.graph.leaf_nodes())

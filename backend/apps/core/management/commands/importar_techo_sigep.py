@@ -151,6 +151,9 @@ class Command(BaseCommand):
 
         # 1. Gestión fiscal (crear si no existe; habilitar si corresponde)
         gestion = self._obtener_gestion(gestion_anio)
+        # PIP-DB-003: instancia GestionFiscal para modelos SHARED FK-izados
+        # (RubroRecurso); None solo en dry-run sin gestión existente.
+        self.gestion_fiscal = gestion
 
         # 2. Validación de gestión habilitada para techo
         self._validar_gestion(gestion)
@@ -298,7 +301,7 @@ class Command(BaseCommand):
                 )
                 continue
             rubro, creado = RubroRecurso.objects.update_or_create(
-                codigo=codigo, gestion=self.gestion_anio,
+                codigo=codigo, gestion=self.gestion_fiscal,
                 defaults={
                     'denominacion': denominacion,
                     'fecha_vigencia_desde': date(self.gestion_anio, 1, 1),

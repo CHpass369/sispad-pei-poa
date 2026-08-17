@@ -20,6 +20,7 @@ from apps.codificacion.models import (
     MapeoLineamientoPADLegacy,
     VersionCatalogoPlan,
 )
+from apps.gestion.models import GestionFiscal
 from apps.planificacion.models import Plan
 
 MIGRATE_FROM = ('codificacion', '0009_fuente_normativa_e_idempotencia')
@@ -165,6 +166,13 @@ def test_0010_reverse_y_forward_controlan_trigger_append_only():
             mapeo_otro.pk,
         )
     finally:
+        # PIP-DB-003: las filas insertadas con modelos históricos (gestion
+        # int) quedan con gestion_fk NULL y bloquean el SET NOT NULL de la
+        # migración 0013 al migrar a leaf; se limpian antes. TRUNCATE sortea
+        # los triggers row-level append-only.
+        with connection.cursor() as cursor:
+            cursor.execute('TRUNCATE codificacion_ejecucionmigracionsim')
+            cursor.execute('TRUNCATE codificacion_mapeolineamientopadlegacy')
         executor.loader.build_graph()
         executor.migrate(executor.loader.graph.leaf_nodes())
 
@@ -193,10 +201,11 @@ def canonico_lineamiento(db):
 
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures('gestion_fiscal_2027')
 class TestEjecucionMigracionSIMAppendOnlyORM:
     def _crear(self, suffix):
         return EjecucionMigracionSIM.objects.create(
-            gestion=2027,
+            gestion=GestionFiscal.objects.get(anio=2027),
             modo='dry_run',
             manifest_hash='a' * 64,
             manifest={'version': 1, 'gestion': 2027, 'suffix': suffix},

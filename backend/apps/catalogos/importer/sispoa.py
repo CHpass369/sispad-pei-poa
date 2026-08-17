@@ -182,7 +182,7 @@ def _resolver_fuente(codigo, gestion):
     """Resuelve un código único de fuente → FK; None si es variable/rango."""
     if codigo and str(codigo).strip().isdigit():
         return FuenteFinanciamiento.objects.filter(
-            codigo=str(codigo).strip(), gestion=gestion,
+            codigo=str(codigo).strip(), gestion__anio=gestion,
         ).first()
     return None
 
@@ -190,7 +190,7 @@ def _resolver_fuente(codigo, gestion):
 def _resolver_organismo(codigo, gestion):
     if codigo and str(codigo).strip().isdigit():
         return OrganismoFinanciador.objects.filter(
-            codigo=str(codigo).strip(), gestion=gestion,
+            codigo=str(codigo).strip(), gestion__anio=gestion,
         ).first()
     return None
 
@@ -214,9 +214,9 @@ def importar_recursos(reporte, gestion):
     if techo is None:
         fuente_base = (
             FuenteFinanciamiento.objects.filter(
-                codigo='41', gestion=2026,
+                codigo='41', gestion__anio=2026,
             ).first()
-            or FuenteFinanciamiento.objects.filter(gestion=2026).first()
+            or FuenteFinanciamiento.objects.filter(gestion__anio=2026).first()
         )
         if fuente_base is None:
             raise RuntimeError(

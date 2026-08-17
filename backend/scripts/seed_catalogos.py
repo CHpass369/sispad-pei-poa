@@ -8,9 +8,14 @@ from apps.catalogos.models import (
     UnidadMedida, TipoOperacion, TipoProducto
 )
 from apps.presupuesto.models import ProgramaPresupuestario
+from apps.gestion.models import GestionFiscal
 
 GESTION = 2026
 VIGENCIA = date(2026, 1, 1)
+# PIP-DB-003: gestion es FK a GestionFiscal; se resuelve la instancia.
+GESTION_FISCAL, _ = GestionFiscal.objects.get_or_create(
+    anio=GESTION, defaults={'estado': 'preparacion'},
+)
 
 # === OBJETOS DEL GASTO (partidas presupuestarias) ===
 objetos = [
@@ -26,7 +31,7 @@ objetos = [
 ]
 for cod, nom, desc in objetos:
     ObjetoGasto.objects.get_or_create(
-        codigo=cod, gestion=GESTION,
+        codigo=cod, gestion=GESTION_FISCAL,
         defaults={'denominacion': nom, 'descripcion': desc,
                   'fecha_vigencia_desde': VIGENCIA, 'fuente_normativa': 'Directrices 2026'}
     )
@@ -45,7 +50,7 @@ fuentes = [
 ]
 for cod, nom, desc in fuentes:
     FuenteFinanciamiento.objects.get_or_create(
-        codigo=cod, gestion=GESTION,
+        codigo=cod, gestion=GESTION_FISCAL,
         defaults={'denominacion': nom, 'descripcion': desc,
                   'fecha_vigencia_desde': VIGENCIA}
     )
@@ -64,7 +69,7 @@ organismos = [
 ]
 for cod, nom, sig in organismos:
     OrganismoFinanciador.objects.get_or_create(
-        codigo=cod, gestion=GESTION,
+        codigo=cod, gestion=GESTION_FISCAL,
         defaults={'denominacion': nom, 'descripcion': sig,
                   'fecha_vigencia_desde': VIGENCIA}
     )
@@ -92,7 +97,7 @@ umedidas = [
 ]
 for cod, nom, desc in umedidas:
     UnidadMedida.objects.get_or_create(
-        codigo=cod, gestion=GESTION,
+        codigo=cod, gestion=GESTION_FISCAL,
         defaults={'denominacion': nom, 'descripcion': desc,
                   'fecha_vigencia_desde': VIGENCIA}
     )
@@ -110,7 +115,7 @@ tipos_operacion = [
 ]
 for cod, nom, desc in tipos_operacion:
     TipoOperacion.objects.get_or_create(
-        codigo=cod, gestion=GESTION,
+        codigo=cod, gestion=GESTION_FISCAL,
         defaults={'denominacion': nom, 'descripcion': desc,
                   'fecha_vigencia_desde': VIGENCIA}
     )
@@ -126,7 +131,7 @@ tipos_producto = [
 ]
 for cod, nom, desc in tipos_producto:
     TipoProducto.objects.get_or_create(
-        codigo=cod, gestion=GESTION,
+        codigo=cod, gestion=GESTION_FISCAL,
         defaults={'denominacion': nom, 'descripcion': desc,
                   'fecha_vigencia_desde': VIGENCIA}
     )
@@ -175,10 +180,10 @@ for cod, nom, desc in programas:
     )
 
 print(f'Semilla de catálogos {GESTION}:')
-print(f'  - {ObjetoGasto.objects.filter(gestion=GESTION).count()} objetos del gasto')
-print(f'  - {FuenteFinanciamiento.objects.filter(gestion=GESTION).count()} fuentes')
-print(f'  - {OrganismoFinanciador.objects.filter(gestion=GESTION).count()} organismos')
-print(f'  - {UnidadMedida.objects.filter(gestion=GESTION).count()} unidades de medida')
-print(f'  - {TipoOperacion.objects.filter(gestion=GESTION).count()} tipos de operación')
-print(f'  - {TipoProducto.objects.filter(gestion=GESTION).count()} tipos de producto')
+print(f'  - {ObjetoGasto.objects.filter(gestion__anio=GESTION).count()} objetos del gasto')
+print(f'  - {FuenteFinanciamiento.objects.filter(gestion__anio=GESTION).count()} fuentes')
+print(f'  - {OrganismoFinanciador.objects.filter(gestion__anio=GESTION).count()} organismos')
+print(f'  - {UnidadMedida.objects.filter(gestion__anio=GESTION).count()} unidades de medida')
+print(f'  - {TipoOperacion.objects.filter(gestion__anio=GESTION).count()} tipos de operación')
+print(f'  - {TipoProducto.objects.filter(gestion__anio=GESTION).count()} tipos de producto')
 print(f'  - {ProgramaPresupuestario.objects.filter(gestion=GESTION).count()} programas')

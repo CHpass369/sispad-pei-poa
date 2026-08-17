@@ -52,7 +52,7 @@ def test_carga_techo_sigep_completo(db):
     assert not version.hash
 
     assert RubroRecurso.objects.filter(
-        codigo__in=['19211', '19212'], gestion=2027
+        codigo__in=['19211', '19212'], gestion__anio=2027
     ).count() == 2
 
     recursos = list(CeilingResource.objects.filter(version=version))
@@ -87,7 +87,7 @@ def test_idempotente(db):
     version = ceiling.versiones.get(numero=1)
     assert version.recursos.count() == 5
     assert version.gastos_obligatorios.count() == 3
-    assert RubroRecurso.objects.filter(gestion=2027).count() == 2
+    assert RubroRecurso.objects.filter(gestion__anio=2027).count() == 2
 
 
 def test_gestion_no_habilitada_se_habilita(db):

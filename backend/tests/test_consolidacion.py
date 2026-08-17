@@ -43,7 +43,7 @@ class TestConsolidacion:
         objeto = objetos_gasto.first()
         from apps.catalogos.models import FinalidadFuncion
         ff, _ = FinalidadFuncion.objects.get_or_create(
-            codigo='TEST', gestion=2026,
+            codigo='TEST', gestion=gestion,
             defaults={'denominacion': 'Finalidad Test',
                       'fecha_vigencia_desde': date(2026, 1, 1)}
         )

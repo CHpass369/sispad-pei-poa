@@ -196,7 +196,17 @@ class Command(BaseCommand):
         from apps.catalogos.models import FuenteFinanciamiento
         from apps.techos.models import TechoPresupuestario
         from datetime import date as _date
+        from apps.gestion.models import GestionFiscal
 
+        # PIP-DB-003: gestion es FK a GestionFiscal; se resuelve la instancia.
+        gestion_2027, _ = GestionFiscal.objects.get_or_create(
+            anio=2027,
+            defaults={
+                'estado': GestionFiscal.Estado.PREPARACION,
+                'descripcion': 'Gestión de trabajo (cargar_demo_v2).',
+                'activa': True,
+            },
+        )
         fuentes_tecnicas = [
             ('41-113', 'CT - Coparticipación Tributaria'),
             ('20-210', 'RE - Recursos Específicos'),
@@ -204,7 +214,7 @@ class Command(BaseCommand):
         fuentes = []
         for codigo, denominacion in fuentes_tecnicas:
             fuente, _ = FuenteFinanciamiento.objects.get_or_create(
-                codigo=codigo, gestion=2027,
+                codigo=codigo, gestion=gestion_2027,
                 defaults={
                     'denominacion': denominacion,
                     'fecha_vigencia_desde': _date(2027, 1, 1),

@@ -7,7 +7,7 @@
 - ``catalogo.validacion`` (9) → ``catalogos.ValidacionPlataforma`` (nuevo).
 """
 from apps.catalogos.importer.base import (
-    ReporteLote, leer_filas, upsert, vigencia_desde,
+    ReporteLote, leer_filas, resolver_gestion, upsert, vigencia_desde,
 )
 from apps.catalogos.models import (
     TipoOperacion,
@@ -52,11 +52,12 @@ def importar_dominios(reporte, gestion):
     for fila in filas:
         por_dominio.setdefault(fila['dominio'], []).append(fila)
 
+    gestion_fiscal = resolver_gestion(gestion)
     for dominio, modelo in MODELOS_DOMINIO.items():
         for fila in por_dominio.get(dominio, []):
             upsert(
                 modelo,
-                claves={'codigo': fila['codigo'], 'gestion': gestion},
+                claves={'codigo': fila['codigo'], 'gestion': gestion_fiscal},
                 valores={
                     'denominacion': fila['denominacion'],
                     'descripcion': fila['descripcion'] or '',
@@ -75,7 +76,7 @@ def importar_dominios(reporte, gestion):
                 reporte=reporte,
             )
         reporte.conteos_modelo[modelo.__name__] = (
-            modelo.objects.filter(gestion=gestion).count()
+            modelo.objects.filter(gestion__anio=gestion).count()
         )
 
     for dominio, descripcion in DOMINIOS_DOCUMENTADOS.items():

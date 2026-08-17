@@ -529,7 +529,7 @@ def _fuentes_codigos_validos(importacion):
     from apps.catalogos.models import FuenteFinanciamiento
     return set(
         FuenteFinanciamiento.objects
-        .filter(gestion=importacion.gestion.anio)
+        .filter(gestion__anio=importacion.gestion.anio)
         .values_list('codigo', flat=True)
     )
 
@@ -802,7 +802,7 @@ def aplicar_importacion(importacion, usuario):
     _, fuentes_efectivas = _mapeo_efectivo(importacion, importacion.mapeo_json)
     fuentes_por_codigo = {
         f.codigo: f for f in
-        FuenteFinanciamiento.objects.filter(gestion=gestion.anio)
+        FuenteFinanciamiento.objects.filter(gestion__anio=gestion.anio)
     }
     distritos = _nombres_distritos()
     version = version_distribucion_activa(gestion)

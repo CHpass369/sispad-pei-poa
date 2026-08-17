@@ -86,14 +86,14 @@ class Command(BaseCommand):
         ]
         for cod, sigla, nombre in fuentes:
             FuenteFinanciamiento.objects.get_or_create(
-                codigo=cod, gestion=GESTION,
+                codigo=cod, gestion=_gestion_fiscal(),
                 defaults={
                     'denominacion': f'{sigla} - {nombre}',
                     'descripcion': nombre,
                     'fecha_vigencia_desde': VIGENCIA,
                 }
             )
-        self.stdout.write(f'  Fuentes: {FuenteFinanciamiento.objects.filter(gestion=GESTION).count()}')
+        self.stdout.write(f'  Fuentes: {FuenteFinanciamiento.objects.filter(gestion__anio=GESTION).count()}')
 
         # Unidades de medida (de PTDI)
         umedidas = [
@@ -109,11 +109,11 @@ class Command(BaseCommand):
         ]
         for cod, nom, desc in umedidas:
             UnidadMedida.objects.get_or_create(
-                codigo=cod, gestion=GESTION,
+                codigo=cod, gestion=_gestion_fiscal(),
                 defaults={'denominacion': nom, 'descripcion': desc,
                           'fecha_vigencia_desde': VIGENCIA}
             )
-        self.stdout.write(f'  Unidades de medida: {UnidadMedida.objects.filter(gestion=GESTION).count()}')
+        self.stdout.write(f'  Unidades de medida: {UnidadMedida.objects.filter(gestion__anio=GESTION).count()}')
 
     # ============================================================
     # 2. APERTURAS PROGRAMÁTICAS

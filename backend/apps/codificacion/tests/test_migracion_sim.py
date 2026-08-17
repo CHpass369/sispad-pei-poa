@@ -34,6 +34,10 @@ from apps.pad.models import LineamientoEstrategico, PoliticaPAD
 from apps.planificacion.models import Plan
 from apps.gestion.models import GestionFiscal
 
+# PIP-DB-003: los servicios resuelven el año int a GestionFiscal y lanzan si
+# no existe; se garantiza la gestión 2027 para toda llamada vía servicio.
+pytestmark = pytest.mark.usefixtures('gestion_fiscal_2027')
+
 
 def _gf(anio):
     return GestionFiscal.objects.get_or_create(

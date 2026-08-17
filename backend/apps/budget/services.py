@@ -453,7 +453,7 @@ def _validar_fuentes_organismos(version):
             ('Organismo financiador', recurso.organismo),
             ('Entidad otorgante', recurso.entidad_otorgante),
         ):
-            if valor is not None and valor.gestion != gestion.anio:
+            if valor is not None and valor.gestion.anio != gestion.anio:
                 raise ValidationError(
                     f'{nombre} "{valor.codigo}" no pertenece a la gestión '
                     f'{gestion.anio} (recurso "{recurso.concepto}").'
@@ -466,7 +466,7 @@ def _validar_fuentes_organismos(version):
             ('Organismo financiador', gasto.organismo),
             ('Objeto del gasto', gasto.objeto_gasto),
         ):
-            if valor is not None and valor.gestion != gestion.anio:
+            if valor is not None and valor.gestion.anio != gestion.anio:
                 raise ValidationError(
                     f'{nombre} "{valor.codigo}" no pertenece a la gestión '
                     f'{gestion.anio} (gasto "{gasto.denominacion}").'
@@ -1747,7 +1747,7 @@ def _validar_movimientos_reform(gestion, movimientos):
             raise ValidationError(
                 f'Movimiento {i + 1}: la fuente de financiamiento no existe.'
             )
-        if fuente.gestion != gestion.anio:
+        if fuente.gestion.anio != gestion.anio:
             raise ValidationError(
                 f'Movimiento {i + 1}: la fuente "{fuente.codigo}" no '
                 f'pertenece a la gestión {gestion.anio}.'
@@ -1763,7 +1763,7 @@ def _validar_movimientos_reform(gestion, movimientos):
                 raise ValidationError(
                     f'Movimiento {i + 1}: el organismo financiador no existe.'
                 )
-            if organismo.gestion != gestion.anio:
+            if organismo.gestion.anio != gestion.anio:
                 raise ValidationError(
                     f'Movimiento {i + 1}: el organismo "{organismo.codigo}" '
                     f'no pertenece a la gestión {gestion.anio}.'

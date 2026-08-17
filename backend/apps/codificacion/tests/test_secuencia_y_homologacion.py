@@ -32,6 +32,7 @@ from apps.codificacion.models import (
     NIVEL_ARTICULACION_CHOICES,
     SecuenciaCodigo,
 )
+from apps.gestion.models import GestionFiscal
 
 NIVELES_ESPERADOS = {
     'resultado_pad',
@@ -68,58 +69,62 @@ class TestNivelesArticulacion:
 
 @pytest.mark.django_db
 class TestSecuenciaCodigo:
-    def test_ultimo_valor_default_cero(self, entidad):
+    def test_ultimo_valor_default_cero(self, entidad, gestion_fiscal_2027):
         secuencia = SecuenciaCodigo.objects.create(
             nivel='operacion_poau', padre_id=uuid.uuid4(),
-            gestion=2027, entidad=entidad,
+            gestion=gestion_fiscal_2027, entidad=entidad,
         )
         assert secuencia.ultimo_valor == 0
 
-    def test_clave_duplicada_rechazada(self, entidad):
+    def test_clave_duplicada_rechazada(self, entidad, gestion_fiscal_2027):
         padre_id = uuid.uuid4()
         SecuenciaCodigo.objects.create(
             nivel='operacion_poau', padre_id=padre_id,
-            gestion=2027, entidad=entidad,
+            gestion=gestion_fiscal_2027, entidad=entidad,
         )
         with pytest.raises(IntegrityError):
             SecuenciaCodigo.objects.create(
                 nivel='operacion_poau', padre_id=padre_id,
-                gestion=2027, entidad=entidad,
+                gestion=gestion_fiscal_2027, entidad=entidad,
             )
 
-    def test_padre_null_tambien_es_unico(self, entidad):
+    def test_padre_null_tambien_es_unico(self, entidad, gestion_fiscal_2027):
         """Niveles raíz (sin padre): NULL no debe permitir duplicados."""
         SecuenciaCodigo.objects.create(
             nivel='resultado_pei', padre_id=None,
-            gestion=2027, entidad=entidad,
+            gestion=gestion_fiscal_2027, entidad=entidad,
         )
         with pytest.raises(IntegrityError):
             SecuenciaCodigo.objects.create(
                 nivel='resultado_pei', padre_id=None,
-                gestion=2027, entidad=entidad,
+                gestion=gestion_fiscal_2027, entidad=entidad,
             )
 
-    def test_misma_clave_en_distinta_gestion_es_valida(self, entidad):
+    def test_misma_clave_en_distinta_gestion_es_valida(
+        self, entidad, gestion_fiscal_2027, gestion_fiscal_2028,
+    ):
         padre_id = uuid.uuid4()
         SecuenciaCodigo.objects.create(
             nivel='tarea_poau', padre_id=padre_id,
-            gestion=2027, entidad=entidad,
+            gestion=gestion_fiscal_2027, entidad=entidad,
         )
         otra = SecuenciaCodigo.objects.create(
             nivel='tarea_poau', padre_id=padre_id,
-            gestion=2028, entidad=entidad,
+            gestion=gestion_fiscal_2028, entidad=entidad,
         )
         assert otra.pk is not None
 
-    def test_misma_clave_en_distinto_nivel_es_valida(self, entidad):
+    def test_misma_clave_en_distinto_nivel_es_valida(
+        self, entidad, gestion_fiscal_2027,
+    ):
         padre_id = uuid.uuid4()
         SecuenciaCodigo.objects.create(
             nivel='actividad_poau', padre_id=padre_id,
-            gestion=2027, entidad=entidad,
+            gestion=gestion_fiscal_2027, entidad=entidad,
         )
         otra = SecuenciaCodigo.objects.create(
             nivel='operacion_poau', padre_id=padre_id,
-            gestion=2027, entidad=entidad,
+            gestion=gestion_fiscal_2027, entidad=entidad,
         )
         assert otra.pk is not None
 
@@ -134,11 +139,13 @@ class TestSecuenciaCodigo:
 
 @pytest.mark.django_db(transaction=True)
 class TestSecuenciaCodigoConcurrencia:
-    def test_select_for_update_bloquea_la_misma_fila_hasta_commit(self, entidad):
+    def test_select_for_update_bloquea_la_misma_fila_hasta_commit(
+        self, entidad, gestion_fiscal_2027,
+    ):
         """A holds the row lock, B times out, and a later transaction succeeds."""
         secuencia = SecuenciaCodigo.objects.create(
             nivel='operacion_poau', padre_id=uuid.uuid4(),
-            gestion=2027, entidad=entidad,
+            gestion=gestion_fiscal_2027, entidad=entidad,
         )
 
         inicio = threading.Barrier(2)
@@ -208,6 +215,7 @@ class TestSecuenciaCodigoConcurrencia:
         assert secuencia.ultimo_valor == 1
 
 @pytest.mark.django_db
+@pytest.mark.usefixtures('gestion_fiscal_2027')
 class TestHomologacionCodigo:
     def _crear(self, usuario, **kwargs):
         datos = {
@@ -216,7 +224,7 @@ class TestHomologacionCodigo:
             'codigo_anterior': 'SIM-2027-OP-01',
             'codigo_nuevo': '04.02.14.01.031001.02.01.01.1312.03.01.01.001.001',
             'motivo': 'Homologación inicial SIM-2027',
-            'gestion': 2027,
+            'gestion': GestionFiscal.objects.get(anio=2027),
             'usuario': usuario,
             'documento_respaldo': 'Resolución 001/2027',
         }
@@ -297,6 +305,7 @@ class TestHomologacionCodigo:
 def test_admin_rechaza_posts_de_cambio_y_borrado(
     client,
     entidad,
+    gestion_fiscal_2027,
 ):
     superusuario = get_user_model().objects.create_superuser(
         email='admin-codificacion@test.gob.bo',
@@ -305,7 +314,7 @@ def test_admin_rechaza_posts_de_cambio_y_borrado(
     secuencia = SecuenciaCodigo.objects.create(
         nivel='operacion_poau',
         padre_id=uuid.uuid4(),
-        gestion=2027,
+        gestion=gestion_fiscal_2027,
         entidad=entidad,
     )
     homologacion = HomologacionCodigo.objects.create(
@@ -314,7 +323,7 @@ def test_admin_rechaza_posts_de_cambio_y_borrado(
         codigo_anterior='SIM-2027-ADMIN',
         codigo_nuevo='CODIGO-NUEVO-ADMIN',
         motivo='Motivo original de admin',
-        gestion=2027,
+        gestion=gestion_fiscal_2027,
         usuario=superusuario,
     )
     client.force_login(superusuario)
@@ -364,14 +373,14 @@ def test_admin_rechaza_posts_de_cambio_y_borrado(
 
 @pytest.mark.django_db(transaction=True)
 class TestHomologacionCodigoTriggerPostgreSQL:
-    def test_sql_directo_bloquea_update_y_delete(self, usuario):
+    def test_sql_directo_bloquea_update_y_delete(self, usuario, gestion_fiscal_2027):
         homologacion = HomologacionCodigo.objects.create(
             tipo_entidad='operacion_poau',
             entidad_id=uuid.uuid4(),
             codigo_anterior='SIM-2027-OP-SQL',
             codigo_nuevo='04.02.14.01.031001.02.01.01.1312.03.01.01.001',
             motivo='Homologación protegida por trigger',
-            gestion=2027,
+            gestion=gestion_fiscal_2027,
             usuario=usuario,
         )
 

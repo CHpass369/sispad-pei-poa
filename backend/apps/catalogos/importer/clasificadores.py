@@ -13,6 +13,7 @@ from apps.catalogos.importer.base import (
     orden_bfs,
     profundidad,
     reconciliar_item_origen,
+    resolver_gestion,
     upsert,
     version_clasificador,
     zfill_codigo,
@@ -63,6 +64,7 @@ def importar_fuentes(reporte, gestion):
     filas = leer_items_clasificador('FUENTE_FINANCIAMIENTO', gestion)
     if not filas:
         return
+    gestion_fiscal = resolver_gestion(gestion)
     version = version_clasificador(
         VersionClasificador.TIPO_FUENTE_FINANCIAMIENTO, gestion,
         'Importado del catálogo maestro — pendiente de homologación',
@@ -72,7 +74,7 @@ def importar_fuentes(reporte, gestion):
         codigo = zfill_codigo(fila['codigo'], 2)
         upsert(
             FuenteFinanciamiento,
-            claves={'codigo': codigo, 'gestion': gestion},
+            claves={'codigo': codigo, 'gestion': gestion_fiscal},
             valores={
                 'denominacion': fila['denominacion'],
                 'descripcion': fila['descripcion'] or '',
@@ -87,7 +89,7 @@ def importar_fuentes(reporte, gestion):
             campos_actualizables=CAMPOS_ACTUALIZABLES,
         )
     reporte.conteos_modelo['FuenteFinanciamiento'] = (
-        FuenteFinanciamiento.objects.filter(gestion=gestion).count()
+        FuenteFinanciamiento.objects.filter(gestion__anio=gestion).count()
     )
 
 
@@ -95,6 +97,7 @@ def importar_organismos(reporte, gestion):
     filas = leer_items_clasificador('ORGANISMO_FINANCIADOR', gestion)
     if not filas:
         return
+    gestion_fiscal = resolver_gestion(gestion)
     version = version_clasificador(
         VersionClasificador.TIPO_ORGANISMO_FINANCIADOR, gestion,
         'Importado del catálogo maestro — pendiente de homologación',
@@ -104,7 +107,7 @@ def importar_organismos(reporte, gestion):
         codigo = zfill_codigo(fila['codigo'], 3)
         upsert(
             OrganismoFinanciador,
-            claves={'codigo': codigo, 'gestion': gestion},
+            claves={'codigo': codigo, 'gestion': gestion_fiscal},
             valores={
                 'denominacion': fila['denominacion'],
                 'descripcion': fila['descripcion'] or '',
@@ -119,7 +122,7 @@ def importar_organismos(reporte, gestion):
             campos_actualizables=CAMPOS_ACTUALIZABLES,
         )
     reporte.conteos_modelo['OrganismoFinanciador'] = (
-        OrganismoFinanciador.objects.filter(gestion=gestion).count()
+        OrganismoFinanciador.objects.filter(gestion__anio=gestion).count()
     )
 
 
@@ -127,6 +130,7 @@ def importar_objetos_gasto(reporte, gestion):
     filas = orden_bfs(leer_items_clasificador('OBJETO_GASTO', gestion))
     if not filas:
         return
+    gestion_fiscal = resolver_gestion(gestion)
     version = version_clasificador(
         VersionClasificador.TIPO_OBJETO_GASTO, gestion,
         'Importado del catálogo maestro — pendiente de homologación',
@@ -140,7 +144,7 @@ def importar_objetos_gasto(reporte, gestion):
         padre = objeto_por_item.get(fila.get('parent_uuid'))
         obj = upsert(
             ObjetoGasto,
-            claves={'codigo': codigo, 'gestion': gestion},
+            claves={'codigo': codigo, 'gestion': gestion_fiscal},
             valores={
                 'denominacion': fila['denominacion'],
                 'descripcion': fila['descripcion'] or '',
@@ -165,17 +169,18 @@ def importar_objetos_gasto(reporte, gestion):
                 f'OBJETO_GASTO {codigo}: parent_uuid sin resolver en el lote.'
             )
     reporte.conteos_modelo['ObjetoGasto'] = (
-        ObjetoGasto.objects.filter(gestion=gestion).count()
+        ObjetoGasto.objects.filter(gestion__anio=gestion).count()
     )
 
 
 def importar_institucional(reporte, gestion):
     filas = leer_items_clasificador('INSTITUCIONAL', gestion)
+    gestion_fiscal = resolver_gestion(gestion)
     reporte.fuente = f'INSTITUCIONAL ({len(filas)})'
     for fila in filas:
         upsert(
             ClasificadorInstitucional,
-            claves={'codigo': fila['codigo'], 'gestion': gestion},
+            claves={'codigo': fila['codigo'], 'gestion': gestion_fiscal},
             valores={
                 'denominacion': fila['denominacion'],
                 'descripcion': fila['descripcion'] or '',
@@ -193,18 +198,19 @@ def importar_institucional(reporte, gestion):
             reporte=reporte,
         )
     reporte.conteos_modelo['ClasificadorInstitucional'] = (
-        ClasificadorInstitucional.objects.filter(gestion=gestion).count()
+        ClasificadorInstitucional.objects.filter(gestion__anio=gestion).count()
     )
 
 
 def importar_rubros(reporte, gestion):
     filas = orden_bfs(leer_items_clasificador('RUBRO_RECURSO', gestion))
+    gestion_fiscal = resolver_gestion(gestion)
     reporte.fuente = f'RUBRO_RECURSO ({len(filas)})'
     por_uuid = {fila['item_uuid']: fila for fila in filas}
     for fila in filas:
         upsert(
             RubroRecurso,
-            claves={'codigo': fila['codigo'], 'gestion': gestion},
+            claves={'codigo': fila['codigo'], 'gestion': gestion_fiscal},
             valores={
                 'denominacion': fila['denominacion'],
                 'descripcion': fila['descripcion'] or '',
@@ -218,18 +224,19 @@ def importar_rubros(reporte, gestion):
             reporte=reporte,
         )
     reporte.conteos_modelo['RubroRecurso'] = (
-        RubroRecurso.objects.filter(gestion=gestion).count()
+        RubroRecurso.objects.filter(gestion__anio=gestion).count()
     )
 
 
 def importar_finalidades(reporte, gestion):
     filas = orden_bfs(leer_items_clasificador('FINALIDAD_FUNCION', gestion))
+    gestion_fiscal = resolver_gestion(gestion)
     reporte.fuente = f'FINALIDAD_FUNCION ({len(filas)})'
     por_uuid = {fila['item_uuid']: fila for fila in filas}
     for fila in filas:
         upsert(
             FinalidadFuncion,
-            claves={'codigo': fila['codigo'], 'gestion': gestion},
+            claves={'codigo': fila['codigo'], 'gestion': gestion_fiscal},
             valores={
                 'denominacion': fila['denominacion'],
                 'descripcion': fila['descripcion'] or '',
@@ -243,7 +250,7 @@ def importar_finalidades(reporte, gestion):
             reporte=reporte,
         )
     reporte.conteos_modelo['FinalidadFuncion'] = (
-        FinalidadFuncion.objects.filter(gestion=gestion).count()
+        FinalidadFuncion.objects.filter(gestion__anio=gestion).count()
     )
 
 
