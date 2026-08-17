@@ -81,4 +81,22 @@ FKR por app + reversa de data migrations.
 
 ## FINAL REPORT
 
-Tablas migradas, huérfanos, triggers recreados, tests adaptados, suite total.
+Cerrada 2026-08-16 — **CORE completo con FK a GestionFiscal PROTECT** (organizacion quedo en PIP-DB-002; esta tarea cerro el resto).
+
+**Tablas migradas (11 campos en 8 archivos de models):** workflow (EnvioFormulacion, Observacion, Aprobacion), auditoria (EventoAuditoria — **null=True conservado**), notificaciones (Notificacion), documentos (DocumentoAdjunto), acciones_correctivas (AccionCorrectiva — ordering a `-gestion__anio`), reportes (ReporteGenerado), territorio (LocalizacionTerritorial), core (VersionableModel abstracto + DemoDatasetManifest).
+
+**Migraciones creadas (8):** secuencia Add→Remove→Rename→Alter (PostgreSQL no castea int→uuid ni en tabla vacia — hallazgo que invalido el AlterField directo de Django); `db_column='gestion'` conservada; auditoria con RunPython (1 fila real 2027 mapeada sin inventar gestiones).
+
+**Correcciones de auditoria previa:** Distrito/UnidadTerritorial/CompromisoAccionCorrectiva NO tienen campo gestion (la auditoria GESTION_FISCAL_AUDIT los listo por error); `VersionableModel` NO tiene subclases (import muerto en planificacion) — el "impacto 13 tablas" no existia.
+
+**Servicios normalizados (punto unico de contratos):** auditoria/services.py (`_resolver_gestion` — anio→instancia, inexistente→None; filtros por `gestion__anio`; export expone anio), workflow/services.py, acciones_correctivas/services.py, notificaciones/services.py, territorio/services.py (resolucion explicita con error claro; NO se inventan gestiones), demo_articuladores.py (manifest), budget AuditLogView + AuditEventSerializer (contrato `?gestion=<anio>` + `gestion`=anio conservado, `gestion_id`=uuid nuevo).
+
+**Tests adaptados (~230 sitios):** budget (160), workflow (22), acciones_correctivas (20), notificaciones (14), test_importar_techo_sigep, test_paginacion_dual, test_permisos, test_api, demo_articuladores, demo_matrix — payloads POST de creacion con uuid (contrato de escritura de workflow/notificaciones/AC ahora recibe uuid; el frontend no envia gestion en esos forms).
+
+**Suite:** **1282 passed** (baseline), ruff limpio. Nota: en Windows el cierre de pytest-xdist a veces no termina el proceso tras el 100% (log sin resumen) — ejecutar con `-p no:cacheprovider` y verificar el log.
+
+**Commit:** `32b1906` (32 archivos, 639+/96-).
+
+**Riesgos documentados:** queries externas que filtren `WHERE gestion=<anio>` sobre estas tablas requieren JOIN a gestion_gestionfiscal; contratos de escritura (POST) de observaciones/notificaciones/acciones-correctivas ahora aceptan uuid de gestion (el anio se expone como `gestion_anio`/`gestion` en lectura segun serializer).
+
+**Deuda detectada:** budget/gestion FKs con CASCADE (uniformar a PROTECT — pendiente); `buscar_por_usuario`/`contar_por_entidad` de auditoria normalizados por anio (queries con uuid siguen soportadas).
