@@ -4,6 +4,7 @@ from django.core.validators import RegexValidator
 from django.db import models
 from django.db.models import Q
 from apps.core.models import TimeStampedModel, ActivableModel, VigenciaModel
+from apps.gestion.models import GestionFiscal
 
 
 class VersionClasificadorQuerySet(models.QuerySet):
@@ -39,6 +40,9 @@ class VersionClasificadorManager(models.Manager.from_queryset(
 )):
     def vigente_para(self, tipo, gestion):
         """Fail closed: an absent explicit current version is an error."""
+        # PIP-DB-003: gestion es FK; el año llega como int desde los callers.
+        if not isinstance(gestion, GestionFiscal):
+            return self.get(tipo=tipo, gestion__anio=gestion, vigente=True)
         return self.get(tipo=tipo, gestion=gestion, vigente=True)
 
 
@@ -71,7 +75,10 @@ class VersionClasificador(TimeStampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     tipo = models.CharField(max_length=40, choices=TIPO_CHOICES)
-    gestion = models.PositiveIntegerField()
+    gestion = models.ForeignKey(
+        GestionFiscal, on_delete=models.PROTECT, db_column='gestion',
+        related_name='+', verbose_name='Gestión fiscal',
+    )
     norma = models.CharField(max_length=300, blank=True)
     fecha_norma = models.DateField(null=True, blank=True)
     codigo_fuente = models.CharField(max_length=100, blank=True)
@@ -92,7 +99,7 @@ class VersionClasificador(TimeStampedModel):
 
     class Meta:
         db_table = 'catalogo_version_clasificador'
-        ordering = ['tipo', '-gestion', '-fecha_norma']
+        ordering = ['tipo', '-gestion__anio', '-fecha_norma']
         constraints = [
             models.UniqueConstraint(
                 fields=['tipo', 'gestion'],
@@ -151,14 +158,17 @@ class CatalogoBase(TimeStampedModel, ActivableModel, VigenciaModel):
     codigo = models.CharField(max_length=50)
     denominacion = models.CharField(max_length=500)
     descripcion = models.TextField(blank=True)
-    gestion = models.PositiveIntegerField()
+    gestion = models.ForeignKey(
+        GestionFiscal, on_delete=models.PROTECT, db_column='gestion',
+        related_name='+', verbose_name='Gestión fiscal',
+    )
     fuente_normativa = models.CharField(max_length=500, blank=True)
     metadatos_importacion = models.JSONField(null=True, blank=True)
 
     class Meta:
         abstract = True
         unique_together = [('codigo', 'gestion')]
-        ordering = ['codigo', 'gestion']
+        ordering = ['codigo', 'gestion__anio']
 
     def __str__(self):
         return f'[{self.codigo}] {self.denominacion}'
@@ -437,7 +447,10 @@ class TipoFinanciamiento(CatalogoBase):
 class VersionCatalogo(TimeStampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     nombre = models.CharField(max_length=200)
-    gestion = models.PositiveIntegerField()
+    gestion = models.ForeignKey(
+        GestionFiscal, on_delete=models.PROTECT, db_column='gestion',
+        related_name='+', verbose_name='Gestión fiscal',
+    )
     archivo = models.FileField(upload_to='catalogos/', null=True, blank=True)
     aplicado = models.BooleanField(default=False)
     fecha_aplicacion = models.DateTimeField(null=True, blank=True)
@@ -446,7 +459,7 @@ class VersionCatalogo(TimeStampedModel):
         db_table = 'catalogo_version_catalogo'
         verbose_name = 'Versión de catálogo'
         verbose_name_plural = 'Versiones de catálogo'
-        ordering = ['-gestion', '-creado_en']
+        ordering = ['-gestion__anio', '-creado_en']
 
     creado_en = models.DateTimeField(auto_now_add=True)
 

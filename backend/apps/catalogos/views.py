@@ -21,6 +21,17 @@ from .serializers import (
 from .services import importar_catalogo_desde_xlsx, importar_catalogo_desde_csv, MODEL_MAP
 
 
+class GestionFilterMixin:
+    """?gestion=<anio> filtra por anio (PIP-DB-003; el frontend envia el anio)."""
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        gestion = self.request.query_params.get('gestion')
+        if gestion:
+            qs = qs.filter(gestion__anio=gestion)
+        return qs
+
+
 class CatalogoImportMixin:
     """Mixin para viewsets de catálogos que habilita importación XLSX/CSV."""
 
@@ -65,94 +76,94 @@ class CatalogoImportMixin:
         return Response(result.to_dict(), status=status.HTTP_200_OK)
 
 
-class ClasificadorInstitucionalViewSet(CatalogoImportMixin, viewsets.ModelViewSet):
+class ClasificadorInstitucionalViewSet(CatalogoImportMixin, GestionFilterMixin, viewsets.ModelViewSet):
     queryset = ClasificadorInstitucional.objects.all()
     serializer_class = ClasificadorInstitucionalSerializer
-    filterset_fields = ['gestion', 'activo']
+    filterset_fields = ['activo']
     search_fields = ['codigo', 'denominacion']
 
     def _get_tipo_catalogo(self):
         return 'clasificador_institucional'
 
 
-class RubroRecursoViewSet(CatalogoImportMixin, viewsets.ModelViewSet):
+class RubroRecursoViewSet(CatalogoImportMixin, GestionFilterMixin, viewsets.ModelViewSet):
     queryset = RubroRecurso.objects.all()
     serializer_class = RubroRecursoSerializer
-    filterset_fields = ['gestion', 'activo']
+    filterset_fields = ['activo']
     search_fields = ['codigo', 'denominacion']
     def _get_tipo_catalogo(self): return 'rubro_recurso'
 
 
-class ObjetoGastoViewSet(CatalogoImportMixin, viewsets.ModelViewSet):
+class ObjetoGastoViewSet(CatalogoImportMixin, GestionFilterMixin, viewsets.ModelViewSet):
     queryset = ObjetoGasto.objects.all()
     serializer_class = ObjetoGastoSerializer
-    filterset_fields = ['gestion', 'activo']
+    filterset_fields = ['activo']
     search_fields = ['codigo', 'denominacion']
     def _get_tipo_catalogo(self): return 'objeto_gasto'
 
 
-class FuenteFinanciamientoViewSet(CatalogoImportMixin, viewsets.ModelViewSet):
+class FuenteFinanciamientoViewSet(CatalogoImportMixin, GestionFilterMixin, viewsets.ModelViewSet):
     queryset = FuenteFinanciamiento.objects.all()
     serializer_class = FuenteFinanciamientoSerializer
-    filterset_fields = ['gestion', 'activo']
+    filterset_fields = ['activo']
     search_fields = ['codigo', 'denominacion']
     def _get_tipo_catalogo(self): return 'fuente_financiamiento'
 
 
-class OrganismoFinanciadorViewSet(CatalogoImportMixin, viewsets.ModelViewSet):
+class OrganismoFinanciadorViewSet(CatalogoImportMixin, GestionFilterMixin, viewsets.ModelViewSet):
     queryset = OrganismoFinanciador.objects.all()
     serializer_class = OrganismoFinanciadorSerializer
-    filterset_fields = ['gestion', 'activo']
+    filterset_fields = ['activo']
     search_fields = ['codigo', 'denominacion']
     def _get_tipo_catalogo(self): return 'organismo_financiador'
 
 
-class EntidadTransferenciaViewSet(CatalogoImportMixin, viewsets.ModelViewSet):
+class EntidadTransferenciaViewSet(CatalogoImportMixin, GestionFilterMixin, viewsets.ModelViewSet):
     queryset = EntidadTransferencia.objects.all()
     serializer_class = EntidadTransferenciaSerializer
-    filterset_fields = ['gestion', 'activo']
+    filterset_fields = ['activo']
     def _get_tipo_catalogo(self): return 'entidad_transferencia'
 
 
-class FinalidadFuncionViewSet(CatalogoImportMixin, viewsets.ModelViewSet):
+class FinalidadFuncionViewSet(CatalogoImportMixin, GestionFilterMixin, viewsets.ModelViewSet):
     queryset = FinalidadFuncion.objects.all()
     serializer_class = FinalidadFuncionSerializer
-    filterset_fields = ['gestion', 'activo']
+    filterset_fields = ['activo']
     def _get_tipo_catalogo(self): return 'finalidad_funcion'
 
 
-class UnidadMedidaViewSet(CatalogoImportMixin, viewsets.ModelViewSet):
+class UnidadMedidaViewSet(CatalogoImportMixin, GestionFilterMixin, viewsets.ModelViewSet):
     queryset = UnidadMedida.objects.all()
     serializer_class = UnidadMedidaSerializer
-    filterset_fields = ['gestion', 'activo']
+    filterset_fields = ['activo']
     def _get_tipo_catalogo(self): return 'unidad_medida'
 
 
-class TipoOperacionViewSet(CatalogoImportMixin, viewsets.ModelViewSet):
+class TipoOperacionViewSet(CatalogoImportMixin, GestionFilterMixin, viewsets.ModelViewSet):
     queryset = TipoOperacion.objects.all()
     serializer_class = TipoOperacionSerializer
-    filterset_fields = ['gestion', 'activo']
+    filterset_fields = ['activo']
     def _get_tipo_catalogo(self): return 'tipo_operacion'
 
 
-class TipoProductoViewSet(CatalogoImportMixin, viewsets.ModelViewSet):
+class TipoProductoViewSet(CatalogoImportMixin, GestionFilterMixin, viewsets.ModelViewSet):
     queryset = TipoProducto.objects.all()
     serializer_class = TipoProductoSerializer
-    filterset_fields = ['gestion', 'activo']
+    filterset_fields = ['activo']
     def _get_tipo_catalogo(self): return 'tipo_producto'
 
 
-class TipoProyectoViewSet(CatalogoImportMixin, viewsets.ModelViewSet):
+class TipoProyectoViewSet(CatalogoImportMixin, GestionFilterMixin, viewsets.ModelViewSet):
     queryset = TipoProyecto.objects.all()
     serializer_class = TipoProyectoSerializer
-    filterset_fields = ['gestion', 'activo']
+    filterset_fields = ['activo']
     def _get_tipo_catalogo(self): return 'tipo_proyecto'
 
 
-class TipoFinanciamientoViewSet(CatalogoImportMixin, viewsets.ModelViewSet):
+class TipoFinanciamientoViewSet(CatalogoImportMixin, GestionFilterMixin, viewsets.ModelViewSet):
     queryset = TipoFinanciamiento.objects.all()
     serializer_class = TipoFinanciamientoSerializer
-    filterset_fields = ['gestion', 'activo']
+    filterset_fields = ['activo']
     def _get_tipo_catalogo(self): return 'tipo_financiamiento'
 
 

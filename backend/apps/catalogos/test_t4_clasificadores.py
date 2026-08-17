@@ -5,6 +5,13 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError, connection, transaction
 
 from apps.codificacion.models import EntidadTerritorialCGEO
+from apps.gestion.models import GestionFiscal
+
+
+def _gf(anio):
+    return GestionFiscal.objects.get_or_create(
+        anio=anio, defaults={'estado': 'abierta'},
+    )[0]
 
 
 pytestmark = pytest.mark.django_db
@@ -16,7 +23,7 @@ def crear_version(**overrides):
     reemplazar_vigente = overrides.pop('_reemplazar_vigente', True)
     data = {
         'tipo': VersionClasificador.TIPO_OBJETO_GASTO,
-        'gestion': 2026,
+        'gestion': _gf(2026),
         'norma': 'RM MEFP 249/2025',
         'fecha_norma': date(2025, 6, 24),
         'codigo_fuente': 'RM-249-2025',
@@ -28,7 +35,7 @@ def crear_version(**overrides):
     data.update(overrides)
     if data['vigente'] and reemplazar_vigente:
         for version in VersionClasificador.objects.filter(
-            tipo=data['tipo'], gestion=data['gestion'], vigente=True
+            tipo=data['tipo'], gestion=data['gestion'] if isinstance(data['gestion'], GestionFiscal) else _gf(data['gestion']), vigente=True
         ):
             version.vigente = False
             version.save(update_fields=['vigente'])
@@ -60,7 +67,7 @@ class TestVersionClasificador:
 
         version = VersionClasificador(
             tipo=VersionClasificador.TIPO_FUENTE_FINANCIAMIENTO,
-            gestion=2026,
+            gestion=_gf(2026),
             vigente=True,
             clasificacion_fuente=VersionClasificador.FUENTE_INCIERTA,
         )
@@ -86,7 +93,7 @@ class TestVersionClasificador:
 
         assert VersionClasificador.objects.filter(
             tipo=VersionClasificador.TIPO_OBJETO_GASTO,
-            gestion=2026,
+            gestion=_gf(2026),
             vigente=True,
         ).count() == 1
 
@@ -96,7 +103,7 @@ class TestVersionClasificador:
         with pytest.raises(ValidationError) as error:
             VersionClasificador.objects.create(
                 tipo=VersionClasificador.TIPO_OBJETO_GASTO,
-                gestion=2030,
+                gestion=_gf(2030),
                 norma='RM válida',
                 fecha_norma=date(2029, 1, 1),
                 codigo_fuente='RM-VALIDA',
@@ -114,7 +121,7 @@ class TestVersionClasificador:
 
         data = {
             'tipo': VersionClasificador.TIPO_OBJETO_GASTO,
-            'gestion': 2030,
+            'gestion': _gf(2030),
             'norma': 'RM válida',
             'fecha_norma': date(2029, 1, 1),
             'codigo_fuente': 'RM-VALIDA',
@@ -135,7 +142,7 @@ class TestVersionClasificador:
 
         invalida = VersionClasificador(
             tipo=VersionClasificador.TIPO_FUENTE_FINANCIAMIENTO,
-            gestion=2030,
+            gestion=_gf(2030),
             norma='RM válida',
             fecha_norma=date(2029, 1, 1),
             codigo_fuente='RM-VALIDA',
@@ -151,7 +158,7 @@ class TestVersionClasificador:
     def test_queryset_update_bloquea_campos_semanticos(self):
         from apps.catalogos.models import VersionClasificador
 
-        version = crear_version(gestion=2030, _reemplazar_vigente=False)
+        version = crear_version(gestion=_gf(2030), _reemplazar_vigente=False)
 
         with pytest.raises(ValidationError):
             VersionClasificador.objects.filter(pk=version.pk).update(hash_fuente='A' * 64)
@@ -160,7 +167,7 @@ class TestVersionClasificador:
         assert version.hash_fuente.startswith('9719')
 
     def test_constraint_sql_rechaza_hash_que_no_es_sha256_minusculo_exacto(self):
-        version = crear_version(gestion=2030, _reemplazar_vigente=False)
+        version = crear_version(gestion=_gf(2030), _reemplazar_vigente=False)
 
         with pytest.raises(IntegrityError), transaction.atomic(), connection.cursor() as cursor:
             cursor.execute(
@@ -182,7 +189,7 @@ class TestCatalogosVersionados:
             tipo=objeto_version.TIPO_ORGANISMO_FINANCIADOR,
             codigo_fuente='RM-249-ORGANISMOS',
         )
-        vigencia = {'fecha_vigencia_desde': date(2026, 1, 1), 'gestion': 2026}
+        vigencia = {'fecha_vigencia_desde': date(2026, 1, 1), 'gestion': _gf(2026)}
         objeto = ObjetoGasto.objects.create(
             codigo='11210',
             denominacion='Gastos especializados',
@@ -214,7 +221,7 @@ class TestCatalogosVersionados:
     def test_conserva_filas_legacy_sin_version_y_soporta_jerarquia_de_objetos(self):
         from apps.catalogos.models import ObjetoGasto
 
-        vigencia = {'fecha_vigencia_desde': date(2025, 1, 1), 'gestion': 2025}
+        vigencia = {'fecha_vigencia_desde': date(2025, 1, 1), 'gestion': _gf(2025)}
         legacy = ObjetoGasto.objects.create(codigo='LEGACY', denominacion='Dato previo', **vigencia)
         version = crear_version()
         grupo = ObjetoGasto.objects.create(
@@ -223,7 +230,7 @@ class TestCatalogosVersionados:
             version_clasificador=version,
             nivel=ObjetoGasto.NIVEL_GRUPO,
             fecha_vigencia_desde=date(2026, 1, 1),
-            gestion=2026,
+            gestion=_gf(2026),
         )
         detalle = ObjetoGasto.objects.create(
             codigo='11210',
@@ -232,7 +239,7 @@ class TestCatalogosVersionados:
             nivel=ObjetoGasto.NIVEL_DETALLE,
             padre=grupo,
             fecha_vigencia_desde=date(2026, 1, 1),
-            gestion=2026,
+            gestion=_gf(2026),
         )
 
         assert legacy.version_clasificador is None
@@ -245,7 +252,7 @@ class TestCatalogosVersionados:
         fuente_tipo_incorrecto = FuenteFinanciamiento(
             codigo='20',
             denominacion='Fuente con versión incorrecta',
-            gestion=2026,
+            gestion=_gf(2026),
             fecha_vigencia_desde=date(2026, 1, 1),
             version_clasificador=version_objeto,
         )
@@ -256,7 +263,7 @@ class TestCatalogosVersionados:
         fuente_ancho_incorrecto = FuenteFinanciamiento(
             codigo='200',
             denominacion='Fuente con ancho incorrecto',
-            gestion=2026,
+            gestion=_gf(2026),
             fecha_vigencia_desde=date(2026, 1, 1),
             version_clasificador=version_fuente,
         )
@@ -284,12 +291,12 @@ class TestCatalogosVersionados:
         model = getattr(catalogos.models, modelo)
         version_incorrecta = VersionClasificador.objects.get(
             tipo=VersionClasificador.TIPO_CATEGORIA_PROGRAMATICA,
-            gestion=2026,
+            gestion=_gf(2026),
         )
         invalido = model(
             codigo=codigo,
             denominacion='Clasificador inválido',
-            gestion=2026,
+            gestion=_gf(2026),
             fecha_vigencia_desde=date(2026, 1, 1),
             version_clasificador=version_incorrecta,
         )
@@ -310,17 +317,17 @@ class TestCatalogosVersionados:
         from apps.catalogos.models import VersionClasificador
 
         model = getattr(catalogos.models, modelo)
-        version = crear_version(tipo=tipo, gestion=2030, _reemplazar_vigente=False)
+        version = crear_version(tipo=tipo, gestion=_gf(2030), _reemplazar_vigente=False)
         row = model.objects.create(
             codigo=codigo,
             denominacion='Clasificador válido',
-            gestion=2030,
+            gestion=_gf(2030),
             fecha_vigencia_desde=date(2030, 1, 1),
             version_clasificador=version,
         )
         version_incorrecta = VersionClasificador.objects.get(
             tipo=VersionClasificador.TIPO_CATEGORIA_PROGRAMATICA,
-            gestion=2026,
+            gestion=_gf(2026),
         )
 
         with pytest.raises(ValidationError):
@@ -331,12 +338,12 @@ class TestCatalogosVersionados:
     def test_objeto_padre_debe_compartir_version_y_gestion_en_save_y_bulk(self):
         from apps.catalogos.models import ObjetoGasto
 
-        version_2026 = crear_version(gestion=2030, _reemplazar_vigente=False)
-        version_2027 = crear_version(gestion=2031, _reemplazar_vigente=False)
+        version_2026 = crear_version(gestion=_gf(2030), _reemplazar_vigente=False)
+        version_2027 = crear_version(gestion=_gf(2031), _reemplazar_vigente=False)
         padre = ObjetoGasto.objects.create(
             codigo='10000',
             denominacion='Grupo 2030',
-            gestion=2030,
+            gestion=_gf(2030),
             fecha_vigencia_desde=date(2030, 1, 1),
             version_clasificador=version_2026,
             nivel=ObjetoGasto.NIVEL_GRUPO,
@@ -344,7 +351,7 @@ class TestCatalogosVersionados:
         hijo = ObjetoGasto(
             codigo='11210',
             denominacion='Detalle 2031',
-            gestion=2031,
+            gestion=_gf(2031),
             fecha_vigencia_desde=date(2031, 1, 1),
             version_clasificador=version_2027,
             nivel=ObjetoGasto.NIVEL_DETALLE,

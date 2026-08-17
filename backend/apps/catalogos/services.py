@@ -49,6 +49,15 @@ class ImportResult:
         }
 
 
+def _resolver_gestion(valor):
+    if isinstance(valor, GestionFiscal):
+        return valor
+    gf = GestionFiscal.objects.filter(anio=int(valor)).first()
+    if gf is None:
+        raise ValueError(f'Gestión fiscal {valor} no existe en GestionFiscal (PIP-DB-003).')
+    return gf
+
+
 def importar_catalogo_desde_xlsx(file_obj, tipo_catalogo: str, gestion: int) -> ImportResult:
     """Importa registros de catálogo desde un archivo XLSX."""
     result = ImportResult()
@@ -100,7 +109,7 @@ def importar_catalogo_desde_xlsx(file_obj, tipo_catalogo: str, gestion: int) -> 
 
                 obj, created = Model.objects.update_or_create(
                     codigo=codigo,
-                    gestion=gestion,
+                    gestion=_resolver_gestion(gestion),
                     defaults={
                         'denominacion': denominacion,
                         **extra,
@@ -154,7 +163,7 @@ def importar_catalogo_desde_csv(file_obj, tipo_catalogo: str, gestion: int) -> I
 
                 obj, created = Model.objects.update_or_create(
                     codigo=codigo,
-                    gestion=gestion,
+                    gestion=_resolver_gestion(gestion),
                     defaults={
                         'denominacion': denominacion,
                         'descripcion': row.get('descripcion', ''),

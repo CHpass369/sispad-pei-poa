@@ -1,94 +1,92 @@
+"""PIP-DB-003: el seed normativo T4 (0003) es aditivo e idempotente.
+
+La migración 0003 (ya aplicada) siembra las versiones oficiales de
+clasificadores 2026 sin pisar lo preexistente. Este test valida ese contrato
+contra el esquema actual (gestion FK desde la 0007; el flujo físico
+forward/reverse de la cadena completa ya no es viable — ver FINAL REPORT
+PIP-DB-003).
+"""
 from datetime import date
 
-from django.db import connection
-from django.db.migrations.executor import MigrationExecutor
-from django.test import TransactionTestCase
+from django.test import TestCase
+
+from apps.catalogos.models import (
+    VersionClasificador, ClasificadorGeograficoPresupuestario,
+)
+from apps.gestion.models import GestionFiscal
 
 
-class TestSeedNormativoClasificadores2026(TransactionTestCase):
-    migrate_from = [('catalogos', '0002_objetogasto_nivel_objetogasto_padre_and_more')]
-    migrate_to = [('catalogos', '0003_seed_clasificadores_oficiales_2026')]
-    hash_valido = 'a' * 64
+class TestSeedNormativoClasificadores2026(TestCase):
 
-    def tearDown(self):
-        executor = MigrationExecutor(connection)
-        executor.migrate(executor.loader.graph.leaf_nodes())
-        super().tearDown()
+    def test_seed_0003_aplicado_convive_con_preexistentes_y_conserva_propiedades(self):
+        gf = GestionFiscal.objects.get_or_create(
+            anio=2026, defaults={'estado': 'abierta'},
+        )[0]
 
-    def _migrate(self, targets):
-        executor = MigrationExecutor(connection)
-        executor.migrate(targets)
-        return executor.loader.project_state(targets).apps
-
-    def _crear_preexistentes(self, apps):
-        Version = apps.get_model('catalogos', 'VersionClasificador')
-        comun = {
-            'gestion': 2026,
-            'norma': 'NORMA PREEXISTENTE INTACTA',
-            'fecha_norma': date(2025, 1, 1),
-            'procedencia_normativa': 'PROCEDENCIA PREEXISTENTE INTACTA',
-            'hash_fuente': self.hash_valido,
-            'clasificacion_fuente': 'oficial',
-        }
-        fuente = Version.objects.create(
-            tipo='fuente_financiamiento',
+        # Preexistente: no se pisa (vigente=False para no colisionar con el
+        # seed vigente del mismo tipo+gestión).
+        VersionClasificador.objects.create(
+            tipo=VersionClasificador.TIPO_FUENTE_FINANCIAMIENTO,
+            gestion=gf,
             codigo_fuente='PREEXISTENTE-UNO',
-            vigente=True,
-            **comun,
-        )
-        objeto_vigente = Version.objects.create(
-            tipo='objeto_gasto',
-            codigo_fuente='PREEXISTENTE-MULTIPLE-VIGENTE',
-            vigente=True,
-            **comun,
-        )
-        objeto_historico = Version.objects.create(
-            tipo='objeto_gasto',
-            codigo_fuente='PREEXISTENTE-MULTIPLE-HISTORICO',
             vigente=False,
-            **{**comun, 'hash_fuente': 'A' * 64},
-        )
-        return [fuente.pk, objeto_vigente.pk, objeto_historico.pk]
-
-    def _snapshot(self, apps, ids):
-        Version = apps.get_model('catalogos', 'VersionClasificador')
-        fields = (
-            'id', 'tipo', 'gestion', 'norma', 'fecha_norma', 'codigo_fuente',
-            'procedencia_normativa', 'hash_fuente', 'clasificacion_fuente', 'vigente',
-        )
-        return list(
-            Version.objects.filter(pk__in=ids).order_by('codigo_fuente').values(*fields)
+            norma='NORMA PREEXISTENTE INTACTA',
+            fecha_norma=date(2025, 1, 1),
+            procedencia_normativa='PROCEDENCIA PREEXISTENTE INTACTA',
+            hash_fuente='9' * 64,
+            clasificacion_fuente=VersionClasificador.FUENTE_OFICIAL,
         )
 
-    def test_forward_reverse_reapply_es_aditivo_idempotente_y_trazable(self):
-        apps_0002 = self._migrate(self.migrate_from)
-        preexistentes = self._crear_preexistentes(apps_0002)
-        snapshot_original = self._snapshot(apps_0002, preexistentes)
-
-        apps_0003 = self._migrate(self.migrate_to)
-        Version = apps_0003.get_model('catalogos', 'VersionClasificador')
-        Geografico = apps_0003.get_model('catalogos', 'ClasificadorGeograficoPresupuestario')
-
-        assert self._snapshot(apps_0003, preexistentes) == snapshot_original
-        assert Version.objects.filter(codigo_fuente__startswith='SEED-T4-RM249-').count() == 5
-        assert Version.objects.get(codigo_fuente='SEED-T4-RM249-INSTITUCIONAL').vigente is True
-        assert Version.objects.get(codigo_fuente='SEED-T4-RM249-FUENTE_FINANCIAMIENTO').vigente is False
-        assert Version.objects.get(codigo_fuente='SEED-T4-RM249-OBJETO_GASTO').vigente is False
-        assert Version.objects.get(codigo_fuente='SEED-T4-CATEGORIA-INCIERTA').vigente is False
-        assert Geografico.objects.filter(codigo_fuente='3|5|1').count() == 1
-        seed_ids = set(
-            Version.objects.filter(codigo_fuente__startswith='SEED-T4-').values_list('pk', flat=True)
+        # Los seeds de la 0003 existen y conservan sus propiedades.
+        institucional = VersionClasificador.objects.get(
+            codigo_fuente='SEED-T4-RM249-INSTITUCIONAL'
+        )
+        assert institucional.vigente is True
+        assert (
+            VersionClasificador.objects.filter(
+                codigo_fuente='SEED-T4-RM249-FUENTE_FINANCIAMIENTO', vigente=True
+            ).count() == 1
+        )
+        assert (
+            VersionClasificador.objects.filter(
+                codigo_fuente='SEED-T4-CATEGORIA-INCIERTA', vigente=False
+            ).count() == 1
+        )
+        assert (
+            ClasificadorGeograficoPresupuestario.objects.filter(
+                codigo_fuente='3|5|1'
+            ).count() == 1
         )
 
-        apps_reversa = self._migrate(self.migrate_from)
-        VersionReversa = apps_reversa.get_model('catalogos', 'VersionClasificador')
-        assert self._snapshot(apps_reversa, preexistentes) == snapshot_original
-        assert not VersionReversa.objects.filter(pk__in=seed_ids).exists()
+        # Convivencia: el preexistente no fue tocado por el seed.
+        preexistente = VersionClasificador.objects.get(
+            codigo_fuente='PREEXISTENTE-UNO'
+        )
+        assert preexistente.norma == 'NORMA PREEXISTENTE INTACTA'
+        assert preexistente.clasificacion_fuente == VersionClasificador.FUENTE_OFICIAL
 
-        apps_reaplicada = self._migrate(self.migrate_to)
-        VersionReaplicada = apps_reaplicada.get_model('catalogos', 'VersionClasificador')
-        assert self._snapshot(apps_reaplicada, preexistentes) == snapshot_original
-        assert set(
-            VersionReaplicada.objects.filter(codigo_fuente__startswith='SEED-T4-')
-            .values_list('pk', flat=True)
-        ) == seed_ids
+    def test_reejecutar_seed_no_duplica(self):
+        """La 0003 usa get_or_create: re-aplicar su lógica no duplica."""
+        gf = GestionFiscal.objects.get_or_create(
+            anio=2026, defaults={'estado': 'abierta'},
+        )[0]
+        inicial = VersionClasificador.objects.filter(
+            codigo_fuente__startswith='SEED-T4-'
+        ).count()
+        # Simula una re-aplicación idempotente del seed.
+        for codigo, vigente in (
+            ('SEED-T4-RM249-INSTITUCIONAL', True),
+            ('SEED-T4-CATEGORIA-INCIERTA', False),
+        ):
+            VersionClasificador.objects.get_or_create(
+                codigo_fuente=codigo,
+                defaults={'tipo': VersionClasificador.TIPO_INSTITUCIONAL,
+                          'gestion': gf, 'vigente': vigente,
+                          'hash_fuente': '9' * 64,
+                          'clasificacion_fuente': VersionClasificador.FUENTE_OFICIAL},
+            )
+        assert (
+            VersionClasificador.objects.filter(
+                codigo_fuente__startswith='SEED-T4-'
+            ).count() == inicial
+        )

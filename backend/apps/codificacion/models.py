@@ -15,6 +15,7 @@ from django.db import models
 from django.db.models import Q
 
 from apps.core.models import TimeStampedModel
+from apps.gestion.models import GestionFiscal
 
 # Constante de módulo para el estado vigente: el cuerpo de Meta no puede
 # referenciar atributos de la clase en construcción, así que el partial
@@ -57,7 +58,9 @@ class VersionCatalogoPlan(TimeStampedModel):
         related_name='versiones_catalogo',
         verbose_name='Plan',
     )
-    gestion = models.PositiveIntegerField(verbose_name='Gestión')
+    gestion = models.PositiveIntegerField(
+        verbose_name='Gestión (año de vigencia del plan — excepción plurianual, PIP-DB-003: NO FK)',
+    )
     estado = models.CharField(
         max_length=20,
         choices=ESTADO_CHOICES,
@@ -675,7 +678,10 @@ class SecuenciaCodigo(TimeStampedModel):
         blank=True,
         verbose_name='ID del registro padre',
     )
-    gestion = models.PositiveIntegerField(verbose_name='Gestión')
+    gestion = models.ForeignKey(
+        GestionFiscal, on_delete=models.PROTECT, db_column='gestion',
+        related_name='+', verbose_name='Gestión fiscal',
+    )
     entidad = models.ForeignKey(
         EntidadCodificadora,
         on_delete=models.PROTECT,
@@ -690,7 +696,7 @@ class SecuenciaCodigo(TimeStampedModel):
     class Meta:
         verbose_name = 'Secuencia de código'
         verbose_name_plural = 'Secuencias de códigos'
-        ordering = ['nivel', 'gestion']
+        ordering = ['nivel', 'gestion__anio']
         constraints = [
             models.UniqueConstraint(
                 fields=['nivel', 'padre_id', 'gestion', 'entidad'],
@@ -752,7 +758,10 @@ class HomologacionCodigo(TimeStampedModel):
         verbose_name='Código nuevo',
     )
     motivo = models.TextField(verbose_name='Motivo')
-    gestion = models.PositiveIntegerField(verbose_name='Gestión')
+    gestion = models.ForeignKey(
+        GestionFiscal, on_delete=models.PROTECT, db_column='gestion',
+        related_name='+', verbose_name='Gestión fiscal',
+    )
     fecha = models.DateTimeField(
         auto_now_add=True,
         verbose_name='Fecha de homologación',
@@ -838,7 +847,10 @@ class EjecucionMigracionSIM(TimeStampedModel):
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    gestion = models.PositiveIntegerField(verbose_name='Gestión')
+    gestion = models.ForeignKey(
+        GestionFiscal, on_delete=models.PROTECT, db_column='gestion',
+        related_name='+', verbose_name='Gestión fiscal',
+    )
     modo = models.CharField(max_length=20, choices=MODO_CHOICES)
     manifest_hash = models.CharField(max_length=64, db_index=True)
     manifest = models.JSONField()
