@@ -41,6 +41,10 @@ Serializers V2 de `proyectos`/`costos` que exponen `gestion`/`anio`.
 
 Reversa de data migration + FKR.
 
+## DECISIÓN DE DOMINIO (2026-08-16, §4.1 GESTION_FISCAL_AUDIT)
+
+`inversion.CostoProyecto.anio=2028` (2 filas: Construcción + Supervisión) es **horizonte plurianual de inversión** del proyecto, NO gestión fiscal → **NO se FK-iza** (excepción plurianual gobernada; regla escrita). `Proyecto.gestion` (2027 válida) sí se FK-iza; `ProyectoInversion.gestion_inicio/fin` y `ProgramacionPlurianualProyecto.anio` son horizontes plurianuales → **NO FK** (misma excepción). No se crea GestionFiscal 2028.
+
 ## FINAL REPORT
 
 Decisión 2028, tablas migradas, contratos verificados, decisión plurianual de ProyectoInversion.

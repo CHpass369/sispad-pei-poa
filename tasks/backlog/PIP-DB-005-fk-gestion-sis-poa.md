@@ -41,6 +41,10 @@ Contratos V1 (`/api/v1/sis-poa/...`) que exponen `gestion` entero: revisar seria
 
 Reversa de data migration + FKR por app.
 
+## DECISIÓN DE DOMINIO (2026-08-16, §4.1 GESTION_FISCAL_AUDIT)
+
+`poau.PoAInstitucional` P-2028 es **carga errónea probable** (creado 2026-08-10 por la corrida de importación de formulación del POA 2027; 0 acciones; 1 `ProgramacionActividad anio=2028` colgada de ACT-01 del P-2027). Acción: **validar con el equipo que cargó la planilla y limpiar** (eliminar P-2028; re-asignar o eliminar la programación 2028) ANTES de la FK. **NO crear GestionFiscal 2028** salvo validación explícita de negocio. El resto de SIS-POA legacy (techos, presupuesto, recursos, seguimiento, modificaciones, POAU) no tiene huérfanos → FK directa + renombres de convención (`modificaciones.gestion_fiscal` → `gestion`).
+
 ## FINAL REPORT
 
 Decisión 2028 (creada o excluida), tablas migradas, contratos verificados.

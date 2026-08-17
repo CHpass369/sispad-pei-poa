@@ -43,6 +43,14 @@ Contratos V1/V2 de articulación y planificación que exponen `gestion` entero: 
 
 Reversa de cada data migration + FKR por tabla.
 
+## DECISIÓN DE DOMINIO (2026-08-16, §4.1 GESTION_FISCAL_AUDIT)
+
+Verificado con datos reales: los "huérfanos" de planificacion/normativa **NO son gestiones fiscales** — son años de vigencia de instrumentos de planificación:
+- `planificacion.NodoPlanificacion` (604: 437 del PDES-2021-2025 + 13 del PGDES-AP2025), `ArticulacionPlanificacion` (61), `Plan` (2015-2050), `normativa.VersionNormativa` (Ley 650/2015 y Ley 1407/2021) → **excepción plurianual: NO FK** (regla escrita en el modelo; campo `gestion` = año del plan).
+- `articulacion` (AccionPOA 2027 REFERENCIAL, válida) → FK sí; `IntegerField` → `PositiveIntegerField`.
+- Rangos `gestion_desde/gestion_hasta` (LineamientoPAD, ReglaPresupuestariaLegal) → NO FK (horizonte, ya definido en §6).
+- **NO se crea GestionFiscal para 2015/2021/2025** (corrompería la canónica).
+
 ## FINAL REPORT
 
 Clasificación por año (creado vs excluido), excepción plurianual aprobada, tablas migradas, contratos verificados.

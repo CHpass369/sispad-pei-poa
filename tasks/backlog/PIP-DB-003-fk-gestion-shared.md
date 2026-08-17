@@ -40,6 +40,10 @@ Data migration (VersionCatalogoPlan) + FKs por app. Índices existentes sobre `g
 
 Reversa de data migration (restaurar enteros) + FKR.
 
+## DECISIÓN DE DOMINIO (2026-08-16, §4.1 GESTION_FISCAL_AUDIT)
+
+Los años huérfanos **2021/2025 de `codificacion.VersionCatalogoPlan` NO son gestiones fiscales**: son versiones oficiales de catálogos de los planes `PDES-2021-2025` y `PGDES-AP2025` (año de vigencia del plan). **NO se crea GestionFiscal** para ellos → `VersionCatalogoPlan.gestion` **NO se FK-iza** (excepción plurianual gobernada; regla escrita en el modelo). El resto de SHARED (CatalogoBase→13 subclases, VersionCatalogo, clasificadores) no tiene huérfanos → FK directa.
+
 ## FINAL REPORT
 
 Decisión 2021/2025 (creadas o excluidas, con evidencia), tablas migradas, contratos verificados.

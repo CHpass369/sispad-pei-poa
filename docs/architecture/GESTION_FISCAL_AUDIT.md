@@ -128,15 +128,32 @@ Leyenda riesgo:
 
 ### Huérfanos reales (años referenciados sin GestionFiscal)
 
-| App.Modelo | Campo | Años huérfanos | Filas | Conclusión |
+**Veredicto verificado el 2026-08-16** (rastreo de datos reales + puntos de carga en código): **ninguno de estos años es una gestión fiscal operativa**. Corresponden a (a) el **horizonte plurianual de los instrumentos de planificación** (PDES/PGDES/PGDESA/PEI y proyectos) y (b) un **artefacto de carga errónea** (POA P-2028). Ver §4.1 para el origen por tabla.
+
+| App.Modelo | Campo | Años | Filas | Conclusión final |
 |---|---|---|---|---|
-| codificacion.VersionCatalogoPlan | gestion | **2021, 2025** | 6 | dato huérfano → data migration requerida |
-| inversion.CostoProyecto | anio | **2028** | 2 | dato huérfano → data migration requerida |
-| normativa.VersionNormativa | gestion | **2015, 2021** | 5 | dato huérfano → data migration requerida |
-| planificacion.Plan | gestion_inicio / gestion_fin | inicio **2015, 2021**; fin **2025, 2030, 2045, 2050** | 6 | rango plurianual de plan (PGDES/PDESA 2015-2025, 2021-2030, 2026-2050): NO son gestiones fiscales operativas → modelo de horizonte, no FK simple |
-| planificacion.NodoPlanificacion | gestion | **2021, 2025** | 604 | dato huérfano → data migration requerida |
-| planificacion.ArticulacionPlanificacion | gestion | **2021** | 61 | dato huérfano → data migration requerida |
-| poau.PoAInstitucional | gestion | **2028** | 2 | dato huérfano → data migration requerida |
+| codificacion.VersionCatalogoPlan | gestion | 2021, 2025 | 6 | **Excepción plurianual** — versiones oficiales de catálogos del PDES-2021-2025 y PGDES-AP2025 (año del plan, no gestión fiscal) → **NO FK** |
+| inversion.CostoProyecto | anio | 2028 | 2 | **Excepción plurianual** — costos de inversión (Construcción/Supervisión) en el año 2028 del horizonte del proyecto → **NO FK** |
+| normativa.VersionNormativa | gestion | 2015, 2021 | 5 | **Excepción plurianual** — Ley 650 (2015, Agenda Patriótica Bicentenario 2025) y Ley 1407 (2021, aprobación PDES) + documentos del plan → **NO FK** |
+| planificacion.Plan | gestion_inicio / gestion_fin | 2015-2050 | 6 | **Excepción plurianual** — horizonte del PGDES/PDESA/PEI (2015-2025, 2021-2045, 2026-2050) → modelo de horizonte, **NO FK** |
+| planificacion.NodoPlanificacion | gestion | 2021, 2025 | 604 | **Excepción plurianual** — 437 nodos del PDES-2021-2025 + 13 del PGDES-AP2025 (estructura de planes anteriores) → **NO FK** |
+| planificacion.ArticulacionPlanificacion | gestion | 2021 | 61 | **Excepción plurianual** — articulaciones del PDES-2021-2025 → **NO FK** |
+| poau.PoAInstitucional | gestion | 2028 | 2 | **Carga errónea (probable, validar con el equipo)** — P-2028 creado el 2026-08-10 por la corrida de importación de formulación del POA 2027 (0 acciones; 1 `ProgramacionActividad anio=2028` colgada de ACT-01 del P-2027) → **limpiar** (eliminar P-2028 y re-asignar la programación) antes de la FK |
+
+### 4.1 Origen verificado de los años huérfanos (2026-08-16)
+
+Rastreo read-only sobre datos reales y puntos de creación en código:
+
+| Tabla | Evidencia en datos | Herramienta / command que carga |
+|---|---|---|
+| NodoPlanificacion 2021/2025 | 437 filas del plan `PDES-2021-2025` (pdesa, vigencia 2021-2025) + 13 del `PGDES-AP2025` (pgdesa, 2015-2025, "Agenda Patriótica del Bicentenario") | `importar_matriz_base` (matriz PAD 2021-2025) y `importar_reales` (PTDI-PEI) |
+| VersionCatalogoPlan 2021/2025 | `gestion=2021 → plan PDES-2021-2025 (vigente/oficial)`; `gestion=2025 → plan PGDES-AP2025 (vigente/oficial)` | Importación de marcos superiores (WP-06, `importar_catalogos_sacaba` / marcos) |
+| VersionNormativa 2015/2021 | Ley 650 (2015, Agenda Patriótica del Bicentenario 2025); Ley 1407 (2021, aprobación del PDES 2021-2025); documentos del PDES | Módulo normativa / importación de marcos |
+| Plan 2015-2050 | PGDES-AP2025 (2015-2025), PDES-2021-2025, PGDESA (2021-2045), PGDESA-2026-2050, PDESA-2026-2030, PDS-PES-2026 | Idem (horizonte plurianual por definición) |
+| PoAInstitucional 2028 | P-2028 `created_at=2026-08-10 03:15` (misma corrida que el P-2027, 00:39), 0 acciones, 1 programación anio=2028 de ACT-01 (pertenece al P-2027) | Corrida de importación de formulación POA 2027 (`cargar_demo_v2` / `importar_formulacion_poau_2027`) — la planilla traía datos con año 2028 |
+| CostoProyecto 2028 | 2 filas del mismo proyecto (conceptos "Construcción" y "Supervisión"), anio=2028 | `cargar_demo_v2` — horizonte plurianual de costos de inversión |
+
+**Conclusión de dominio**: los campos `gestion`/`anio` de planes, nodos, versiones de catálogos, normativa y costos de proyecto representan **años de vigencia de instrumentos**, no gestiones fiscales operativas (las gestiones reales son 2026 y 2027). **NO se crean `GestionFiscal` para 2015/2021/2025/2028** — inventarlas corrompería la canónica con gestiones que nunca fueron ciclos presupuestarios. Se aplica la **excepción plurianual gobernada** (§6): esos campos NO se someten a FK, con regla escrita. El único caso de limpieza es el **P-2028** (carga errónea probable).
 
 ### Tablas vacías (0 filas) — FK directa segura sin data migration
 
@@ -158,12 +175,12 @@ Orden de ejecución recomendado. Cada tarea ejecuta su propia data migration (si
 
 | # | Tarea | Dominio | Apps | Data migration | Orden |
 |---|---|---|---|---|---|
-| 1 | PIP-DB-002 | CORE | organizacion, auditoria, notificaciones, documentos, acciones_correctivas, reportes, territorio, workflow, core | No (todas seguras; auditoria/organizacion con datos válidos 2027) | 1º |
-| 2 | PIP-DB-003 | SHARED | catalogos, codificacion | **Sí** (codificacion.VersionCatalogoPlan 2021/2025) | 2º |
-| 3 | PIP-DB-004 | SIS-PE | pad, indicadores, evaluacion | No (pad 2027 válido; evaluacion/indicadores vacías) | 3º |
-| 4 | PIP-DB-005 | SIS-POA legacy | techos, presupuesto, recursos, seguimiento, modificaciones, poau | **Sí** (poau.PoAInstitucional 2028) | 4º |
-| 5 | PIP-DB-006 | SIS-PRO | inversion | **Sí** (inversion.CostoProyecto 2028) | 5º |
-| 6 | PIP-DB-007 | SIS-PE / CORE | articulacion, planificacion, normativa | **Sí** (articulacion.BorradorMatrizPAD/AccionPOA validos; planificacion.NodoPlanificacion/ArticulacionPlanificacion huérfanos 2021/2025; normativa.VersionNormativa 2015/2021) | 6º (la más compleja) |
+| 1 | PIP-DB-002 | CORE | organizacion, auditoria, notificaciones, documentos, acciones_correctivas, reportes, territorio, workflow, core | No (todas seguras; auditoria/organizacion con datos válidos 2027) | 1º ✅ cerrada |
+| 2 | PIP-DB-003 | SHARED | catalogos, codificacion | **Excepción plurianual**: VersionCatalogoPlan 2021/2025 NO se FK-iza (años de planes, §4.1); resto de SHARED sin huérfanos | 2º |
+| 3 | PIP-DB-004 | SIS-PE | pad, indicadores, evaluacion | No (pad 2027 válido; evaluacion/indicadoras vacías) | 3º ✅ cerrada |
+| 4 | PIP-DB-005 | SIS-POA legacy | techos, presupuesto, recursos, seguimiento, modificaciones, poau | **Limpieza P-2028** (carga errónea probable, §4.1: eliminar POA vacío + re-asignar programación 2028) y luego FK sin huérfanos | 4º |
+| 5 | PIP-DB-006 | SIS-PRO | inversion | **Excepción plurianual**: CostoProyecto.anio=2028 NO se FK-iza (horizonte de inversión, §4.1); resto sin huérfanos | 5º |
+| 6 | PIP-DB-007 | SIS-PE / CORE | articulacion, planificacion, normativa | **Excepción plurianual**: NodoPlanificacion/ArticulacionPlanificacion/VersionNormativa/Plan NO se FK-izan (años de planes, §4.1); solo se FK-iza lo que sea gestión operativa real | 6º (casos complejos: excepción + excepciones de rango) |
 
 Decisiones dentro del plan:
 
@@ -192,8 +209,8 @@ Decisiones dentro del plan:
 
 ## 7. Riesgos confirmados
 
-- **R1 (ALTO)**: data migration que inventa gestiones falsas (2015, 2021, 2025, 2028, 2030…) solo para satisfacer la FK → corrompe la canónica. Mitigación: clasificar por semántica (gestión operativa vs horizonte plurianual) ANTES de migrar.
-- **R2 (ALTO)**: huérfanos reales confirmados en 7 tablas (2021/2025/2028) con 604+ filas en NodoPlanificacion.
+- **R1 (ALTO)**: data migration que inventa gestiones falsas (2015, 2021, 2025, 2028, 2030…) solo para satisfacer la FK → corrompe la canónica. Mitigación: **resuelto por verificación §4.1** — los años 2015/2021/2025/2028 son horizontes de planes/costos o carga errónea; **no se crean GestionFiscal** (excepción plurianual + limpieza del P-2028).
+- **R2 (ALTO → MEDIO)**: huérfanos reales en 7 tablas (604+ filas en NodoPlanificacion) — reclasificados como **excepción plurianual** (años de planes, §4.1); queda solo la limpieza puntual del P-2028 (carga errónea).
 - **R3 (MEDIO)**: convención de tipo inconsistente — articulacion usa `IntegerField` (admite negativos) y el resto `PositiveIntegerField`.
 - **R4 (MEDIO)**: 5 convenciones de nombre distintas (`gestion`, `gestion_fiscal`, `gestion_inicio/fin`, `anio`, `fiscal_year`); renombrar rompe contratos V1 (Sunset 2027-01-01) — sincronizar con API.
 - **R5 (BAJO)**: `core.VersionableModel` y `catalogos.CatalogoBase` son abstractos: migrar la base es migrar 14 tablas; coordinar.

@@ -91,6 +91,10 @@ Bajo: datos vigentes 2026/2027 (2028 es huérfano). Riesgo de borrar datos con t
 
 Restore del respaldo previo a la data migration; reversa de la decisión del POA 2028.
 
+## DECISIÓN DE DOMINIO (2026-08-16, §4.1 GESTION_FISCAL_AUDIT)
+
+`PoAInstitucional` P-2028 (0 acciones) es **carga errónea probable**: creado el 2026-08-10 03:15 por la misma corrida que importó el P-2027 (00:39); la `ProgramacionActividad anio=2028` cuelga de ACT-01 del P-2027. Resolución recomendada: **eliminar P-2028** y **re-asignar/eliminar la programación 2028** (validar con el equipo que cargó la planilla de formulación). **NO crear GestionFiscal 2028** salvo validación de negocio. Checksums del lote `poa-2027` y estados origen/V2: verificar con el puente idempotente (PIP-PE-004).
+
 ## FINAL REPORT
 
 Conteos pre/post, decisiones de datos, checksums verificados, deuda detectada.
