@@ -2,6 +2,7 @@ import uuid
 from django.db import models
 from django.conf import settings
 from apps.core.models import TimeStampedModel
+from apps.gestion.models import GestionFiscal
 
 
 class EnvioFormulacion(TimeStampedModel):
@@ -11,7 +12,10 @@ class EnvioFormulacion(TimeStampedModel):
         'organizacion.UnidadOrganizacional', on_delete=models.PROTECT,
         related_name='envios_formulacion'
     )
-    gestion = models.PositiveIntegerField()
+    gestion = models.ForeignKey(
+        GestionFiscal, on_delete=models.PROTECT, db_column='gestion',
+        related_name='+', verbose_name='Gestión fiscal',
+    )
     version = models.PositiveIntegerField()
     enviado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
@@ -108,7 +112,10 @@ class Observacion(TimeStampedModel):
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='abierta')
     respuesta = models.TextField(blank=True)
     evidencia_subsanacion = models.TextField(blank=True)
-    gestion = models.PositiveIntegerField()
+    gestion = models.ForeignKey(
+        GestionFiscal, on_delete=models.PROTECT, db_column='gestion',
+        related_name='+', verbose_name='Gestión fiscal',
+    )
 
     class Meta:
         db_table = 'flujo_observacion'
@@ -123,7 +130,10 @@ class Observacion(TimeStampedModel):
 class Aprobacion(TimeStampedModel):
     """Registro de aprobación con huella digital"""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    gestion = models.PositiveIntegerField()
+    gestion = models.ForeignKey(
+        GestionFiscal, on_delete=models.PROTECT, db_column='gestion',
+        related_name='+', verbose_name='Gestión fiscal',
+    )
     tipo = models.CharField(max_length=50, choices=[
         ('unidad', 'Aprobación de unidad'),
         ('planificacion', 'Validación de Planificación'),

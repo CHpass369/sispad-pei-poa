@@ -209,7 +209,7 @@ class TechoDirectivoFlujoTests(TechoDirectivoBase):
         self.assertIsNotNone(evento)
         self.assertEqual(evento.accion, 'aprobar')
         self.assertIn('fijado', evento.resumen.lower())
-        self.assertEqual(evento.gestion, 2030)
+        self.assertEqual(evento.gestion.anio, 2030)
 
     def test_no_se_puede_fijar_sin_aprobacion_previa(self):
         self.crear_recurso(origen='SIGEP', monto='1000.00', concepto='CT')
@@ -584,7 +584,7 @@ class FiscalYearApiTests(TestCase):
         )
         self.assertTrue(evento.exists())
         self.assertEqual(evento.first().accion, 'modificar')
-        self.assertEqual(evento.first().gestion, 2028)
+        self.assertEqual(evento.first().gestion.anio, 2028)
 
     def test_enable_de_gestion_ya_habilitada_rechazado(self):
         gestion = crear_gestion(2028, estado='HABILITADA')
@@ -844,7 +844,7 @@ class DistribucionAperturaTests(DistribucionBase):
         version = DistributionVersion.objects.get(gestion=self.gestion)
         self.assertEqual(version.numero, 1)
         evento = EventoAuditoria.objects.filter(
-            entidad='Allocation', gestion=2030,
+            entidad='Allocation', gestion__anio=2030,
         )
         self.assertTrue(evento.exists())
 
@@ -2102,7 +2102,7 @@ class FijacionFlujoTests(FijacionDistribucionBase):
         self.assertIsNotNone(evento)
         self.assertEqual(evento.accion, 'aprobar')
         self.assertIn('fijada', evento.resumen.lower())
-        self.assertEqual(evento.gestion, 2030)
+        self.assertEqual(evento.gestion.anio, 2030)
 
 
 class FijacionInmutabilidadTests(FijacionDistribucionBase):
@@ -3750,7 +3750,7 @@ class ReformulacionAuditoriaTests(ReformulacionBase):
         self.assertIn('aplicada', evento.resumen.lower())
         self.assertEqual(evento.accion, 'aprobar')
         self.assertEqual(evento.datos_posteriores['estado'], 'APLICADA')
-        self.assertEqual(evento.gestion, 2030)
+        self.assertEqual(evento.gestion.anio, 2030)
         # El flujo completo dejó su rastro (crear → enviar → aprobar → aplicar).
         self.assertGreaterEqual(
             EventoAuditoria.objects.filter(entidad='Reform',
@@ -3819,7 +3819,7 @@ class AuditoriaFase11Tests(ReformulacionBase):
         ).order_by('-creado_en').first()
         self.assertIsNotNone(evento)
         self.assertEqual(evento.accion, 'crear')
-        self.assertEqual(evento.gestion, 2030)
+        self.assertEqual(evento.gestion.anio, 2030)
         self.assertEqual(evento.usuario, self.admin)
         self.assertEqual(evento.datos_posteriores['total'], '1000.00')
 
@@ -3832,7 +3832,7 @@ class AuditoriaFase11Tests(ReformulacionBase):
         ).order_by('-creado_en').first()
         self.assertIsNotNone(evento)
         self.assertIn('fijado', evento.resumen.lower())
-        self.assertEqual(evento.gestion, 2030)
+        self.assertEqual(evento.gestion.anio, 2030)
         self.assertEqual(evento.datos_posteriores['estado'], 'FIJADO')
         self.assertIn('hash', evento.datos_posteriores)
 
@@ -3856,7 +3856,7 @@ class AuditoriaFase11Tests(ReformulacionBase):
         self.assertEqual(evento.accion, 'aprobar')
         self.assertIn('aplicada', evento.resumen.lower())
         self.assertEqual(evento.datos_posteriores['estado'], 'APLICADA')
-        self.assertEqual(evento.gestion, 2030)
+        self.assertEqual(evento.gestion.anio, 2030)
 
     def test_endpoint_audit_filtra_por_gestion_y_entidad(self):
         # Eventos de la gestión 2030 (apertura + techo de la base).
@@ -3920,7 +3920,7 @@ class AuditoriaFase11Tests(ReformulacionBase):
             gestion=2030, motivo='Reserva liberada (F11)',
         )
         self.assertEqual(evento.accion, 'modificar')
-        self.assertEqual(evento.gestion, 2030)
+        self.assertEqual(evento.gestion.anio, 2030)
         with self.assertRaises(ValidationError):
             registrar_auditoria(
                 self.admin, 'NO_EXISTE', 'Reserve', 'x',

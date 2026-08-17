@@ -1,6 +1,7 @@
 import uuid
 from django.db import models
 from django.conf import settings
+from apps.gestion.models import GestionFiscal
 
 
 class EventoAuditoria(models.Model):
@@ -33,7 +34,10 @@ class EventoAuditoria(models.Model):
     datos_previos = models.JSONField(null=True, blank=True)
     datos_posteriores = models.JSONField(null=True, blank=True)
     direccion_ip = models.GenericIPAddressField(null=True, blank=True)
-    gestion = models.PositiveIntegerField(null=True, blank=True)
+    gestion = models.ForeignKey(
+        GestionFiscal, on_delete=models.PROTECT, db_column='gestion',
+        related_name='+', null=True, blank=True, verbose_name='Gestión fiscal',
+    )
     creado_en = models.DateTimeField(auto_now_add=True, db_index=True)
 
     class Meta:

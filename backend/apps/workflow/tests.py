@@ -175,18 +175,18 @@ class EnvioFormulacionWorkflowTest(WorkflowBaseTestCase):
 
     def test_envio_formulacion_creacion(self):
         envio = EnvioFormulacion.objects.create(
-            unidad=self.unidad, gestion=2026, version=1,
+            unidad=self.unidad, gestion=self.gestion, version=1,
             enviado_por=self.user_formulador,
             estado_anterior='borrador', comentario='Envío inicial',
         )
         self.assertEqual(envio.estado_anterior, 'borrador')
-        self.assertEqual(envio.gestion, 2026)
+        self.assertEqual(envio.gestion.anio, 2026)
         self.assertEqual(envio.enviado_por, self.user_formulador)
         self.assertTrue(envio.activo)
 
     def test_envio_formulacion_str(self):
         envio = EnvioFormulacion.objects.create(
-            unidad=self.unidad, gestion=2026, version=1,
+            unidad=self.unidad, gestion=self.gestion, version=1,
             estado_anterior='borrador',
         )
         s = str(envio)
@@ -195,7 +195,7 @@ class EnvioFormulacionWorkflowTest(WorkflowBaseTestCase):
 
     def test_envio_formulacion_estados(self):
         envio = EnvioFormulacion.objects.create(
-            unidad=self.unidad, gestion=2026, version=1,
+            unidad=self.unidad, gestion=self.gestion, version=1,
             estado_anterior='borrador',
         )
         self.assertTrue(envio.activo)
@@ -207,11 +207,11 @@ class EnvioFormulacionWorkflowTest(WorkflowBaseTestCase):
     def test_varios_envios_misma_unidad(self):
         for v in range(1, 4):
             EnvioFormulacion.objects.create(
-                unidad=self.unidad, gestion=2026, version=v,
+                unidad=self.unidad, gestion=self.gestion, version=v,
                 estado_anterior='borrador',
             )
         self.assertEqual(
-            EnvioFormulacion.objects.filter(unidad=self.unidad, gestion=2026).count(), 3
+            EnvioFormulacion.objects.filter(unidad=self.unidad, gestion=self.gestion).count(), 3
         )
 
 
@@ -220,7 +220,7 @@ class RevisionWorkflowTest(WorkflowBaseTestCase):
 
     def test_revision_creacion(self):
         envio = EnvioFormulacion.objects.create(
-            unidad=self.unidad, gestion=2026, version=1,
+            unidad=self.unidad, gestion=self.gestion, version=1,
             estado_anterior='borrador',
         )
         revision = Revision.objects.create(
@@ -232,7 +232,7 @@ class RevisionWorkflowTest(WorkflowBaseTestCase):
 
     def test_revision_transicion_pendiente_a_en_curso(self):
         envio = EnvioFormulacion.objects.create(
-            unidad=self.unidad, gestion=2026, version=1,
+            unidad=self.unidad, gestion=self.gestion, version=1,
             estado_anterior='borrador',
         )
         revision = Revision.objects.create(
@@ -246,7 +246,7 @@ class RevisionWorkflowTest(WorkflowBaseTestCase):
 
     def test_revision_transicion_en_curso_a_completada(self):
         envio = EnvioFormulacion.objects.create(
-            unidad=self.unidad, gestion=2026, version=1,
+            unidad=self.unidad, gestion=self.gestion, version=1,
             estado_anterior='borrador',
         )
         revision = Revision.objects.create(
@@ -264,7 +264,7 @@ class RevisionWorkflowTest(WorkflowBaseTestCase):
 
     def test_revision_transicion_devuelta(self):
         envio = EnvioFormulacion.objects.create(
-            unidad=self.unidad, gestion=2026, version=1,
+            unidad=self.unidad, gestion=self.gestion, version=1,
             estado_anterior='borrador',
         )
         revision = Revision.objects.create(
@@ -280,7 +280,7 @@ class RevisionWorkflowTest(WorkflowBaseTestCase):
 
     def test_tipos_revision(self):
         envio = EnvioFormulacion.objects.create(
-            unidad=self.unidad, gestion=2026, version=1,
+            unidad=self.unidad, gestion=self.gestion, version=1,
             estado_anterior='borrador',
         )
         for tipo in ['planificacion', 'presupuesto', 'inversion', 'juridica']:
@@ -299,17 +299,17 @@ class ObservacionWorkflowTest(WorkflowBaseTestCase):
             codigo='OBS-001', tipo='forma', severidad='leve',
             modulo='indicadores', registro_id='123',
             texto='Observación de prueba',
-            gestion=2026, estado='abierta',
+            gestion=self.gestion, estado='abierta',
         )
         self.assertEqual(obs.estado, 'abierta')
-        self.assertEqual(obs.gestion, 2026)
+        self.assertEqual(obs.gestion.anio, 2026)
 
     def test_observacion_transiciones_estado(self):
         obs = Observacion.objects.create(
             codigo='OBS-002', tipo='fondo', severidad='moderada',
             modulo='presupuesto', registro_id='456',
             texto='Observación presupuestaria',
-            gestion=2026, estado='abierta',
+            gestion=self.gestion, estado='abierta',
         )
         for estado in ['respondida', 'aceptada', 'cerrada']:
             obs.estado = estado
@@ -322,7 +322,7 @@ class ObservacionWorkflowTest(WorkflowBaseTestCase):
             codigo='OBS-003', tipo='legal', severidad='grave',
             modulo='workflow', registro_id='789',
             texto='Observación legal grave',
-            gestion=2026, estado='abierta',
+            gestion=self.gestion, estado='abierta',
         )
         obs.estado = 'rechazada'
         obs.respuesta = 'No procede'
@@ -338,7 +338,7 @@ class ObservacionWorkflowTest(WorkflowBaseTestCase):
             texto='Observación técnica',
             responsable_subsanacion=self.user_formulador,
             fecha_limite=timezone.now() + timedelta(days=7),
-            gestion=2026,
+            gestion=self.gestion,
         )
         self.assertEqual(obs.responsable_subsanacion, self.user_formulador)
         self.assertIsNotNone(obs.fecha_limite)
@@ -349,7 +349,7 @@ class ObservacionWorkflowTest(WorkflowBaseTestCase):
                 obs = Observacion.objects.create(
                     codigo=f'OBS-{tipo[:3]}-{sev[:3]}', tipo=tipo,
                     severidad=sev, modulo='test', registro_id='0',
-                    texto='Test', gestion=2026,
+                    texto='Test', gestion=self.gestion,
                 )
                 self.assertEqual(obs.tipo, tipo)
                 self.assertEqual(obs.severidad, sev)
@@ -360,17 +360,17 @@ class AprobacionWorkflowTest(WorkflowBaseTestCase):
 
     def test_aprobacion_creacion(self):
         ap = Aprobacion.objects.create(
-            gestion=2026, tipo='unidad',
+            gestion=self.gestion, tipo='unidad',
             aprobado_por=self.user_aprobador,
             estado='aprobado', version=1,
             comentario='Aprobación de unidad',
         )
         self.assertEqual(ap.estado, 'aprobado')
-        self.assertEqual(ap.gestion, 2026)
+        self.assertEqual(ap.gestion.anio, 2026)
 
     def test_aprobacion_observada(self):
         ap = Aprobacion.objects.create(
-            gestion=2026, tipo='planificacion',
+            gestion=self.gestion, tipo='planificacion',
             aprobado_por=self.user_aprobador,
             estado='observado', version=1,
             comentario='Requiere correcciones',
@@ -379,7 +379,7 @@ class AprobacionWorkflowTest(WorkflowBaseTestCase):
 
     def test_aprobacion_rechazada(self):
         ap = Aprobacion.objects.create(
-            gestion=2026, tipo='presupuesto',
+            gestion=self.gestion, tipo='presupuesto',
             aprobado_por=self.user_aprobador,
             estado='rechazado', version=1,
             comentario='No cumple requisitos',
@@ -388,7 +388,7 @@ class AprobacionWorkflowTest(WorkflowBaseTestCase):
 
     def test_aprobacion_con_reapertura(self):
         ap = Aprobacion.objects.create(
-            gestion=2026, tipo='mae',
+            gestion=self.gestion, tipo='mae',
             aprobado_por=self.user_aprobador,
             estado='aprobado', version=1,
             es_reapertura=True,
@@ -400,7 +400,7 @@ class AprobacionWorkflowTest(WorkflowBaseTestCase):
     def test_aprobacion_con_huella(self):
         huella = 'abc123def456hash'
         ap = Aprobacion.objects.create(
-            gestion=2026, tipo='concejo',
+            gestion=self.gestion, tipo='concejo',
             aprobado_por=self.user_aprobador,
             estado='aprobado', version=1,
             huella_documento=huella,
@@ -412,23 +412,23 @@ class AprobacionWorkflowTest(WorkflowBaseTestCase):
                  'control_social', 'mae', 'concejo']
         for tipo in tipos:
             Aprobacion.objects.create(
-                gestion=2026, tipo=tipo,
+                gestion=self.gestion, tipo=tipo,
                 aprobado_por=self.user_aprobador,
                 estado='aprobado', version=1,
             )
         self.assertEqual(
-            Aprobacion.objects.filter(gestion=2026).count(), len(tipos)
+            Aprobacion.objects.filter(gestion=self.gestion).count(), len(tipos)
         )
 
     def test_aprobaciones_varias_versiones(self):
         for v in range(1, 4):
             Aprobacion.objects.create(
-                gestion=2026, tipo='unidad',
+                gestion=self.gestion, tipo='unidad',
                 aprobado_por=self.user_aprobador,
                 estado='aprobado', version=v,
             )
         self.assertEqual(
-            Aprobacion.objects.filter(gestion=2026, tipo='unidad').count(), 3
+            Aprobacion.objects.filter(gestion=self.gestion, tipo='unidad').count(), 3
         )
 
 
@@ -606,7 +606,7 @@ class DateRangeValidationTest(WorkflowBaseTestCase):
             codigo='OBS-FUT', tipo='forma', severidad='leve',
             modulo='test', registro_id='0', texto='Test',
             fecha_limite=timezone.now() + timedelta(days=30),
-            gestion=2026,
+            gestion=self.gestion,
         )
         self.assertGreater(obs.fecha_limite, timezone.now())
 

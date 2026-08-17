@@ -1,6 +1,32 @@
 from django.db.models import Q
 
 from .models import EventoAuditoria
+from apps.gestion.models import GestionFiscal
+
+
+def _resolver_gestion(valor):
+    """Normaliza una gestión a instancia de GestionFiscal (PIP-DB-008).
+
+    Acepta instancia (FK), UUID o año entero. Si el año no existe en la
+    canónica, devuelve None (el evento queda sin gestión): NO se inventan
+    gestiones (invariante de gobernanza).
+    """
+    if valor is None or isinstance(valor, GestionFiscal):
+        return valor
+    if isinstance(valor, int):
+        return GestionFiscal.objects.filter(anio=valor).first()
+    try:
+        return GestionFiscal.objects.filter(pk=valor).first()
+    except (ValueError, TypeError):
+        return None
+
+
+def _aplicar_filtro_gestion(qs, gestion):
+    if gestion is None:
+        return qs
+    if isinstance(gestion, int):
+        return qs.filter(gestion__anio=gestion)
+    return qs.filter(gestion=gestion)
 
 
 def registrar_evento(usuario, accion, entidad, entidad_id, **kwargs):
@@ -14,7 +40,7 @@ def registrar_evento(usuario, accion, entidad, entidad_id, **kwargs):
         datos_previos=kwargs.get('datos_previos'),
         datos_posteriores=kwargs.get('datos_posteriores'),
         direccion_ip=kwargs.get('direccion_ip'),
-        gestion=kwargs.get('gestion'),
+        gestion=_resolver_gestion(kwargs.get('gestion')),
     )
     return evento
 
@@ -27,8 +53,7 @@ def obtener_historial(entidad, entidad_id, limit=50):
 
 def buscar_por_usuario(usuario_id, gestion=None, accion=None, limit=100):
     qs = EventoAuditoria.objects.filter(usuario_id=usuario_id)
-    if gestion:
-        qs = qs.filter(gestion=gestion)
+    qs = _aplicar_filtro_gestion(qs, gestion)
     if accion:
         qs = qs.filter(accion=accion)
     return qs.select_related('usuario').order_by('-creado_en')[:limit]
@@ -48,8 +73,7 @@ def buscar_por_fecha(fecha_inicio, fecha_fin, entidad=None, accion=None):
 
 def exportar_auditoria(gestion=None, fecha_inicio=None, fecha_fin=None):
     qs = EventoAuditoria.objects.all()
-    if gestion:
-        qs = qs.filter(gestion=gestion)
+    qs = _aplicar_filtro_gestion(qs, gestion)
     if fecha_inicio:
         qs = qs.filter(creado_en__date__gte=fecha_inicio)
     if fecha_fin:
@@ -65,13 +89,12 @@ def exportar_auditoria(gestion=None, fecha_inicio=None, fecha_fin=None):
             'entidad_id': evento.entidad_id,
             'resumen': evento.resumen,
             'direccion_ip': str(evento.direccion_ip) if evento.direccion_ip else '',
-            'gestion': evento.gestion,
+            'gestion': evento.gestion.anio if evento.gestion else None,
         })
     return registros
 
 
 def contar_por_entidad(entidad, gestion=None):
     qs = EventoAuditoria.objects.filter(entidad=entidad)
-    if gestion:
-        qs = qs.filter(gestion=gestion)
+    qs = _aplicar_filtro_gestion(qs, gestion)
     return qs.count()

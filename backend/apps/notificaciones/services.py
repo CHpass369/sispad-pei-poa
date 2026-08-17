@@ -1,6 +1,20 @@
 from django.db.models import Count, Q
 from django.utils import timezone
+from apps.gestion.models import GestionFiscal
 from .models import TipoNotificacion, Notificacion, PreferenciaNotificacion
+
+
+def _resolver_gestion(valor):
+    """Año/instancia → GestionFiscal (PIP-DB-008). No inventa gestiones."""
+    if isinstance(valor, GestionFiscal):
+        return valor
+    gf = GestionFiscal.objects.filter(anio=int(valor)).first()
+    if gf is None:
+        raise ValueError(
+            f'Gestión fiscal {valor} no existe en GestionFiscal '
+            '(PIP-DB-008: no se inventan gestiones).'
+        )
+    return gf
 
 
 def crear_notificacion(user, tipo_codigo, titulo, mensaje, **kwargs):
@@ -17,7 +31,7 @@ def crear_notificacion(user, tipo_codigo, titulo, mensaje, **kwargs):
         priority=kwargs.get('priority', 'media'),
         entity_type=kwargs.get('entity_type'),
         entity_id=kwargs.get('entity_id'),
-        gestion=kwargs.get('gestion', timezone.now().year),
+        gestion=_resolver_gestion(kwargs.get('gestion', timezone.now().year)),
         metadata=kwargs.get('metadata'),
         created_by=kwargs.get('created_by'),
     )
@@ -38,7 +52,7 @@ def notificar_cambio_estado(affected_user, entity_type, entity_id, old_state, ne
         priority='media',
         entity_type=entity_type,
         entity_id=entity_id,
-        gestion=gestion,
+        gestion=_resolver_gestion(gestion),
         metadata={
             'estado_anterior': old_state,
             'estado_nuevo': new_state,
@@ -60,7 +74,7 @@ def notificar_vencimiento(user, entity_type, entity_id, gestion):
         priority='alta',
         entity_type=entity_type,
         entity_id=entity_id,
-        gestion=gestion,
+        gestion=_resolver_gestion(gestion),
     )
 
 
@@ -79,7 +93,7 @@ def notificar_observacion(responsable, observacion, gestion):
         priority='alta' if observacion.severidad == 'grave' else 'media',
         entity_type='observacion',
         entity_id=observacion.id,
-        gestion=gestion,
+        gestion=_resolver_gestion(gestion),
         metadata={
             'codigo_observacion': observacion.codigo,
             'tipo': observacion.tipo,
@@ -102,7 +116,7 @@ def notificar_aprobacion(user, entity_type, entity_id, estado, gestion):
         priority='alta' if estado in ('aprobado', 'rechazado') else 'media',
         entity_type=entity_type,
         entity_id=entity_id,
-        gestion=gestion,
+        gestion=_resolver_gestion(gestion),
         metadata={
             'estado_aprobacion': estado,
         },

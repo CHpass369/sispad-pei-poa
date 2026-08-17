@@ -133,7 +133,7 @@ class TestWorkflowAPI:
         resp = auth_client.get('/api/v1/observaciones/')
         assert resp.status_code == status.HTTP_200_OK
 
-    def test_crear_observacion(self, auth_client):
+    def test_crear_observacion(self, auth_client, gestion):
         resp = auth_client.post('/api/v1/observaciones/', {
             'codigo': 'OBS-TEST-001',
             'tipo': 'tecnica',
@@ -141,7 +141,7 @@ class TestWorkflowAPI:
             'modulo': 'presupuesto',
             'registro_id': 'test-001',
             'texto': 'Observación de prueba',
-            'gestion': 2026,
+            'gestion': str(gestion.id),
             'estado': 'abierta',
         }, format='json')
         assert resp.status_code == status.HTTP_201_CREATED

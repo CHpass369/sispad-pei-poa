@@ -1004,6 +1004,10 @@ class AuditEventSerializer(serializers.ModelSerializer):
         source='get_accion_display', read_only=True,
     )
     entidad_display = serializers.SerializerMethodField()
+    # PIP-DB-008: gestion es FK a GestionFiscal; el contrato de la API expone
+    # el AÑO en `gestion` (y el uuid queda disponible como gestion_id).
+    gestion = serializers.SerializerMethodField()
+    gestion_id = serializers.UUIDField(read_only=True, allow_null=True)
 
     ENTIDADES_DISPLAY = {
         'Allocation': 'Apertura programática',
@@ -1023,8 +1027,11 @@ class AuditEventSerializer(serializers.ModelSerializer):
             'id', 'usuario', 'usuario_email', 'usuario_nombre', 'accion',
             'accion_display', 'entidad', 'entidad_display', 'entidad_id',
             'version', 'resumen', 'datos_previos', 'datos_posteriores',
-            'direccion_ip', 'gestion', 'creado_en',
+            'direccion_ip', 'gestion', 'gestion_id', 'creado_en',
         ]
+
+    def get_gestion(self, obj) -> int | None:
+        return obj.gestion.anio if obj.gestion else None
 
     def get_usuario_nombre(self, obj) -> str:
         if obj.usuario is None:

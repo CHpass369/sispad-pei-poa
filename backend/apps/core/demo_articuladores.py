@@ -407,9 +407,18 @@ class DemoArticuladoresSeeder:
         self._seed_budget(source_objects, native_objects)
         self._seed_tracking(native_objects)
 
+        gf = self._get(
+            GestionFiscal, 'gestion_fiscal', anio=self.gestion,
+            defaults={
+                'estado': GestionFiscal.Estado.ABIERTA,
+                'descripcion': 'Gestión demostrativa 2027 abierta para formulación provisional.',
+                'anio_inicio_plurianual': 2026,
+                'anio_fin_plurianual': 2030,
+            },
+        )
         manifest, created = DemoDatasetManifest.objects.get_or_create(
             namespace=self.NAMESPACE,
-            defaults={'gestion': self.gestion, 'payload': {}},
+            defaults={'gestion': gf, 'payload': {}},
         )
         self._track(manifest, created, 'manifest', owned=True)
         payload = {
@@ -433,7 +442,7 @@ class DemoArticuladoresSeeder:
                 'clasificadores 2026 usados solo como referencia provisional 2027.'
             ),
         }
-        manifest.gestion = self.gestion
+        manifest.gestion = gf
         manifest.payload = payload
         manifest.save(update_fields=['gestion', 'payload', 'updated_at'])
 

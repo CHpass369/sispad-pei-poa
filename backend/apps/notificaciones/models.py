@@ -3,6 +3,7 @@ from django.db import models
 from django.conf import settings
 from django.utils import timezone
 from apps.core.models import TimeStampedModel
+from apps.gestion.models import GestionFiscal
 
 
 class TipoNotificacion(TimeStampedModel):
@@ -63,7 +64,10 @@ class Notificacion(TimeStampedModel):
         verbose_name='ID de entidad',
         help_text='UUID del registro relacionado'
     )
-    gestion = models.PositiveIntegerField(verbose_name='Gestión fiscal')
+    gestion = models.ForeignKey(
+        GestionFiscal, on_delete=models.PROTECT, db_column='gestion',
+        related_name='+', verbose_name='Gestión fiscal',
+    )
     metadata = models.JSONField(
         null=True, blank=True,
         verbose_name='Metadatos adicionales'

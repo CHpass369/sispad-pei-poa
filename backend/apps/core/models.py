@@ -1,6 +1,7 @@
 import uuid
 from django.db import models
 from django.conf import settings
+from apps.gestion.models import GestionFiscal
 
 
 class TimeStampedModel(models.Model):
@@ -43,7 +44,10 @@ class VigenciaModel(models.Model):
 
 class VersionableModel(models.Model):
     version = models.PositiveIntegerField(default=1)
-    gestion = models.PositiveIntegerField()
+    gestion = models.ForeignKey(
+        GestionFiscal, on_delete=models.PROTECT, db_column='gestion',
+        related_name='+', verbose_name='Gestión fiscal',
+    )
 
     class Meta:
         abstract = True
@@ -53,7 +57,10 @@ class DemoDatasetManifest(models.Model):
     """Ownership manifest for an explicitly loaded demonstration dataset."""
 
     namespace = models.CharField(max_length=100, unique=True)
-    gestion = models.PositiveIntegerField()
+    gestion = models.ForeignKey(
+        GestionFiscal, on_delete=models.PROTECT, db_column='gestion',
+        related_name='+', verbose_name='Gestión fiscal',
+    )
     payload = models.JSONField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

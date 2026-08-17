@@ -6,6 +6,7 @@ import pytest
 from rest_framework import status
 from rest_framework.test import APIClient
 from apps.accounts.models import Usuario, Rol
+from apps.gestion.models import GestionFiscal
 
 
 @pytest.fixture
@@ -122,7 +123,9 @@ class TestPermisosAPI:
             'modulo': 'general',
             'registro_id': 'perm-test',
             'texto': 'Test de permisos',
-            'gestion': 2026,
+            'gestion': str(GestionFiscal.objects.get_or_create(
+                anio=2026, defaults={'estado': 'abierta'},
+            )[0].id),
             'estado': 'abierta',
         }, format='json')
         assert resp.status_code == status.HTTP_201_CREATED

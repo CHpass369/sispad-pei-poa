@@ -75,6 +75,16 @@ def buscar_por_punto(lat, lng, srid=4326):
 
 
 def crear_localizacion(entidad, entidad_id, geometria, gestion, distrito_id=None, unidad_territorial_id=None, direccion_referencia=''):
+    from apps.gestion.models import GestionFiscal
+    if isinstance(gestion, GestionFiscal):
+        gestion_gf = gestion
+    else:
+        gestion_gf = GestionFiscal.objects.filter(anio=int(gestion)).first()
+        if gestion_gf is None:
+            raise ValueError(
+                f'Gestión fiscal {gestion} no existe en GestionFiscal '
+                '(PIP-DB-008: no se inventan gestiones).'
+            )
     localizacion = LocalizacionTerritorial.objects.create(
         entidad=entidad,
         entidad_id=str(entidad_id),
@@ -82,7 +92,7 @@ def crear_localizacion(entidad, entidad_id, geometria, gestion, distrito_id=None
         distrito_id=distrito_id,
         unidad_territorial_id=unidad_territorial_id,
         direccion_referencia=direccion_referencia,
-        gestion=gestion,
+        gestion=gestion_gf,
     )
     return localizacion
 

@@ -2,6 +2,7 @@ import uuid
 from django.db import models
 from django.conf import settings
 from apps.core.models import TimeStampedModel
+from apps.gestion.models import GestionFiscal
 
 
 class AccionCorrectiva(TimeStampedModel):
@@ -55,12 +56,15 @@ class AccionCorrectiva(TimeStampedModel):
     verified_at = models.DateTimeField(
         null=True, blank=True, verbose_name='Fecha de Verificación',
     )
-    gestion = models.PositiveIntegerField(verbose_name='Gestión')
+    gestion = models.ForeignKey(
+        GestionFiscal, on_delete=models.PROTECT, db_column='gestion',
+        related_name='+', verbose_name='Gestión',
+    )
 
     class Meta:
         verbose_name = 'Acción Correctiva'
         verbose_name_plural = 'Acciones Correctivas'
-        ordering = ['-gestion', 'status', 'due_date']
+        ordering = ['-gestion__anio', 'status', 'due_date']
         indexes = [
             models.Index(fields=['gestion', 'status']),
             models.Index(fields=['due_date']),

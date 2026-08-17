@@ -2,7 +2,21 @@ from datetime import timedelta
 from django.utils import timezone
 from django.db.models import Count, Q
 
+from apps.gestion.models import GestionFiscal
 from .models import AccionCorrectiva, CompromisoAccionCorrectiva
+
+
+def _resolver_gestion(valor):
+    """Año/instancia → GestionFiscal (PIP-DB-008). No inventa gestiones."""
+    if isinstance(valor, GestionFiscal):
+        return valor
+    gf = GestionFiscal.objects.filter(anio=int(valor)).first()
+    if gf is None:
+        raise ValueError(
+            f'Gestión fiscal {valor} no existe en GestionFiscal '
+            '(PIP-DB-008: no se inventan gestiones).'
+        )
+    return gf
 
 
 def crear_accion_correctiva(
@@ -12,7 +26,9 @@ def crear_accion_correctiva(
 ):
     now = timezone.now()
     if gestion is None:
-        gestion = now.year
+        gestion = _resolver_gestion(now.year)
+    else:
+        gestion = _resolver_gestion(gestion)
     if start_date is None:
         start_date = now.date()
 

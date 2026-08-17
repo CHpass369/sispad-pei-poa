@@ -266,7 +266,7 @@ class DemoArticuladoresCommitTests(DemoSourceWorkbookMixin, TestCase):
 
     def test_manifest_records_owned_and_reused_rows_and_second_refresh_is_idempotent(self):
         manifest = DemoDatasetManifest.objects.get(namespace=NAMESPACE)
-        self.assertEqual(manifest.gestion, GESTION)
+        self.assertEqual(manifest.gestion.anio, GESTION)
         self.assertIn('owned', manifest.payload['ownership'])
         self.assertIn('reused', manifest.payload['ownership'])
         self.assertIn('source_counts', manifest.payload)

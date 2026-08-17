@@ -1,14 +1,28 @@
 from django.db import transaction
 from django.utils import timezone
 
+from apps.gestion.models import GestionFiscal
 from .models import EnvioFormulacion, Revision, Observacion, Aprobacion
+
+
+def _resolver_gestion(valor):
+    """Año/instancia → GestionFiscal (PIP-DB-008). No inventa gestiones."""
+    if isinstance(valor, GestionFiscal):
+        return valor
+    gf = GestionFiscal.objects.filter(anio=int(valor)).first()
+    if gf is None:
+        raise ValueError(
+            f'Gestión fiscal {valor} no existe en GestionFiscal '
+            '(PIP-DB-008: no se inventan gestiones).'
+        )
+    return gf
 
 
 @transaction.atomic
 def enviar_aprobacion(unidad_id, gestion, version, usuario, comentario=''):
     envio = EnvioFormulacion.objects.create(
         unidad_id=unidad_id,
-        gestion=gestion,
+        gestion=_resolver_gestion(gestion),
         version=version,
         enviado_por=usuario,
         comentario=comentario,
@@ -54,7 +68,7 @@ def observar(revision_id, usuario, texto, tipo='fondo', severidad='moderada'):
         registro_id=str(revision.envio_id),
         texto=texto,
         responsable_subsanacion=revision.envio.enviado_por,
-        gestion=revision.envio.gestion,
+        gestion=_resolver_gestion(revision.envio.gestion),
     )
     revision.estado = 'devuelta'
     revision.resultado = 'observado'
@@ -82,7 +96,7 @@ def consolidar_poa(gestion, version, usuario):
     poaus = POAU.objects.filter(gestion=gestion, estado='aprobado')
     total = poaus.count()
     aprobacion = Aprobacion.objects.create(
-        gestion=gestion,
+        gestion=_resolver_gestion(gestion),
         tipo='consolidacion',
         aprobado_por=usuario,
         estado='aprobado',

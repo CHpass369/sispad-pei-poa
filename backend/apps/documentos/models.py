@@ -2,6 +2,7 @@ import uuid, hashlib
 from django.db import models
 from django.conf import settings
 from apps.core.models import TimeStampedModel
+from apps.gestion.models import GestionFiscal
 
 
 class DocumentoAdjunto(TimeStampedModel):
@@ -18,7 +19,10 @@ class DocumentoAdjunto(TimeStampedModel):
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
         null=True, blank=True, related_name='documentos_subidos'
     )
-    gestion = models.PositiveIntegerField()
+    gestion = models.ForeignKey(
+        GestionFiscal, on_delete=models.PROTECT, db_column='gestion',
+        related_name='+', verbose_name='Gestión fiscal',
+    )
     activo = models.BooleanField(default=True)
 
     class Meta:

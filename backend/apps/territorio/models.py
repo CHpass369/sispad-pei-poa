@@ -2,6 +2,7 @@ import uuid
 from django.db import models
 from django.contrib.gis.db import models as gis_models
 from apps.core.models import TimeStampedModel
+from apps.gestion.models import GestionFiscal
 
 
 class Distrito(models.Model):
@@ -55,7 +56,10 @@ class LocalizacionTerritorial(TimeStampedModel):
     distrito = models.ForeignKey(Distrito, on_delete=models.SET_NULL, null=True, blank=True, related_name='localizaciones')
     unidad_territorial = models.ForeignKey(UnidadTerritorial, on_delete=models.SET_NULL, null=True, blank=True, related_name='localizaciones')
     direccion_referencia = models.CharField(max_length=500, blank=True)
-    gestion = models.PositiveIntegerField()
+    gestion = models.ForeignKey(
+        GestionFiscal, on_delete=models.PROTECT, db_column='gestion',
+        related_name='+', verbose_name='Gestión fiscal',
+    )
     activo = models.BooleanField(default=True)
 
     class Meta:

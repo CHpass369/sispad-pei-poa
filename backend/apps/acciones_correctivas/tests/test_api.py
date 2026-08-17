@@ -97,7 +97,9 @@ class AccionCorrectivaViewSetTests(TestCase):
             due_date=date.today() + timedelta(days=30),
             expected_result='Alcanzar 80% de avance físico',
             status='pendiente',
-            gestion=2026,
+            gestion=GestionFiscal.objects.get_or_create(
+                anio=2026, defaults={'estado': 'abierta'},
+            )[0],
         )
 
         self.accion_data = {
@@ -110,7 +112,9 @@ class AccionCorrectivaViewSetTests(TestCase):
             'start_date': date.today().isoformat(),
             'due_date': (date.today() + timedelta(days=15)).isoformat(),
             'expected_result': 'Mejora del 50% en avance',
-            'gestion': 2026,
+            'gestion': str(GestionFiscal.objects.get_or_create(
+                anio=2026, defaults={'estado': 'abierta'},
+            )[0].id),
         }
 
     def test_crear_accion_correctiva(self):
@@ -186,7 +190,9 @@ class AccionCorrectivaViewSetTests(TestCase):
             due_date=date.today() + timedelta(days=30),
             expected_result='Resultado',
             status='pendiente',
-            gestion=2026,
+            gestion=GestionFiscal.objects.get_or_create(
+                anio=2026, defaults={'estado': 'abierta'},
+            )[0],
         )
         self.assertFalse(accion_futura.esta_vencida)
 
@@ -202,7 +208,9 @@ class AccionCorrectivaViewSetTests(TestCase):
             due_date=date.today() + timedelta(days=3),
             expected_result='Resultado esperado',
             status='en_ejecucion',
-            gestion=2026,
+            gestion=GestionFiscal.objects.get_or_create(
+                anio=2026, defaults={'estado': 'abierta'},
+            )[0],
         )
 
         resultados = obtener_acciones_por_cumplir(dias=7)
@@ -342,7 +350,9 @@ class AccionCorrectivaModelTests(TestCase):
             due_date=date.today() + timedelta(days=20),
             expected_result='Plan ejecutado al 100%',
             status='pendiente',
-            gestion=2026,
+            gestion=GestionFiscal.objects.get_or_create(
+                anio=2026, defaults={'estado': 'abierta'},
+            )[0],
         )
         s = str(accion)
         self.assertIn('Corregir desviación', s)
@@ -358,7 +368,9 @@ class AccionCorrectivaModelTests(TestCase):
             due_date=date.today() - timedelta(days=3),
             expected_result='Resultado',
             status='pendiente',
-            gestion=2026,
+            gestion=GestionFiscal.objects.get_or_create(
+                anio=2026, defaults={'estado': 'abierta'},
+            )[0],
         )
         self.assertTrue(accion.esta_vencida)
 
@@ -372,7 +384,9 @@ class AccionCorrectivaModelTests(TestCase):
             start_date=date.today(),
             due_date=date.today() + timedelta(days=30),
             expected_result='Resultado',
-            gestion=2026,
+            gestion=GestionFiscal.objects.get_or_create(
+                anio=2026, defaults={'estado': 'abierta'},
+            )[0],
         )
         CompromisoAccionCorrectiva.objects.create(
             accion_correctiva=accion,
@@ -404,7 +418,9 @@ class AccionCorrectivaModelTests(TestCase):
             start_date=date.today(),
             due_date=date.today() + timedelta(days=10),
             expected_result='Resultado',
-            gestion=2026,
+            gestion=GestionFiscal.objects.get_or_create(
+                anio=2026, defaults={'estado': 'abierta'},
+            )[0],
         )
         self.assertEqual(accion.porcentaje_cumplimiento, 0)
 
@@ -460,7 +476,9 @@ class CompromisoAccionCorrectivaModelTests(TestCase):
             start_date=date.today(),
             due_date=date.today() + timedelta(days=30),
             expected_result='Resultado',
-            gestion=2026,
+            gestion=GestionFiscal.objects.get_or_create(
+                anio=2026, defaults={'estado': 'abierta'},
+            )[0],
         )
 
     def test_compromiso_str(self):

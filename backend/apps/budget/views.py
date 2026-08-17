@@ -1504,7 +1504,12 @@ class AuditLogView(APIView):
 
         gestion = request.query_params.get('gestion')
         if gestion:
-            qs = qs.filter(gestion=gestion)
+            # PIP-DB-008: ?gestion=<año> filtra por anio de GestionFiscal;
+            # también acepta el UUID de la gestión.
+            if gestion.isdigit():
+                qs = qs.filter(gestion__anio=gestion)
+            else:
+                qs = qs.filter(gestion_id=gestion)
         entidad = request.query_params.get('entidad')
         if entidad:
             qs = qs.filter(entidad=ENTIDADES_AUDITORIA.get(entidad, entidad))

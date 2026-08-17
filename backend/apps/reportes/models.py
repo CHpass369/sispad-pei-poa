@@ -1,6 +1,7 @@
 import uuid, hashlib
 from django.db import models
 from django.conf import settings
+from apps.gestion.models import GestionFiscal
 
 
 class ReporteGenerado(models.Model):
@@ -35,7 +36,10 @@ class ReporteGenerado(models.Model):
     archivo = models.FileField(upload_to='reportes/', null=True, blank=True)
     hash_archivo = models.CharField(max_length=64, blank=True, editable=False)
     parametros = models.JSONField(null=True, blank=True, help_text='Parámetros usados para generar el reporte')
-    gestion = models.PositiveIntegerField()
+    gestion = models.ForeignKey(
+        GestionFiscal, on_delete=models.PROTECT, db_column='gestion',
+        related_name='+', verbose_name='Gestión fiscal',
+    )
     generado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
         null=True, blank=True, related_name='reportes_generados'

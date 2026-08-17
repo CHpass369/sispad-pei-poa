@@ -7,6 +7,7 @@ from rest_framework.test import APIClient
 from rest_framework import status
 
 from apps.accounts.models import Usuario
+from apps.gestion.models import GestionFiscal
 from apps.notificaciones.models import (
     TipoNotificacion, Notificacion, PreferenciaNotificacion,
 )
@@ -46,19 +47,24 @@ class NotificacionViewSetTests(TestCase):
             titulo='Cambio de estado en POAU',
             mensaje='El POAU POAU-001 pasó a estado aprobado',
             priority='alta',
-            gestion=2026,
+            gestion=GestionFiscal.objects.get_or_create(
+                anio=2026, defaults={'estado': 'abierta'},
+            )[0],
             entity_type='poau.POAU',
             entity_id=uuid.uuid4(),
         )
 
     def test_crear_notificacion(self):
+        gf = GestionFiscal.objects.get_or_create(
+            anio=2026, defaults={'estado': 'abierta'},
+        )[0]
         notif_data = {
             'user': str(self.user.id),
             'tipo': str(self.tipo.id),
             'titulo': 'Nueva notificación',
             'mensaje': 'Se ha creado un nuevo reporte',
             'priority': 'media',
-            'gestion': 2026,
+            'gestion': str(gf.id),
         }
         response = self.client.post(
             '/api/v1/notificaciones/',
@@ -91,7 +97,9 @@ class NotificacionViewSetTests(TestCase):
             titulo='Segunda notificación',
             mensaje='Otro mensaje',
             is_read=False,
-            gestion=2026,
+            gestion=GestionFiscal.objects.get_or_create(
+                anio=2026, defaults={'estado': 'abierta'},
+            )[0],
         )
         response = self.client.post(
             '/api/v1/notificaciones/marcar_todas_leidas/',
@@ -112,7 +120,9 @@ class NotificacionViewSetTests(TestCase):
             titulo='Segunda',
             mensaje='Segundo mensaje',
             priority='baja',
-            gestion=2026,
+            gestion=GestionFiscal.objects.get_or_create(
+                anio=2026, defaults={'estado': 'abierta'},
+            )[0],
         )
         Notificacion.objects.create(
             user=self.user,
@@ -121,7 +131,9 @@ class NotificacionViewSetTests(TestCase):
             mensaje='Tercer mensaje',
             priority='media',
             is_read=True,
-            gestion=2026,
+            gestion=GestionFiscal.objects.get_or_create(
+                anio=2026, defaults={'estado': 'abierta'},
+            )[0],
         )
         response = self.client.get('/api/v1/notificaciones/resumen/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -166,7 +178,9 @@ class NotificacionViewSetTests(TestCase):
             titulo='Estado cambiado',
             mensaje='El proceso cambió de estado',
             priority='alta',
-            gestion=2026,
+            gestion=GestionFiscal.objects.get_or_create(
+                anio=2026, defaults={'estado': 'abierta'},
+            )[0],
         )
         self.assertFalse(notif.is_read)
         notif.marcar_leida()
@@ -186,7 +200,9 @@ class NotificacionViewSetTests(TestCase):
             titulo='Plazo próximo a vencer',
             mensaje='La actividad ACT-001 vence en 3 días',
             priority='alta',
-            gestion=2026,
+            gestion=GestionFiscal.objects.get_or_create(
+                anio=2026, defaults={'estado': 'abierta'},
+            )[0],
         )
         response = self.client.get(
             f'/api/v1/notificaciones/{notif.id}/',
@@ -217,7 +233,9 @@ class NotificacionViewSetTests(TestCase):
             tipo=self.tipo,
             titulo='Notificación del otro usuario',
             mensaje='Este es del otro usuario',
-            gestion=2026,
+            gestion=GestionFiscal.objects.get_or_create(
+                anio=2026, defaults={'estado': 'abierta'},
+            )[0],
         )
         response = self.client.get('/api/v1/notificaciones/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -234,7 +252,9 @@ class NotificacionViewSetTests(TestCase):
             tipo=self.tipo,
             titulo='Sin preferencias',
             mensaje='Usuario sin preferencias configuradas',
-            gestion=2026,
+            gestion=GestionFiscal.objects.get_or_create(
+                anio=2026, defaults={'estado': 'abierta'},
+            )[0],
         )
         self.assertFalse(
             PreferenciaNotificacion.objects.filter(
@@ -262,7 +282,9 @@ class NotificacionModelTests(TestCase):
             tipo=self.tipo,
             titulo='Notificación de prueba',
             mensaje='Mensaje de prueba',
-            gestion=2026,
+            gestion=GestionFiscal.objects.get_or_create(
+                anio=2026, defaults={'estado': 'abierta'},
+            )[0],
         )
         s = str(notif)
         self.assertIn('Notificación de prueba', s)
@@ -274,7 +296,9 @@ class NotificacionModelTests(TestCase):
             titulo='Test marcar',
             mensaje='Mensaje test',
             is_read=False,
-            gestion=2026,
+            gestion=GestionFiscal.objects.get_or_create(
+                anio=2026, defaults={'estado': 'abierta'},
+            )[0],
         )
         self.assertFalse(notif.is_read)
         notif.marcar_leida()
