@@ -57,7 +57,7 @@ class EvaluacionViewSetTests(TestCase):
 
         self.evaluacion_data = {
             'plan': str(self.plan.id),
-            'fiscal_year': 2026,
+            'gestion': str(GestionFiscal.objects.get_or_create(anio=2026, defaults={'estado': 'abierta'})[0].id),
             'evaluation_type': 'especifica',
             'period': 'S1',
             'responsible_team': 'Equipo de Evaluación',
@@ -67,7 +67,7 @@ class EvaluacionViewSetTests(TestCase):
 
         self.evaluacion = Evaluacion.objects.create(
             plan=self.plan,
-            fiscal_year=2026,
+            gestion=GestionFiscal.objects.get_or_create(anio=2026, defaults={'estado': 'abierta'})[0],
             evaluation_type='anual',
             period='AN',
             status='borrador',
@@ -100,7 +100,7 @@ class EvaluacionViewSetTests(TestCase):
             response.data['evaluation_type'],
             self.evaluacion.evaluation_type,
         )
-        self.assertEqual(response.data['fiscal_year'], 2026)
+        self.assertEqual(response.data['gestion_anio'], 2026)
 
     def test_actualizar_evaluacion(self):
         update_data = {
@@ -355,7 +355,7 @@ class EvaluacionViewSetTests(TestCase):
             '/api/v1/evaluaciones/',
             {
                 'plan': str(self.plan.id),
-                'fiscal_year': 2026,
+                'gestion': str(GestionFiscal.objects.get_or_create(anio=2026, defaults={'estado': 'abierta'})[0].id),
                 'evaluation_type': 'anual',
                 'period': 'AN',
             },
@@ -370,7 +370,7 @@ class EvaluacionViewSetTests(TestCase):
                 '/api/v1/evaluaciones/',
                 {
                     'plan': str(self.plan.id),
-                    'fiscal_year': 2026,
+                    'gestion': str(GestionFiscal.objects.get_or_create(anio=2026, defaults={'estado': 'abierta'})[0].id),
                     'evaluation_type': 'anual',
                     'period': 'AN',
                 },
@@ -412,7 +412,7 @@ class EvaluacionViewSetTests(TestCase):
     def test_filtro_por_tipo(self):
         Evaluacion.objects.create(
             plan=self.plan,
-            fiscal_year=2025,
+            gestion=GestionFiscal.objects.get_or_create(anio=2025, defaults={'estado': 'abierta'})[0],
             evaluation_type='medio_termino',
             period='AN',
         )
@@ -427,7 +427,7 @@ class EvaluacionViewSetTests(TestCase):
     def test_filtro_por_periodo(self):
         Evaluacion.objects.create(
             plan=self.plan,
-            fiscal_year=2026,
+            gestion=GestionFiscal.objects.get_or_create(anio=2026, defaults={'estado': 'abierta'})[0],
             evaluation_type='final',
             period='S1',
         )
@@ -458,7 +458,7 @@ class CriterioEvaluacionModelTests(TestCase):
         )
         self.evaluacion = Evaluacion.objects.create(
             plan=self.plan,
-            fiscal_year=2026,
+            gestion=GestionFiscal.objects.get_or_create(anio=2026, defaults={'estado': 'abierta'})[0],
             evaluation_type='anual',
             period='AN',
         )
@@ -516,7 +516,7 @@ class ResultadoEvaluacionModelTests(TestCase):
         )
         self.evaluacion = Evaluacion.objects.create(
             plan=self.plan,
-            fiscal_year=2026,
+            gestion=GestionFiscal.objects.get_or_create(anio=2026, defaults={'estado': 'abierta'})[0],
             evaluation_type='anual',
             period='AN',
         )
@@ -574,7 +574,7 @@ class LeccionAprendidaModelTests(TestCase):
         )
         self.evaluacion = Evaluacion.objects.create(
             plan=self.plan,
-            fiscal_year=2026,
+            gestion=GestionFiscal.objects.get_or_create(anio=2026, defaults={'estado': 'abierta'})[0],
             evaluation_type='anual',
             period='AN',
         )
@@ -609,7 +609,7 @@ class RecomendacionModelTests(TestCase):
         )
         self.evaluacion = Evaluacion.objects.create(
             plan=self.plan,
-            fiscal_year=2026,
+            gestion=GestionFiscal.objects.get_or_create(anio=2026, defaults={'estado': 'abierta'})[0],
             evaluation_type='anual',
             period='AN',
         )

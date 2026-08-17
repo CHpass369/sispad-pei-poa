@@ -1,5 +1,6 @@
 from django.core.exceptions import ValidationError
 from rest_framework import serializers
+from apps.gestion.models import GestionFiscal
 from .models import (
     SectorPAD, PoliticaPAD, LineamientoEstrategico,
     ResultadoTerritorial, ProductoTerritorial, ArticulacionSIPEB,
@@ -32,18 +33,23 @@ class LineamientoEstrategicoSerializer(serializers.ModelSerializer):
         politica = data.get('politica') or getattr(self.instance, 'politica', None)
         if politica:
             gestion = data.get('gestion') or getattr(self.instance, 'gestion', None)
-            if politica.gestion != gestion:
+            # PIP-DB-004: gestion es FK; normalizar a anio para comparar.
+            gestion = getattr(gestion, 'anio', gestion)
+            gestion_politica = getattr(politica.gestion, 'anio', politica.gestion)
+            if gestion_politica != gestion:
                 raise serializers.ValidationError(
                     f'La gestión del lineamiento ({gestion}) debe coincidir '
-                    f'con la gestión de la política ({politica.gestion}).'
+                    f'con la gestión de la política ({gestion_politica}).'
                 )
         return data
 
 
 class ProgramacionAnualPADSerializer(serializers.ModelSerializer):
+    gestion_anio = serializers.IntegerField(source='gestion.anio', read_only=True)
+
     class Meta:
         model = ProgramacionAnualPAD
-        fields = ['id', 'resultado', 'producto', 'anio', 'tipo', 'valor']
+        fields = ['id', 'resultado', 'producto', 'gestion', 'gestion_anio', 'tipo', 'valor']
         extra_kwargs = {
             'resultado': {'required': False},
             'producto': {'required': False},
@@ -66,9 +72,11 @@ class ProgramacionAnualPADSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 "Una programación debe estar asociada a un resultado O un producto, no a ambos."
             )
-        anio = data.get('anio') or getattr(self.instance, 'anio', None)
+        anio = data.get('gestion') or getattr(self.instance, 'gestion', None)
+        anio = getattr(anio, 'anio', anio)
         if anio and resultado:
             gestion = getattr(resultado.lineamiento, 'gestion', None) if resultado else None
+            gestion = getattr(gestion, 'anio', gestion)
             if gestion and anio > gestion + 5:
                 raise serializers.ValidationError(
                     f'El año ({anio}) está demasiado lejos de la gestión del resultado ({gestion}).'
@@ -104,28 +112,35 @@ class ProductoTerritorialSerializer(serializers.ModelSerializer):
             'presupuesto_total_pad': {'required': False},
         }
 
-    def _crear_programaciones(self, instance, prog_data, fk_field='producto'):
+    def _crear_programaciones(self, instance, prog_data, fk_field='resultado'):
         for item in prog_data:
             item = {k: v for k, v in item.items()
                     if k not in ('id', 'resultado', 'producto')}
             kwargs = {fk_field: instance, **item}
+            # PIP-DB-004: gestion llega como uuid string; asignar por _id.
+            if 'gestion' in kwargs and not isinstance(kwargs['gestion'], GestionFiscal):
+                kwargs['gestion_id'] = kwargs.pop('gestion')
             ProgramacionAnualPAD.objects.create(**kwargs)
 
     def validate(self, data):
         resultado = data.get('resultado') or getattr(self.instance, 'resultado', None)
         if resultado and resultado.lineamiento:
             gestion = data.get('gestion') or getattr(self.instance, 'gestion', None)
-            if gestion and resultado.lineamiento.gestion != gestion:
+            gestion = getattr(gestion, 'anio', gestion)
+            gestion_lineamiento = getattr(
+                resultado.lineamiento.gestion, 'anio', resultado.lineamiento.gestion
+            )
+            if gestion and gestion_lineamiento != gestion:
                 raise serializers.ValidationError(
                     f'La gestión del producto ({gestion}) debe coincidir '
-                    f'con la gestión del lineamiento del resultado ({resultado.lineamiento.gestion}).'
+                    f'con la gestión del lineamiento del resultado ({gestion_lineamiento}).'
                 )
         return data
 
     def create(self, validated_data):
         prog_data = validated_data.pop('programaciones', [])
         producto = super().create(validated_data)
-        self._crear_programaciones(producto, prog_data)
+        self._crear_programaciones(producto, prog_data, fk_field='producto')
         return producto
 
     def update(self, instance, validated_data):
@@ -133,7 +148,7 @@ class ProductoTerritorialSerializer(serializers.ModelSerializer):
         instance = super().update(instance, validated_data)
         if prog_data is not None:
             instance.programaciones.all().delete()
-            self._crear_programaciones(instance, prog_data)
+            self._crear_programaciones(instance, prog_data, fk_field='producto')
         return instance
 
 
@@ -147,10 +162,14 @@ class ArticulacionSIPEBSerializer(serializers.ModelSerializer):
         resultado = data.get('resultado') or getattr(self.instance, 'resultado', None)
         if resultado and resultado.lineamiento:
             gestion = data.get('gestion') or getattr(self.instance, 'gestion', None)
-            if gestion and resultado.lineamiento.gestion != gestion:
+            gestion = getattr(gestion, 'anio', gestion)
+            gestion_resultado = getattr(
+                resultado.lineamiento.gestion, 'anio', resultado.lineamiento.gestion
+            )
+            if gestion and gestion_resultado != gestion:
                 raise serializers.ValidationError(
                     f'La gestión de la articulación SIPEB ({gestion}) '
-                    f'debe coincidir con la gestión del resultado ({resultado.lineamiento.gestion}).'
+                    f'debe coincidir con la gestión del resultado ({gestion_resultado}).'
                 )
         return data
 
@@ -174,6 +193,9 @@ class ResultadoTerritorialSerializer(serializers.ModelSerializer):
             item = {k: v for k, v in item.items()
                     if k not in ('id', 'resultado', 'producto')}
             kwargs = {fk_field: instance, **item}
+            # PIP-DB-004: gestion llega como uuid string; asignar por _id.
+            if 'gestion' in kwargs and not isinstance(kwargs['gestion'], GestionFiscal):
+                kwargs['gestion_id'] = kwargs.pop('gestion')
             ProgramacionAnualPAD.objects.create(**kwargs)
 
     def validate(self, data):

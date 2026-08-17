@@ -10,33 +10,41 @@ from apps.pad.models import (
     ResultadoTerritorial, ProductoTerritorial,
     ProgramacionAnualPAD, ArticulacionLog,
 )
+from apps.gestion.models import GestionFiscal
+
+
+def _gf(anio):
+    return GestionFiscal.objects.get_or_create(
+        anio=anio, defaults={'estado': 'abierta'},
+    )[0]
 
 
 class PADHierarchyBaseTestCase(TestCase):
-    """Base para tests de jerarquía PAD."""
+    """Base para tests de jerarquÃƒÂ­a PAD."""
 
     def setUp(self):
+        self.gf = _gf(2026)
         self.sector_salud = SectorPAD.objects.create(
             codigo='S01', nombre='Salud',
         )
         self.sector_educacion = SectorPAD.objects.create(
-            codigo='S02', nombre='Educación',
+            codigo='S02', nombre='EducaciÃƒÂ³n',
         )
         self.politica = PoliticaPAD.objects.create(
-            codigo='POL-01', nombre='Política de Desarrollo Local',
-            gestion=2026,
+            codigo='POL-01', nombre='PolÃƒÂ­tica de Desarrollo Local',
+            gestion=self.gf,
         )
         self.politica_2 = PoliticaPAD.objects.create(
-            codigo='POL-02', nombre='Política Social',
-            gestion=2026,
+            codigo='POL-02', nombre='PolÃƒÂ­tica Social',
+            gestion=self.gf,
         )
         self.lineamiento = LineamientoEstrategico.objects.create(
             codigo='LIN-01', nombre='Lineamiento de Infraestructura',
-            politica=self.politica, gestion=2026,
+            politica=self.politica, gestion=self.gf,
         )
         self.lineamiento_2 = LineamientoEstrategico.objects.create(
             codigo='LIN-02', nombre='Lineamiento de Servicios',
-            politica=self.politica, gestion=2026,
+            politica=self.politica, gestion=self.gf,
         )
         self.resultado = ResultadoTerritorial.objects.create(
             codigo='RES-01', nombre='Resultado de Salud',
@@ -45,12 +53,12 @@ class PADHierarchyBaseTestCase(TestCase):
             formula='(beneficiarios / poblacion) * 100',
             linea_base=Decimal('65.0000'),
             meta_2030=Decimal('90.0000'),
-            gestion=2026,
+            gestion=self.gf,
         )
         self.resultado_2 = ResultadoTerritorial.objects.create(
-            codigo='RES-02', nombre='Resultado de Educación',
+            codigo='RES-02', nombre='Resultado de EducaciÃƒÂ³n',
             lineamiento=self.lineamiento_2, sector=self.sector_educacion,
-            gestion=2026,
+            gestion=self.gf,
         )
         self.producto = ProductoTerritorial.objects.create(
             codigo='PROD-01', nombre='Producto de Salud',
@@ -60,12 +68,12 @@ class PADHierarchyBaseTestCase(TestCase):
             meta_2030=Decimal('10000.0000'),
             cuenta_con_financiamiento='SI',
             presupuesto_total_pad=Decimal('200000.00'),
-            gestion=2026,
+            gestion=self.gf,
         )
         self.producto_2 = ProductoTerritorial.objects.create(
-            codigo='PROD-02', nombre='Producto de Educación',
+            codigo='PROD-02', nombre='Producto de EducaciÃƒÂ³n',
             resultado=self.resultado_2,
-            gestion=2026,
+            gestion=self.gf,
         )
 
 
@@ -92,7 +100,7 @@ class PoliticaPADModelTest(PADHierarchyBaseTestCase):
     """Tests del modelo PoliticaPAD."""
 
     def test_politica_creacion(self):
-        self.assertEqual(self.politica.gestion, 2026)
+        self.assertEqual(self.politica.gestion.anio, 2026)
         self.assertEqual(self.politica.codigo, 'POL-01')
 
     def test_politica_str(self):
@@ -103,13 +111,13 @@ class PoliticaPADModelTest(PADHierarchyBaseTestCase):
         with self.assertRaises(Exception):
             PoliticaPAD.objects.create(
                 codigo='POL-01', nombre='Duplicada',
-                gestion=2026,
+                gestion=self.gf,
             )
 
     def test_politica_diferentes_gestiones(self):
         PoliticaPAD.objects.create(
-            codigo='POL-01', nombre='Mismo código',
-            gestion=2027,
+            codigo='POL-01', nombre='Mismo cÃƒÂ³digo',
+            gestion=_gf(2027),
         )
         self.assertEqual(
             PoliticaPAD.objects.filter(codigo='POL-01').count(), 2
@@ -121,7 +129,7 @@ class LineamientoEstrategicoModelTest(PADHierarchyBaseTestCase):
 
     def test_lineamiento_creacion(self):
         self.assertEqual(self.lineamiento.politica, self.politica)
-        self.assertEqual(self.lineamiento.gestion, 2026)
+        self.assertEqual(self.lineamiento.gestion.anio, 2026)
 
     def test_lineamiento_str(self):
         s = str(self.lineamiento)
@@ -134,7 +142,7 @@ class LineamientoEstrategicoModelTest(PADHierarchyBaseTestCase):
         with self.assertRaises(Exception):
             LineamientoEstrategico.objects.create(
                 codigo='LIN-01', nombre='Duplicado',
-                politica=self.politica, gestion=2026,
+                politica=self.politica, gestion=self.gf,
             )
 
 
@@ -144,7 +152,7 @@ class ResultadoTerritorialModelTest(PADHierarchyBaseTestCase):
     def test_resultado_creacion(self):
         self.assertEqual(self.resultado.lineamiento, self.lineamiento)
         self.assertEqual(self.resultado.sector, self.sector_salud)
-        self.assertEqual(self.resultado.gestion, 2026)
+        self.assertEqual(self.resultado.gestion.anio, 2026)
 
     def test_resultado_str(self):
         s = str(self.resultado)
@@ -166,7 +174,7 @@ class ResultadoTerritorialModelTest(PADHierarchyBaseTestCase):
         with self.assertRaises(Exception):
             ResultadoTerritorial.objects.create(
                 codigo='RES-01', nombre='Duplicado',
-                lineamiento=self.lineamiento, gestion=2026,
+                lineamiento=self.lineamiento, gestion=self.gf,
             )
 
     def test_resultado_cod_geografico(self):
@@ -191,7 +199,7 @@ class ProductoTerritorialModelTest(PADHierarchyBaseTestCase):
 
     def test_producto_creacion(self):
         self.assertEqual(self.producto.resultado, self.resultado)
-        self.assertEqual(self.producto.gestion, 2026)
+        self.assertEqual(self.producto.gestion.anio, 2026)
 
     def test_producto_str(self):
         s = str(self.producto)
@@ -211,7 +219,7 @@ class ProductoTerritorialModelTest(PADHierarchyBaseTestCase):
         with self.assertRaises(Exception):
             ProductoTerritorial.objects.create(
                 codigo='PROD-01', nombre='Duplicado',
-                resultado=self.resultado, gestion=2026,
+                resultado=self.resultado, gestion=self.gf,
             )
 
     def test_productos_por_resultado(self):
@@ -220,12 +228,12 @@ class ProductoTerritorialModelTest(PADHierarchyBaseTestCase):
 
 
 class ProgramacionAnualPADBudgetSumsTest(PADHierarchyBaseTestCase):
-    """Tests de sumas de programación presupuestaria PAD."""
+    """Tests de sumas de programaciÃƒÂ³n presupuestaria PAD."""
 
     def test_programacion_fisica_por_resultado(self):
         for anio in [2026, 2027, 2028]:
             ProgramacionAnualPAD.objects.create(
-                resultado=self.resultado, anio=anio,
+                resultado=self.resultado, gestion=_gf(anio),
                 tipo='fisica', valor=Decimal(f'{100 * anio}.0000'),
             )
         total = ProgramacionAnualPAD.objects.filter(
@@ -237,7 +245,7 @@ class ProgramacionAnualPADBudgetSumsTest(PADHierarchyBaseTestCase):
     def test_programacion_financiera_por_producto(self):
         for anio in [2026, 2027]:
             ProgramacionAnualPAD.objects.create(
-                producto=self.producto, anio=anio,
+                producto=self.producto, gestion=_gf(anio),
                 tipo='financiera', valor=Decimal(f'{50000 * (anio - 2025)}.0000'),
             )
         total = ProgramacionAnualPAD.objects.filter(
@@ -247,7 +255,7 @@ class ProgramacionAnualPADBudgetSumsTest(PADHierarchyBaseTestCase):
 
     def test_programacion_valor_no_negativo(self):
         prog = ProgramacionAnualPAD(
-            resultado=self.resultado, anio=2026,
+            resultado=self.resultado, gestion=_gf(2026),
             tipo='fisica', valor=Decimal('-100.0000'),
         )
         with self.assertRaises(ValidationError):
@@ -256,7 +264,7 @@ class ProgramacionAnualPADBudgetSumsTest(PADHierarchyBaseTestCase):
     def test_programacion_requiere_resultado_o_producto(self):
         prog = ProgramacionAnualPAD(
             resultado=None, producto=None,
-            anio=2026, tipo='fisica', valor=Decimal('100.0000'),
+            gestion=_gf(2026), tipo='fisica', valor=Decimal('100.0000'),
         )
         with self.assertRaises(ValidationError):
             prog.full_clean()
@@ -264,33 +272,33 @@ class ProgramacionAnualPADBudgetSumsTest(PADHierarchyBaseTestCase):
     def test_programacion_duplicada_rechazada(self):
         ProgramacionAnualPAD.objects.create(
             resultado=self.resultado, producto=self.producto,
-            anio=2026, tipo='fisica', valor=Decimal('100.0000'),
+            gestion=_gf(2026), tipo='fisica', valor=Decimal('100.0000'),
         )
         with self.assertRaises(Exception):
             ProgramacionAnualPAD.objects.create(
                 resultado=self.resultado, producto=self.producto,
-                anio=2026, tipo='fisica', valor=Decimal('200.0000'),
+                gestion=_gf(2026), tipo='fisica', valor=Decimal('200.0000'),
             )
 
     def test_programacion_tipos_fisica_financiera(self):
         ProgramacionAnualPAD.objects.create(
-            resultado=self.resultado, anio=2026,
+            resultado=self.resultado, gestion=_gf(2026),
             tipo='fisica', valor=Decimal('100.0000'),
         )
         ProgramacionAnualPAD.objects.create(
-            resultado=self.resultado, anio=2026,
+            resultado=self.resultado, gestion=_gf(2026),
             tipo='financiera', valor=Decimal('50000.0000'),
         )
         self.assertEqual(
             ProgramacionAnualPAD.objects.filter(
-                resultado=self.resultado, anio=2026
+                resultado=self.resultado, gestion=_gf(2026)
             ).count(), 2
         )
 
     def test_programacion_varios_anios(self):
         for anio in range(2026, 2031):
             ProgramacionAnualPAD.objects.create(
-                resultado=self.resultado, anio=anio,
+                resultado=self.resultado, gestion=_gf(anio),
                 tipo='fisica', valor=Decimal('100.0000'),
             )
         self.assertEqual(
@@ -301,7 +309,7 @@ class ProgramacionAnualPADBudgetSumsTest(PADHierarchyBaseTestCase):
 
     def test_programacion_str(self):
         prog = ProgramacionAnualPAD.objects.create(
-            resultado=self.resultado, anio=2026,
+            resultado=self.resultado, gestion=_gf(2026),
             tipo='fisica', valor=Decimal('100.0000'),
         )
         s = str(prog)
@@ -310,7 +318,7 @@ class ProgramacionAnualPADBudgetSumsTest(PADHierarchyBaseTestCase):
 
     def test_programacion_str_producto(self):
         prog = ProgramacionAnualPAD.objects.create(
-            producto=self.producto, anio=2026,
+            producto=self.producto, gestion=_gf(2026),
             tipo='financiera', valor=Decimal('50000.0000'),
         )
         s = str(prog)
@@ -319,7 +327,7 @@ class ProgramacionAnualPADBudgetSumsTest(PADHierarchyBaseTestCase):
 
 
 class IndicadorCreationPerResultadoTest(PADHierarchyBaseTestCase):
-    """Tests de creación de indicadores por resultado territorial."""
+    """Tests de creaciÃƒÂ³n de indicadores por resultado territorial."""
 
     def setUp(self):
         super().setUp()
@@ -341,7 +349,7 @@ class IndicadorCreationPerResultadoTest(PADHierarchyBaseTestCase):
     def test_indicador_meta_programada_por_resultado(self):
         from apps.indicadores.models import MetaProgramada
         meta = MetaProgramada.objects.create(
-            indicador=self.indicador, gestion=2026,
+            indicador=self.indicador, gestion=self.gf,
             meta_anual=Decimal('90.0000'),
             trimestre1=Decimal('20.0000'),
             trimestre2=Decimal('22.0000'),

@@ -17,7 +17,7 @@ CAPACIDADES_ESCRITURA = [
 class EvaluacionV2ViewSet(viewsets.ModelViewSet):
     queryset = Evaluacion.objects.select_related('plan', 'version_instrumento')
     serializer_class = EvaluacionSerializer
-    filterset_fields = ['plan', 'version_instrumento', 'fiscal_year', 'status']
+    filterset_fields = {'plan': ['exact'], 'version_instrumento': ['exact'], 'gestion__anio': ['exact'], 'status': ['exact']}
 
     def get_permissions(self):
         if self.action in ('create', 'update', 'partial_update', 'destroy'):

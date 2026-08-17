@@ -1,12 +1,20 @@
 from django.test import TestCase
 from rest_framework.test import APIClient
 from rest_framework import status
+from apps.gestion.models import GestionFiscal
 from apps.pad.models import (
     ProgramacionAnualPAD, ResultadoTerritorial, ProductoTerritorial,
     LineamientoEstrategico, SectorPAD, PoliticaPAD,
 )
 
 API_PREFIX = '/api/v1/pad/'
+
+
+
+def _gf(anio):
+    return GestionFiscal.objects.get_or_create(
+        anio=anio, defaults={'estado': 'abierta'},
+    )[0]
 
 
 class ProgramacionAnualPADViewSetTest(TestCase):
@@ -23,31 +31,31 @@ class ProgramacionAnualPADViewSetTest(TestCase):
         self.client.force_authenticate(user=self.user)
 
         self.politica = PoliticaPAD.objects.create(
-            codigo='P1', nombre='Política 1', gestion=2026
+            codigo='P1', nombre='Política 1', gestion=_gf(2026)
         )
         self.sector = SectorPAD.objects.create(
             codigo='S01', nombre='Salud'
         )
         self.lineamiento = LineamientoEstrategico.objects.create(
             codigo='L1', nombre='Lineamiento 1',
-            politica=self.politica, gestion=2026
+            politica=self.politica, gestion=_gf(2026)
         )
         self.resultado = ResultadoTerritorial.objects.create(
             codigo='R01', nombre='Resultado 1',
             lineamiento=self.lineamiento, sector=self.sector,
-            gestion=2026
+            gestion=_gf(2026)
         )
         self.producto = ProductoTerritorial.objects.create(
             codigo='P01', nombre='Producto 1',
-            resultado=self.resultado, gestion=2026
+            resultado=self.resultado, gestion=_gf(2026)
         )
         self.prog_fisica = ProgramacionAnualPAD.objects.create(
             resultado=self.resultado,
-            anio=2026, tipo='fisica', valor=100.5000
+            gestion=_gf(2026), tipo='fisica', valor=100.5000
         )
         self.prog_financiera = ProgramacionAnualPAD.objects.create(
             resultado=self.resultado,
-            anio=2026, tipo='financiera', valor=50000.0000
+            gestion=_gf(2026), tipo='financiera', valor=50000.0000
         )
 
     def _result_count(self, response):
@@ -74,7 +82,7 @@ class ProgramacionAnualPADViewSetTest(TestCase):
         url = f'{API_PREFIX}programaciones-anuales/'
         data = {
             'resultado': self.resultado.id,
-            'anio': 2027, 'tipo': 'fisica', 'valor': 200.0000
+            'gestion': str(_gf(2027).id), 'tipo': 'fisica', 'valor': 200.0000
         }
         response = self.client.post(url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -84,14 +92,14 @@ class ProgramacionAnualPADViewSetTest(TestCase):
         """POST sin resultado ni producto retorna 400"""
         url = f'{API_PREFIX}programaciones-anuales/'
         data = {
-            'anio': 2027, 'tipo': 'fisica', 'valor': 200
+            'gestion': str(_gf(2027).id), 'tipo': 'fisica', 'valor': 200
         }
         response = self.client.post(url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_filter_por_anio(self):
-        """GET con ?anio=2026 filtra correctamente"""
-        url = f'{API_PREFIX}programaciones-anuales/?anio=2026'
+        """GET con ?gestion__anio=2026 filtra correctamente"""
+        url = f'{API_PREFIX}programaciones-anuales/?gestion__anio=2026'
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(self._result_count(response), 2)
@@ -127,11 +135,11 @@ class ProgramacionAnualPADViewSetTest(TestCase):
             'nombre': 'Resultado nuevo con prog',
             'lineamiento': self.lineamiento.id,
             'sector': self.sector.id,
-            'gestion': 2026,
+            'gestion': str(_gf(2026).id),
             'cod_geografico': '1102',
             'programaciones': [
-                {'anio': 2026, 'tipo': 'fisica', 'valor': 50.0000},
-                {'anio': 2027, 'tipo': 'fisica', 'valor': 75.0000},
+                {'gestion': str(_gf(2026).id), 'tipo': 'fisica', 'valor': 50.0000},
+                {'gestion': str(_gf(2027).id), 'tipo': 'fisica', 'valor': 75.0000},
             ]
         }
         response = self.client.post(url, data, format='json')

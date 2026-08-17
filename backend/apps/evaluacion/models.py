@@ -2,6 +2,7 @@ import uuid
 from django.db import models
 from django.conf import settings
 from apps.core.models import TimeStampedModel
+from apps.gestion.models import GestionFiscal
 
 
 class Evaluacion(TimeStampedModel):
@@ -42,7 +43,10 @@ class Evaluacion(TimeStampedModel):
         on_delete=models.SET_NULL, related_name='evaluaciones',
         verbose_name='Versión de instrumento (V2)',
     )
-    fiscal_year = models.PositiveIntegerField(verbose_name='Gestión')
+    gestion = models.ForeignKey(
+        GestionFiscal, on_delete=models.PROTECT, db_column='gestion',
+        related_name='+', verbose_name='Gestión',
+    )
     evaluation_type = models.CharField(
         max_length=20, choices=TIPO_EVALUACION_CHOICES,
         verbose_name='Tipo de Evaluación',
@@ -69,16 +73,16 @@ class Evaluacion(TimeStampedModel):
     class Meta:
         verbose_name = 'Evaluación'
         verbose_name_plural = 'Evaluaciones'
-        ordering = ['-fiscal_year', 'evaluation_type']
-        unique_together = [('plan', 'fiscal_year', 'evaluation_type', 'period')]
+        ordering = ['-gestion__anio', 'evaluation_type']
+        unique_together = [('plan', 'gestion', 'evaluation_type', 'period')]
         indexes = [
-            models.Index(fields=['fiscal_year', 'evaluation_type']),
+            models.Index(fields=['gestion', 'evaluation_type']),
             models.Index(fields=['status']),
         ]
 
     def __str__(self):
         return (
-            f'{self.get_evaluation_type_display()} {self.fiscal_year} '
+            f'{self.get_evaluation_type_display()} {self.gestion.anio} '
             f'- {self.get_period_display()}'
         )
 

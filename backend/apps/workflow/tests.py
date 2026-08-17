@@ -565,7 +565,7 @@ class IndicadorCalculoTest(WorkflowBaseTestCase):
             meta_anual=Decimal('100.0000'),
         )
         meta = MetaProgramada.objects.create(
-            indicador=ind, gestion=2026, meta_anual=Decimal('100.0000'),
+            indicador=ind, gestion=self.gestion, meta_anual=Decimal('100.0000'),
             trimestre1=Decimal('20.0000'), trimestre2=Decimal('25.0000'),
             trimestre3=Decimal('30.0000'), trimestre4=Decimal('25.0000'),
         )
@@ -579,7 +579,7 @@ class IndicadorCalculoTest(WorkflowBaseTestCase):
             meta_anual=Decimal('200.0000'),
         )
         MetaProgramada.objects.create(
-            indicador=ind, gestion=2026, meta_anual=Decimal('200.0000'),
+            indicador=ind, gestion=self.gestion, meta_anual=Decimal('200.0000'),
         )
         ejecutado = Decimal('150.0000')
         avance = (ejecutado / ind.meta_anual) * 100

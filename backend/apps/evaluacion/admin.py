@@ -35,11 +35,11 @@ class RecomendacionInline(admin.TabularInline):
 @admin.register(Evaluacion)
 class EvaluacionAdmin(admin.ModelAdmin):
     list_display = [
-        'fiscal_year', 'evaluation_type_display', 'period_display',
+        'gestion__anio', 'evaluation_type_display', 'period_display',
         'plan_nombre', 'status_coloreado', 'total_criterios',
         'created_at',
     ]
-    list_filter = ['fiscal_year', 'evaluation_type', 'status', 'period']
+    list_filter = ['gestion', 'evaluation_type', 'status', 'period']
     search_fields = ['conclusions', 'recommendations', 'responsible_team']
     readonly_fields = ['created_at', 'updated_at', 'created_by', 'updated_by']
     inlines = [
@@ -84,7 +84,7 @@ class CriterioEvaluacionAdmin(admin.ModelAdmin):
         'evaluacion', 'criterion_display', 'score', 'weight',
         'weighted_score_display',
     ]
-    list_filter = ['criterion', 'evaluacion__fiscal_year']
+    list_filter = ['criterion', 'evaluacion__gestion']
     search_fields = ['justification', 'observations']
 
     def criterion_display(self, obj):
@@ -102,7 +102,7 @@ class ResultadoEvaluacionAdmin(admin.ModelAdmin):
         'evaluacion', 'target_display', 'score_global',
         'status_coloreado',
     ]
-    list_filter = ['status', 'evaluacion__fiscal_year']
+    list_filter = ['status', 'evaluacion__gestion']
     search_fields = ['observations']
 
     def target_display(self, obj):
@@ -132,7 +132,7 @@ class ResultadoEvaluacionAdmin(admin.ModelAdmin):
 @admin.register(LeccionAprendida)
 class LeccionAprendidaAdmin(admin.ModelAdmin):
     list_display = ['title', 'category_display', 'evaluacion']
-    list_filter = ['category', 'evaluacion__fiscal_year']
+    list_filter = ['category', 'evaluacion__gestion']
     search_fields = ['title', 'description', 'recommendations']
 
     def category_display(self, obj):
@@ -146,7 +146,7 @@ class RecomendacionAdmin(admin.ModelAdmin):
         'description_corta', 'priority_display', 'responsible_unit',
         'status_display', 'due_date', 'evaluacion',
     ]
-    list_filter = ['priority', 'status', 'evaluacion__fiscal_year']
+    list_filter = ['priority', 'status', 'evaluacion__gestion']
     search_fields = ['description', 'responsible_unit']
 
     def description_corta(self, obj):

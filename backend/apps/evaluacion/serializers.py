@@ -48,12 +48,13 @@ class EvaluacionListSerializer(serializers.ModelSerializer):
     plan_tipo = serializers.CharField(source='plan.get_tipo_display', read_only=True)
     total_criterios = serializers.IntegerField(read_only=True, default=0)
     total_resultados = serializers.IntegerField(read_only=True, default=0)
+    gestion_anio = serializers.IntegerField(source='gestion.anio', read_only=True)
 
     class Meta:
         model = Evaluacion
         fields = [
             'id', 'plan', 'plan_nombre', 'plan_tipo',
-            'fiscal_year', 'evaluation_type', 'period',
+            'gestion', 'gestion_anio', 'evaluation_type', 'period',
             'status', 'responsible_team',
             'total_criterios', 'total_resultados',
             'created_at', 'updated_at',
@@ -66,6 +67,7 @@ class EvaluacionSerializer(serializers.ModelSerializer):
     lecciones = LeccionAprendidaSerializer(many=True, read_only=True)
     recomendaciones = RecomendacionSerializer(many=True, read_only=True)
     plan_nombre = serializers.CharField(source='plan.nombre', read_only=True)
+    gestion_anio = serializers.IntegerField(source='gestion.anio', read_only=True)
 
     class Meta:
         model = Evaluacion

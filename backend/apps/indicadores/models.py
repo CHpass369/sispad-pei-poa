@@ -2,6 +2,7 @@ import uuid
 from django.db import models
 from django.conf import settings
 from apps.core.models import TimeStampedModel
+from apps.gestion.models import GestionFiscal
 
 
 class Indicador(TimeStampedModel):
@@ -48,7 +49,10 @@ class Indicador(TimeStampedModel):
 class MetaProgramada(TimeStampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     indicador = models.ForeignKey(Indicador, on_delete=models.CASCADE, related_name='metas_programadas')
-    gestion = models.PositiveIntegerField()
+    gestion = models.ForeignKey(
+        GestionFiscal, on_delete=models.PROTECT, db_column='gestion',
+        related_name='+', verbose_name='Gestión fiscal',
+    )
     meta_anual = models.DecimalField(max_digits=20, decimal_places=4)
     trimestre1 = models.DecimalField(max_digits=20, decimal_places=4, null=True, blank=True)
     trimestre2 = models.DecimalField(max_digits=20, decimal_places=4, null=True, blank=True)

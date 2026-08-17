@@ -9,6 +9,7 @@ from apps.pad.migration_v2 import (
     importar_articulaciones_sipeb,
     importar_pad,
 )
+from apps.gestion.models import GestionFiscal
 from apps.pad.models import (
     ArticulacionSIPEB,
     LineamientoEstrategico,
@@ -31,21 +32,27 @@ from apps.codificacion.models import (
 )
 
 
+def _gf(anio):
+    return GestionFiscal.objects.get_or_create(
+        anio=anio, defaults={'estado': 'abierta'},
+    )[0]
+
+
 @pytest.fixture
 def pad_legacy(db):
     politica = PoliticaPAD.objects.create(
-        codigo='P1', nombre='Política 1', gestion=2027,
+        codigo='P1', nombre='Política 1', gestion=_gf(2027),
     )
     lineamiento = LineamientoEstrategico.objects.create(
-        codigo='L1', nombre='Lineamiento 1', politica=politica, gestion=2027,
+        codigo='L1', nombre='Lineamiento 1', politica=politica, gestion=_gf(2027),
     )
     resultado = ResultadoTerritorial.objects.create(
         codigo='R1', nombre='Resultado 1', lineamiento=lineamiento,
-        gestion=2027, indicador='Tasa', linea_base=10, meta_2030=50,
+        gestion=_gf(2027), indicador='Tasa', linea_base=10, meta_2030=50,
     )
     producto = ProductoTerritorial.objects.create(
         codigo='PR1', nombre='Producto 1', resultado=resultado,
-        gestion=2027, presupuesto_total_pad=100000,
+        gestion=_gf(2027), presupuesto_total_pad=100000,
     )
     return {
         'politica': politica, 'lineamiento': lineamiento,
@@ -143,7 +150,7 @@ def test_vinculos_sipeb(pad_legacy, marco_superior):
         cod_eje_pgdesa='04',
         cod_componente_pdesa='02',
         cod_ods='ODS-11',
-        gestion=2027,
+        gestion=_gf(2027),
     )
     resumen = importar_pad(lote='pad-2027', con_vinculos=True)
     assert resumen['vinculos_sipeb'] == 2
@@ -174,7 +181,7 @@ def test_vinculos_sipeb_posteriores_crean_version_nueva(pad_legacy, marco_superi
     ArticulacionSIPEB.objects.create(
         resultado=pad_legacy['resultado'],
         cod_eje_pgdesa='04',
-        gestion=2027,
+        gestion=_gf(2027),
     )
     resumen = importar_articulaciones_sipeb()
     assert resumen['version_creada'] is True
@@ -193,7 +200,7 @@ def test_vinculos_sin_marco_no_crean_nada(pad_legacy):
     ArticulacionSIPEB.objects.create(
         resultado=pad_legacy['resultado'],
         cod_eje_pgdesa='04',
-        gestion=2027,
+        gestion=_gf(2027),
     )
     resumen = importar_pad(lote='pad-2027', con_vinculos=True)
     assert resumen['vinculos_sipeb'] == 0

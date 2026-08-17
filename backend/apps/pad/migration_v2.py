@@ -129,7 +129,7 @@ def importar_pad(lote='pad', dry_run=False, gestion=None, con_vinculos=True):
     tipos_nodo = _tipos_nodo_pad(metodologia, dry_run)
 
     gestiones = list(
-        PoliticaPAD.objects.values_list('gestion', flat=True).distinct().order_by()
+        PoliticaPAD.objects.values_list('gestion__anio', flat=True).distinct().order_by()
     )
     if gestion:
         gestiones = [g for g in gestiones if g == gestion]
@@ -155,7 +155,7 @@ def importar_pad(lote='pad', dry_run=False, gestion=None, con_vinculos=True):
             }[modelo_cls]
             niveles[orden] = {}
             resumen_gestion[orden] = 0
-            for obj in modelo.objects.filter(gestion=g).order_by('codigo'):
+            for obj in modelo.objects.filter(gestion__anio=g).order_by('codigo'):
                 padre = None
                 if orden > 1:
                     padre_legacy = _padres_legacy(obj)
@@ -285,7 +285,7 @@ def _importar_vinculos(version, gestion, lote, dry_run):
 
     parcial = {'vinculos': 0, 'sin_marco': 0}
     for sip in ArticulacionSIPEB.objects.filter(
-        gestion=gestion,
+        gestion__anio=gestion,
     ).select_related('resultado'):
         resultado_nodo = NodoEstrategico.objects.filter(
             version__instrumento=version.instrumento,
@@ -345,7 +345,7 @@ def importar_articulaciones_sipeb(lote='pad-sipeb', dry_run=False, gestion=None)
 
     gestiones = list(
         ArticulacionSIPEB.objects.values_list(
-            'gestion', flat=True,
+            'gestion__anio', flat=True,
         ).distinct().order_by()
     )
     if gestion:

@@ -27,21 +27,21 @@ class SectorPADViewSet(viewsets.ModelViewSet):
 class PoliticaPADViewSet(viewsets.ModelViewSet):
     queryset = PoliticaPAD.objects.all()
     serializer_class = PoliticaPADSerializer
-    filterset_fields = ['gestion']
+    filterset_fields = {'gestion__anio': ['exact']}
     search_fields = ['codigo', 'nombre']
-    ordering_fields = ['gestion', 'codigo']
+    ordering_fields = ['gestion__anio', 'codigo']
 
 
 class LineamientoEstrategicoViewSet(viewsets.ModelViewSet):
     queryset = LineamientoEstrategico.objects.select_related('politica').all()
     serializer_class = LineamientoEstrategicoSerializer
-    filterset_fields = ['gestion', 'politica']
+    filterset_fields = {'gestion__anio': ['exact'], 'politica': ['exact']}
     search_fields = ['codigo', 'nombre']
-    ordering_fields = ['gestion', 'codigo']
+    ordering_fields = ['gestion__anio', 'codigo']
 
     @action(detail=False, methods=['get'])
     def por_politica(self, request):
-        """Agrupa lineamientos por política"""
+        """Agrupa lineamientos por polÃ­tica"""
         politica_id = request.query_params.get('politica_id')
         if politica_id:
             qs = self.get_queryset().filter(politica_id=politica_id)
@@ -60,9 +60,9 @@ class ResultadoTerritorialViewSet(viewsets.ModelViewSet):
         'programaciones',
     ).all()
 
-    filterset_fields = ['gestion', 'lineamiento', 'sector']
+    filterset_fields = {'gestion__anio': ['exact'], 'lineamiento': ['exact'], 'sector': ['exact']}
     search_fields = ['codigo', 'nombre', 'indicador']
-    ordering_fields = ['gestion', 'codigo']
+    ordering_fields = ['gestion__anio', 'codigo']
 
     def get_serializer_class(self):
         if self.action == 'list':
@@ -96,20 +96,20 @@ class ResultadoTerritorialViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'])
     def cadena_completa(self, request, pk=None):
-        """Devuelve la cadena: PGDESA → PDESA → PDS → PAD → PEI → POA
+        """Devuelve la cadena: PGDESA â†’ PDESA â†’ PDS â†’ PAD â†’ PEI â†’ POA
 
-        Integra la articulación SIPEB de un resultado territorial con los
-        instrumentos de planificación municipal (PEI → POA).
+        Integra la articulaciÃ³n SIPEB de un resultado territorial con los
+        instrumentos de planificaciÃ³n municipal (PEI â†’ POA).
         """
         resultado = self.get_object()
 
-        # Datos del PAD (resultado + articulación + productos)
+        # Datos del PAD (resultado + articulaciÃ³n + productos)
         serializer = ResultadoTerritorialSerializer(resultado)
         data = serializer.data
 
-        # Buscar articulación en PEI: nodos de planificación que referencien
-        # este código de resultado. Enlace semántico por código + gestión.
-        gestion = resultado.gestion
+        # Buscar articulaciÃ³n en PEI: nodos de planificaciÃ³n que referencien
+        # este cÃ³digo de resultado. Enlace semÃ¡ntico por cÃ³digo + gestiÃ³n.
+        gestion = resultado.gestion.anio if resultado.gestion_id else None
         pei_nodos = NodoPlanificacion.objects.filter(
             plan__tipo='pei',
             plan__gestion_inicio__lte=gestion,
@@ -150,15 +150,15 @@ class ResultadoTerritorialViewSet(viewsets.ModelViewSet):
 class ProductoTerritorialViewSet(viewsets.ModelViewSet):
     queryset = ProductoTerritorial.objects.select_related('resultado').all()
     serializer_class = ProductoTerritorialSerializer
-    filterset_fields = ['gestion', 'resultado']
+    filterset_fields = {'gestion__anio': ['exact'], 'resultado': ['exact']}
     search_fields = ['codigo', 'nombre']
-    ordering_fields = ['gestion', 'codigo']
+    ordering_fields = ['gestion__anio', 'codigo']
 
 
 class ArticulacionSIPEBViewSet(viewsets.ModelViewSet):
     queryset = ArticulacionSIPEB.objects.select_related('resultado').all()
     serializer_class = ArticulacionSIPEBSerializer
-    filterset_fields = ['gestion', 'resultado']
+    filterset_fields = {'gestion__anio': ['exact'], 'resultado': ['exact']}
     search_fields = [
         'cod_eje_pgdesa', 'cod_componente_pdesa',
         'cod_ods', 'cod_sector',
@@ -170,5 +170,5 @@ class ProgramacionAnualPADViewSet(viewsets.ModelViewSet):
         'resultado', 'producto'
     ).all()
     serializer_class = ProgramacionAnualPADSerializer
-    filterset_fields = ['anio', 'tipo', 'resultado', 'producto']
-    ordering_fields = ['anio', 'tipo', 'valor']
+    filterset_fields = {'gestion__anio': ['exact'], 'tipo': ['exact'], 'resultado': ['exact'], 'producto': ['exact']}
+    ordering_fields = ['gestion__anio', 'tipo', 'valor']

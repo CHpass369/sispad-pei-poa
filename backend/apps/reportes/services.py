@@ -1026,7 +1026,7 @@ def reporte_evaluaciones_por_periodo(fecha_inicio, fecha_fin):
         resultados.append({
             'evaluacion_id': str(ev.id),
             'plan': str(ev.plan),
-            'gestion': ev.fiscal_year,
+            'gestion': ev.gestion.anio if ev.gestion_id else None,
             'tipo': ev.get_evaluation_type_display(),
             'periodo': ev.get_period_display(),
             'estado': ev.get_status_display(),

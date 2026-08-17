@@ -264,7 +264,7 @@ class MigracionSIMService:
             ),
             (
                 MapeoLineamientoPADLegacy.ORIGEN_PAD,
-                LineamientoEstrategico.objects.filter(gestion=self.gestion),
+                LineamientoEstrategico.objects.filter(gestion__anio=self.gestion),
                 'nombre',
             ),
         )

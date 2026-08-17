@@ -20,9 +20,9 @@ class EvaluacionViewSet(viewsets.ModelViewSet):
         total_criterios=Count('criterios'),
         total_resultados=Count('resultados'),
     )
-    filterset_fields = ['plan', 'fiscal_year', 'evaluation_type', 'status', 'period']
+    filterset_fields = {'plan': ['exact'], 'gestion__anio': ['exact'], 'evaluation_type': ['exact'], 'status': ['exact'], 'period': ['exact']}
     search_fields = ['conclusions', 'recommendations', 'responsible_team']
-    ordering_fields = ['fiscal_year', 'evaluation_type', 'created_at']
+    ordering_fields = ['gestion__anio', 'evaluation_type', 'created_at']
     ordering = ['-created_at']
 
     def get_serializer_class(self):

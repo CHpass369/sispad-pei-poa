@@ -37,7 +37,7 @@ class LineamientoEstrategicoAdmin(admin.ModelAdmin):
 class ProgramacionAnualPADInline(admin.TabularInline):
     model = ProgramacionAnualPAD
     extra = 1
-    fields = ['anio', 'tipo', 'valor']
+    fields = ['gestion', 'tipo', 'valor']
     show_change_link = True
 
 
@@ -74,8 +74,8 @@ class ProductoTerritorialAdmin(admin.ModelAdmin):
 
 @admin.register(ProgramacionAnualPAD)
 class ProgramacionAnualPADAdmin(admin.ModelAdmin):
-    list_display = ['__str__', 'anio', 'tipo', 'valor']
-    list_filter = ['anio', 'tipo']
+    list_display = ['__str__', 'gestion__anio', 'tipo', 'valor']
+    list_filter = ['gestion', 'tipo']
     search_fields = ['resultado__nombre', 'producto__nombre']
 
 

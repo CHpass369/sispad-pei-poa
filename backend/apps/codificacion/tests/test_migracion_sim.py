@@ -32,6 +32,13 @@ from apps.codificacion.services.migracion_sim import MigracionSIMService
 from apps.codificacion.services.postgres_backup import PostgresBackupService
 from apps.pad.models import LineamientoEstrategico, PoliticaPAD
 from apps.planificacion.models import Plan
+from apps.gestion.models import GestionFiscal
+
+
+def _gf(anio):
+    return GestionFiscal.objects.get_or_create(
+        anio=anio, defaults={'estado': 'abierta'},
+    )[0]
 
 
 @pytest.fixture
@@ -314,13 +321,13 @@ def test_lineamientos_solo_se_mapean_con_correspondencia_inequivoca():
             entidad_territorial=cgeo,
         )
     politica = PoliticaPAD.objects.create(
-        codigo='P-01', nombre='Política', gestion=2027,
+        codigo='P-01', nombre='Política', gestion=_gf(2027),
     )
     legacy_ambiguo = LineamientoEstrategico.objects.create(
         codigo='02',
         nombre='Gestión territorial',
         politica=politica,
-        gestion=2027,
+        gestion=_gf(2027),
     )
 
     manifest = MigracionSIMService(gestion=2027).construir_manifiesto()
@@ -375,13 +382,13 @@ def test_lineamiento_pad_origen_pk_entero_se_mapea_y_consolida():
         entidad_territorial=cgeo,
     )
     politica = PoliticaPAD.objects.create(
-        codigo='P-01', nombre='Política', gestion=2027,
+        codigo='P-01', nombre='Política', gestion=_gf(2027),
     )
     legacy = LineamientoEstrategico.objects.create(
         codigo='01',
         nombre='Desarrollo institucional',
         politica=politica,
-        gestion=2027,
+        gestion=_gf(2027),
     )
     assert isinstance(legacy.pk, int)
 

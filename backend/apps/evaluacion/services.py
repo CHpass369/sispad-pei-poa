@@ -31,6 +31,7 @@ def generar_evaluacion(gestion, tipo, plan_id=None, periodo='AN'):
         Evaluacion: la evaluación creada con todos los datos poblados.
     """
     from apps.planificacion.models import Plan
+    from apps.gestion.models import GestionFiscal
 
     if plan_id:
         plan = Plan.objects.get(id=plan_id)
@@ -41,9 +42,20 @@ def generar_evaluacion(gestion, tipo, plan_id=None, periodo='AN'):
         if not plan:
             raise ValueError('No existe ningún plan registrado en el sistema.')
 
+    # PIP-DB-004: gestion es FK a GestionFiscal (año → instancia).
+    if isinstance(gestion, GestionFiscal):
+        gestion_gf = gestion
+    else:
+        gestion_gf = GestionFiscal.objects.filter(anio=int(gestion)).first()
+        if gestion_gf is None:
+            raise ValueError(
+                f'Gestión fiscal {gestion} no existe en GestionFiscal '
+                '(PIP-DB-004: no se inventan gestiones).'
+            )
+
     evaluacion, created = Evaluacion.objects.get_or_create(
         plan=plan,
-        fiscal_year=gestion,
+        gestion=gestion_gf,
         evaluation_type=tipo,
         period=periodo,
         defaults={
@@ -147,7 +159,7 @@ def evaluar_por_poau(evaluacion):
         list[ResultadoEvaluacion]: resultados creados.
     """
     poaus = POAU.objects.filter(
-        gestion=evaluacion.fiscal_year,
+        gestion=evaluacion.gestion.anio,
     ).select_related('unidad', 'producto_territorial')
 
     resultados = []
@@ -219,7 +231,7 @@ def evaluar_por_unidad(evaluacion):
         list[ResultadoEvaluacion]: resultados creados.
     """
     unidades_con_poau = (
-        POAU.objects.filter(gestion=evaluacion.fiscal_year)
+        POAU.objects.filter(gestion=evaluacion.gestion.anio)
         .values('unidad_id')
         .annotate(
             total_poau=Count('id'),
@@ -297,14 +309,14 @@ def evaluar_por_resultado_pad(evaluacion):
         list[ResultadoEvaluacion]: resultados creados.
     """
     resultados_pad = ResultadoTerritorial.objects.filter(
-        gestion=evaluacion.fiscal_year,
+        gestion=evaluacion.gestion.anio,
     ).select_related('lineamiento', 'sector')
 
     resultados = []
 
     for resultado_territorial in resultados_pad:
         programaciones = resultado_territorial.programaciones.filter(
-            anio=evaluacion.fiscal_year, tipo='fisica',
+            anio=evaluacion.gestion.anio, tipo='fisica',
         )
 
         if programaciones.exists():

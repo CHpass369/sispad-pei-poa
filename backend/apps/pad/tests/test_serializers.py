@@ -1,5 +1,6 @@
 from django.test import TestCase
 from rest_framework import serializers
+from apps.gestion.models import GestionFiscal
 from apps.pad.models import (
     ProgramacionAnualPAD, ResultadoTerritorial, ProductoTerritorial,
     LineamientoEstrategico, SectorPAD, PoliticaPAD,
@@ -10,31 +11,38 @@ from apps.pad.serializers import (
 )
 
 
+
+def _gf(anio):
+    return GestionFiscal.objects.get_or_create(
+        anio=anio, defaults={'estado': 'abierta'},
+    )[0]
+
+
 class ProgramacionAnualPADSerializerTest(TestCase):
     """Tests del serializer ProgramacionAnualPADSerializer"""
 
     def setUp(self):
         self.politica = PoliticaPAD.objects.create(
-            codigo='P1', nombre='Política 1', gestion=2026
+            codigo='P1', nombre='Política 1', gestion=_gf(2026)
         )
         self.sector = SectorPAD.objects.create(
             codigo='S01', nombre='Salud'
         )
         self.lineamiento = LineamientoEstrategico.objects.create(
             codigo='L1', nombre='Lineamiento 1',
-            politica=self.politica, gestion=2026
+            politica=self.politica, gestion=_gf(2026)
         )
         self.resultado = ResultadoTerritorial.objects.create(
             codigo='R01', nombre='Resultado 1',
             lineamiento=self.lineamiento, sector=self.sector,
-            gestion=2026
+            gestion=_gf(2026)
         )
 
     def test_serializer_valida_valor_negativo(self):
         """Rechazar valor negativo"""
         data = {
             'resultado': self.resultado.id,
-            'anio': 2026, 'tipo': 'fisica', 'valor': -100
+            'gestion': str(_gf(2026).id), 'tipo': 'fisica', 'valor': -100
         }
         serializer = ProgramacionAnualPADSerializer(data=data)
         self.assertFalse(serializer.is_valid())
@@ -43,7 +51,7 @@ class ProgramacionAnualPADSerializerTest(TestCase):
     def test_serializer_valida_fk_nulos(self):
         """Rechazar si no se envía resultado ni producto"""
         data = {
-            'anio': 2026, 'tipo': 'fisica', 'valor': 100
+            'gestion': str(_gf(2026).id), 'tipo': 'fisica', 'valor': 100
         }
         serializer = ProgramacionAnualPADSerializer(data=data)
         self.assertFalse(serializer.is_valid())
@@ -53,14 +61,21 @@ class ProgramacionAnualPADSerializerTest(TestCase):
         """Aceptar si solo se envía producto"""
         producto = ProductoTerritorial.objects.create(
             codigo='P01', nombre='Producto 1',
-            resultado=self.resultado, gestion=2026
+            resultado=self.resultado, gestion=_gf(2026)
         )
         data = {
             'producto': producto.id,
-            'anio': 2026, 'tipo': 'financiera', 'valor': 50000
+            'gestion': str(_gf(2026).id), 'tipo': 'financiera', 'valor': 50000
         }
         serializer = ProgramacionAnualPADSerializer(data=data)
         self.assertTrue(serializer.is_valid())
+
+
+
+def _gf(anio):
+    return GestionFiscal.objects.get_or_create(
+        anio=anio, defaults={'estado': 'abierta'},
+    )[0]
 
 
 class ResultadoTerritorialSerializerTest(TestCase):
@@ -68,14 +83,14 @@ class ResultadoTerritorialSerializerTest(TestCase):
 
     def setUp(self):
         self.politica = PoliticaPAD.objects.create(
-            codigo='P1', nombre='Política 1', gestion=2026
+            codigo='P1', nombre='Política 1', gestion=_gf(2026)
         )
         self.sector = SectorPAD.objects.create(
             codigo='S01', nombre='Salud'
         )
         self.lineamiento = LineamientoEstrategico.objects.create(
             codigo='L1', nombre='Lineamiento 1',
-            politica=self.politica, gestion=2026
+            politica=self.politica, gestion=_gf(2026)
         )
 
     def test_create_con_programaciones_anidadas(self):
@@ -85,12 +100,12 @@ class ResultadoTerritorialSerializerTest(TestCase):
             'nombre': 'Resultado con programaciones',
             'lineamiento': self.lineamiento.id,
             'sector': self.sector.id,
-            'gestion': 2026,
+            'gestion': str(_gf(2026).id),
             'cod_geografico': '1102',
             'programaciones': [
-                {'anio': 2026, 'tipo': 'fisica', 'valor': 100.5000},
-                {'anio': 2027, 'tipo': 'fisica', 'valor': 200.0000},
-                {'anio': 2026, 'tipo': 'financiera', 'valor': 50000.0000},
+                {'gestion': str(_gf(2026).id), 'tipo': 'fisica', 'valor': 100.5000},
+                {'gestion': str(_gf(2027).id), 'tipo': 'fisica', 'valor': 200.0000},
+                {'gestion': str(_gf(2026).id), 'tipo': 'financiera', 'valor': 50000.0000},
             ]
         }
         serializer = ResultadoTerritorialSerializer(data=data)
@@ -109,7 +124,7 @@ class ResultadoTerritorialSerializerTest(TestCase):
             'nombre': 'Resultado sin programaciones',
             'lineamiento': self.lineamiento.id,
             'sector': self.sector.id,
-            'gestion': 2026,
+            'gestion': str(_gf(2026).id),
         }
         serializer = ResultadoTerritorialSerializer(data=data)
         self.assertTrue(serializer.is_valid(), msg=serializer.errors)
@@ -121,19 +136,19 @@ class ResultadoTerritorialSerializerTest(TestCase):
         resultado = ResultadoTerritorial.objects.create(
             codigo='R01', nombre='Resultado original',
             lineamiento=self.lineamiento, sector=self.sector,
-            gestion=2026
+            gestion=_gf(2026)
         )
         ProgramacionAnualPAD.objects.create(
-            resultado=resultado, anio=2026, tipo='fisica', valor=100
+            resultado=resultado, gestion=_gf(2026), tipo='fisica', valor=100
         )
         data = {
             'codigo': 'R01',
             'nombre': 'Resultado actualizado',
             'lineamiento': self.lineamiento.id,
             'sector': self.sector.id,
-            'gestion': 2026,
+            'gestion': str(_gf(2026).id),
             'programaciones': [
-                {'anio': 2027, 'tipo': 'fisica', 'valor': 300.0000},
+                {'gestion': str(_gf(2027).id), 'tipo': 'fisica', 'valor': 300.0000},
             ]
         }
         serializer = ResultadoTerritorialSerializer(
@@ -144,21 +159,21 @@ class ResultadoTerritorialSerializerTest(TestCase):
         # Debe tener solo 1 programación (la anterior eliminada)
         progs = ProgramacionAnualPAD.objects.filter(resultado=resultado_actualizado)
         self.assertEqual(progs.count(), 1)
-        self.assertEqual(progs.first().anio, 2027)
+        self.assertEqual(progs.first().gestion.anio, 2027)
 
     def test_jsonfields_read_only(self):
         """programacion_fisica y programacion_financiera deben ser read_only"""
         resultado = ResultadoTerritorial.objects.create(
             codigo='R01', nombre='Resultado',
             lineamiento=self.lineamiento, sector=self.sector,
-            gestion=2026
+            gestion=_gf(2026)
         )
         data = {
             'codigo': 'R01',
             'nombre': 'Resultado actualizado',
             'lineamiento': self.lineamiento.id,
             'sector': self.sector.id,
-            'gestion': 2026,
+            'gestion': str(_gf(2026).id),
             'programacion_fisica': {'2026': 999},
         }
         serializer = ResultadoTerritorialSerializer(
@@ -170,20 +185,27 @@ class ResultadoTerritorialSerializerTest(TestCase):
         self.assertIsNone(resultado.programacion_fisica)
 
 
+
+def _gf(anio):
+    return GestionFiscal.objects.get_or_create(
+        anio=anio, defaults={'estado': 'abierta'},
+    )[0]
+
+
 class ProductoTerritorialSerializerTest(TestCase):
     """Tests del serializer ProductoTerritorialSerializer con nuevos campos"""
 
     def setUp(self):
         self.politica = PoliticaPAD.objects.create(
-            codigo='P1', nombre='Política 1', gestion=2026
+            codigo='P1', nombre='Política 1', gestion=_gf(2026)
         )
         self.lineamiento = LineamientoEstrategico.objects.create(
             codigo='L1', nombre='Lineamiento 1',
-            politica=self.politica, gestion=2026
+            politica=self.politica, gestion=_gf(2026)
         )
         self.resultado = ResultadoTerritorial.objects.create(
             codigo='R01', nombre='Resultado 1',
-            lineamiento=self.lineamiento, gestion=2026
+            lineamiento=self.lineamiento, gestion=_gf(2026)
         )
 
     def test_create_con_cuenta_con_financiamiento(self):
@@ -192,7 +214,7 @@ class ProductoTerritorialSerializerTest(TestCase):
             'codigo': 'P01',
             'nombre': 'Producto con financiamiento',
             'resultado': self.resultado.id,
-            'gestion': 2026,
+            'gestion': str(_gf(2026).id),
             'cuenta_con_financiamiento': 'SI',
             'presupuesto_total_pad': 250000.00,
         }
@@ -208,10 +230,10 @@ class ProductoTerritorialSerializerTest(TestCase):
             'codigo': 'P01',
             'nombre': 'Producto con programaciones',
             'resultado': self.resultado.id,
-            'gestion': 2026,
+            'gestion': str(_gf(2026).id),
             'programaciones': [
-                {'anio': 2026, 'tipo': 'fisica', 'valor': 50.0000},
-                {'anio': 2026, 'tipo': 'financiera', 'valor': 10000.0000},
+                {'gestion': str(_gf(2026).id), 'tipo': 'fisica', 'valor': 50.0000},
+                {'gestion': str(_gf(2026).id), 'tipo': 'financiera', 'valor': 10000.0000},
             ]
         }
         serializer = ProductoTerritorialSerializer(data=data)
@@ -227,7 +249,7 @@ class ProductoTerritorialSerializerTest(TestCase):
             'codigo': 'P01',
             'nombre': 'Producto',
             'resultado': self.resultado.id,
-            'gestion': 2026,
+            'gestion': str(_gf(2026).id),
             'programacion_fisica': {'2026': 999},
         }
         serializer = ProductoTerritorialSerializer(data=data)

@@ -4,6 +4,7 @@ from datetime import date
 import pytest
 from rest_framework.test import APIClient
 
+from apps.gestion.models import GestionFiscal
 from apps.accounts.models import Rol, Usuario
 from apps.planificacion.models_v2 import (
     InstrumentoPlanificacion,
@@ -289,7 +290,7 @@ def test_evaluacion_v2_vinculada_a_version(editor, version_instrumento):
         '/api/v2/sis-pe/evaluaciones/',
         {
             'version_instrumento': str(version_instrumento.id),
-            'fiscal_year': 2027,
+            'gestion': str(GestionFiscal.objects.get_or_create(anio=2027, defaults={'estado': 'abierta'})[0].id),
             'evaluation_type': 'medio_termino',
             'period': 'AN',
             'status': 'borrador',
@@ -311,7 +312,7 @@ def test_evaluacion_v2_lector_solo_lectura(lector, editor, version_instrumento):
         '/api/v2/sis-pe/evaluaciones/',
         {
             'version_instrumento': str(version_instrumento.id),
-            'fiscal_year': 2027,
+            'gestion': str(GestionFiscal.objects.get_or_create(anio=2027, defaults={'estado': 'abierta'})[0].id),
             'evaluation_type': 'anual',
             'period': 'AN',
             'status': 'borrador',
@@ -321,7 +322,7 @@ def test_evaluacion_v2_lector_solo_lectura(lector, editor, version_instrumento):
     response = _client(lector).post(
         '/api/v2/sis-pe/evaluaciones/',
         {
-            'fiscal_year': 2028,
+            'gestion': str(GestionFiscal.objects.get_or_create(anio=2028, defaults={'estado': 'abierta'})[0].id),
             'evaluation_type': 'anual',
             'period': 'AN',
         },

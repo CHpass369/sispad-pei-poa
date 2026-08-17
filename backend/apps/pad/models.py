@@ -2,6 +2,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.conf import settings
 from apps.core.models import TimeStampedModel
+from apps.gestion.models import GestionFiscal
 
 
 class SectorPAD(TimeStampedModel):
@@ -23,13 +24,16 @@ class PoliticaPAD(TimeStampedModel):
     codigo = models.CharField(max_length=20)
     nombre = models.CharField(max_length=500)
     descripcion = models.TextField(blank=True)
-    gestion = models.PositiveIntegerField(verbose_name='Gestión')
+    gestion = models.ForeignKey(
+        GestionFiscal, on_delete=models.PROTECT, db_column='gestion',
+        related_name='+', verbose_name='Gestión',
+    )
 
     class Meta:
         verbose_name = 'Política PAD'
         verbose_name_plural = 'Políticas PAD'
         unique_together = [('codigo', 'gestion')]
-        ordering = ['gestion', 'codigo']
+        ordering = ['gestion__anio', 'codigo']
 
     def __str__(self):
         return f'[{self.codigo}] {self.nombre}'
@@ -43,13 +47,16 @@ class LineamientoEstrategico(TimeStampedModel):
         PoliticaPAD, on_delete=models.CASCADE,
         related_name='lineamientos'
     )
-    gestion = models.PositiveIntegerField(verbose_name='Gestión')
+    gestion = models.ForeignKey(
+        GestionFiscal, on_delete=models.PROTECT, db_column='gestion',
+        related_name='+', verbose_name='Gestión',
+    )
 
     class Meta:
         verbose_name = 'Lineamiento estratégico'
         verbose_name_plural = 'Lineamientos estratégicos'
         unique_together = [('codigo', 'politica', 'gestion')]
-        ordering = ['gestion', 'codigo']
+        ordering = ['gestion__anio', 'codigo']
 
     def __str__(self):
         return f'[{self.codigo}] {self.nombre}'
@@ -97,7 +104,10 @@ class ResultadoTerritorial(TimeStampedModel):
         null=True, blank=True,
         help_text='[DEPRECATED] Usar programaciones en ProgramacionAnualPAD'
     )
-    gestion = models.PositiveIntegerField(verbose_name='Gestión')
+    gestion = models.ForeignKey(
+        GestionFiscal, on_delete=models.PROTECT, db_column='gestion',
+        related_name='+', verbose_name='Gestión',
+    )
     estado = models.CharField(
         max_length=20, choices=ESTADO_CHOICES, default='borrador',
         verbose_name='Estado',
@@ -107,7 +117,7 @@ class ResultadoTerritorial(TimeStampedModel):
         verbose_name = 'Resultado territorial'
         verbose_name_plural = 'Resultados territoriales'
         unique_together = [('codigo', 'lineamiento', 'gestion')]
-        ordering = ['gestion', 'codigo']
+        ordering = ['gestion__anio', 'codigo']
         indexes = [
             models.Index(fields=['gestion', 'lineamiento']),
         ]
@@ -188,13 +198,16 @@ class ProductoTerritorial(TimeStampedModel):
         null=True, blank=True,
         help_text='[DEPRECATED] Usar programaciones en ProgramacionAnualPAD'
     )
-    gestion = models.PositiveIntegerField(verbose_name='Gestión')
+    gestion = models.ForeignKey(
+        GestionFiscal, on_delete=models.PROTECT, db_column='gestion',
+        related_name='+', verbose_name='Gestión',
+    )
 
     class Meta:
         verbose_name = 'Producto territorial'
         verbose_name_plural = 'Productos territoriales'
         unique_together = [('codigo', 'resultado', 'gestion')]
-        ordering = ['gestion', 'codigo']
+        ordering = ['gestion__anio', 'codigo']
 
     def __str__(self):
         return f'[{self.codigo}] {self.nombre[:100]}'
@@ -214,7 +227,10 @@ class ProgramacionAnualPAD(TimeStampedModel):
         'ProductoTerritorial', on_delete=models.CASCADE,
         null=True, blank=True, related_name='programaciones'
     )
-    anio = models.PositiveIntegerField(verbose_name='Año')
+    gestion = models.ForeignKey(
+        GestionFiscal, on_delete=models.PROTECT, db_column='gestion',
+        related_name='+', verbose_name='Gestión',
+    )
     tipo = models.CharField(
         max_length=20,
         choices=[('fisica', 'Física'), ('financiera', 'Financiera')],
@@ -227,8 +243,8 @@ class ProgramacionAnualPAD(TimeStampedModel):
     class Meta:
         verbose_name = 'Programación anual PAD'
         verbose_name_plural = 'Programaciones anuales PAD'
-        ordering = ['anio', 'tipo']
-        unique_together = [('resultado', 'producto', 'anio', 'tipo')]
+        ordering = ['gestion__anio', 'tipo']
+        unique_together = [('resultado', 'producto', 'gestion', 'tipo')]
 
     def clean(self):
         if not self.resultado and not self.producto:
@@ -249,7 +265,7 @@ class ProgramacionAnualPAD(TimeStampedModel):
             target = f'Producto {self.producto_id}'
         else:
             target = 'Sin referencia'
-        return f'{target} - {self.anio} ({self.get_tipo_display()}): {self.valor}'
+        return f'{target} - {self.gestion.anio} ({self.get_tipo_display()}): {self.valor}'
 
 
 class ArticulacionSIPEB(TimeStampedModel):
@@ -335,12 +351,15 @@ class ArticulacionSIPEB(TimeStampedModel):
         help_text='Entidad Territorial Autónoma (GAM Sacaba)'
     )
 
-    gestion = models.PositiveIntegerField(verbose_name='Gestión')
+    gestion = models.ForeignKey(
+        GestionFiscal, on_delete=models.PROTECT, db_column='gestion',
+        related_name='+', verbose_name='Gestión',
+    )
 
     class Meta:
         verbose_name = 'Articulación SIPEB'
         verbose_name_plural = 'Articulaciones SIPEB'
-        ordering = ['gestion', 'resultado']
+        ordering = ['gestion__anio', 'resultado']
 
     def __str__(self):
         return f'Articulación SIPEB - {self.resultado.codigo} ({self.gestion})'
