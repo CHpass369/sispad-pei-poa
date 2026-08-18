@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "sispoa-frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["start", "--prefix", "frontend/sispoa"],
+      "port": 4200
+    }
+  ]
+}

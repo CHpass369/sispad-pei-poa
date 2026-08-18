@@ -56,3 +56,6 @@ htmlcov/
 
 # CodeGraph index
 .codegraph/
+
+# Worktrees de agentes (checkouts completos, no versionar)
+.claude/worktrees/
