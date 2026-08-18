@@ -61,7 +61,7 @@ export class PortalPublicoService {
   }
 
   listarResultadosPad(params?: Record<string, string | number | boolean>): Observable<ResultadoPadPublico[]> {
-    return this.api.get<ResultadoPadPublico[]>('/pad/resultados/', params);
+    return this.api.get<ResultadoPadPublico[]>('/articulacion/resultados-pad/', params);
   }
 
   listarIndicadores(params?: Record<string, string | number | boolean>): Observable<IndicadorPublico[]> {

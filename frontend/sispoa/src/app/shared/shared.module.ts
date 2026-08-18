@@ -3,8 +3,9 @@ import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { TablaGenericaComponent } from './components/tabla-generica/tabla-generica.component';
+import { ControlMetodologicoComponent } from './components/control-metodologico/control-metodologico.component';
 
-const EXPORTED_DECLARABLES = [TablaGenericaComponent];
+const EXPORTED_DECLARABLES = [TablaGenericaComponent, ControlMetodologicoComponent];
 
 @NgModule({
   declarations: [...EXPORTED_DECLARABLES],

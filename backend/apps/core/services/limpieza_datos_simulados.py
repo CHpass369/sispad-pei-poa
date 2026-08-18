@@ -52,13 +52,6 @@ from apps.acciones_correctivas.models import (
     CompromisoAccionCorrectiva,
 )
 from apps.catalogos import models as catalog_models
-from apps.evaluacion.models import (
-    CriterioEvaluacion,
-    Evaluacion,
-    LeccionAprendida,
-    Recomendacion,
-    ResultadoEvaluacion,
-)
 from apps.gestion.models import CicloFormulacion, EtapaFormulacion, GestionFiscal
 from apps.indicadores.models import (
     Indicador,
@@ -86,15 +79,7 @@ from apps.organizacion.models import (
     UnidadEjecutora,
     UnidadOrganizacional,
 )
-from apps.pad.models import (
-    ArticulacionSIPEB,
-    LineamientoEstrategico,
-    PoliticaPAD,
-    ProductoTerritorial,
-    ProgramacionAnualPAD,
-    ResultadoTerritorial,
-    SectorPAD,
-)
+from apps.pad.models import SectorPAD
 from apps.planificacion.models import (
     AccionCortoPlazo,
     AccionMedianoPlazo,
@@ -130,8 +115,24 @@ class CleanupError(RuntimeError):
 
 
 CANONICAL_SECTOR_CODES = tuple(f"{index:02d}" for index in range(1, 21))
+# The 17 UN goals, normalised to two digits. The official master catalogue
+# publishes them unpadded ("1".."17") while the historical seed stored them
+# padded ("01".."17"); both spellings denote the same goal, so every lookup
+# goes through ``_normalise_ods_code`` instead of matching a raw string.
 CANONICAL_ODS_CODES = tuple(f"{index:02d}" for index in range(1, 18))
+CANONICAL_ODS_LOOKUP = tuple(
+    dict.fromkeys(
+        [f"{index:02d}" for index in range(1, 18)]
+        + [str(index) for index in range(1, 18)]
+    )
+)
 REQUIRED_ADMIN_EMAIL = "admin@gamsacaba.gob.bo"
+
+
+def _normalise_ods_code(codigo) -> str:
+    """Return the two-digit form of an ODS code ("1" and "01" both give "01")."""
+    texto = str(codigo or "").strip()
+    return f"{int(texto):02d}" if texto.isdigit() else texto
 
 AMBIGUOUS_USER_EMAILS = (
     "test@test.com",
@@ -148,13 +149,21 @@ AMBIGUOUS_TERRITORIAL_RESULT_CODES = (
 )
 AMBIGUOUS_POAU_CODES = ("cZXc", "ZXC")
 
+# PGDESA-2026-2050 and PDESA-2026-2030 are deliberately absent: the seed and
+# the official national-catalogue importer both reach them through the same
+# get_or_create, so the code cannot tell the two origins apart. They anchor the
+# whole catalogue hierarchy (VersionCatalogoPlan, EjePGDESA, ComponentePDESA,
+# LineamientoPAD), which makes deleting them unsafe regardless of who wrote the
+# row. See CANONICAL_PLAN_CODES.
 SEED_PLAN_CODES = (
     "PDES-2021",
     "PTDI-SAC",
     "PEI-2026",
+    "PEI-DEMO-2026",
+)
+CANONICAL_PLAN_CODES = (
     "PGDESA-2026-2050",
     "PDESA-2026-2030",
-    "PEI-DEMO-2026",
 )
 SEED_AMP_CODES = tuple(f"AMP-{index:03d}" for index in range(1, 7)) + (
     "DEMO-AMP-01",
@@ -217,12 +226,34 @@ SEED_LINEAMIENTO_CODES = (
 )
 
 # Exact keys that are far too common to ever be treated as ownership proof:
-# generic sector acronyms, the organizational code GAM, the canonical sector
-# codes 01-20 that also number LineamientoPAD rows, and non-padded ODS
-# duplicates 1-9.
+# generic sector acronyms, the organizational code GAM, and the canonical
+# sector codes 01-20 that also number LineamientoPAD rows.
 AMBIGUOUS_SECTOR_PAD_CODES = ("INF", "DSB", "GAM")
 AMBIGUOUS_LINEAMIENTO_PAD_CODES = CANONICAL_SECTOR_CODES
-AMBIGUOUS_ODS_DUPLICATE_CODES = tuple(str(index) for index in range(1, 10))
+
+
+def _ambiguous_ods_duplicates():
+    """ODS rows whose unpadded code shadows an existing padded one.
+
+    An unpadded code is only a duplicate when its padded twin is also stored:
+    on a catalogue imported from the official source every goal is unpadded and
+    none of them is ambiguous.
+    """
+    codigos = set(
+        AcuerdoInternacional.objects.filter(tipo_acuerdo="ODS").values_list(
+            "codigo", flat=True
+        )
+    )
+    sombras = [
+        codigo
+        for codigo in codigos
+        if codigo.isdigit()
+        and len(codigo) == 1
+        and _normalise_ods_code(codigo) in codigos
+    ]
+    return AcuerdoInternacional.objects.filter(
+        tipo_acuerdo="ODS", codigo__in=sombras
+    )
 
 
 def _split_demo_codes(codes: Iterable[str]) -> tuple[tuple[str, ...], tuple[str, ...]]:
@@ -270,11 +301,6 @@ DELETION_ORDER = (
     Alerta,
     EntradaSeguimiento,
     ReporteSeguimiento,
-    CriterioEvaluacion,
-    ResultadoEvaluacion,
-    LeccionAprendida,
-    Recomendacion,
-    Evaluacion,
     Observacion,
     Revision,
     EnvioFormulacion,
@@ -322,12 +348,6 @@ DELETION_ORDER = (
     MovimientoTecho,
     TechoPresupuestario,
     ProgramaPresupuestario,
-    ProgramacionAnualPAD,
-    ArticulacionSIPEB,
-    ProductoTerritorial,
-    ResultadoTerritorial,
-    LineamientoEstrategico,
-    PoliticaPAD,
     AccionCortoPlazo,
     AccionMedianoPlazo,
     PlanVersion,
@@ -431,43 +451,6 @@ def _build_candidate_sets(include_ambiguous_test_data: bool) -> dict[type[models
     _add(candidates, AccionCortoPlazo, AccionCortoPlazo.objects.filter(acp_q))
     acp_ids = candidates.get(AccionCortoPlazo, set())
 
-    policy_q = Q(codigo__in=POLICY_DEMO_CODES)
-    if include_ambiguous_test_data:
-        policy_q |= Q(nombre__icontains="demo") | Q(codigo__in=POLICY_AMBIGUOUS_CODES)
-    _add(candidates, PoliticaPAD, PoliticaPAD.objects.filter(policy_q))
-    policy_ids = candidates.get(PoliticaPAD, set())
-    lineamiento_q = Q(politica_id__in=policy_ids) | Q(codigo__in=LINEAMIENTO_DEMO_CODES)
-    if include_ambiguous_test_data:
-        lineamiento_q |= (
-            Q(nombre__icontains="demo") | Q(codigo__in=LINEAMIENTO_AMBIGUOUS_CODES)
-        )
-    _add(candidates, LineamientoEstrategico, LineamientoEstrategico.objects.filter(lineamiento_q))
-    lineamiento_ids = candidates.get(LineamientoEstrategico, set())
-    territorial_result_q = Q(lineamiento_id__in=lineamiento_ids) | Q(codigo__startswith="DEMO-")
-    if include_ambiguous_test_data:
-        territorial_result_q |= Q(codigo__in=AMBIGUOUS_TERRITORIAL_RESULT_CODES)
-    _add(candidates, ResultadoTerritorial, ResultadoTerritorial.objects.filter(territorial_result_q))
-    territorial_result_ids = candidates.get(ResultadoTerritorial, set())
-    _add(
-        candidates,
-        ProductoTerritorial,
-        ProductoTerritorial.objects.filter(resultado_id__in=territorial_result_ids),
-    )
-    territorial_product_ids = candidates.get(ProductoTerritorial, set())
-    _add(
-        candidates,
-        ProgramacionAnualPAD,
-        ProgramacionAnualPAD.objects.filter(
-            Q(resultado_id__in=territorial_result_ids)
-            | Q(producto_id__in=territorial_product_ids)
-        ),
-    )
-    _add(
-        candidates,
-        ArticulacionSIPEB,
-        ArticulacionSIPEB.objects.filter(resultado_id__in=territorial_result_ids),
-    )
-
     if include_ambiguous_test_data:
         _add(candidates, SectorPAD, SectorPAD.objects.filter(codigo__in=AMBIGUOUS_SECTOR_PAD_CODES))
         _add(
@@ -475,13 +458,7 @@ def _build_candidate_sets(include_ambiguous_test_data: bool) -> dict[type[models
             LineamientoPAD,
             LineamientoPAD.objects.filter(codigo__in=AMBIGUOUS_LINEAMIENTO_PAD_CODES),
         )
-        _add(
-            candidates,
-            AcuerdoInternacional,
-            AcuerdoInternacional.objects.filter(
-                tipo_acuerdo="ODS", codigo__in=AMBIGUOUS_ODS_DUPLICATE_CODES
-            ),
-        )
+        _add(candidates, AcuerdoInternacional, _ambiguous_ods_duplicates())
     resultado_pad_q = Q(cod_resultado_pds__startswith="DEMO-")
     if include_ambiguous_test_data:
         resultado_pad_q |= (
@@ -705,12 +682,6 @@ def _build_candidate_sets(include_ambiguous_test_data: bool) -> dict[type[models
         ),
     )
 
-    _add(candidates, Evaluacion, Evaluacion.objects.filter(plan_id__in=plan_ids))
-    evaluation_ids = candidates.get(Evaluacion, set())
-    _add(candidates, CriterioEvaluacion, CriterioEvaluacion.objects.filter(evaluacion_id__in=evaluation_ids))
-    _add(candidates, ResultadoEvaluacion, ResultadoEvaluacion.objects.filter(evaluacion_id__in=evaluation_ids))
-    _add(candidates, LeccionAprendida, LeccionAprendida.objects.filter(evaluacion_id__in=evaluation_ids))
-    _add(candidates, Recomendacion, Recomendacion.objects.filter(evaluacion_id__in=evaluation_ids))
 
     _add(candidates, EnvioFormulacion, EnvioFormulacion.objects.filter(unidad_id__in=candidates.get(UnidadOrganizacional, set())))
     envio_ids = candidates.get(EnvioFormulacion, set())
@@ -815,16 +786,6 @@ def _build_ambiguous_exact_key_matches() -> dict[type[models.Model], set]:
     )
     _add(
         matches,
-        PoliticaPAD,
-        PoliticaPAD.objects.filter(codigo__in=POLICY_AMBIGUOUS_CODES),
-    )
-    _add(
-        matches,
-        LineamientoEstrategico,
-        LineamientoEstrategico.objects.filter(codigo__in=LINEAMIENTO_AMBIGUOUS_CODES),
-    )
-    _add(
-        matches,
         SectorPAD,
         SectorPAD.objects.filter(codigo__in=AMBIGUOUS_SECTOR_PAD_CODES),
     )
@@ -833,13 +794,7 @@ def _build_ambiguous_exact_key_matches() -> dict[type[models.Model], set]:
         LineamientoPAD,
         LineamientoPAD.objects.filter(codigo__in=AMBIGUOUS_LINEAMIENTO_PAD_CODES),
     )
-    _add(
-        matches,
-        AcuerdoInternacional,
-        AcuerdoInternacional.objects.filter(
-            tipo_acuerdo="ODS", codigo__in=AMBIGUOUS_ODS_DUPLICATE_CODES
-        ),
-    )
+    _add(matches, AcuerdoInternacional, _ambiguous_ods_duplicates())
     _add(matches, POAU, POAU.objects.filter(codigo__in=POAU_AMBIGUOUS_CODES))
     _add(
         matches,
@@ -872,7 +827,13 @@ def _preservation_snapshot() -> dict:
         "canonical_ods_pks": sorted(
             str(pk)
             for pk in AcuerdoInternacional.objects.filter(
-                tipo_acuerdo="ODS", codigo__in=CANONICAL_ODS_CODES
+                tipo_acuerdo="ODS", codigo__in=CANONICAL_ODS_LOOKUP
+            ).values_list("pk", flat=True)
+        ),
+        "canonical_plan_pks": sorted(
+            str(pk)
+            for pk in Plan.objects.filter(
+                codigo__in=CANONICAL_PLAN_CODES
             ).values_list("pk", flat=True)
         ),
     }
@@ -1011,13 +972,24 @@ def validate_preserved_state(snapshot: dict) -> None:
         SectorPAD.objects.filter(codigo__in=CANONICAL_SECTOR_CODES).values_list("codigo", flat=True)
     ) != set(CANONICAL_SECTOR_CODES):
         raise CleanupError("The canonical 20 SectorPAD rows are not preserved")
-    if (
-        AcuerdoInternacional.objects.filter(
-            tipo_acuerdo="ODS", codigo__in=CANONICAL_ODS_CODES
-        ).values("codigo").distinct().count()
-        != len(CANONICAL_ODS_CODES)
-    ):
+    codigos_ods = {
+        _normalise_ods_code(codigo)
+        for codigo in AcuerdoInternacional.objects.filter(
+            tipo_acuerdo="ODS"
+        ).values_list("codigo", flat=True)
+    }
+    if not set(CANONICAL_ODS_CODES).issubset(codigos_ods):
         raise CleanupError("The canonical 17 ODS rows are not preserved")
+
+    preserved_plan_pks = set(snapshot["canonical_plan_pks"])
+    current_plan_pks = {
+        str(pk)
+        for pk in Plan.objects.filter(codigo__in=CANONICAL_PLAN_CODES).values_list(
+            "pk", flat=True
+        )
+    }
+    if not preserved_plan_pks.issubset(current_plan_pks):
+        raise CleanupError("A canonical PGDESA/PDESA plan was removed")
 
 
 def _assert_no_remaining_candidates(include_ambiguous_test_data: bool) -> None:

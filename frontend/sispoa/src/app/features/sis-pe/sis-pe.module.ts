@@ -2,58 +2,55 @@ import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, Routes } from '@angular/router';
+import { SharedModule } from '../../shared/shared.module';
 import { CapabilityGuard } from '../../core/guards/capability.guard';
 import { modulosPendientes } from '../sistemas/modulos-pendientes';
-import { SisPeArbolComponent } from './sis-pe-arbol.component';
-import { SisPeDashboardComponent } from './sis-pe-dashboard.component';
-import { SisPeInstrumentosComponent } from './sis-pe-instrumentos.component';
-import { SisPeVersionComponent } from './sis-pe-version.component';
+import { PeiMatrizViewerComponent } from './pei/pei-matriz-viewer.component';
+import { PeiWizardComponent } from './pei/pei-wizard.component';
+import { PeiHomeComponent } from './pei/pei-home.component';
+import { PeiRegistrosComponent } from './pei/pei-registros.component';
 
+/**
+ * SIS-PE — Planificación Estratégica.
+ *
+ * The domain is being rebuilt one tool at a time on top of a clean schema.
+ * PEI is the first tool back online: it builds the official 2026-2030 planning
+ * matrix. The remaining routes still resolve to the "module in development"
+ * placeholder.
+ */
 const routes: Routes = [
   { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
   {
-    path: 'dashboard',
-    component: SisPeDashboardComponent,
+    path: 'pei',
     canActivate: [CapabilityGuard],
     data: { capacidades: ['sis_pe.instrumento.read'] },
+    children: [
+      { path: '', component: PeiHomeComponent },
+      { path: 'nuevo', component: PeiWizardComponent },
+      { path: 'nuevo/:id', component: PeiWizardComponent },
+      { path: 'registros', component: PeiRegistrosComponent },
+    ],
   },
-  {
-    path: 'instrumentos',
-    component: SisPeInstrumentosComponent,
-    canActivate: [CapabilityGuard],
-    data: { capacidades: ['sis_pe.instrumento.read'] },
-  },
-  {
-    path: 'versiones/:id',
-    component: SisPeVersionComponent,
-    canActivate: [CapabilityGuard],
-    data: { capacidades: ['sis_pe.instrumento.read'] },
-  },
-  // Módulos del plan maestro (§18.1 SIS-PE) en desarrollo
   ...modulosPendientes(
     [
-      { ruta: 'diagnostico', nombre: 'Diagnóstico integral' },
-      { ruta: 'pad', nombre: 'PAD' },
-      { ruta: 'pei', nombre: 'PEI' },
-      { ruta: 'articulacion', nombre: 'Articulación estratégica' },
-      { ruta: 'indicadores', nombre: 'Banco Municipal de Indicadores' },
-      { ruta: 'territorio', nombre: 'Territorialización' },
-      { ruta: 'seguimiento', nombre: 'Seguimiento estratégico' },
-      { ruta: 'evaluacion', nombre: 'Evaluación y ajustes' },
+      { ruta: 'dashboard', nombre: 'Dashboard PE' },
+      { ruta: 'instrumentos', nombre: 'Instrumentos' },
+      { ruta: 'diagnostico', nombre: 'Diagnóstico Integral' },
+      { ruta: 'seguimiento-evaluacion', nombre: 'Seguimiento y Evaluación' },
     ],
     'SIS-PE',
-    '/sis-pe/dashboard',
+    '/sistemas',
     ['sis_pe.instrumento.read'],
   ),
 ];
 
 @NgModule({
   declarations: [
-    SisPeDashboardComponent,
-    SisPeInstrumentosComponent,
-    SisPeVersionComponent,
-    SisPeArbolComponent,
+    PeiHomeComponent,
+    PeiWizardComponent,
+    PeiRegistrosComponent,
+    PeiMatrizViewerComponent,
   ],
-  imports: [CommonModule, FormsModule, RouterModule.forChild(routes)],
+  imports: [CommonModule, FormsModule, SharedModule, RouterModule.forChild(routes)],
 })
 export class SisPeModule {}

@@ -176,6 +176,10 @@ def importar_objetos_gasto(reporte, gestion):
 def importar_institucional(reporte, gestion):
     filas = leer_items_clasificador('INSTITUCIONAL', gestion)
     gestion_fiscal = resolver_gestion(gestion)
+    version = version_clasificador(
+        VersionClasificador.TIPO_INSTITUCIONAL, gestion,
+        'Importado del catálogo maestro — pendiente de homologación',
+    )
     reporte.fuente = f'INSTITUCIONAL ({len(filas)})'
     for fila in filas:
         upsert(
@@ -184,6 +188,7 @@ def importar_institucional(reporte, gestion):
             valores={
                 'denominacion': fila['denominacion'],
                 'descripcion': fila['descripcion'] or '',
+                'version_clasificador': version,
                 'fuente_normativa': '',
                 'fecha_vigencia_desde': vigencia_desde(gestion),
                 'metadatos_importacion': _metadatos(
@@ -205,6 +210,10 @@ def importar_institucional(reporte, gestion):
 def importar_rubros(reporte, gestion):
     filas = orden_bfs(leer_items_clasificador('RUBRO_RECURSO', gestion))
     gestion_fiscal = resolver_gestion(gestion)
+    version = version_clasificador(
+        VersionClasificador.TIPO_RUBRO_RECURSO, gestion,
+        'Importado del catálogo maestro — pendiente de homologación',
+    )
     reporte.fuente = f'RUBRO_RECURSO ({len(filas)})'
     por_uuid = {fila['item_uuid']: fila for fila in filas}
     for fila in filas:
@@ -214,6 +223,7 @@ def importar_rubros(reporte, gestion):
             valores={
                 'denominacion': fila['denominacion'],
                 'descripcion': fila['descripcion'] or '',
+                'version_clasificador': version,
                 'fuente_normativa': '',
                 'fecha_vigencia_desde': vigencia_desde(gestion),
                 'metadatos_importacion': _metadatos(
@@ -231,6 +241,10 @@ def importar_rubros(reporte, gestion):
 def importar_finalidades(reporte, gestion):
     filas = orden_bfs(leer_items_clasificador('FINALIDAD_FUNCION', gestion))
     gestion_fiscal = resolver_gestion(gestion)
+    version = version_clasificador(
+        VersionClasificador.TIPO_FINALIDAD_FUNCION, gestion,
+        'Importado del catálogo maestro — pendiente de homologación',
+    )
     reporte.fuente = f'FINALIDAD_FUNCION ({len(filas)})'
     por_uuid = {fila['item_uuid']: fila for fila in filas}
     for fila in filas:
@@ -240,6 +254,7 @@ def importar_finalidades(reporte, gestion):
             valores={
                 'denominacion': fila['denominacion'],
                 'descripcion': fila['descripcion'] or '',
+                'version_clasificador': version,
                 'fuente_normativa': '',
                 'fecha_vigencia_desde': vigencia_desde(gestion),
                 'metadatos_importacion': _metadatos(

@@ -19,14 +19,12 @@
  */
 export const LEGACY_MENU_VISIBLE: Record<string, boolean> = {
   // SIS-PE
-  '/articulador': true,
-  '/articulacion': true,
+  '/matrices-pad': true,
   '/indicadores': true,
   '/territorio': true,
-  '/evaluacion': true,
   // SIS-POA
   '/poau': true,
-  '/recursos': true,
+  '/poau_recursos': true,
   '/planificacion/formulacion': true,
   '/seguimiento': true,
   '/modificaciones': true,

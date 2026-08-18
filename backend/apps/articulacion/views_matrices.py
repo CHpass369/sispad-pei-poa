@@ -10,9 +10,13 @@ from datetime import date
 from apps.presupuesto.models import AsignacionPresupuestariaUnidad
 from .models import (
     ArticulacionPADPEI, IndicadorCadena, AccionPOA,
-    OperacionPOAU, ActividadPOAU,
+    OperacionPOAU, ActividadPOAU, ResultadoPEI, ProductoPEI,
     SeguimientoPresupuesto, AsignacionObjetoGasto
 )
+
+GESTIONES_PEI = ('2026', '2027', '2028', '2029', '2030')
+
+NO_APLICA = 'NO APLICA'
 from .services import construir_matriz_a_gestion, construir_matriz_b_gestion
 
 
@@ -225,8 +229,129 @@ def _serialize_m5(row, canonical):
     }
 
 
+def _pei_articulacion(result):
+    """Secciones I a IV y articulación territorial: son idénticas en todas las
+    filas que cuelgan de un mismo resultado institucional."""
+    return {
+        'cod_eje_pgdesa': _text(result.cod_eje_pgdesa),
+        'objetivo_impacto': _text(result.objetivo_impacto),
+        'cod_componente_pdesa': _text(result.cod_componente_pdesa),
+        'objetivo_efecto': _text(result.objetivo_efecto),
+        'cod_ods': _text(result.cod_ods),
+        'cod_ndc': _text(result.cod_ndc),
+        'cod_ndt': _text(result.cod_ndt),
+        'cod_meta_3030': _text(result.cod_meta_3030),
+        'cod_sector': _text(result.cod_sector),
+        'sector': _text(result.sector),
+        'cod_resultado_sectorial': _text(result.cod_resultado_sectorial),
+        'resultado_sectorial': _text(result.resultado_sectorial),
+        'cod_resultado_territorial': _text(result.cod_resultado_territorial),
+        'cod_entidad': _text(result.cod_entidad),
+        'entidad': _text(result.entidad),
+        'cod_oei': _text(result.cod_oei),
+        'cod_resultado_pei': _text(result.codigo_resultado),
+        'resultado_institucional': _text(result.denominacion),
+    }
+
+
+def _pei_indicador(indicator):
+    """Secciones VI, VII y VIII a partir del indicador de la fila."""
+    fisica = getattr(indicator, 'programacion_fisica', None) or {}
+    inversion = {
+        year: _decimal(getattr(indicator, f'inversion_{year}', None))
+        for year in GESTIONES_PEI
+    } if indicator else {year: '' for year in GESTIONES_PEI}
+    corriente = {
+        year: _decimal(getattr(indicator, f'corriente_{year}', None))
+        for year in GESTIONES_PEI
+    } if indicator else {year: '' for year in GESTIONES_PEI}
+    inversion_total = _decimal(getattr(indicator, 'presupuesto_inversion_total', None))
+    corriente_total = _decimal(getattr(indicator, 'presupuesto_corriente_total', None))
+    total = (
+        (getattr(indicator, 'presupuesto_inversion_total', None) or 0)
+        + (getattr(indicator, 'presupuesto_corriente_total', None) or 0)
+    ) if indicator else 0
+    return {
+        'indicador': _text(getattr(indicator, 'indicador', '')),
+        'tipo_indicador': _text(getattr(indicator, 'tipo_indicador', '')),
+        'unidad_medida': _text(getattr(indicator, 'unidad_medida', '')),
+        'formula': _text(getattr(indicator, 'formula', '')),
+        'linea_base': _decimal(getattr(indicator, 'linea_base', None)),
+        'meta_2030': _decimal(getattr(indicator, 'meta_2030', None)),
+        'fisica': {year: _text(str(fisica.get(year, ''))) for year in GESTIONES_PEI},
+        'presupuesto_total': _decimal(total) if total else '',
+        'inversion_total': inversion_total,
+        'inversion': inversion,
+        'corriente_total': corriente_total,
+        'corriente': corriente,
+    }
+
+
+def _serialize_pei_resultado(result, indicator):
+    """Fila de nivel resultado: programa y producto van en NO APLICA."""
+    return {
+        'id': str(result.pk),
+        'nivel': 'resultado',
+        **_pei_articulacion(result),
+        'cod_programa_presup': NO_APLICA,
+        'programa_presup': NO_APLICA,
+        'cod_producto': NO_APLICA,
+        'nombre_producto': NO_APLICA,
+        'tipo_producto': '',
+        **_pei_indicador(indicator),
+    }
+
+
+def _serialize_pei_producto(product, indicator):
+    result = product.resultado_pei
+    return {
+        'id': str(product.pk),
+        'nivel': 'producto',
+        **_pei_articulacion(result),
+        'cod_programa_presup': _text(product.cod_programa_presup),
+        'programa_presup': _text(product.programa_presup),
+        'cod_producto': _text(product.codigo_producto),
+        'nombre_producto': _text(product.denominacion),
+        'tipo_producto': _text(product.tipo_producto),
+        **_pei_indicador(indicator),
+    }
+
+
 class MatrizViewSet(viewsets.ViewSet):
     """Endpoints que devuelven matrices desnormalizadas (formato Excel)."""
+
+    @action(detail=False, methods=['get'])
+    def pei_territorial(self, request):
+        """Matriz de planificación PEI territorial (46 columnas, 8 secciones).
+
+        Cada resultado institucional aporta una fila de nivel resultado seguida
+        de una fila por cada producto institucional que lo compone.
+        GET /api/v1/articulacion/matrices/pei_territorial/?vigencia_desde=2026
+        """
+        vigencia = request.query_params.get('vigencia_desde')
+        cod_entidad = request.query_params.get('cod_entidad')
+        qs = ResultadoPEI.objects.prefetch_related(
+            Prefetch(
+                'productos',
+                queryset=ProductoPEI.objects.prefetch_related('indicadores'),
+            ),
+            'indicadores',
+        )
+        if vigencia:
+            qs = qs.filter(vigencia_desde=int(vigencia))
+        if cod_entidad:
+            qs = qs.filter(cod_entidad=cod_entidad)
+
+        filas = []
+        for result in qs.order_by('codigo_resultado'):
+            filas.append(
+                _serialize_pei_resultado(result, result.indicadores.first())
+            )
+            for product in result.productos.all():
+                filas.append(
+                    _serialize_pei_producto(product, product.indicadores.first())
+                )
+        return Response(filas)
 
     def _gestion_param(self, request, por_defecto=2026):
         """Lee y valida ``?gestion=`` (int); 400 si no es numérico."""
@@ -390,11 +515,9 @@ class MatrizViewSet(viewsets.ViewSet):
 
         from apps.codificacion.models import (
             EjePGDESA, ComponentePDESA, LineamientoPAD,
-            EntidadTerritorialCGEO, ResultadoSectorial,
+            EntidadTerritorialCGEO, ResultadoSectorial, SectorEconomico,
         )
-        from apps.catalogos.models import (
-            UnidadMedida, SectorEconomicoPresupuestario,
-        )
+        from apps.catalogos.models import UnidadMedida
 
         ejes = [
             {'codigo': e.codigo, 'denominacion': e.denominacion, 'id': str(e.id),
@@ -412,19 +535,15 @@ class MatrizViewSet(viewsets.ViewSet):
              'componente_codigo': getattr(getattr(l, 'componente', None), 'codigo', '')}
             for l in _by_gestion(LineamientoPAD.objects.all()).order_by('codigo')
         ]
-        # Sectores de la economía plural: SOLO nivel 1 del clasificador
-        # SECTOR_ECONOMICO (código sin punto), excluyendo los 4
-        # administrativos/estatales (14 ADMINISTRACION GENERAL, 15 ORDEN
-        # PUBLICO Y SEGURIDAD CIUDADANA, 16 DEFENSA, 17 DEUDA PUBLICA).
-        # Resultado: los 20 sectores productivos y sociales que la matriz M1
-        # usa en la columna COD_SECTOR.
-        SECTORES_ADMINISTRATIVOS = {'14', '15', '16', '17'}
+        # Sectores del PAD (segmento SS, 2 dígitos) desde el catálogo maestro
+        # nacional: los 24 completos, incluidos los administrativos/estatales
+        # (14 ADMINISTRACION GENERAL, 15 ORDEN PUBLICO Y SEGURIDAD CIUDADANA,
+        # 16 DEFENSA, 17 DEUDA PUBLICA), porque el GAM también planifica en
+        # ellos. Se lee codificacion.SectorEconomico —no el clasificador
+        # presupuestario de 3 niveles, que es otro catálogo.
         sectores = [
             {'codigo': s.codigo, 'denominacion': s.denominacion, 'id': str(s.id)}
-            for s in SectorEconomicoPresupuestario.objects.filter(
-                gestion=int(gestion) if gestion else 2026
-            ).exclude(codigo__in=SECTORES_ADMINISTRATIVOS).order_by('codigo')
-            if '.' not in s.codigo
+            for s in _by_gestion(SectorEconomico.objects.all()).order_by('codigo')
         ]
         # Si la gestión pedida no tiene ejes/componentes, fallback a 2026
         # (el catálogo maestro está poblado en 2026 baseline; 2027 pendiente
@@ -451,6 +570,13 @@ class MatrizViewSet(viewsets.ViewSet):
                 {'codigo': l.codigo, 'denominacion': l.denominacion, 'id': str(l.id),
                  'componente_codigo': getattr(getattr(l, 'componente', None), 'codigo', '')}
                 for l in LineamientoPAD.objects.filter(
+                    version_catalogo__gestion=2026
+                ).order_by('codigo')
+            ]
+        if not sectores:
+            sectores = [
+                {'codigo': s.codigo, 'denominacion': s.denominacion, 'id': str(s.id)}
+                for s in SectorEconomico.objects.filter(
                     version_catalogo__gestion=2026
                 ).order_by('codigo')
             ]

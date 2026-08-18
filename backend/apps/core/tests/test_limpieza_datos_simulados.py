@@ -11,7 +11,11 @@ from django.test import TestCase
 
 from apps.accounts.models import Rol
 from apps.articulacion.models import AcuerdoInternacional, LineamientoPAD, ResultadoPAD
-from apps.core.services.limpieza_datos_simulados import CleanupError
+from apps.core.services.limpieza_datos_simulados import (
+    CleanupError,
+    _preservation_snapshot,
+    build_cleanup_manifest,
+)
 from apps.gestion.models import GestionFiscal
 from apps.organizacion.models import TipoUnidad, UnidadOrganizacional
 from apps.pad.models import SectorPAD
@@ -180,11 +184,11 @@ class LimpiezaDatosSimuladosTest(TestCase):
     def test_commit_preserves_legitimate_rows_colliding_on_exact_seed_identifiers(self):
         unit_type = TipoUnidad.objects.get(codigo="SEC")
         colliding_plan = Plan.objects.create(
-            codigo="PGDESA-2026-2050",
+            codigo="PEI-2026",
             nombre="Plan institucional legítimo",
             tipo="otro",
             gestion_inicio=2026,
-            gestion_fin=2050,
+            gestion_fin=2030,
             descripcion="Registro oficial que coincide con un identificador de semilla",
             fecha_vigencia_desde=date(2026, 1, 1),
         )
@@ -242,6 +246,70 @@ class LimpiezaDatosSimuladosTest(TestCase):
         self.assertTrue(UnidadOrganizacional.objects.filter(pk=colliding_unit.pk).exists())
         self.assertTrue(LineamientoPAD.objects.filter(pk=colliding_lineamiento.pk).exists())
         self.assertTrue(TipoUnidad.objects.filter(pk=colliding_type.pk).exists())
+
+    def test_canonical_plans_and_unpadded_ods_are_never_candidates(self):
+        """PGDESA/PDESA and officially-imported ODS stay out of every bucket.
+
+        The seed and the national-catalogue importer converge on the same
+        PGDESA/PDESA rows, and the official source publishes ODS codes unpadded
+        ("1".."17"). Neither may be offered for deletion, not even through
+        --include-ambiguous-test-data, because the whole catalogue hierarchy
+        hangs off them.
+        """
+        for codigo in ("PGDESA-2026-2050", "PDESA-2026-2030"):
+            Plan.objects.get_or_create(
+                codigo=codigo,
+                defaults={
+                    "nombre": f"Plan nacional {codigo}",
+                    "tipo": "pgdesa" if "PGDESA" in codigo else "pdesa",
+                    "gestion_inicio": 2026,
+                    "gestion_fin": 2050 if "PGDESA" in codigo else 2030,
+                    "fecha_vigencia_desde": date(2026, 1, 1),
+                },
+            )
+        for numero in range(1, 18):
+            AcuerdoInternacional.objects.get_or_create(
+                tipo_acuerdo="ODS",
+                codigo=str(numero),
+                defaults={"denominacion": f"Objetivo {numero}"},
+            )
+
+        plan_pks = {
+            str(pk)
+            for pk in Plan.objects.filter(
+                codigo__in=("PGDESA-2026-2050", "PDESA-2026-2030")
+            ).values_list("pk", flat=True)
+        }
+        ods_pks = {
+            str(pk)
+            for pk in AcuerdoInternacional.objects.filter(
+                tipo_acuerdo="ODS"
+            ).values_list("pk", flat=True)
+        }
+
+        # Both buckets, in both modes: the dangerous opt-in must not reach them.
+        for include_ambiguous in (False, True):
+            manifest = build_cleanup_manifest(include_ambiguous)
+            for label, protegidos in (
+                ("planificacion.Plan", plan_pks),
+                ("articulacion.AcuerdoInternacional", ods_pks),
+            ):
+                ofrecidos = set(
+                    manifest["candidates"].get(label, {}).get("primary_keys", [])
+                ) | set(
+                    manifest["ambiguous_excluded"]
+                    .get(label, {})
+                    .get("primary_keys", [])
+                )
+                self.assertEqual(
+                    protegidos & ofrecidos,
+                    set(),
+                    f"{label} offered for deletion (include_ambiguous={include_ambiguous})",
+                )
+
+        snapshot = _preservation_snapshot()
+        self.assertEqual(set(snapshot["canonical_plan_pks"]), plan_pks)
+        self.assertEqual(len(snapshot["canonical_ods_pks"]), 17)
 
     def test_commit_preserves_legitimate_2026_and_demo_like_rows(self):
         legitimate_plan = Plan.objects.create(

@@ -7,7 +7,6 @@ Estructura:
     /api/v2/geo/...         PIP GEO (distritos, unidades territoriales…)
     /api/v2/integracion/... PIP INTEGRACIÓN (cadena PAD-PEI, matrices…)
     /api/v2/auditoria/...   PIP AUDITORÍA (eventos de auditoría)
-    /api/v2/sis-pe/...      SIS-PE (instrumentos, versiones, nodos, vínculos…)
     /api/v2/sis-poa/...     SIS-POA (acciones, operaciones, presupuesto…)
     /api/v2/sis-pro/...     SIS-PRO (proyectos, cartera…)
     /api/v2/me/...          identidad/capacidades del usuario actual
@@ -59,11 +58,6 @@ from apps.territorio.views import (
     LocalizacionTerritorialViewSet as TerritorioLocalizacionTerritorialViewSet,
     UnidadTerritorialViewSet as TerritorioUnidadTerritorialViewSet,
 )
-from apps.evaluacion.views_v2 import (
-    EvaluacionV2ViewSet,
-    LeccionV2ViewSet,
-    RecomendacionV2ViewSet,
-)
 from apps.inversion.views_v2 import (
     CondicionViewSet,
     CostoViewSet,
@@ -97,14 +91,6 @@ from apps.inversion.views_preinversion import (
     TDRProductoViewSet,
     TDRViewSet,
 )
-from apps.planificacion.views_v2 import (
-    InstrumentoViewSet,
-    MetodologiaViewSet,
-    NodoViewSet,
-    TipoInstrumentoViewSet,
-    VersionViewSet,
-    VinculoViewSet as VinculoEstrategicoViewSet,
-)
 from apps.poau.views_v2 import (
     AccionViewSet,
     ActividadViewSet,
@@ -121,7 +107,6 @@ from apps.workflow.views_v2 import (
 )
 
 platform_router = DefaultRouter()
-sis_pe_router = DefaultRouter()
 sis_poa_router = DefaultRouter()
 sis_pro_router = DefaultRouter()
 core_router = DefaultRouter()
@@ -130,15 +115,6 @@ geo_router = DefaultRouter()
 integracion_router = DefaultRouter()
 auditoria_router = DefaultRouter()
 
-sis_pe_router.register('instrumentos', InstrumentoViewSet, basename='v2-instrumentos')
-sis_pe_router.register('versiones', VersionViewSet, basename='v2-versiones')
-sis_pe_router.register('nodos', NodoViewSet, basename='v2-nodos')
-sis_pe_router.register('vinculos', VinculoEstrategicoViewSet, basename='v2-vinculos')
-sis_pe_router.register('tipos-instrumento', TipoInstrumentoViewSet, basename='v2-tipos-instrumento')
-sis_pe_router.register('metodologias', MetodologiaViewSet, basename='v2-metodologias')
-sis_pe_router.register('evaluaciones', EvaluacionV2ViewSet, basename='v2-evaluaciones')
-sis_pe_router.register('lecciones', LeccionV2ViewSet, basename='v2-lecciones')
-sis_pe_router.register('recomendaciones', RecomendacionV2ViewSet, basename='v2-recomendaciones')
 
 sis_poa_router.register('poas', PoAViewSet, basename='v2-poas')
 sis_poa_router.register('acciones', AccionViewSet, basename='v2-acciones-poa')
@@ -237,7 +213,6 @@ urlpatterns = [
     path('geo/', include(geo_router.urls)),
     path('integracion/', include(integracion_router.urls)),
     path('auditoria/', include(auditoria_router.urls)),
-    path('sis-pe/', include(sis_pe_router.urls)),
     path('sis-poa/', include(sis_poa_router.urls)),
     path('sis-poa/budget/', include('apps.budget.urls')),
     path('sis-pro/', include(sis_pro_router.urls)),

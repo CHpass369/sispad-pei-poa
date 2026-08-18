@@ -1,13 +1,17 @@
 """Tests del management command importar_catalogos_sacaba (GAM Sacaba, gestión 2027)."""
-import re
 from datetime import date
 
 import pytest
 from django.conf import settings
+from django.core.management import CommandError
 from django.core.management import call_command
 
 from apps.catalogos.models import (
-    VersionClasificador, FuenteFinanciamiento, OrganismoFinanciador,
+    ClasificadorGeograficoPresupuestario,
+    ClasificadorInstitucional,
+    FuenteFinanciamiento,
+    OrganismoFinanciador,
+    VersionClasificador,
 )
 from apps.gestion.models import GestionFiscal
 from apps.organizacion.models import (
@@ -31,19 +35,31 @@ def test_command_carga_catalogos_completos(db):
     _cargar_catalogos()  # segunda ejecución: no debe duplicar
 
     assert GestionFiscal.objects.filter(anio=2027).count() == 1
-    assert VersionClasificador.objects.filter(
-        gestion__anio=2027, vigente=True,
-        clasificacion_fuente=VersionClasificador.FUENTE_OFICIAL,
-    ).count() == 2
-    for tipo in (
+    tipos_2027 = {
+        VersionClasificador.TIPO_INSTITUCIONAL,
+        VersionClasificador.TIPO_RUBRO_RECURSO,
+        VersionClasificador.TIPO_OBJETO_GASTO,
+        VersionClasificador.TIPO_FINALIDAD_FUNCION,
         VersionClasificador.TIPO_FUENTE_FINANCIAMIENTO,
         VersionClasificador.TIPO_ORGANISMO_FINANCIADOR,
-    ):
-        assert VersionClasificador.objects.filter(
-            tipo=tipo, gestion__anio=2027, vigente=True,
-        ).count() == 1
+        VersionClasificador.TIPO_SECTOR_ECONOMICO,
+        VersionClasificador.TIPO_GEOGRAFICO_PRESUPUESTARIO,
+    }
+    assert set(VersionClasificador.objects.filter(
+        gestion__anio=2027,
+    ).values_list('tipo', flat=True)) == tipos_2027
+    assert not VersionClasificador.objects.filter(
+        gestion__anio=2027, vigente=True,
+    ).exists()
     assert FuenteFinanciamiento.objects.filter(gestion__anio=2027).count() == 21
     assert OrganismoFinanciador.objects.filter(gestion__anio=2027).count() == 11
+    assert ClasificadorInstitucional.objects.get(
+        codigo='1312', gestion__anio=2027,
+    ).metadatos_importacion['sigla'] == 'SCB'
+    assert ClasificadorGeograficoPresupuestario.objects.get(
+        version_clasificador__gestion__anio=2027,
+        departamento='3', provincia='5', municipio='1',
+    ).codigo_fuente == '3|5|1'
     assert DireccionAdministrativa.objects.filter(gestion__anio=2027).count() == 5
     assert UnidadEjecutora.objects.filter(gestion__anio=2027).count() == 11
     assert UnidadOrganizacional.objects.filter(
@@ -63,19 +79,93 @@ def test_distritos_cargados(db):
     assert Distrito.objects.filter(codigo='DLL').first().nombre == 'DISTRITO LAVA LAVA'
 
 
-def test_version_clasificador_oficial_tiene_norma(db):
+def test_version_clasificador_sin_pdf_queda_no_oficial(db):
     _cargar_catalogos()
     version = VersionClasificador.objects.get(
         tipo=VersionClasificador.TIPO_FUENTE_FINANCIAMIENTO,
-        gestion__anio=2027, vigente=True,
+        gestion__anio=2027,
     )
     assert version.norma == (
         'RM N° 271 de 31/07/2026 - Directrices de Formulación Presupuestaria 2027'
     )
     assert version.fecha_norma == date(2026, 7, 31)
+    assert version.clasificacion_fuente == VersionClasificador.FUENTE_INCIERTA
+    assert version.vigente is False
+    assert version.hash_fuente == ''
+
+
+def test_ruta_pdf_inexistente_falla_cerrado(db, tmp_path):
+    ruta_inexistente = tmp_path / 'ausente' / 'clasificadores-2027.pdf'
+
+    with pytest.raises(CommandError):
+        call_command(
+            'importar_catalogos_sacaba',
+            gestion=2027,
+            clasificadores_pdf=str(ruta_inexistente),
+        )
+
+    assert not GestionFiscal.objects.filter(anio=2027).exists()
+
+
+def test_version_clasificador_con_pdf_conserva_proveniencia_oficial(db, tmp_path):
+    pdf = tmp_path / 'clasificadores-2027.pdf'
+    pdf.write_bytes(b'%PDF-1.7 source-backed test artifact')
+
+    from hashlib import sha256
+
+    call_command(
+        'importar_catalogos_sacaba',
+        gestion=2027,
+        clasificadores_pdf=str(pdf),
+    )
+    version = VersionClasificador.objects.get(
+        tipo=VersionClasificador.TIPO_FUENTE_FINANCIAMIENTO,
+        gestion__anio=2027,
+    )
+    assert VersionClasificador.objects.filter(
+        gestion__anio=2027,
+        vigente=True,
+        clasificacion_fuente=VersionClasificador.FUENTE_OFICIAL,
+    ).count() == 8
     assert version.clasificacion_fuente == VersionClasificador.FUENTE_OFICIAL
     assert version.vigente is True
-    assert re.fullmatch(r'[0-9a-f]{64}', version.hash_fuente)
+    assert version.hash_fuente == sha256(pdf.read_bytes()).hexdigest()
+    assert version.codigo_fuente == 'CLASIFICADORES-PRESUPUESTARIOS-2027-MEFP'
+
+
+def test_familias_sin_fuente_completa_quedan_bloqueadas(db, capsys):
+    _cargar_catalogos()
+    salida = capsys.readouterr().out
+    for tipo in (
+        VersionClasificador.TIPO_RUBRO_RECURSO,
+        VersionClasificador.TIPO_OBJETO_GASTO,
+        VersionClasificador.TIPO_FINALIDAD_FUNCION,
+        VersionClasificador.TIPO_SECTOR_ECONOMICO,
+    ):
+        assert f'[BLOQUEADO] {tipo}' in salida
+
+
+def test_importar_2027_no_modifica_version_2026(db):
+    version_2026 = VersionClasificador.objects.create(
+        tipo=VersionClasificador.TIPO_INSTITUCIONAL,
+        gestion=GestionFiscal.objects.create(anio=2026),
+        norma='RM MEFP N.º 249/2025',
+        fecha_norma=date(2025, 6, 24),
+        codigo_fuente='RM-249-2025',
+        procedencia_normativa='Clasificadores Presupuestarios Gestión 2026',
+        hash_fuente='a' * 64,
+        clasificacion_fuente=VersionClasificador.FUENTE_OFICIAL,
+        vigente=True,
+    )
+
+    _cargar_catalogos()
+    version_2026.refresh_from_db()
+
+    assert version_2026.vigente is True
+    assert version_2026.codigo_fuente == 'RM-249-2025'
+    assert VersionClasificador.objects.filter(
+        gestion__anio=2026, codigo_fuente='RM-249-2025',
+    ).count() == 1
 
 
 def test_fuentes_y_organismos_versionados(db):

@@ -18,10 +18,6 @@ class POAU(models.Model):
         'organizacion.UnidadOrganizacional', on_delete=models.PROTECT,
         related_name='poaus',
     )
-    producto_territorial = models.ForeignKey(
-        'pad.ProductoTerritorial', on_delete=models.PROTECT,
-        null=True, blank=True, related_name='poaus',
-    )
     gestion = models.PositiveIntegerField()
     codigo = models.CharField(max_length=50, unique=True)
     nombre = models.TextField()

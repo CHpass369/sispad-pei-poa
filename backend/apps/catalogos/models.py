@@ -48,16 +48,22 @@ class VersionClasificadorManager(models.Manager.from_queryset(
 
 class VersionClasificador(TimeStampedModel):
     TIPO_INSTITUCIONAL = 'institucional'
+    TIPO_RUBRO_RECURSO = 'rubro_recurso'
     TIPO_OBJETO_GASTO = 'objeto_gasto'
+    TIPO_FINALIDAD_FUNCION = 'finalidad_funcion'
     TIPO_FUENTE_FINANCIAMIENTO = 'fuente_financiamiento'
     TIPO_ORGANISMO_FINANCIADOR = 'organismo_financiador'
+    TIPO_SECTOR_ECONOMICO = 'sector_economico'
     TIPO_CATEGORIA_PROGRAMATICA = 'categoria_programatica'
     TIPO_GEOGRAFICO_PRESUPUESTARIO = 'geografico_presupuestario'
     TIPO_CHOICES = [
         (TIPO_INSTITUCIONAL, 'Institucional'),
+        (TIPO_RUBRO_RECURSO, 'Rubro de recurso'),
         (TIPO_OBJETO_GASTO, 'Objeto del gasto'),
+        (TIPO_FINALIDAD_FUNCION, 'Finalidad/Función'),
         (TIPO_FUENTE_FINANCIAMIENTO, 'Fuente de financiamiento'),
         (TIPO_ORGANISMO_FINANCIADOR, 'Organismo financiador'),
+        (TIPO_SECTOR_ECONOMICO, 'Sector económico'),
         (TIPO_CATEGORIA_PROGRAMATICA, 'Categoría programática'),
         (TIPO_GEOGRAFICO_PRESUPUESTARIO, 'Geográfico presupuestario'),
     ]
@@ -245,18 +251,53 @@ ClasificadorVersionadoMixin.add_to_class(
 )
 
 
-class ClasificadorInstitucional(CatalogoBase):
+class ClasificadorInstitucional(ClasificadorVersionadoMixin, CatalogoBase):
+    TIPO_VERSION_CLASIFICADOR = VersionClasificador.TIPO_INSTITUCIONAL
+    # The MEFP institutional classifier uses variable-width numeric codes
+    # (for example 6, 650, and 1312); do not impose a PIP-specific width.
+    ANCHO_CODIGO_OFICIAL = None
+    version_clasificador = models.ForeignKey(
+        VersionClasificador,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='clasificadores_institucionales',
+    )
+
     class Meta:
         db_table = 'catalogo_clasificador_institucional'
         verbose_name = 'Clasificador institucional'
         verbose_name_plural = 'Clasificadores institucionales'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['codigo', 'version_clasificador'],
+                condition=Q(version_clasificador__isnull=False),
+                name='uniq_institucional_codigo_version',
+            ),
+        ]
 
 
-class RubroRecurso(CatalogoBase):
+class RubroRecurso(ClasificadorVersionadoMixin, CatalogoBase):
+    TIPO_VERSION_CLASIFICADOR = VersionClasificador.TIPO_RUBRO_RECURSO
+    version_clasificador = models.ForeignKey(
+        VersionClasificador,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='rubros_recurso',
+    )
+
     class Meta:
         db_table = 'catalogo_rubro_recurso'
         verbose_name = 'Rubro de recurso'
         verbose_name_plural = 'Rubros de recursos'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['codigo', 'version_clasificador'],
+                condition=Q(version_clasificador__isnull=False),
+                name='uniq_rubro_codigo_version',
+            ),
+        ]
 
 
 class ObjetoGasto(ClasificadorVersionadoMixin, CatalogoBase):
@@ -389,6 +430,19 @@ class ClasificadorGeograficoPresupuestario(TimeStampedModel):
         ]
         indexes = [models.Index(fields=['version_clasificador', 'codigo_fuente'])]
 
+    def clean(self):
+        super().clean()
+        if self.version_clasificador_id and self.version_clasificador.tipo != (
+            VersionClasificador.TIPO_GEOGRAFICO_PRESUPUESTARIO
+        ):
+            raise ValidationError(
+                {'version_clasificador': 'La versión no corresponde al tipo geográfico presupuestario.'}
+            )
+
+    def save(self, *args, **kwargs):
+        self.full_clean(validate_constraints=False)
+        return super().save(*args, **kwargs)
+
     @property
     def codigo_compuesto(self):
         return '.'.join((self.departamento, self.provincia, self.municipio))
@@ -402,11 +456,27 @@ class EntidadTransferencia(CatalogoBase):
         verbose_name_plural = 'Entidades de transferencia'
 
 
-class FinalidadFuncion(CatalogoBase):
+class FinalidadFuncion(ClasificadorVersionadoMixin, CatalogoBase):
+    TIPO_VERSION_CLASIFICADOR = VersionClasificador.TIPO_FINALIDAD_FUNCION
+    version_clasificador = models.ForeignKey(
+        VersionClasificador,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='finalidades_funciones',
+    )
+
     class Meta:
         db_table = 'catalogo_finalidad_funcion'
         verbose_name = 'Finalidad/Función'
         verbose_name_plural = 'Finalidades y funciones'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['codigo', 'version_clasificador'],
+                condition=Q(version_clasificador__isnull=False),
+                name='uniq_finalidad_codigo_version',
+            ),
+        ]
 
 
 class UnidadMedida(CatalogoBase):
@@ -467,7 +537,7 @@ class VersionCatalogo(TimeStampedModel):
         return f'{self.nombre} - {self.gestion}'
 
 
-class SectorEconomicoPresupuestario(CatalogoBase):
+class SectorEconomicoPresupuestario(ClasificadorVersionadoMixin, CatalogoBase):
     """Clasificador presupuestario de sector económico del catálogo maestro.
 
     Independiente de ``codificacion.SectorEconomico`` (segmento SS del PAD):
@@ -475,6 +545,14 @@ class SectorEconomicoPresupuestario(CatalogoBase):
     es punteado (``1.1.1``) y la jerarquía se resuelve por ``parent_uuid``.
     """
 
+    TIPO_VERSION_CLASIFICADOR = VersionClasificador.TIPO_SECTOR_ECONOMICO
+    version_clasificador = models.ForeignKey(
+        VersionClasificador,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='sectores_economicos',
+    )
     padre = models.ForeignKey(
         'self',
         on_delete=models.PROTECT,
@@ -494,12 +572,23 @@ class SectorEconomicoPresupuestario(CatalogoBase):
         verbose_name = 'Sector económico presupuestario'
         verbose_name_plural = 'Sectores económicos presupuestarios'
         ordering = ['codigo']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['codigo', 'version_clasificador'],
+                condition=Q(version_clasificador__isnull=False),
+                name='uniq_sector_economico_codigo_version',
+            ),
+        ]
 
     def clean(self):
         super().clean()
         if self.padre_id and self.padre.gestion != self.gestion:
             raise ValidationError(
                 {'padre': 'El padre debe pertenecer a la misma gestión.'}
+            )
+        if self.padre_id and self.padre.version_clasificador_id != self.version_clasificador_id:
+            raise ValidationError(
+                {'padre': 'El padre debe compartir la versión del clasificador.'}
             )
 
 

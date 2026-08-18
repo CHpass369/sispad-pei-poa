@@ -138,15 +138,17 @@ describe('SidebarComponent', () => {
     expect(rutas).not.toContain('/dashboard');
   });
 
-  it('should keep SIS-PE context on legacy routes of the system', () => {
-    navegarA('/articulador');
+  it('should not show the removed Articulador PAD-PEI menu item', () => {
+    navegarA('/sis-pe/instrumentos');
     const rutas = rutasVisibles();
     expect(rutas).toContain('/sis-pe/instrumentos');
-    expect(rutas).toContain('/articulador');
+    expect(rutas).not.toContain('/articulacion');
+
+    expect(fixture.nativeElement.querySelector('a[aria-label="Articulador PAD-PEI"]')).toBeNull();
   });
 
   it('should keep SIS-POA context on legacy routes (POAU, Recursos, Formulación)', () => {
-    for (const ruta of ['/poau', '/recursos', '/planificacion/formulacion']) {
+    for (const ruta of ['/poau', '/poau_recursos', '/planificacion/formulacion']) {
       navegarA(ruta);
       expect(rutasVisibles()).toContain('/sis-poa/poas');
     }

@@ -12,9 +12,10 @@ from apps.catalogos.importer.base import (
     profundidad,
     resolver_gestion,
     upsert,
+    version_clasificador,
     vigencia_desde,
 )
-from apps.catalogos.models import SectorEconomicoPresupuestario
+from apps.catalogos.models import SectorEconomicoPresupuestario, VersionClasificador
 
 
 def importar(reporte, gestion):
@@ -24,6 +25,10 @@ def importar(reporte, gestion):
     por_uuid = {fila['item_uuid']: fila for fila in filas}
     sector_por_item = {}
     gestion_fiscal = resolver_gestion(gestion)
+    version = version_clasificador(
+        VersionClasificador.TIPO_SECTOR_ECONOMICO, gestion,
+        'Importado del catálogo maestro — pendiente de homologación',
+    )
     for fila in filas:
         padre = sector_por_item.get(fila.get('parent_uuid'))
         profundidad_item = profundidad(fila, por_uuid)
@@ -33,6 +38,7 @@ def importar(reporte, gestion):
             valores={
                 'denominacion': fila['denominacion'] or f'Sector {fila["codigo"]}',
                 'descripcion': fila['descripcion'] or '',
+                'version_clasificador': version,
                 'padre': padre,
                 'nivel': str(profundidad_item),
                 'fuente_normativa': '',

@@ -271,8 +271,42 @@ class ResultadoPEI(CodigoSegmentadoModel):
         verbose_name='Entidad codificadora',
     )
     cod_oei = models.CharField(max_length=10, blank=True, verbose_name='Código OEI')
+    objetivo_estrategico = models.TextField(blank=True, verbose_name='Objetivo estratégico institucional')
     vigencia_desde = models.IntegerField(verbose_name='Vigencia desde')
     vigencia_hasta = models.IntegerField(verbose_name='Vigencia hasta')
+
+    # Matriz de planificación PEI — Sección I: planificación nacional.
+    cod_eje_pgdesa = models.CharField(max_length=10, blank=True, verbose_name='Código eje PGDESA')
+    objetivo_impacto = models.TextField(blank=True, verbose_name='Objetivo de impacto')
+    cod_componente_pdesa = models.CharField(
+        max_length=10, blank=True, verbose_name='Código componente PDESA'
+    )
+    objetivo_efecto = models.TextField(blank=True, verbose_name='Objetivo de efecto')
+
+    # Sección II: acuerdos internacionales (opcionales según la guía).
+    cod_ods = models.CharField(max_length=10, blank=True, verbose_name='Código ODS')
+    cod_ndc = models.CharField(max_length=20, blank=True, verbose_name='Código NDC')
+    cod_ndt = models.CharField(max_length=20, blank=True, verbose_name='Código NDT')
+    cod_meta_3030 = models.CharField(max_length=20, blank=True, verbose_name='Código meta 30x30')
+
+    # Sección III: identificación del sector.
+    cod_sector = models.CharField(max_length=10, blank=True, verbose_name='Código sector')
+    sector = models.CharField(max_length=200, blank=True, verbose_name='Sector')
+
+    # Sección IV: articulación sectorial.
+    cod_resultado_sectorial = models.CharField(
+        max_length=20, blank=True, verbose_name='Código resultado sectorial PES'
+    )
+    resultado_sectorial = models.TextField(blank=True, verbose_name='Resultado sectorial')
+
+    # Articulación territorial: resultado del PAD al que contribuye el resultado PEI.
+    cod_resultado_territorial = models.CharField(
+        max_length=20, blank=True, verbose_name='Código resultado territorial'
+    )
+    resultado_pad = models.ForeignKey(
+        'ResultadoPAD', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='resultados_pei', verbose_name='Resultado PAD',
+    )
 
     class Meta:
         verbose_name = 'Resultado PEI'
@@ -298,11 +332,21 @@ class ProductoPEI(CodigoSegmentadoModel):
     CAMPOS_CODIFICACION_ADICIONALES = ('resultado_pei',)
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    TIPO_PRODUCTO_CHOICES = [
+        ('INTERMEDIO', 'Intermedio'),
+        ('FINAL', 'Final'),
+        ('TERMINAL', 'Terminal'),
+    ]
+
     codigo_producto = models.CharField(max_length=50, verbose_name='Código producto')
     denominacion = models.TextField(verbose_name='Denominación')
     resultado_pei = models.ForeignKey(
         ResultadoPEI, on_delete=models.CASCADE,
         related_name='productos', verbose_name='Resultado PEI'
+    )
+    tipo_producto = models.CharField(
+        max_length=20, blank=True, choices=TIPO_PRODUCTO_CHOICES,
+        verbose_name='Tipo de producto',
     )
     cod_programa_presup = models.CharField(
         max_length=20, blank=True, verbose_name='Código programa presupuestario'
@@ -400,6 +444,10 @@ class IndicadorCadena(TimeStampedModel):
     producto_pei = models.ForeignKey(
         ProductoPEI, on_delete=models.CASCADE, null=True, blank=True,
         related_name='indicadores', verbose_name='Producto PEI'
+    )
+    resultado_pei = models.ForeignKey(
+        ResultadoPEI, on_delete=models.CASCADE, null=True, blank=True,
+        related_name='indicadores', verbose_name='Resultado PEI'
     )
     programacion_fisica = models.JSONField(null=True, blank=True, verbose_name='Programación física')
     presupuesto_inversion_total = models.DecimalField(
@@ -947,6 +995,21 @@ class AsignacionObjetoGasto(TimeStampedModel):
     )
     justificacion = models.TextField(blank=True, verbose_name='Justificación')
     memoria_calculo = models.TextField(blank=True, verbose_name='Memoria de cálculo')
+
+    # Programación presupuestaria POAU (RE-SPO Cuadro 4: requerimientos).
+    cargo_reacp = models.CharField(
+        max_length=200, blank=True, verbose_name='Cargo del REACP',
+    )
+    fecha_requerimiento = models.CharField(
+        max_length=30, blank=True,
+        verbose_name='Fecha en la que se requiere el pago (mes estimado)',
+    )
+    programacion_mensual = models.JSONField(
+        null=True, blank=True, verbose_name='Programación presupuestaria mensual',
+    )
+    medio_verificacion = models.TextField(
+        blank=True, verbose_name='Medio de verificación',
+    )
     estado = models.CharField(max_length=20, default='REFERENCIAL', verbose_name='Estado')
 
     class Meta:
@@ -1055,6 +1118,49 @@ class BorradorMatrizPAD(TimeStampedModel):
         help_text='Se llena al materializar el borrador.',
     )
 
+    # ------------------------------------------------------------------
+    # Circuito de revisión
+    #
+    # El técnico que crea el registro lo VALIDA cuando verificó su contenido;
+    # el jefe o administrador lo APRUEBA o lo OBSERVA. Un registro APROBADO
+    # queda inmutable: no admite edición ni borrado.
+    # ------------------------------------------------------------------
+    REVISION_PENDIENTE = 'PENDIENTE'
+    REVISION_VALIDADO = 'VALIDADO'
+    REVISION_OBSERVADO = 'OBSERVADO'
+    REVISION_APROBADO = 'APROBADO'
+    REVISION_CHOICES = [
+        (REVISION_PENDIENTE, 'Pendiente de validación'),
+        (REVISION_VALIDADO, 'Validado por el técnico'),
+        (REVISION_OBSERVADO, 'Observado'),
+        (REVISION_APROBADO, 'Aprobado'),
+    ]
+
+    estado_revision = models.CharField(
+        max_length=20, choices=REVISION_CHOICES, default=REVISION_PENDIENTE,
+        verbose_name='Estado de revisión',
+    )
+    validado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='matrices_pad_validadas', verbose_name='Validado por',
+    )
+    validado_en = models.DateTimeField(null=True, blank=True, verbose_name='Validado en')
+    aprobado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='matrices_pad_aprobadas', verbose_name='Aprobado por',
+    )
+    aprobado_en = models.DateTimeField(null=True, blank=True, verbose_name='Aprobado en')
+    observacion = models.TextField(blank=True, verbose_name='Observación')
+    observado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='matrices_pad_observadas', verbose_name='Observado por',
+    )
+    observado_en = models.DateTimeField(null=True, blank=True, verbose_name='Observado en')
+
+    @property
+    def esta_aprobado(self):
+        return self.estado_revision == self.REVISION_APROBADO
+
     class Meta:
         verbose_name = 'Borrador de Matriz PAD'
         verbose_name_plural = 'Borradores de Matrices PAD'
@@ -1064,5 +1170,111 @@ class BorradorMatrizPAD(TimeStampedModel):
         return (
             f'Borrador PAD G{self.gestion} '
             f'{self.get_estado_display()} '
+            f'({self.created_at:%Y-%m-%d %H:%M})'
+        )
+
+
+class BorradorMatrizPEI(TimeStampedModel):
+    """Borrador del asistente de Matriz PEI (guardado por secciones).
+
+    Espejo de :class:`BorradorMatrizPAD`. Cada sección del asistente persiste
+    en ``datos`` mediante PATCH parcial (``seccion`` + ``valores``); la action
+    ``materializar`` crea los registros operativos (ResultadoPEI → ProductoPEI
+    → IndicadorCadena) en una transacción y deja el borrador en COMPLETO.
+
+    Estructura de ``datos``::
+
+        s1_nacional:      {eje: {codigo}, componente: {codigo},
+                           objetivo_impacto, objetivo_efecto}
+        s2_acuerdos:      {ods, ndc, ndt, kmgbf}          # código o 'N/A'
+        s3_sector:        {sector: {codigo, denominacion},
+                           resultado_sectorial: {codigo, denominacion}}
+        s4_territorial:   {cod_resultado_territorial, resultado_pad}
+        s5_institucional: {cod_entidad, entidad, cod_oei, objetivo_estrategico,
+                           vigencia_desde, vigencia_hasta}
+        resultados: [
+          {correlativo, accion_cambio, variable_resultado, denominacion,
+           indicador: {indicador, tipo_indicador, unidad_medida, formula,
+                       linea_base, meta_2030},
+           programacion_fisica: {'2026': ...},
+           productos: [
+             {denominacion, bien_servicio, condicion_estado, tipo_producto,
+              cod_programa_presup, programa_presup,
+              indicador: {...}, programacion_fisica: {...},
+              inversion: {...}, corriente: {...}}
+           ]}
+        ]
+    """
+
+    ESTADO_BORRADOR = 'BORRADOR'
+    ESTADO_COMPLETO = 'COMPLETO'
+    ESTADO_CHOICES = [
+        (ESTADO_BORRADOR, 'Borrador'),
+        (ESTADO_COMPLETO, 'Completo'),
+    ]
+
+    SECCIONES = (
+        's1_nacional',
+        's2_acuerdos',
+        's3_sector',
+        's4_territorial',
+        's5_institucional',
+        'resultados',
+    )
+
+    # Circuito de revisión: idéntico al del PAD.
+    REVISION_PENDIENTE = 'PENDIENTE'
+    REVISION_VALIDADO = 'VALIDADO'
+    REVISION_OBSERVADO = 'OBSERVADO'
+    REVISION_APROBADO = 'APROBADO'
+    REVISION_CHOICES = [
+        (REVISION_PENDIENTE, 'Pendiente de validación'),
+        (REVISION_VALIDADO, 'Validado por el técnico'),
+        (REVISION_OBSERVADO, 'Observado'),
+        (REVISION_APROBADO, 'Aprobado'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    gestion = models.IntegerField(default=2026, verbose_name='Gestión inicial')
+    estado = models.CharField(
+        max_length=20, choices=ESTADO_CHOICES, default=ESTADO_BORRADOR,
+        verbose_name='Estado',
+    )
+    datos = models.JSONField(default=dict, verbose_name='Datos del asistente')
+    id_resultado_pei = models.ForeignKey(
+        ResultadoPEI, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='borradores_matriz_pei',
+        verbose_name='Resultado PEI materializado',
+    )
+
+    estado_revision = models.CharField(
+        max_length=20, choices=REVISION_CHOICES, default=REVISION_PENDIENTE,
+        verbose_name='Estado de revisión',
+    )
+    validado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='matrices_pei_validadas', verbose_name='Validado por',
+    )
+    validado_en = models.DateTimeField(null=True, blank=True, verbose_name='Validado en')
+    aprobado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='matrices_pei_aprobadas', verbose_name='Aprobado por',
+    )
+    aprobado_en = models.DateTimeField(null=True, blank=True, verbose_name='Aprobado en')
+    observacion = models.TextField(blank=True, verbose_name='Observación')
+    observado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='matrices_pei_observadas', verbose_name='Observado por',
+    )
+    observado_en = models.DateTimeField(null=True, blank=True, verbose_name='Observado en')
+
+    class Meta:
+        verbose_name = 'Borrador de Matriz PEI'
+        verbose_name_plural = 'Borradores de Matrices PEI'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return (
+            f'Borrador PEI G{self.gestion} {self.get_estado_display()} '
             f'({self.created_at:%Y-%m-%d %H:%M})'
         )

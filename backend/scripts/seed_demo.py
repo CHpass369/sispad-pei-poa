@@ -405,105 +405,15 @@ with transaction.atomic():
           nodo_destino=nodo_pei, es_principal=True, gestion=2026)
 
     # -----------------------------------------------------------------
-    # 7. PAD - PLAN DE DESARROLLO MUNICIPAL
+    # 7. PAD - CATALOGO DE SECTORES
     # -----------------------------------------------------------------
-    print("\n--- PAD ---")
-    from apps.pad.models import (
-        SectorPAD, PoliticaPAD, LineamientoEstrategico,
-        ResultadoTerritorial, ProductoTerritorial,
-        ProgramacionAnualPAD, ArticulacionSIPEB,
-    )
+    print("\n--- PAD (catalogo de sectores) ---")
+    from apps.pad.models import SectorPAD
 
-    sectores_pad = []
     for cod, nombre in [('INF', 'Infraestructura y Servicios Basicos'),
                         ('DSB', 'Desarrollo Socioeconomico'),
                         ('GAM', 'Gestion Ambiental y Territorial')]:
-        sectores_pad.append(g(SectorPAD, codigo=cod, nombre=nombre))
-
-    politicas = []
-    for cod, nombre in [
-        ('POL-001', 'Infraestructura vial y equipamiento municipal'),
-        ('POL-002', 'Agua potable y saneamiento basico'),
-        ('POL-003', 'Desarrollo economico productivo local'),
-    ]:
-        pol = g(PoliticaPAD, codigo=cod, nombre=nombre, gestion=2026)
-        politicas.append(pol)
-
-    lineamientos = []
-    lin_data = [
-        ('LIN-001-01', 'Vias pavimentadas y rehabilitadas', politicas[0]),
-        ('LIN-001-02', 'Puentes vehiculares seguros', politicas[0]),
-        ('LIN-002-01', 'Servicio de agua potable continua', politicas[1]),
-        ('LIN-002-02', 'Red de alcantarillado sanitario', politicas[1]),
-        ('LIN-003-01', 'Mercados municipales modernos', politicas[2]),
-        ('LIN-003-002', 'Apoyo a productores locales', politicas[2]),
-    ]
-    for cod, nombre, politica in lin_data:
-        lin = g(LineamientoEstrategico, codigo=cod, nombre=nombre, politica=politica, gestion=2026)
-        lineamientos.append(lin)
-
-    resultados = []
-    res_data = [
-        ('RES-001', 'Kilometros de vias pavimentadas', lineamientos[0], sectores_pad[0], 'Longitud total de vias rehabilitadas', 'km', 2.5, 15.0),
-        ('RES-002', 'Puentes rehabilitados', lineamientos[1], sectores_pad[0], 'Cantidad de puentes rehabilitados', 'unidades', 1, 8),
-        ('RES-003', 'Beneficiarios con agua potable', lineamientos[2], sectores_pad[1], 'Personas con acceso continuo', 'personas', 15000, 45000),
-        ('RES-004', 'Km de alcantarillado construido', lineamientos[3], sectores_pad[1], 'Red sanitaria instalada', 'km', 3.0, 18.0),
-        ('RES-005', 'Mercados rehabilitados', lineamientos[4], sectores_pad[2], 'Mercados con mejoras', 'unidades', 2, 5),
-        ('RES-006', 'Productores capacitados', lineamientos[5], sectores_pad[2], 'Beneficiarios directos', 'personas', 200, 1200),
-    ]
-    for i, (cod, nombre, lin, sec, indicador, unidad, lb, meta) in enumerate(res_data):
-        res = g(ResultadoTerritorial, codigo=cod, nombre=nombre, lineamiento=lin,
-                sector=sec, indicador=f'{indicador} ({unidad})',
-                formula=f'Cantidad de {nombre.lower()}',
-                linea_base=Decimal(str(lb)), meta_2030=Decimal(str(meta)),
-                cod_geografico=f'SAC-{cod}', gestion=2026, estado='aprobado')
-        resultados.append(res)
-
-        prod = g(ProductoTerritorial,
-                 codigo=f'PROD-{cod[-3:]}',
-                 nombre=f'Producto: {nombre}',
-                 resultado=res, gestion=2026,
-                 territorializacion='GAM Sacaba',
-                 responsable='Unidad de Planificacion',
-                 indicador=f'Cantidad de {nombre.lower()}',
-                 linea_base=Decimal(str(lb)),
-                 meta_2030=Decimal(str(meta)),
-                 cuenta_con_financiamiento='SI',
-                 presupuesto_total_pad=Decimal('1500000') * (i + 1))
-
-        # Programacion anual
-        for anio in [2026, 2027, 2028]:
-            prog_fisica = Decimal(str(meta - lb)) * Decimal(str((anio - 2025) / 3)) + Decimal(str(lb))
-            prog_financiera = prog_fisica * Decimal('50000')
-            ProgramacionAnualPAD.objects.get_or_create(
-                resultado=res, producto=prod, anio=anio, tipo='fisica',
-                defaults={'valor': prog_fisica.quantize(Decimal('0.0001'))}
-            )
-            ProgramacionAnualPAD.objects.get_or_create(
-                resultado=res, producto=prod, anio=anio, tipo='financiera',
-                defaults={'valor': prog_financiera.quantize(Decimal('0.0001'))}
-            )
-
-        # Articulacion SIPEB
-        ArticulacionSIPEB.objects.get_or_create(
-            resultado=res,
-            defaults={
-                'cod_eje_pgdesa': 'PDES-EJ-01' if i < 4 else 'PDES-EJ-02',
-                'objetivo_impacto_pgdesa': 'Desarrollo sostenible departamental',
-                'cod_componente_pdesa': f'PDES-CMP-{i+1:02d}',
-                'objetivo_efecto_pdesa': f'Mejora de indicadores en {nombre.lower()}',
-                'cod_ods': 'ODS-09' if i < 4 else 'ODS-08',
-                'cod_meta_ndc': f'NDC-{i+1:02d}',
-                'cod_principio_ndt': f'NDT-{i+1:02d}',
-                'cod_sector': sec.codigo,
-                'sector_nombre': sec.nombre,
-                'cod_resultado_pds': f'PDS-{i+1:02d}',
-                'resultado_pds': f'Resultado PDS: {nombre}',
-                'cod_geografico': f'SAC-{cod}',
-                'denominacion_eta': 'Gobierno Autonomo Municipal de Sacaba',
-                'gestion': 2026,
-            }
-        )
+        g(SectorPAD, codigo=cod, nombre=nombre)
 
     # -----------------------------------------------------------------
     # 8. INDICADORES Y OPERACIONES
@@ -752,8 +662,7 @@ with transaction.atomic():
     print(f"  Nodos planif.:      {NodoPlanificacion.objects.count()}")
     print(f"  AMP:                {AccionMedianoPlazo.objects.count()}")
     print(f"  ACP:                {AccionCortoPlazo.objects.count()}")
-    print(f"  PAD Resultados:     {ResultadoTerritorial.objects.count()}")
-    print(f"  PAD Productos:      {ProductoTerritorial.objects.count()}")
+    print(f"  PAD Sectores:       {SectorPAD.objects.count()}")
     print(f"  Indicadores:        {Indicador.objects.count()}")
     print(f"  Operaciones:        {Operacion.objects.count()}")
     print(f"  Programas:          {ProgramaPresupuestario.objects.count()}")

@@ -2,10 +2,27 @@ import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from '../../core/services/api.service';
 
+export interface PermisosRevision {
+  es_autor: boolean;
+  es_aprobador: boolean;
+  editar: boolean;
+  validar: boolean;
+  aprobar: boolean;
+  observar: boolean;
+  borrar: boolean;
+}
+
 export interface BorradorMatrizPAD {
   id: string;
   gestion: number;
   estado: 'BORRADOR' | 'COMPLETO';
+  estado_revision?: 'PENDIENTE' | 'VALIDADO' | 'OBSERVADO' | 'APROBADO';
+  estado_revision_display?: string;
+  observacion?: string;
+  validado_por_nombre?: string;
+  aprobado_por_nombre?: string;
+  observado_por_nombre?: string;
+  permisos?: PermisosRevision;
   datos: Record<string, unknown>;
   id_resultado_pad: string | null;
   created_at?: string;
@@ -98,6 +115,21 @@ export class MatricesPadService {
       '/articulacion/matrices/matriz_b_gestion/',
       { gestion },
     );
+  }
+
+  /** El técnico da por revisado su registro. */
+  validar(id: string): Observable<BorradorMatrizPAD> {
+    return this.api.post<BorradorMatrizPAD>(`${this.base}/${id}/validar/`, {});
+  }
+
+  /** La jefatura aprueba: el registro queda inmutable. */
+  aprobar(id: string): Observable<BorradorMatrizPAD> {
+    return this.api.post<BorradorMatrizPAD>(`${this.base}/${id}/aprobar/`, {});
+  }
+
+  /** La jefatura devuelve el registro con una observación escrita. */
+  observar(id: string, observacion: string): Observable<BorradorMatrizPAD> {
+    return this.api.post<BorradorMatrizPAD>(`${this.base}/${id}/observar/`, { observacion });
   }
 
   eliminar(id: string): Observable<unknown> {

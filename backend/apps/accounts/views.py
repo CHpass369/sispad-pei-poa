@@ -11,6 +11,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.throttling import AnonRateThrottle
+from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 
@@ -22,7 +23,12 @@ Usuario = get_user_model()
 
 
 class LoginThrottle(AnonRateThrottle):
+    scope = 'login'
     rate = '5/minute'
+
+
+class LoginView(TokenObtainPairView):
+    throttle_classes = [LoginThrottle]
 
 
 class RolViewSet(viewsets.ModelViewSet):

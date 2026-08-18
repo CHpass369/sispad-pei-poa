@@ -34,7 +34,6 @@ from apps.codificacion.models import (
 )
 from apps.codificacion.services.codificador import CodificadorService
 from apps.gestion.models import GestionFiscal
-from apps.pad.models import LineamientoEstrategico
 from apps.poau.models import EjecucionFinanciera, EjecucionFisica, POAU, POAUActividad
 
 
@@ -272,11 +271,6 @@ class MigracionSIMService:
                     gestion_hasta__gte=self.gestion,
                 ),
                 'denominacion',
-            ),
-            (
-                MapeoLineamientoPADLegacy.ORIGEN_PAD,
-                LineamientoEstrategico.objects.filter(gestion__anio=self.gestion),
-                'nombre',
             ),
         )
         for origin, queryset, name_field in legacy_sets:

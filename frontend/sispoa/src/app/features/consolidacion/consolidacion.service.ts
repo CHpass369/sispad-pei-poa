@@ -83,7 +83,7 @@ export class ConsolidacionService {
   }
 
   listarResultadosPad(params?: Record<string, string | number | boolean>): Observable<ResultadoPad[]> {
-    return this.api.get<ResultadoPad[]>('/pad/resultados/', params);
+    return this.api.get<ResultadoPad[]>('/articulacion/resultados-pad/', params);
   }
 
   listarPoau(params?: Record<string, string | number | boolean>): Observable<Poau[]> {

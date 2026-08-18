@@ -29,7 +29,6 @@ from apps.catalogos.importer import (
     clasificadores,
     dominios,
     geografico,
-    marco_superior,
     reglas,
     sector,
     sispoa,
@@ -113,7 +112,6 @@ def importar_gestion_fiscal(reporte, gestion):
 
 FUNCIONES_LOTE = {
     LOTE_CLASIFICADORES: clasificadores.importar,
-    LOTE_MARCO_SUPERIOR: marco_superior.importar,
     LOTE_ACUERDOS: acuerdos.importar,
     LOTE_SISPOA: sispoa.importar,
     LOTE_REGLAS: reglas.importar,
@@ -251,11 +249,25 @@ class Command(BaseCommand):
     def _ejecutar_lotes(self, lotes, gestion, reporte_global):
         for nombre_lote in lotes:
             reporte = ReporteLote(lote=nombre_lote)
-            if nombre_lote == 'sispoa':
-                # L0 (GestionFiscal) se resuelve siempre antes del lote 4.
-                importar_gestion_fiscal(reporte, gestion)
+            if nombre_lote == LOTE_MARCO_SUPERIOR:
+                # El módulo y su dominio legacy fueron retirados del árbol.
+                # Mantener el lote visible permite que el dry-run continúe y
+                # reporte los esquemas ausentes en los demás lotes, sin
+                # resucitar imports ni código de dominio eliminado.
+                reporte.fuente = 'no disponible (módulo marco_superior retirado)'
+                reporte.warnings.append(
+                    'Lote marco_superior no disponible: el módulo legacy fue '
+                    'retirado; no se intenta cargarlo.'
+                )
+                self._volcar_reporte(nombre_lote, reporte, reporte_global)
+                continue
             try:
                 with transaction.atomic():
+                    if nombre_lote == 'sispoa':
+                        # L0 (GestionFiscal) se resuelve siempre antes del
+                        # lote 4, pero su ausencia también debe quedar en el
+                        # reporte y no abortar un dry-run.
+                        importar_gestion_fiscal(reporte, gestion)
                     gestion_lote = (
                         sispoa.GESTION_SISPOA
                         if nombre_lote == LOTE_SISPOA else gestion

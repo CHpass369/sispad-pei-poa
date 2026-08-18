@@ -26,7 +26,11 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from apps.catalogos.models import (
-    VersionClasificador, FuenteFinanciamiento, OrganismoFinanciador,
+    ClasificadorGeograficoPresupuestario,
+    ClasificadorInstitucional,
+    FuenteFinanciamiento,
+    OrganismoFinanciador,
+    VersionClasificador,
 )
 from apps.gestion.models import GestionFiscal
 from apps.gestion.services import crear_gestion
@@ -52,6 +56,32 @@ PROCEDENCIA_NORMATIVA = (
 METADATOS_IMPORTACION = {
     'fuente': 'clasificadores-mefp-2027',
     'norma': 'RM N° 271',
+}
+
+TIPOS_CLASIFICADOR_2027 = (
+    VersionClasificador.TIPO_INSTITUCIONAL,
+    VersionClasificador.TIPO_RUBRO_RECURSO,
+    VersionClasificador.TIPO_OBJETO_GASTO,
+    VersionClasificador.TIPO_FINALIDAD_FUNCION,
+    VersionClasificador.TIPO_FUENTE_FINANCIAMIENTO,
+    VersionClasificador.TIPO_ORGANISMO_FINANCIADOR,
+    VersionClasificador.TIPO_SECTOR_ECONOMICO,
+    VersionClasificador.TIPO_GEOGRAFICO_PRESUPUESTARIO,
+)
+
+FAMILIAS_BLOQUEADAS_SIN_FUENTE = {
+    VersionClasificador.TIPO_RUBRO_RECURSO: (
+        'Rubro de recurso: no hay filas completas disponibles del PDF/legacy.'
+    ),
+    VersionClasificador.TIPO_OBJETO_GASTO: (
+        'Objeto del gasto: no hay filas jerárquicas completas disponibles del PDF/legacy.'
+    ),
+    VersionClasificador.TIPO_FINALIDAD_FUNCION: (
+        'Finalidad/función: no hay filas completas disponibles del PDF/legacy.'
+    ),
+    VersionClasificador.TIPO_SECTOR_ECONOMICO: (
+        'Sector económico: no hay filas completas disponibles del PDF/legacy.'
+    ),
 }
 
 FUENTES_FINANCIAMIENTO = [
@@ -91,6 +121,12 @@ ORGANISMOS_FINANCIADORES = [
     ('413', 'Fondo Financiero para el Desarrollo de la Cuenca del Plata'),
     ('515', 'Agencia Suiza para el Desarrollo y la Cooperación'),
 ]
+
+INSTITUCIONALES = [
+    ('1312', 'SCB', 'GOBIERNO AUTÓNOMO MUNICIPAL DE SACABA'),
+]
+
+GEOGRAFIA_MEFP = ('3', '5', '1', '3|5|1', 'SACABA')
 
 DISTRITOS = [
     ('D1', 'DISTRITO 1'),
@@ -148,7 +184,7 @@ class Command(BaseCommand):
     )
 
     def add_arguments(self, parser):
-        parser.add_argument('--gestion', type=int, default=2027,
+        parser.add_argument('--gestion', type=int, choices=[2027], default=2027,
                             help='Gestión fiscal a importar (default: 2027)')
         parser.add_argument(
             '--clasificadores-pdf', required=False, default='',
@@ -159,6 +195,11 @@ class Command(BaseCommand):
     @transaction.atomic
     def handle(self, *args, **options):
         gestion_anio = options['gestion']
+        if gestion_anio != 2027:
+            raise CommandError(
+                'Este importador es exclusivo de la versión normativa 2027; '
+                'la información 2026 se conserva sin modificaciones.'
+            )
         self.stdout.write(self.style.NOTICE(
             f'=== INICIO IMPORTACIÓN CATÁLOGOS GAM SACABA (gestión {gestion_anio}) ==='
         ))
@@ -166,33 +207,46 @@ class Command(BaseCommand):
         # 1. Gestión fiscal
         gestion = self._crear_gestion(gestion_anio)
 
-        # 2. Versiones oficiales y vigentes del clasificador
+        # 2. Versiones del clasificador. Las ocho familias se registran aun
+        # cuando el PDF no esté disponible; sin artefacto no pueden ser
+        # oficiales ni vigentes.
         hash_fuente = self._hash_fuente(options['clasificadores_pdf'])
-        version_fuentes = self._crear_version(
-            VersionClasificador.TIPO_FUENTE_FINANCIAMIENTO, gestion,
-            hash_fuente,
-        )
-        version_organismos = self._crear_version(
-            VersionClasificador.TIPO_ORGANISMO_FINANCIADOR, gestion,
-            hash_fuente,
-        )
+        versiones = {
+            tipo: self._crear_version(tipo, gestion, hash_fuente)
+            for tipo in TIPOS_CLASIFICADOR_2027
+        }
+        self._reportar_familias_bloqueadas()
 
         # 3. Fuentes de financiamiento
-        self._importar_fuentes(gestion, version_fuentes)
+        self._importar_fuentes(gestion, versiones[
+            VersionClasificador.TIPO_FUENTE_FINANCIAMIENTO
+        ])
 
         # 4. Organismos financiadores
-        self._importar_organismos(gestion, version_organismos)
+        self._importar_organismos(gestion, versiones[
+            VersionClasificador.TIPO_ORGANISMO_FINANCIADOR
+        ])
 
-        # 5. Distritos
+        # 5. Clasificador institucional MEFP
+        self._importar_institucional(
+            gestion, versiones[VersionClasificador.TIPO_INSTITUCIONAL]
+        )
+
+        # 6. Geografía MEFP (no es CGEO/INE)
+        self._importar_geografia(
+            versiones[VersionClasificador.TIPO_GEOGRAFICO_PRESUPUESTARIO]
+        )
+
+        # 7. Distritos
         self._importar_distritos()
 
-        # 6. Secretarías (unidades organizacionales)
+        # 8. Secretarías (unidades organizacionales)
         self._importar_secretarias(gestion)
 
-        # 7. Direcciones administrativas
+        # 9. Direcciones administrativas
         das = self._importar_direcciones(gestion)
 
-        # 8. Unidades ejecutoras
+        # 10. Unidades ejecutoras
         self._importar_ues(gestion, das)
 
         self.stdout.write(self.style.SUCCESS(
@@ -226,31 +280,101 @@ class Command(BaseCommand):
                 )
             with open(ruta_pdf, 'rb') as fh:
                 return hashlib.sha256(fh.read()).hexdigest()
-        # Sin PDF: hash del propio código de la versión (64 hex, estable).
-        return hashlib.sha256(CODIGO_FUENTE_VERSION.encode()).hexdigest()
+        # Nunca se debe convertir el código fuente en un hash de un PDF que
+        # no existe. El llamador conserva la versión como no oficial.
+        return None
 
     def _crear_version(self, tipo, gestion, hash_fuente):
         gestion_anio = gestion.anio
-        version, creada = VersionClasificador.objects.update_or_create(
-            tipo=tipo,
-            gestion=gestion,
-            vigente=True,
-            defaults={
-                'norma': NORMA,
-                'fecha_norma': FECHA_NORMA,
-                'codigo_fuente': CODIGO_FUENTE_VERSION,
-                'procedencia_normativa': PROCEDENCIA_NORMATIVA,
-                'clasificacion_fuente': VersionClasificador.FUENTE_OFICIAL,
-                'vigente': True,
-                'hash_fuente': hash_fuente,
-            },
+        version = VersionClasificador.objects.filter(
+            tipo=tipo, gestion=gestion,
+        ).order_by('-vigente', '-created_at').first()
+
+        # Never downgrade a verified official version merely because a
+        # subsequent local run omitted the source artifact.
+        if (
+            version is not None
+            and not hash_fuente
+            and version.vigente
+            and version.clasificacion_fuente == VersionClasificador.FUENTE_OFICIAL
+        ):
+            self.stdout.write(
+                f'[2/8] Versión {tipo} {gestion_anio} preservada '
+                '(vigente y oficial; no se proporcionó un PDF nuevo).'
+            )
+            return version
+
+        es_oficial = bool(hash_fuente)
+        creada = version is None
+        if version is None:
+            version = VersionClasificador(
+                tipo=tipo,
+                gestion=gestion,
+            )
+        version.norma = NORMA
+        version.fecha_norma = FECHA_NORMA
+        version.codigo_fuente = CODIGO_FUENTE_VERSION
+        version.procedencia_normativa = PROCEDENCIA_NORMATIVA
+        version.clasificacion_fuente = (
+            VersionClasificador.FUENTE_OFICIAL
+            if es_oficial else VersionClasificador.FUENTE_INCIERTA
         )
-        accion = 'creada' if creada else 'actualizada'
+        version.hash_fuente = hash_fuente or ''
+        version.vigente = es_oficial
+        version.save()
+        accion = 'creada' if creada else 'reutilizada/actualizada'
+        estado = 'vigente y oficial' if es_oficial else 'no oficial (sin PDF)'
         self.stdout.write(
             f'[2/8] Versión {tipo} {gestion_anio} {accion} '
-            f'(vigente, oficial, hash {version.hash_fuente[:12]}…).'
+            f'({estado}'
+            f'{f", hash {version.hash_fuente[:12]}…" if es_oficial else ""}).'
         )
         return version
+
+    def _reportar_familias_bloqueadas(self):
+        self.stdout.write(self.style.WARNING(
+            'Familias 2027 sin filas completas: se reportan como bloqueadas; '
+            'no se fabrican datos.'
+        ))
+        for tipo, motivo in FAMILIAS_BLOQUEADAS_SIN_FUENTE.items():
+            self.stdout.write(self.style.WARNING(f'[BLOQUEADO] {tipo}: {motivo}'))
+
+    def _importar_institucional(self, gestion, version):
+        for codigo, sigla, denominacion in INSTITUCIONALES:
+            ClasificadorInstitucional.objects.update_or_create(
+                codigo=codigo,
+                gestion=gestion,
+                defaults={
+                    'denominacion': denominacion,
+                    'version_clasificador': version,
+                    'fuente_normativa': PROCEDENCIA_NORMATIVA,
+                    'fecha_vigencia_desde': date(gestion.anio, 1, 1),
+                    'activo': True,
+                    'metadatos_importacion': {
+                        **METADATOS_IMPORTACION,
+                        'sigla': sigla,
+                        'codigo_fuente': CODIGO_FUENTE_VERSION,
+                        'hash_fuente': version.hash_fuente,
+                        'clasificacion_fuente': version.clasificacion_fuente,
+                    },
+                },
+            )
+        self.stdout.write('[5/8] Institucional MEFP: 1312/SCB cargado.')
+
+    def _importar_geografia(self, version):
+        departamento, provincia, municipio, codigo_fuente, denominacion = GEOGRAFIA_MEFP
+        ClasificadorGeograficoPresupuestario.objects.update_or_create(
+            version_clasificador=version,
+            departamento=departamento,
+            provincia=provincia,
+            municipio=municipio,
+            defaults={
+                'codigo_fuente': codigo_fuente,
+                'denominacion': denominacion,
+                'procedencia_normativa': PROCEDENCIA_NORMATIVA,
+            },
+        )
+        self.stdout.write('[6/8] Geografía MEFP: 3|5|1 cargada (independiente de CGEO).')
 
     # ============================================================
     # 3. FUENTES DE FINANCIAMIENTO
@@ -266,7 +390,13 @@ class Command(BaseCommand):
                     'version_clasificador': version,
                     'fecha_vigencia_desde': date(gestion_anio, 1, 1),
                     'activo': True,
-                    'metadatos_importacion': METADATOS_IMPORTACION,
+                    'fuente_normativa': PROCEDENCIA_NORMATIVA,
+                    'metadatos_importacion': {
+                        **METADATOS_IMPORTACION,
+                        'codigo_fuente': CODIGO_FUENTE_VERSION,
+                        'hash_fuente': version.hash_fuente,
+                        'clasificacion_fuente': version.clasificacion_fuente,
+                    },
                 },
             )
             if creada:
@@ -292,7 +422,13 @@ class Command(BaseCommand):
                     'version_clasificador': version,
                     'fecha_vigencia_desde': date(gestion_anio, 1, 1),
                     'activo': True,
-                    'metadatos_importacion': METADATOS_IMPORTACION,
+                    'fuente_normativa': PROCEDENCIA_NORMATIVA,
+                    'metadatos_importacion': {
+                        **METADATOS_IMPORTACION,
+                        'codigo_fuente': CODIGO_FUENTE_VERSION,
+                        'hash_fuente': version.hash_fuente,
+                        'clasificacion_fuente': version.clasificacion_fuente,
+                    },
                 },
             )
             if creado:

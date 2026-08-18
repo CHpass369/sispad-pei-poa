@@ -38,7 +38,6 @@ urlpatterns = [
     path(f'{api_prefix}', include('apps.reportes.urls')),
     path(f'{api_prefix}', include('apps.auditoria.urls')),
     path(f'{api_prefix}poau/', include('apps.poau.urls')),
-    path(f'{api_prefix}', include('apps.evaluacion.urls')),
     path(f'{api_prefix}', include('apps.modificaciones.urls')),
     path(f'{api_prefix}', include('apps.notificaciones.urls')),
     path(f'{api_prefix}', include('apps.seguimiento.urls')),

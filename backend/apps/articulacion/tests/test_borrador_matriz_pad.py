@@ -14,6 +14,7 @@ Adaptación a main (integracion-s2): main no tiene ``cuenta_con_financiamiento``
 ``presupuesto_anual`` ni la FK ``resultado_pad`` en IndicadorCadena; las
 aserciones sobre esos datos degradados se marcan con TODO-articulacion-s2.
 """
+import copy
 import uuid
 from django.test import TestCase
 from django.contrib.auth import get_user_model
@@ -349,6 +350,55 @@ class BorradorMatrizPADAPITest(TestCase):
         self.assertEqual(response.data['total_productos'], 1)
         self.assertEqual(ResultadoPAD.objects.count(), 1)
         self.assertEqual(ProductoPAD.objects.count(), 1)
+
+    def test_patch_seccion_en_aprobado_es_rechazado(self):
+        """Un registro APROBADO es inmutable también para el PATCH por sección.
+
+        Regresión: el ViewSet definía ``partial_update`` dos veces y la segunda
+        (PATCH por sección) sombreaba a la primera, dejando sin efecto la
+        guarda de inmutabilidad.
+        """
+        borrador_id = self._crear_borrador_con_cabecera()
+        coleccion = [resultado_dict('Resultado aprobado', [
+            producto_dict('Producto aprobado'),
+        ])]
+        response = self.client.patch(
+            f'/api/v1/articulacion/borradores-matriz-pad/{borrador_id}/',
+            {'seccion': 'resultados', 'valores': coleccion}, format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+
+        borrador = BorradorMatrizPAD.objects.get(pk=borrador_id)
+        borrador.estado_revision = BorradorMatrizPAD.REVISION_APROBADO
+        borrador.save(update_fields=['estado_revision'])
+        datos_aprobados = copy.deepcopy(borrador.datos)
+
+        # PATCH por sección sobre registro aprobado → 403. El payload es
+        # estructuralmente VÁLIDO y distinto del guardado: sin la guarda de
+        # inmutabilidad se persistiría (200), por eso detecta la regresión.
+        intento = [resultado_dict('Resultado intruso', [
+            producto_dict('Producto intruso'),
+        ])]
+        self.assertNotEqual(intento, datos_aprobados.get('resultados'))
+        response = self.client.patch(
+            f'/api/v1/articulacion/borradores-matriz-pad/{borrador_id}/',
+            {'seccion': 'resultados', 'valores': intento}, format='json',
+        )
+        self.assertEqual(
+            response.status_code, status.HTTP_403_FORBIDDEN, response.data,
+        )
+
+        # PATCH del JSON completo de secciones → mismo bloqueo
+        response = self.client.patch(
+            f'/api/v1/articulacion/borradores-matriz-pad/{borrador_id}/',
+            {'datos': {}}, format='json',
+        )
+        self.assertEqual(
+            response.status_code, status.HTTP_403_FORBIDDEN, response.data,
+        )
+
+        borrador.refresh_from_db()
+        self.assertEqual(borrador.datos, datos_aprobados)
 
     def test_borrador_requiere_auth(self):
         self.client.force_authenticate(user=None)

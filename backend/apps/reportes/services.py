@@ -490,225 +490,6 @@ def _write_subtotal(ws, row, grupo_cod, sub_ant, sub_imp, sub_pluri):
         ws.cell(row=row, column=c).fill = PatternFill(start_color='F5F5F5', end_color='F5F5F5', fill_type='solid')
 
 
-# ===== EVALUACIÓN — CUADRO N°1 =====
-def generar_evaluacion_cuadro1_xlsx(gestion: int) -> tuple:
-    """Cuadro N°1: Comparación de programación presupuestaria PTDI vs PEI vs POA por fuente."""
-    if not HAS_OPENPYXL:
-        raise RuntimeError('openpyxl no está instalado')
-
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = f'Eval Cuadro1 {gestion}'
-
-    ws.merge_cells('A1:F1')
-    ws['A1'] = f'GOBIERNO AUTÓNOMO MUNICIPAL DE SACABA'
-    ws['A1'].font = Font(bold=True, size=14, color='1B5E3B')
-
-    ws.merge_cells('A2:F2')
-    ws['A2'] = f'CUADRO N°1 — Evaluación de Programación de Recursos (Gestión {gestion})'
-    ws['A2'].font = Font(bold=True, size=11, color='1B5E3B')
-
-    headers = ['FUENTE DE INGRESOS', 'PTDI/PGTC (Bs)', 'PEI (Bs)',
-               'POA (Bs)', 'DIFERENCIA (Bs)', 'DIFERENCIA (%)']
-    for col, h in enumerate(headers, 1):
-        cell = ws.cell(row=4, column=col, value=h)
-        cell.fill = HEADER_FILL
-        cell.font = HEADER_FONT
-        cell.alignment = Alignment(horizontal='center', wrap_text=True)
-
-    # Datos de LineaPresupuestaria agrupados por fuente
-    from django.db.models import Sum
-    lineas = LineaPresupuestaria.objects.filter(gestion=gestion, activo=True)
-    fuentes_data = lineas.values('fuente__codigo', 'fuente__denominacion').annotate(
-        total_poa=Sum('importe')
-    ).order_by('fuente__codigo')
-
-    row = 5
-    total_poa = 0
-    for f in fuentes_data:
-        poa = float(f['total_poa'] or 0)
-        # PTDI y PEI son estimativos sin datos en BD actual — se muestran como 0
-        ws.cell(row=row, column=1, value=f'{f["fuente__codigo"]} — {f["fuente__denominacion"]}')
-        ws.cell(row=row, column=2, value=0).number_format = '#,##0.00'
-        ws.cell(row=row, column=3, value=0).number_format = '#,##0.00'
-        ws.cell(row=row, column=4, value=round(poa, 2)).number_format = '#,##0.00'
-        ws.cell(row=row, column=5, value=round(poa, 2)).number_format = '#,##0.00'  # dif = POA - PTDI
-        ws.cell(row=row, column=6, value='100%' if poa > 0 else '0%')
-        for c in range(1, 7):
-            ws.cell(row=row, column=c).border = BORDER_THIN
-            ws.cell(row=row, column=c).font = Font(size=9)
-        total_poa += poa
-        row += 1
-
-    # Total
-    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=1)
-    ws.cell(row=row, column=1, value='TOTAL').font = Font(bold=True, size=10, color='1B5E3B')
-    ws.cell(row=row, column=4, value=round(total_poa, 2)).number_format = '#,##0.00'
-    ws.cell(row=row, column=4).font = Font(bold=True)
-    ws.cell(row=row, column=5, value=round(total_poa, 2)).number_format = '#,##0.00'
-    ws.cell(row=row, column=5).font = Font(bold=True)
-    for c in range(1, 7):
-        ws.cell(row=row, column=c).border = Border(left=Side(style='thin'), right=Side(style='thin'),
-                                                     top=Side(style='double'), bottom=Side(style='double'))
-
-    for col_letter, width in [('A', 40), ('B', 18), ('C', 18), ('D', 18), ('E', 18), ('F', 18)]:
-        ws.column_dimensions[col_letter].width = width
-
-    buffer = io.BytesIO()
-    wb.save(buffer)
-    buffer.seek(0)
-    return buffer, _build_response_filename('evaluacion_cuadro1', 'xlsx', gestion)
-
-
-# ===== EVALUACIÓN — CUADRO N°2 =====
-def generar_evaluacion_cuadro2_xlsx(gestion: int) -> tuple:
-    """Cuadro N°2: Vinculación de acciones PTDI/PGTC ↔ PEI ↔ POA."""
-    if not HAS_OPENPYXL:
-        raise RuntimeError('openpyxl no está instalado')
-
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = f'Eval Cuadro2 {gestion}'
-
-    ws.merge_cells('A1:F1')
-    ws['A1'] = f'GOBIERNO AUTÓNOMO MUNICIPAL DE SACABA'
-    ws['A1'].font = Font(bold=True, size=14, color='1B5E3B')
-    ws.merge_cells('A2:F2')
-    ws['A2'] = f'CUADRO N°2 — Vinculación de Acciones PTDI/PGTC ↔ PEI ↔ POA (Gestión {gestion})'
-    ws['A2'].font = Font(bold=True, size=11, color='1B5E3B')
-
-    headers = ['PTDI/PGTC (Acción ETA)', 'PEI (AMP)', 'POA (ACP)',
-               'CÓD. PROG.', '¿VINCULADO?', 'ARTICULACIÓN']
-    for col, h in enumerate(headers, 1):
-        cell = ws.cell(row=4, column=col, value=h)
-        cell.fill = HEADER_FILL
-        cell.font = HEADER_FONT
-        cell.alignment = Alignment(horizontal='center', wrap_text=True)
-
-    # Trazar relaciones reales: ACP → AMP → Nodo (vía ArticulacionPlanificacion)
-    from apps.planificacion.models import AccionCortoPlazo, AccionMedianoPlazo, ArticulacionPlanificacion
-
-    acps = AccionCortoPlazo.objects.filter(gestion=gestion).select_related(
-        'accion_mediano_plazo'
-    ).prefetch_related('accion_mediano_plazo__nodo_planificacion')
-
-    row = 5
-    for acp in acps:
-        amp = acp.accion_mediano_plazo
-        amp_nombre = amp.nombre[:100] if amp else '—'
-        ptdi_accion = amp_nombre if amp else '—'
-
-        # Verificar articulación
-        articulado = 'SÍ' if amp and amp.nodo_planificacion else 'NO'
-        nivel_art = amp.nodo_planificacion.nivel if amp and amp.nodo_planificacion else '—'
-
-        ws.cell(row=row, column=1, value=ptdi_accion)
-        ws.cell(row=row, column=2, value=amp_nombre)
-        ws.cell(row=row, column=3, value=acp.nombre[:100])
-        ws.cell(row=row, column=4, value=acp.codigo)
-        ws.cell(row=row, column=5, value=articulado)
-        ws.cell(row=row, column=6, value=nivel_art)
-
-        fill_color = 'E8F5E9' if articulado == 'SÍ' else 'FFEBEE'
-        for c in range(1, 7):
-            ws.cell(row=row, column=c).border = BORDER_THIN
-            ws.cell(row=row, column=c).font = Font(size=9)
-            ws.cell(row=row, column=c).fill = PatternFill(start_color=fill_color, end_color=fill_color, fill_type='solid')
-        row += 1
-
-    for col_letter, width in [('A', 40), ('B', 40), ('C', 40), ('D', 15), ('E', 15), ('F', 20)]:
-        ws.column_dimensions[col_letter].width = width
-
-    buffer = io.BytesIO()
-    wb.save(buffer)
-    buffer.seek(0)
-    return buffer, _build_response_filename('evaluacion_cuadro2', 'xlsx', gestion)
-
-
-# ===== EVALUACIÓN — CUADRO N°3 =====
-def generar_evaluacion_cuadro3_xlsx(gestion: int) -> tuple:
-    """Cuadro N°3: Seguimiento a la ejecución física y financiera."""
-    if not HAS_OPENPYXL:
-        raise RuntimeError('openpyxl no está instalado')
-
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = f'Eval Cuadro3 {gestion}'
-
-    ws.merge_cells('A1:I1')
-    ws['A1'] = f'GOBIERNO AUTÓNOMO MUNICIPAL DE SACABA'
-    ws['A1'].font = Font(bold=True, size=14, color='1B5E3B')
-    ws.merge_cells('A2:I2')
-    ws['A2'] = f'CUADRO N°3 — Seguimiento a la Ejecución Física y Financiera (Gestión {gestion})'
-    ws['A2'].font = Font(bold=True, size=11, color='1B5E3B')
-
-    headers = ['ACTIVIDAD/ACP', 'PROG. FÍSICO', 'EJEC. FÍSICO', '% AVANCE FÍS.',
-               'PROG. FINANCIERO', 'EJEC. FINANCIERO', '% EJEC. FIN.', 'CAUSA DESVIACIÓN', 'ESTADO']
-    for col, h in enumerate(headers, 1):
-        cell = ws.cell(row=4, column=col, value=h)
-        cell.fill = HEADER_FILL
-        cell.font = HEADER_FONT
-        cell.alignment = Alignment(horizontal='center', wrap_text=True)
-
-    from django.db.models import Sum
-    from apps.poau.models import POAUActividad, EjecucionFisica, EjecucionFinanciera
-
-    actividades = POAUActividad.objects.filter(poau__gestion=gestion).prefetch_related(
-        'ejecucion_fisica', 'ejecucion_financiera'
-    )
-
-    row = 5
-    for act in actividades:
-        ef_fisica = act.ejecucion_fisica.all()
-        ef_finan = act.ejecucion_financiera.all()
-
-        prog_fis = sum(float(e.programado or 0) for e in ef_fisica)
-        ejec_fis = sum(float(e.ejecutado or 0) for e in ef_fisica)
-        prog_fin = sum(float(e.programado or 0) for e in ef_finan)
-        ejec_fin = sum(float(e.ejecutado or 0) for e in ef_finan)
-
-        avance_fis = (ejec_fis / prog_fis * 100) if prog_fis > 0 else 0
-        avance_fin = (ejec_fin / prog_fin * 100) if prog_fin > 0 else 0
-
-        # Determinar estado del semáforo
-        if avance_fis >= 80:
-            estado = '🟢 Verde'
-            estado_fill = 'E8F5E9'
-        elif avance_fis >= 50:
-            estado = '🟡 Amarillo'
-            estado_fill = 'FFF8E1'
-        else:
-            estado = '🔴 Rojo'
-            estado_fill = 'FFEBEE'
-
-        ws.cell(row=row, column=1, value=act.nombre[:80])
-        ws.cell(row=row, column=2, value=round(prog_fis, 2)).number_format = '#,##0.00'
-        ws.cell(row=row, column=3, value=round(ejec_fis, 2)).number_format = '#,##0.00'
-        ws.cell(row=row, column=4, value=round(avance_fis, 1))
-        ws.cell(row=row, column=5, value=round(prog_fin, 2)).number_format = '#,##0.00'
-        ws.cell(row=row, column=6, value=round(ejec_fin, 2)).number_format = '#,##0.00'
-        ws.cell(row=row, column=7, value=round(avance_fin, 1))
-        ws.cell(row=row, column=8, value='')  # Causa — requiere input del usuario
-        ws.cell(row=row, column=9, value=estado)
-
-        for c in range(1, 10):
-            ws.cell(row=row, column=c).border = BORDER_THIN
-            ws.cell(row=row, column=c).font = Font(size=9)
-            if c == 9:
-                ws.cell(row=row, column=c).fill = PatternFill(
-                    start_color=estado_fill, end_color=estado_fill, fill_type='solid')
-        row += 1
-
-    for col_letter, width in [('A', 35), ('B', 15), ('C', 15), ('D', 15),
-                               ('E', 18), ('F', 18), ('G', 15), ('H', 30), ('I', 15)]:
-        ws.column_dimensions[col_letter].width = width
-
-    buffer = io.BytesIO()
-    wb.save(buffer)
-    buffer.seek(0)
-    return buffer, _build_response_filename('evaluacion_cuadro3', 'xlsx', gestion)
-
-
 # ===== 1. REPORTE DE AVANCE DE PROGRAMACIÓN =====
 def reporte_avance_programacion(gestion):
     """Avance de programación por UE/POAU con % físico/financiero y semáforo de color."""
@@ -893,46 +674,7 @@ def reporte_comparativo_mensual(gestion):
     return resultados
 
 
-# ===== 5. REPORTE DE INDICADORES POR SECTOR =====
-def reporte_indicadores_por_sector(sector_id=None):
-    """Indicadores agregados por sector con promedios de avance."""
-    from apps.indicadores.models import Indicador, MetaProgramada
-    from apps.pad.models import ResultadoTerritorial, SectorPAD
-
-    sectores = SectorPAD.objects.all()
-    if sector_id:
-        sectores = sectores.filter(id=sector_id)
-
-    resultados = []
-    for sector in sectores:
-        resultados_territoriales = ResultadoTerritorial.objects.filter(
-            sector=sector
-        )
-        total_resultados = resultados_territoriales.count()
-        metas = MetaProgramada.objects.filter(
-            indicador__isnull=False
-        )
-        indicadores_count = Indicador.objects.filter(activo=True).count()
-
-        metas_con_prog = metas.aggregate(
-            promedio=Avg('meta_anual'),
-            total=Coalesce(Sum('meta_anual'), 0, output_field=DecimalField(max_digits=20, decimal_places=4)),
-        )
-
-        resultados.append({
-            'sector_id': str(sector.id),
-            'sector_codigo': sector.codigo,
-            'sector_nombre': sector.nombre,
-            'total_resultados_territoriales': total_resultados,
-            'total_indicadores': indicadores_count,
-            'total_metas': float(metas_con_prog['total'] or 0),
-            'promedio_meta': float(metas_con_prog['promedio'] or 0),
-        })
-
-    return resultados
-
-
-# ===== 6. REPORTE DE ACCIONES CORRECTIVAS PENDIENTES =====
+# ===== 5. REPORTE DE ACCIONES CORRECTIVAS PENDIENTES =====
 def reporte_acciones_correctivas_pendientes():
     """Acciones correctivas pendientes con fechas límite y responsable."""
     from apps.acciones_correctivas.models import AccionCorrectiva
@@ -962,7 +704,7 @@ def reporte_acciones_correctivas_pendientes():
     return resultados
 
 
-# ===== 7. REPORTE DE SOLICITUDES DE MODIFICACIÓN PENDIENTES =====
+# ===== 6. REPORTE DE SOLICITUDES DE MODIFICACIÓN PENDIENTES =====
 def reporte_solicitudes_modificacion_pendientes():
     """Solicitudes de modificación pendientes con sus tipos."""
     from apps.modificaciones.models import SolicitudModificacion
@@ -997,50 +739,7 @@ def reporte_solicitudes_modificacion_pendientes():
     return resultados
 
 
-# ===== 8. REPORTE DE EVALUACIONES POR PERÍODO =====
-def reporte_evaluaciones_por_periodo(fecha_inicio, fecha_fin):
-    """Evaluaciones en un período con puntajes y criterios."""
-    from apps.evaluacion.models import Evaluacion, CriterioEvaluacion, ResultadoEvaluacion
-
-    evaluaciones = Evaluacion.objects.filter(
-        created_at__date__gte=fecha_inicio,
-        created_at__date__lte=fecha_fin,
-    ).select_related('plan')
-
-    resultados = []
-    for ev in evaluaciones:
-        criterios = CriterioEvaluacion.objects.filter(evaluacion=ev)
-        datos_criterios = []
-        for c in criterios:
-            datos_criterios.append({
-                'criterio': c.get_criterion_display(),
-                'puntaje': float(c.score),
-                'peso': float(c.weight),
-                'puntaje_ponderado': float(c.weighted_score),
-            })
-
-        resultados_eval = ResultadoEvaluacion.objects.filter(evaluacion=ev)
-        puntaje_global = sum(float(r.score_global) for r in resultados_eval)
-        promedio = puntaje_global / len(resultados_eval) if resultados_eval else 0
-
-        resultados.append({
-            'evaluacion_id': str(ev.id),
-            'plan': str(ev.plan),
-            'gestion': ev.gestion.anio if ev.gestion_id else None,
-            'tipo': ev.get_evaluation_type_display(),
-            'periodo': ev.get_period_display(),
-            'estado': ev.get_status_display(),
-            'conclusiones': ev.conclusions,
-            'criterios': datos_criterios,
-            'puntaje_global': round(puntaje_global, 2),
-            'promedio_resultados': round(promedio, 2),
-            'total_resultados': resultados_eval.count(),
-        })
-
-    return resultados
-
-
-# ===== 9. REPORTE DE DESEMPEÑO DE UNIDAD EJECUTORA =====
+# ===== 7. REPORTE DE DESEMPEÑO DE UNIDAD EJECUTORA =====
 def reporte_desempeño_unidad_ejecutora(gestion, unidad_id):
     """Desempeño de una UE con todos sus indicadores y presupuestos."""
     from apps.poau.models import POAU, POAUActividad, EjecucionFisica, EjecucionFinanciera
@@ -1101,7 +800,7 @@ def reporte_desempeño_unidad_ejecutora(gestion, unidad_id):
     return resultados
 
 
-# ===== 10. REPORTE DE ALERTAS ACTIVAS =====
+# ===== 8. REPORTE DE ALERTAS ACTIVAS =====
 def reporte_alertas_activas():
     """Alertas activas con severidad, entidad afectada y fecha."""
     from apps.seguimiento.models import Alerta
@@ -1133,7 +832,7 @@ def reporte_alertas_activas():
     return resultados
 
 
-# ===== 11. REPORTE DE SEGUIMIENTO RECIENTE =====
+# ===== 9. REPORTE DE SEGUIMIENTO RECIENTE =====
 def reporte_seguimiento_reciente(dias=30):
     """Entradas de seguimiento recientes en todas las actividades."""
     from apps.seguimiento.models import EntradaSeguimiento, ReporteSeguimiento
@@ -1168,7 +867,7 @@ def reporte_seguimiento_reciente(dias=30):
     return resultados
 
 
-# ===== 12. REPORTE DE SUPUESTOS CRÍTICOS =====
+# ===== 10. REPORTE DE SUPUESTOS CRÍTICOS =====
 def reporte_supuestos_criticos(gestion):
     """Supuestos críticos con nivel de riesgo y mitigación."""
     from apps.indicadores.models import Supuesto
@@ -1201,49 +900,7 @@ def reporte_supuestos_criticos(gestion):
     return resultados
 
 
-# ===== 13. REPORTE DE PRODUCTOS POR PAD =====
-def reporte_productos_por_pad(pad_id):
-    """Productos de un PAD con resultados y líneas presupuestarias."""
-    from apps.pad.models import ProductoTerritorial, ResultadoTerritorial
-
-    resultado = ResultadoTerritorial.objects.filter(id=pad_id).first()
-    if not resultado:
-        resultado = ResultadoTerritorial.objects.filter(lineamiento__politica__id=pad_id).first()
-
-    if not resultado:
-        return []
-
-    productos = ProductoTerritorial.objects.filter(
-        resultado=resultado
-    ).select_related('resultado')
-
-    resultados = []
-    for prod in productos:
-        presupuesto = LineaPresupuestaria.objects.filter(
-            activo=True
-        ).aggregate(
-            total=Coalesce(Sum('importe'), 0, output_field=DecimalField(max_digits=20, decimal_places=2))
-        )
-
-        resultados.append({
-            'producto_id': str(prod.id),
-            'producto_codigo': prod.codigo,
-            'producto_nombre': prod.nombre,
-            'resultado_codigo': resultado.codigo,
-            'resultado_nombre': resultado.nombre,
-            'indicador': prod.indicador,
-            'linea_base': float(prod.linea_base or 0),
-            'meta_2030': float(prod.meta_2030 or 0),
-            'cuenta_financiamiento': prod.cuenta_con_financiamiento,
-            'presupuesto_total_pad': float(prod.presupuesto_total_pad or 0),
-            'presupuesto_general': float(presupuesto['total']),
-            'gestion': prod.gestion,
-        })
-
-    return resultados
-
-
-# ===== 14. REPORTE DE PROGRAMACIÓN PRESUPUESTARIA =====
+# ===== 11. REPORTE DE PROGRAMACIÓN PRESUPUESTARIA =====
 def reporte_programacion_presupuestaria(gestion):
     """Programación presupuestaria completa por POAU y actividad."""
     from apps.poau.models import POAU, POAUActividad
@@ -1290,7 +947,7 @@ def reporte_programacion_presupuestaria(gestion):
     return resultados
 
 
-# ===== 15. REPORTE DE HISTORIAL DE APROBACIONES =====
+# ===== 12. REPORTE DE HISTORIAL DE APROBACIONES =====
 def reporte_historial_aprobaciones(gestion):
     """Historial de aprobaciones con fechas, usuarios y acciones."""
     aprobaciones = Aprobacion.objects.filter(

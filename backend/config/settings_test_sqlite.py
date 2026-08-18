@@ -40,7 +40,6 @@ LOCAL_APPS_TEST = [
     'apps.reportes',
     'apps.auditoria',
     'apps.poau.apps.PoauConfig',
-    'apps.evaluacion',
     'apps.modificaciones.apps.ModificacionesConfig',
     'apps.notificaciones',
     'apps.seguimiento.apps.SeguimientoConfig',
@@ -75,7 +74,7 @@ MIGRATION_MODULES = {
         'core', 'accounts', 'organizacion', 'gestion', 'catalogos',
         'normativa', 'planificacion', 'indicadores', 'recursos', 'techos',
         'presupuesto', 'pad', 'workflow', 'documentos', 'reportes',
-        'auditoria', 'poau', 'evaluacion', 'modificaciones',
+        'auditoria', 'poau', 'modificaciones',
         'notificaciones', 'seguimiento', 'acciones_correctivas',
         'articulacion', 'codificacion',
     ]

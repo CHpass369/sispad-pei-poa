@@ -367,6 +367,33 @@ class TestCatalogosVersionados:
 
 
 class TestGeografiaPresupuestaria:
+    @pytest.mark.parametrize(
+        'modelo,codigo,tipo',
+        [
+            ('ClasificadorInstitucional', '1312', 'institucional'),
+            ('RubroRecurso', '1', 'rubro_recurso'),
+            ('FinalidadFuncion', '01', 'finalidad_funcion'),
+            ('SectorEconomicoPresupuestario', '1.1.1', 'sector_economico'),
+        ],
+    )
+    def test_nuevas_familias_tienen_version_fk_y_tipo_correcto(
+        self, modelo, codigo, tipo,
+    ):
+        from apps.catalogos.models import VersionClasificador
+        from apps.catalogos import models as catalogos_models
+
+        version = crear_version(tipo=tipo, gestion=_gf(2032), _reemplazar_vigente=False)
+        model = getattr(catalogos_models, modelo)
+        row = model(
+            codigo=codigo,
+            denominacion='Fila de prueba',
+            gestion=_gf(2032),
+            fecha_vigencia_desde=date(2032, 1, 1),
+            version_clasificador=version,
+        )
+        row.full_clean()
+        assert version.tipo in dict(VersionClasificador.TIPO_CHOICES)
+
     def test_mefp_geo_es_un_catalogo_distinto_de_cgeo_ine(self):
         from apps.catalogos.models import ClasificadorGeograficoPresupuestario, VersionClasificador
 
@@ -374,7 +401,14 @@ class TestGeografiaPresupuestaria:
             tipo=VersionClasificador.TIPO_GEOGRAFICO_PRESUPUESTARIO,
             codigo_fuente='RM-249-GEO',
         )
-        cgeo_ine = EntidadTerritorialCGEO.objects.get(codigo='031001')
+        cgeo_ine, _ = EntidadTerritorialCGEO.objects.get_or_create(
+            codigo='031001',
+            defaults={
+                'nombre': 'Sacaba',
+                'nivel': EntidadTerritorialCGEO.NIVEL_MUNICIPIO,
+                'estado': EntidadTerritorialCGEO.ESTADO_OFICIAL,
+            },
+        )
         mefp_geo = ClasificadorGeograficoPresupuestario.objects.create(
             version_clasificador=version,
             departamento='3',

@@ -4,15 +4,6 @@ import pytest
 from django.db import DatabaseError, connection, transaction
 from django.db.migrations.executor import MigrationExecutor
 
-from apps.articulacion.models import (
-    AccionPOA,
-    ActividadPOAU,
-    OperacionPOAU,
-    ProductoPEI,
-    ResultadoPEI,
-    TareaPOAU,
-)
-
 
 MIGRATE_WITHOUT_TRIGGER = (
     'articulacion',
@@ -24,7 +15,20 @@ MIGRATE_WITH_TRIGGER = (
 )
 
 
-def _crear_cadena():
+def _crear_cadena(historicos):
+    """Build the chain with the HISTORICAL models of the migrated state.
+
+    The schema is rewound to 0005: using the current models would emit an
+    INSERT with columns that do not exist yet (for instance the ones 0008 adds
+    to ResultadoPEI for the PEI matrix).
+    """
+    ResultadoPEI = historicos.get_model('articulacion', 'ResultadoPEI')
+    ProductoPEI = historicos.get_model('articulacion', 'ProductoPEI')
+    AccionPOA = historicos.get_model('articulacion', 'AccionPOA')
+    OperacionPOAU = historicos.get_model('articulacion', 'OperacionPOAU')
+    ActividadPOAU = historicos.get_model('articulacion', 'ActividadPOAU')
+    TareaPOAU = historicos.get_model('articulacion', 'TareaPOAU')
+
     resultado = ResultadoPEI.objects.create(
         codigo_resultado='TRIGGER-RI', denominacion='RI trigger',
         cod_entidad='1312', entidad='GAM Sacaba',
@@ -86,7 +90,9 @@ def test_trigger_forward_reverse_y_reapply_bloquea_update_delete_y_upsert():
 
     try:
         executor.migrate([MIGRATE_WITHOUT_TRIGGER])
-        tarea_update, tarea_delete = _crear_cadena()
+        historicos = executor.loader.project_state(MIGRATE_WITHOUT_TRIGGER).apps
+        TareaPOAU = historicos.get_model('articulacion', 'TareaPOAU')
+        tarea_update, tarea_delete = _crear_cadena(historicos)
 
         executor.loader.build_graph()
         executor.migrate([MIGRATE_WITH_TRIGGER])

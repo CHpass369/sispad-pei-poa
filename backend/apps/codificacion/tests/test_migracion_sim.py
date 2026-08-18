@@ -30,7 +30,6 @@ from apps.codificacion.models import (
 )
 from apps.codificacion.services.migracion_sim import MigracionSIMService
 from apps.codificacion.services.postgres_backup import PostgresBackupService
-from apps.pad.models import LineamientoEstrategico, PoliticaPAD
 from apps.planificacion.models import Plan
 from apps.gestion.models import GestionFiscal
 
@@ -324,15 +323,6 @@ def test_lineamientos_solo_se_mapean_con_correspondencia_inequivoca():
             version_catalogo=catalogo,
             entidad_territorial=cgeo,
         )
-    politica = PoliticaPAD.objects.create(
-        codigo='P-01', nombre='Política', gestion=_gf(2027),
-    )
-    legacy_ambiguo = LineamientoEstrategico.objects.create(
-        codigo='02',
-        nombre='Gestión territorial',
-        politica=politica,
-        gestion=_gf(2027),
-    )
 
     manifest = MigracionSIMService(gestion=2027).construir_manifiesto()
 
@@ -358,62 +348,6 @@ def test_lineamientos_solo_se_mapean_con_correspondencia_inequivoca():
     assert mapeo.legacy_id == str(legacy_unico.pk)
     assert mapeo.lineamiento_pad_id == canonico.pk
     assert LineamientoPADLegacy.objects.filter(pk=legacy_unico.pk).exists()
-    assert LineamientoEstrategico.objects.filter(pk=legacy_ambiguo.pk).exists()
-
-
-@pytest.mark.django_db
-def test_lineamiento_pad_origen_pk_entero_se_mapea_y_consolida():
-    """pad.LineamientoEstrategico (pk entero) se mapea sin ValidationError."""
-    cgeo = EntidadTerritorialCGEO.objects.get(codigo='031001')
-    plan = Plan.objects.create(
-        codigo='PAD-SIM-PK-ENTERO',
-        nombre='PAD-SIM-PK-ENTERO',
-        tipo='municipal',
-        gestion_inicio=2026,
-        gestion_fin=2030,
-        fecha_vigencia_desde=datetime.date(2026, 1, 1),
-    )
-    version_catalogo = VersionCatalogoPlan.objects.create(
-        plan=plan,
-        gestion=2027,
-        estado=VersionCatalogoPlan.ESTADO_BORRADOR,
-        clasificacion_fuente=VersionCatalogoPlan.FUENTE_INCIERTA,
-    )
-    canonico = LineamientoPAD.objects.create(
-        codigo='01',
-        denominacion='Desarrollo institucional',
-        version_catalogo=version_catalogo,
-        entidad_territorial=cgeo,
-    )
-    politica = PoliticaPAD.objects.create(
-        codigo='P-01', nombre='Política', gestion=_gf(2027),
-    )
-    legacy = LineamientoEstrategico.objects.create(
-        codigo='01',
-        nombre='Desarrollo institucional',
-        politica=politica,
-        gestion=_gf(2027),
-    )
-    assert isinstance(legacy.pk, int)
-
-    manifest = MigracionSIMService(gestion=2027).construir_manifiesto()
-
-    assert manifest['lineamientos']['mapeables'] == 1
-    assert manifest['lineamientos']['ambiguos'] == 0
-    assert manifest['lineamientos']['sin_correspondencia'] == 0
-    entrada = manifest['lineamientos']['entradas'][0]
-    assert entrada['origen'] == MapeoLineamientoPADLegacy.ORIGEN_PAD
-    assert entrada['legacy_id'] == str(legacy.pk)
-    assert entrada['canonico_id'] == str(canonico.pk)
-
-    resultado = MigracionSIMService(gestion=2027).consolidar_lineamientos()
-
-    assert resultado == {'mapeos_creados': 1, 'mapeos_existentes': 0}
-    mapeo = MapeoLineamientoPADLegacy.objects.get()
-    assert mapeo.origen == MapeoLineamientoPADLegacy.ORIGEN_PAD
-    assert mapeo.legacy_id == str(legacy.pk)
-    assert mapeo.lineamiento_pad_id == canonico.pk
-    assert LineamientoEstrategico.objects.filter(pk=legacy.pk).exists()
 
 
 def test_manifiesto_json_es_canonico_y_verificable(tmp_path, cadena_sim):

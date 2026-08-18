@@ -1,11 +1,41 @@
 from django.contrib.auth.tokens import default_token_generator
 from django.core import mail
-from django.test import TestCase
-from django.urls import reverse
+from django.test import SimpleTestCase, TestCase
+from django.urls import resolve, reverse
 
 from rest_framework import status
+from rest_framework.throttling import SimpleRateThrottle
+from rest_framework.test import APIRequestFactory
 
 from .models import Usuario
+from .views import LoginThrottle, LoginView
+
+
+class LoginThrottleTests(SimpleTestCase):
+    def setUp(self):
+        # El cache compartido puede conservar intentos de otras pruebas.
+        SimpleRateThrottle.cache.clear()
+        self.factory = APIRequestFactory()
+        self.login_url = reverse('login')
+
+    def test_login_aplica_login_throttle_y_limita_el_sexto_intento(self):
+        resolved = resolve(self.login_url)
+        self.assertIs(resolved.func.view_class, LoginView)
+        self.assertEqual(LoginView.throttle_classes, [LoginThrottle])
+        self.assertEqual(LoginThrottle.scope, 'login')
+
+        view = LoginView()
+        throttle = view.get_throttles()[0]
+        requests = [
+            view.initialize_request(
+                self.factory.post(self.login_url, {}, REMOTE_ADDR='192.0.2.10')
+            )
+            for _ in range(6)
+        ]
+        allowed = [throttle.allow_request(request, view) for request in requests]
+
+        self.assertEqual(allowed[:5], [True] * 5)
+        self.assertFalse(allowed[5])
 
 
 class PasswordResetFlowTests(TestCase):

@@ -41,7 +41,6 @@ LOCAL_APPS = [
     'apps.reportes',
     'apps.auditoria',
     'apps.poau.apps.PoauConfig',
-    'apps.evaluacion',
     'apps.modificaciones.apps.ModificacionesConfig',
     'apps.notificaciones',
     'apps.seguimiento.apps.SeguimientoConfig',

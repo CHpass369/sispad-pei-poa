@@ -2,11 +2,12 @@ import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, Routes } from '@angular/router';
+import { SharedModule } from '../../shared/shared.module';
 import { CapabilityGuard } from '../../core/guards/capability.guard';
 import { modulosPendientes } from '../sistemas/modulos-pendientes';
 import { SisPoaDashboardComponent } from './sis-poa-dashboard.component';
-import { SisPoaDetalleComponent } from './sis-poa-detalle.component';
-import { SisPoaListComponent } from './sis-poa-list.component';
+import { PoaWizardComponent } from './poa/poa-wizard.component';
+import { PoaMatrizViewerComponent } from './poa/poa-matriz-viewer.component';
 import { SisPoaPresupuestoComponent } from './sis-poa-presupuesto.component';
 import { SisPoaTechosComponent } from './sis-poa-techos.component';
 
@@ -20,13 +21,7 @@ const routes: Routes = [
   },
   {
     path: 'poas',
-    component: SisPoaListComponent,
-    canActivate: [CapabilityGuard],
-    data: { capacidades: ['sis_poa.formulate'] },
-  },
-  {
-    path: 'poas/:id',
-    component: SisPoaDetalleComponent,
+    component: PoaWizardComponent,
     canActivate: [CapabilityGuard],
     data: { capacidades: ['sis_poa.formulate'] },
   },
@@ -63,11 +58,11 @@ const routes: Routes = [
 @NgModule({
   declarations: [
     SisPoaDashboardComponent,
-    SisPoaListComponent,
-    SisPoaDetalleComponent,
+    PoaWizardComponent,
+    PoaMatrizViewerComponent,
     SisPoaPresupuestoComponent,
     SisPoaTechosComponent,
   ],
-  imports: [CommonModule, FormsModule, RouterModule.forChild(routes)],
+  imports: [CommonModule, FormsModule, SharedModule, RouterModule.forChild(routes)],
 })
 export class SisPoaModule {}

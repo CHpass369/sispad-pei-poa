@@ -138,8 +138,8 @@ def upsert(modelo, claves, valores, reporte, campos_actualizables=None):
     - ``creados``: filas nuevas.
     - ``actualizados``: filas existentes cuyo contenido cambió.
     - ``omitidos``: filas existentes idénticas (re-ejecución).
-    Nunca toca los campos semánticos (codigo/gestion/version/padre): las
-    asociaciones versionadas son inmutables una vez creadas.
+    No reemplaza asociaciones semánticas existentes. Una fila legacy sin
+    versión puede vincularse una sola vez a la versión de su misma gestión.
     """
     obj, creado = modelo.objects.get_or_create(defaults=valores, **claves)
     if creado:
@@ -152,6 +152,16 @@ def upsert(modelo, claves, valores, reporte, campos_actualizables=None):
         k: v for k, v in valores.items()
         if k in campos_actualizables and getattr(obj, k) != v
     }
+    # Existing legacy rows are deliberately nullable for compatibility. They
+    # may be attached once, and only to a version for the same fiscal year;
+    # an existing semantic association is never replaced.
+    version_nueva = valores.get('version_clasificador')
+    if (
+        version_nueva is not None
+        and getattr(obj, 'version_clasificador_id', None) is None
+        and getattr(obj, 'gestion_id', None) == version_nueva.gestion_id
+    ):
+        cambios['version_clasificador'] = version_nueva
     if cambios:
         for k, v in cambios.items():
             setattr(obj, k, v)

@@ -12,7 +12,10 @@ interface NavItem {
   icon: string;
   roles?: string[];
   capacidades?: string[];
+  /** Módulo sin UI propia todavía: la ruta resuelve a un placeholder. */
   pendiente?: boolean;
+  /** Módulo con UI real pero funcionalidad aún no estabilizada. */
+  beta?: boolean;
   legacy?: boolean;
 }
 
@@ -26,15 +29,12 @@ interface NavSection {
  *  sistema cuando la URL navega a estas rutas (fuera del prefijo /sis-*). */
 const RUTAS_POR_SISTEMA: Record<string, string> = {
   // SIS-PE
-  '/articulador': 'sis-pe',
-  '/articulacion': 'sis-pe',
   '/indicadores': 'sis-pe',
   '/territorio': 'sis-pe',
-  '/evaluacion': 'sis-pe',
   '/matrices-pad': 'sis-pe',
   // SIS-POA
   '/poau': 'sis-poa',
-  '/recursos': 'sis-poa',
+  '/poau_recursos': 'sis-poa',
   '/planificacion': 'sis-poa',
   '/seguimiento': 'sis-poa',
   '/modificaciones': 'sis-poa',
@@ -81,7 +81,7 @@ const RUTAS_POR_SISTEMA: Record<string, string> = {
               <span class="ico"><lucide-angular [name]="item.icon" [size]="16"></lucide-angular></span>
               @if (!collapsed) {
                 <span>{{ item.label }}</span>
-                @if (item.pendiente) {
+                @if (item.pendiente || item.beta) {
                   <span class="tag" title="Módulo en desarrollo">Beta</span>
                 }
                 @if (item.legacy) {
@@ -215,26 +215,23 @@ export class SidebarComponent implements OnInit, OnDestroy {
     'sis-pe': {
       title: 'SIS-PE — Planificación Estratégica',
       items: [
-        { route: '/sis-pe/dashboard', label: 'Dashboard estratégico', icon: 'gauge', capacidades: ['sis_pe.instrumento.read'] },
-        { route: '/sis-pe/instrumentos', label: 'Instrumentos', icon: 'file-text', capacidades: ['sis_pe.instrumento.read'] },
-        { route: '/sis-pe/diagnostico', label: 'Diagnóstico', icon: 'clipboard-list', capacidades: ['sis_pe.instrumento.read'], pendiente: true },
-        { route: '/articulador', label: 'PAD', icon: 'landmark', roles: ['superadmin', 'tecnico_admin', 'planificador'], legacy: true },
-        { route: '/sis-pe/pei', label: 'PEI', icon: 'compass', capacidades: ['sis_pe.instrumento.read'], pendiente: true },
-        { route: '/articulacion', label: 'Articulación', icon: 'network', roles: ['superadmin', 'tecnico_admin', 'planificador'], legacy: true },
-        { route: '/matrices-pad', label: 'Matrices PAD', icon: 'layout-grid', capacidades: ['sis_pe.instrumento.read'] },
+        { route: '/sis-pe/dashboard', label: 'Dashboard PE', icon: 'gauge', capacidades: ['sis_pe.instrumento.read'], beta: true },
+        { route: '/sis-pe/instrumentos', label: 'Instrumentos', icon: 'file-text', capacidades: ['sis_pe.instrumento.read'], beta: true },
+        { route: '/sis-pe/diagnostico', label: 'Diagnóstico Integral', icon: 'clipboard-list', capacidades: ['sis_pe.instrumento.read'], pendiente: true },
+        { route: '/matrices-pad', label: 'PAD', icon: 'layout-grid', capacidades: ['sis_pe.instrumento.read'], legacy: true },
+        { route: '/sis-pe/pei', label: 'PEI', icon: 'compass', capacidades: ['sis_pe.instrumento.read'], legacy: true },
         { route: '/indicadores', label: 'Indicadores', icon: 'chart-column', roles: ['superadmin', 'tecnico_admin', 'planificador'], legacy: true },
-        { route: '/territorio', label: 'Territorio', icon: 'map-pin', roles: ['superadmin', 'tecnico_admin'], legacy: true },
-        { route: '/sis-pe/seguimiento', label: 'Seguimiento estratégico', icon: 'activity', capacidades: ['sis_pe.instrumento.read'], pendiente: true },
-        { route: '/evaluacion', label: 'Evaluación', icon: 'circle-check', roles: ['superadmin', 'tecnico_admin', 'evaluador'], legacy: true },
+        { route: '/territorio', label: 'Territorialización de Acciones', icon: 'map-pin', roles: ['superadmin', 'tecnico_admin'], legacy: true },
+        { route: '/sis-pe/seguimiento-evaluacion', label: 'Seguimiento y Evaluación', icon: 'activity', capacidades: ['sis_pe.instrumento.read'], pendiente: true },
       ],
     },
     'sis-poa': {
       title: 'SIS-POA — Planificación Operativa',
       items: [
         { route: '/sis-poa/dashboard', label: 'Dashboard operativo', icon: 'gauge', capacidades: ['sis_poa.formulate'] },
-        { route: '/sis-poa/poas', label: 'POA', icon: 'calendar-days', capacidades: ['sis_poa.formulate'] },
+        { route: '/sis-poa/poas', label: 'POA', icon: 'calendar-days', capacidades: ['sis_poa.formulate'], legacy: true },
         { route: '/poau', label: 'POAU', icon: 'list-todo', roles: ['superadmin', 'tecnico_admin', 'jefe_ue', 'director'], legacy: true },
-        { route: '/recursos', label: 'Recursos', icon: 'boxes', roles: ['superadmin', 'tecnico_admin'], legacy: true },
+        { route: '/poau_recursos', label: 'POAU Recursos', icon: 'boxes', roles: ['superadmin', 'tecnico_admin'], legacy: true },
         { route: '/sis-poa/techos', label: 'Techos', icon: 'banknote', capacidades: ['sis_poa.formulate'] },
         { route: '/sis-poa/presupuesto', label: 'Presupuesto', icon: 'wallet', capacidades: ['sis_poa.formulate'] },
         { route: '/sis-poa/budget/gestion-fiscal', label: 'Gestión Fiscal', icon: 'coins', capacidades: ['sis_poa.formulate'] },

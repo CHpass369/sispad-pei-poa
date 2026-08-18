@@ -35,11 +35,6 @@ class PoAInstitucional(models.Model):
     gestion = models.PositiveIntegerField()
     codigo = models.CharField(max_length=50, unique=True)
     nombre = models.CharField(max_length=300)
-    version_pei = models.ForeignKey(
-        'planificacion.VersionInstrumento', null=True, blank=True,
-        related_name='poas', on_delete=models.SET_NULL,
-        help_text='Versión PEI aprobada a la que se articula (obligatoria).',
-    )
     estado = models.CharField(
         max_length=20, choices=EstadosPoA.CHOICES, default=EstadosPoA.BORRADOR,
     )
@@ -57,15 +52,6 @@ class PoAInstitucional(models.Model):
     def __str__(self):
         return f'[{self.codigo}] {self.nombre}'
 
-    def clean(self):
-        if self.estado in EstadosPoA.REQUIERE_PEI and not self.version_pei_id:
-            raise ValidationError({
-                'version_pei': (
-                    'El POA no puede pasar a revisión/aprobación sin una '
-                    'versión de PEI vinculada (conexión estratégica obligatoria).'
-                ),
-            })
-
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)
@@ -81,10 +67,6 @@ class AccionCortoPlazo(models.Model):
     codigo = models.CharField(max_length=50)
     nombre = models.CharField(max_length=500)
     descripcion = models.TextField(blank=True, default='')
-    nodo_pei = models.ForeignKey(
-        'planificacion.NodoEstrategico', null=True, blank=True,
-        related_name='acciones_poa', on_delete=models.SET_NULL,
-    )
     unidad = models.ForeignKey(
         'organizacion.UnidadOrganizacional', null=True, blank=True,
         related_name='acciones_poa_v2', on_delete=models.SET_NULL,
