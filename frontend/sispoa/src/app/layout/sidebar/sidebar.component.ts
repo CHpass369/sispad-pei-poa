@@ -17,6 +17,9 @@ interface NavItem {
   /** Módulo con UI real pero funcionalidad aún no estabilizada. */
   beta?: boolean;
   legacy?: boolean;
+  /** Módulo estabilizado (chip "V1") que no forma parte del cutover legacy.
+   *  A diferencia de `legacy`, no queda sujeto a LEGACY_MENU_VISIBLE. */
+  v1?: boolean;
 }
 
 interface NavSection {
@@ -42,6 +45,20 @@ const RUTAS_POR_SISTEMA: Record<string, string> = {
   // SIS-PRO
   '/inversion': 'sis-pro',
 };
+
+/** Perfiles de acceso del menú SIS-POA.
+ *  El superusuario (`is_superuser`) atraviesa todos los filtros en
+ *  PermissionsService, por lo que no necesita figurar en estas listas. */
+const ROLES_ADMIN = ['superadmin', 'tecnico_admin'];
+const ROLES_POA = ['jefe_poa', 'tecnico_poa'];
+const ROLES_PE = ['jefe_pe', 'tecnico_pe'];
+
+/** Solo la jefatura de POA (más administración). */
+const SOLO_JEFE_POA = ['jefe_poa', ...ROLES_ADMIN];
+/** Jefatura y técnicos de POA (más administración). */
+const EQUIPO_POA = [...ROLES_POA, ...ROLES_ADMIN];
+/** Equipos de POA y de PE (más administración). */
+const EQUIPO_POA_PE = [...ROLES_POA, ...ROLES_PE, ...ROLES_ADMIN];
 
 @Component({
   standalone: false,
@@ -84,8 +101,8 @@ const RUTAS_POR_SISTEMA: Record<string, string> = {
                 @if (item.pendiente || item.beta) {
                   <span class="tag" title="Módulo en desarrollo">Beta</span>
                 }
-                @if (item.legacy) {
-                  <span class="tag ok" title="Módulo V1 (legacy)">V1</span>
+                @if (item.legacy || item.v1) {
+                  <span class="tag ok" title="Módulo V1">V1</span>
                 }
               }
             </a>
@@ -228,24 +245,15 @@ export class SidebarComponent implements OnInit, OnDestroy {
     'sis-poa': {
       title: 'SIS-POA — Planificación Operativa',
       items: [
-        { route: '/sis-poa/dashboard', label: 'Dashboard operativo', icon: 'gauge', capacidades: ['sis_poa.formulate'] },
-        { route: '/sis-poa/poas', label: 'POA', icon: 'calendar-days', capacidades: ['sis_poa.formulate'], legacy: true },
-        { route: '/poau', label: 'POAU', icon: 'list-todo', roles: ['superadmin', 'tecnico_admin', 'jefe_ue', 'director'], legacy: true },
-        { route: '/poau_recursos', label: 'POAU Recursos', icon: 'boxes', roles: ['superadmin', 'tecnico_admin'], legacy: true },
-        { route: '/sis-poa/techos', label: 'Techos', icon: 'banknote', capacidades: ['sis_poa.formulate'] },
-        { route: '/sis-poa/presupuesto', label: 'Presupuesto', icon: 'wallet', capacidades: ['sis_poa.formulate'] },
-        { route: '/sis-poa/budget/gestion-fiscal', label: 'Gestión Fiscal', icon: 'coins', capacidades: ['sis_poa.formulate'] },
-        { route: '/sis-poa/budget/techo-directivo', label: 'Techo Directivo', icon: 'chart-bar', capacidades: ['sis_poa.formulate'] },
-        { route: '/sis-poa/budget/categorias-programaticas', label: 'Categorías Programáticas', icon: 'list-tree', capacidades: ['sis_poa.formulate'] },
-        { route: '/sis-poa/budget/distribucion', label: 'Distribución Presupuestaria', icon: 'chart-pie', capacidades: ['sis_poa.formulate'] },
-        { route: '/sis-poa/budget/distribucion-territorial', label: 'Distribución Territorial', icon: 'map', capacidades: ['sis_poa.budget.manage', 'sis_poa.formulate'] },
-        { route: '/sis-poa/budget/importaciones', label: 'Importaciones', icon: 'download', capacidades: ['sis_poa.budget.import', 'sis_poa.formulate'] },
-        { route: '/sis-poa/budget/reformulaciones', label: 'Reformulaciones', icon: 'refresh-cw', capacidades: ['sis_poa.budget.reform', 'sis_poa.formulate'] },
-        { route: '/sis-poa/budget/auditoria', label: 'Auditoría', icon: 'scan-search', capacidades: ['sis_poa.budget.audit_read'] },
-        { route: '/planificacion/formulacion', label: 'Formulación POA', icon: 'pen-line', roles: ['superadmin', 'tecnico_admin', 'planificador'], legacy: true },
-        { route: '/seguimiento', label: 'Seguimiento', icon: 'activity', roles: ['superadmin', 'tecnico_admin', 'jefe_ue', 'director', 'tecnico'], legacy: true },
-        { route: '/modificaciones', label: 'Modificaciones', icon: 'pencil-ruler', roles: ['superadmin', 'tecnico_admin'], legacy: true },
-        { route: '/consolidacion', label: 'Consolidación', icon: 'layers', roles: ['superadmin', 'tecnico_admin'], legacy: true },
+        { route: '/sis-poa/dashboard', label: 'Dashboard POA', icon: 'gauge', capacidades: ['sis_poa.formulate'], beta: true },
+        { route: '/sis-poa/budget/gestion-fiscal', label: 'Habilitación de Gestión', icon: 'calendar-check', roles: SOLO_JEFE_POA, v1: true },
+        { route: '/sis-poa/presupuesto-recursos', label: 'Presupuesto General de Recursos', icon: 'banknote', roles: EQUIPO_POA, v1: true },
+        { route: '/sis-poa/presupuesto-gastos', label: 'Presupuesto General de Gastos', icon: 'wallet', roles: EQUIPO_POA, v1: true },
+        { route: '/sis-poa/poas', label: 'POA', icon: 'calendar-days', roles: EQUIPO_POA_PE, legacy: true },
+        { route: '/sis-poa/poaus', label: 'POAUs', icon: 'list-tree', roles: EQUIPO_POA_PE, v1: true },
+        { route: '/poau', label: 'POAU (Físico)', icon: 'list-todo', roles: EQUIPO_POA_PE, legacy: true },
+        { route: '/poau_recursos', label: 'POAU (Recursos)', icon: 'boxes', roles: EQUIPO_POA_PE, legacy: true },
+        { route: '/sis-poa/seguimiento', label: 'Seguimiento y Evaluación', icon: 'activity', capacidades: ['sis_poa.formulate'], beta: true },
       ],
     },
     'sis-pro': {

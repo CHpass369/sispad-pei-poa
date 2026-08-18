@@ -44,9 +44,12 @@ const routes: Routes = [
   // Módulos del plan maestro (§18.1 SIS-POA) en desarrollo
   ...modulosPendientes(
     [
+      { ruta: 'presupuesto-recursos', nombre: 'Presupuesto General de Recursos' },
+      { ruta: 'presupuesto-gastos', nombre: 'Presupuesto General de Gastos' },
+      { ruta: 'poaus', nombre: 'POAUs' },
       { ruta: 'poau', nombre: 'POAU por unidad' },
       { ruta: 'recursos', nombre: 'Recursos' },
-      { ruta: 'seguimiento', nombre: 'Seguimiento operativo' },
+      { ruta: 'seguimiento', nombre: 'Seguimiento y Evaluación' },
       { ruta: 'modificaciones', nombre: 'Modificaciones' },
     ],
     'SIS-POA',

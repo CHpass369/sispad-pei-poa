@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { BehaviorSubject, of } from 'rxjs';
-import { LucideAngularModule, Home, Gauge, Bell, FileText, ClipboardList, Landmark, Compass, Network, LayoutGrid, ChartColumn, MapPin, Activity, CircleCheck, CalendarDays, ListTodo, Boxes, Banknote, Wallet, Coins, ChartBar, ListTree, ChartPie, Map, Download, RefreshCw, ScanSearch, PenLine, PencilRuler, Layers, Briefcase, HardHat, DraftingCompass, FolderOpen, FilePenLine, Handshake, Play, Eye, Users, Building2, CalendarRange, BookOpen, ScrollText, Folder, ChartSpline, MapPinned, Workflow, CircleAlert, BadgeCheck, ChevronLeft, ChevronRight } from 'lucide-angular';
+import { LucideAngularModule, Home, Gauge, Bell, FileText, ClipboardList, Landmark, Compass, Network, LayoutGrid, ChartColumn, MapPin, Activity, CircleCheck, CalendarCheck, CalendarDays, ListTodo, Boxes, Banknote, Wallet, Coins, ChartBar, ListTree, ChartPie, Map, Download, RefreshCw, ScanSearch, PenLine, PencilRuler, Layers, Briefcase, HardHat, DraftingCompass, FolderOpen, FilePenLine, Handshake, Play, Eye, Users, Building2, CalendarRange, BookOpen, ScrollText, Folder, ChartSpline, MapPinned, Workflow, CircleAlert, BadgeCheck, ChevronLeft, ChevronRight } from 'lucide-angular';
 import { SidebarComponent } from './sidebar.component';
 import { AuthService } from '../../core/services/auth.service';
 import { PermissionsService } from '../../core/services/permissions.service';
@@ -40,7 +40,7 @@ describe('SidebarComponent', () => {
         RouterModule,
         LucideAngularModule.pick({
           Home, Gauge, Bell, FileText, ClipboardList, Landmark, Compass, Network, LayoutGrid,
-          ChartColumn, MapPin, Activity, CircleCheck, CalendarDays, ListTodo, Boxes, Banknote,
+          ChartColumn, MapPin, Activity, CircleCheck, CalendarCheck, CalendarDays, ListTodo, Boxes, Banknote,
           Wallet, Coins, ChartBar, ListTree, ChartPie, Map, Download, RefreshCw, ScanSearch,
           PenLine, PencilRuler, Layers, Briefcase, HardHat, DraftingCompass, FolderOpen,
           FilePenLine, Handshake, Play, Eye, Users, Building2, CalendarRange, BookOpen,
@@ -152,6 +152,58 @@ describe('SidebarComponent', () => {
       navegarA(ruta);
       expect(rutasVisibles()).toContain('/sis-poa/poas');
     }
+  });
+
+  it('should list the SIS-POA tools in the agreed order', () => {
+    navegarA('/sis-poa/dashboard');
+    const seccion = component['visibleSections']
+      .find(s => s.title.startsWith('SIS-POA'))!;
+
+    expect(seccion.items.map(i => [i.label, i.route])).toEqual([
+      ['Dashboard POA', '/sis-poa/dashboard'],
+      ['Habilitación de Gestión', '/sis-poa/budget/gestion-fiscal'],
+      ['Presupuesto General de Recursos', '/sis-poa/presupuesto-recursos'],
+      ['Presupuesto General de Gastos', '/sis-poa/presupuesto-gastos'],
+      ['POA', '/sis-poa/poas'],
+      ['POAUs', '/sis-poa/poaus'],
+      ['POAU (Físico)', '/poau'],
+      ['POAU (Recursos)', '/poau_recursos'],
+      ['Seguimiento y Evaluación', '/sis-poa/seguimiento'],
+    ]);
+  });
+
+  it('should tag Dashboard and Seguimiento as Beta and the rest as V1', () => {
+    navegarA('/sis-poa/dashboard');
+    const seccion = component['visibleSections']
+      .find(s => s.title.startsWith('SIS-POA'))!;
+
+    const beta = seccion.items.filter(i => i.beta || i.pendiente).map(i => i.route);
+    const v1 = seccion.items.filter(i => i.legacy || i.v1).map(i => i.route);
+
+    expect(beta).toEqual(['/sis-poa/dashboard', '/sis-poa/seguimiento']);
+    expect(v1.length).toBe(7);
+    expect(beta.some(r => v1.includes(r))).toBeFalse();
+  });
+
+  it('should gate Habilitación de Gestión to the POA lead only', () => {
+    permissionsSpy.hasAnyRole.and.callFake((roles: string[]) => roles.includes('tecnico_poa'));
+    navegarA('/sis-poa/dashboard');
+
+    const rutas = rutasVisibles();
+    expect(rutas).not.toContain('/sis-poa/budget/gestion-fiscal');
+    expect(rutas).toContain('/sis-poa/presupuesto-recursos');
+  });
+
+  it('should keep POA and POAU visible for the PE team', () => {
+    permissionsSpy.hasAnyRole.and.callFake((roles: string[]) => roles.includes('tecnico_pe'));
+    navegarA('/sis-poa/dashboard');
+
+    const rutas = rutasVisibles();
+    expect(rutas).toContain('/sis-poa/poas');
+    expect(rutas).toContain('/sis-poa/poaus');
+    expect(rutas).toContain('/poau');
+    expect(rutas).toContain('/poau_recursos');
+    expect(rutas).not.toContain('/sis-poa/presupuesto-gastos');
   });
 
   it('should keep SIS-PRO context on legacy /inversion', () => {
