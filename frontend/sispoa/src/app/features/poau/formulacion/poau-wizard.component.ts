@@ -1,5 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import { concatMap, from, of, switchMap, toArray } from 'rxjs';
 import { ApiService } from '../../../core/services/api.service';
 import { environment } from '../../../../environments/environment';
@@ -14,12 +15,14 @@ import {
   TareaForm,
   actividadVacia,
   cabeceraVacia,
+  indicadorVacio,
   codigoActividad,
   codigoOperacion,
   codigoTarea,
   construirFilas,
   operacionVacia,
   ponderacionTotal,
+  programacionVacia,
   tareaVacia,
   tieneErrores,
   totalAnual,
@@ -472,16 +475,74 @@ export class PoauWizardComponent implements OnInit {
   msg = '';
   msgClass = '';
 
+  /** Acción de corto plazo que se está editando; vacío al formular una nueva. */
+  editandoAccion = '';
+  /** Registro sobre el que se pulsó "editar" en la matriz, para resaltarlo. */
+  foco = '';
+  cargandoEdicion = false;
+
   constructor(
     private api: ApiService,
     private http: HttpClient,
     private cdr: ChangeDetectorRef,
+    private ruta: ActivatedRoute,
   ) {}
 
   ngOnInit(): void {
     this.cargarAccionesPoa();
     this.cargarProductosPei();
     this.cargarCategoriasMaestro();
+
+    // Con `:accion` en la ruta el wizard abre en modo edición: trae lo que ya
+    // está formulado en vez de arrancar con una operación vacía.
+    this.ruta.paramMap.subscribe(p => {
+      const accion = p.get('accion') || '';
+      this.foco = this.ruta.snapshot.queryParamMap.get('foco') || '';
+      if (accion && accion !== this.editandoAccion) {
+        this.editandoAccion = accion;
+        this.cargarParaEditar(accion);
+      }
+    });
+  }
+
+  /** Trae la acción con su programación y llena los formularios. */
+  cargarParaEditar(accionId: string): void {
+    this.cargandoEdicion = true;
+    this.msg = '';
+    this.http.get<any>(`${environment.apiUrl}/articulacion/matriz-poau/${accionId}/`)
+      .subscribe({
+        next: d => {
+          this.cabecera = { ...cabeceraVacia(), ...d.cabecera };
+          this.accionSel = d.cabecera.accionPoaId || '';
+          this.operaciones = (d.operaciones || []).map((o: any) => ({
+            ...operacionVacia(),
+            ...o,
+            indicador: { ...indicadorVacio(), ...(o.indicador || {}) },
+            programacion: { ...programacionVacia(), ...(o.programacion || {}) },
+            actividades: (o.actividades || []).map((a: any) => ({
+              ...actividadVacia(),
+              ...a,
+              indicador: { ...indicadorVacio(), ...(a.indicador || {}) },
+              programacion: { ...programacionVacia(), ...(a.programacion || {}) },
+              tareas: (a.tareas || []).map((t: any) => ({
+                ...tareaVacia(), ...t,
+                programacion: { ...programacionVacia(), ...(t.programacion || {}) },
+              })),
+            })),
+          }));
+          // Sin operaciones el wizard necesita una fila en blanco donde escribir.
+          if (!this.operaciones.length) { this.operaciones = [operacionVacia()]; }
+          this.paso = 1;
+          this.cargandoEdicion = false;
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.msg = 'No se pudo cargar la acción para editar.';
+          this.msgClass = 'error';
+          this.cargandoEdicion = false;
+          this.cdr.markForCheck();
+        },
+      });
   }
 
   // --- Derivados ------------------------------------------------------------
