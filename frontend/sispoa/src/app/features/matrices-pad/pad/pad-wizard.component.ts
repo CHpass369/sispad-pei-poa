@@ -467,11 +467,11 @@ interface OpcionAcuerdoFiltrada extends AcuerdoInternacionalOption {
     </div>
   `,
   styles: [`
-    .pad-full { max-width: 1200px; margin: 0 auto; padding-bottom: 2rem; }
+    .pad-full { max-width: var(--ancho-trabajo); margin: 0 auto; padding-bottom: 2rem; }
     .migas { font-size: 0.6875rem; color: var(--text-secondary); margin-bottom: 0.3rem; display: flex; gap: 0.4rem; align-items: center; }
     .migas a { color: var(--primary); text-decoration: none; font-weight: 600; }
     .migas a:hover { text-decoration: underline; }
-    .aviso-edicion { margin: 0.5rem 0 0; padding: 0.55rem 0.75rem; background: #FFF8E1; color: #8A6100; border-radius: 6px; font-size: 0.75rem; }
+    .aviso-edicion { margin: 0.5rem 0 0; padding: 0.55rem 0.75rem; background: var(--aviso-fondo); color: var(--aviso-tinta); border-radius: 6px; font-size: 0.75rem; }
     .pad-header h1 { font-size: 1.35rem; color: var(--primary); }
     .pad-header p { color: var(--text-secondary); font-size: 0.8125rem; margin-bottom: 1rem; }
 
@@ -485,6 +485,7 @@ interface OpcionAcuerdoFiltrada extends AcuerdoInternacionalOption {
     .step-label { font-weight: 700; font-size: 0.6875rem; }
 
     .wizard-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 1.25rem; align-items: start; }
+    app-control-metodologico { position: sticky; top: var(--e-2); align-self: start; max-height: calc(100vh - 5rem); overflow-y: auto; }
     .wizard-main { min-width: 0; }
     @media (max-width: 1100px) { .wizard-layout { grid-template-columns: 1fr; } }
 
@@ -498,15 +499,15 @@ interface OpcionAcuerdoFiltrada extends AcuerdoInternacionalOption {
 
     .select-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.5rem; margin-bottom: 0.75rem; }
     .select-card { padding: 0.75rem; border: 2px solid var(--border); border-radius: 6px; cursor: pointer; }
-    .select-card:hover { border-color: var(--primary); background: #F0F7F3; }
-    .select-card.selected { border-color: var(--primary); background: #E8F5E9; }
+    .select-card:hover { border-color: var(--primary); background: var(--realce); }
+    .select-card.selected { border-color: var(--primary); background: var(--ok-fondo); }
     .card-cod { font-weight: 800; font-size: 0.7rem; color: var(--primary); }
     .card-nombre { font-size: 0.8125rem; font-weight: 600; }
     .card-desc { font-size: 0.6875rem; color: var(--text-secondary); margin-top: 0.25rem; }
 
     .form-2col, .form-3col { display: grid; gap: 0.75rem; margin-bottom: 0.5rem; }
-    .form-2col { grid-template-columns: 1fr 1fr; }
-    .form-3col { grid-template-columns: 1fr 1fr 1fr; }
+    .form-2col { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+    .form-3col { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
     .field { margin-bottom: 0.5rem; }
     .field label { display: block; font-size: 0.6875rem; font-weight: 500; color: var(--text-secondary); margin-bottom: 0.2rem; }
     .inline-actions { margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.75rem; }
@@ -538,14 +539,14 @@ interface OpcionAcuerdoFiltrada extends AcuerdoInternacionalOption {
 
     .hallazgos ul { list-style: none; padding: 0; margin: 0; }
     .hallazgos li { padding: 0.4rem 0.6rem; border-radius: 6px; margin-bottom: 0.3rem; font-size: 0.75rem; }
-    .hallazgos li.error { background: #FFEBEE; color: var(--warn); }
-    .hallazgos li.aviso { background: #FFF8E1; color: #8A6100; }
+    .hallazgos li.error { background: var(--error-fondo); color: var(--warn); }
+    .hallazgos li.aviso { background: var(--aviso-fondo); color: var(--aviso-tinta); }
 
-     .nota { margin-top: 0.75rem; padding: 0.6rem 0.75rem; background: #FFF8E1; color: #8A6100; border-radius: 6px; font-size: 0.75rem; }
+     .nota { margin-top: 0.75rem; padding: 0.6rem 0.75rem; background: var(--aviso-fondo); color: var(--aviso-tinta); border-radius: 6px; font-size: 0.75rem; }
      .cascada-aviso { border-left: 3px solid var(--primary); }
     .msg-box { margin-top: 0.75rem; padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.8125rem; }
-    .msg-box.error { background: #FFEBEE; color: var(--warn); }
-    .msg-box.exito { background: #E8F5E9; color: var(--success); }
+    .msg-box.error { background: var(--error-fondo); color: var(--warn); }
+    .msg-box.exito { background: var(--ok-fondo); color: var(--success); }
     .btn-danger { background: transparent; border: 1px solid var(--warn); color: var(--warn); border-radius: 4px; cursor: pointer; padding: 0.2rem 0.5rem; font-size: 0.6875rem; }
 
     @media (max-width: 768px) {

@@ -95,23 +95,23 @@ export interface HallazgoMetodologico {
     .texto-titulo { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; white-space: nowrap; }
     .contadores { display: flex; gap: 0.25rem; }
     .chip { border-radius: 10px; padding: 0 0.4rem; font-size: 0.625rem; font-weight: 800; }
-    .chip-error { background: #FFEBEE; color: #B3261E; }
-    .chip-aviso { background: #FFF8E1; color: #8A6100; }
-    .chip-ok { background: #E8F5E9; color: #1B5E20; }
+    .chip-error { background: var(--error-fondo); color: #B3261E; }
+    .chip-aviso { background: var(--aviso-fondo); color: var(--aviso-tinta); }
+    .chip-ok { background: var(--ok-fondo); color: var(--ok-tinta); }
     .toggle { font-size: 0.875rem; opacity: 0.85; }
 
     .panel-cuerpo { padding: 0.7rem; overflow-y: auto; }
     .fuente { font-size: 0.625rem; color: var(--text-secondary); margin: 0 0 0.6rem; }
 
     .estado-ok {
-      background: #E8F5E9; color: var(--success);
+      background: var(--ok-fondo); color: var(--success);
       padding: 0.6rem; border-radius: 6px; font-size: 0.75rem;
     }
 
     .bloque { margin-bottom: 0.9rem; }
     .bloque-titulo { font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.03em; margin: 0 0 0.4rem; }
     .bloque-titulo.error { color: var(--warn); }
-    .bloque-titulo.aviso { color: #8A6100; }
+    .bloque-titulo.aviso { color: var(--aviso-tinta); }
 
     ul { list-style: none; padding: 0; margin: 0; }
     li {
@@ -119,8 +119,8 @@ export interface HallazgoMetodologico {
       padding: 0.45rem 0.55rem; border-radius: 6px; margin-bottom: 0.35rem;
       border-left: 3px solid transparent;
     }
-    li.error { background: #FFEBEE; border-left-color: var(--warn); }
-    li.aviso { background: #FFF8E1; border-left-color: #C99A2E; }
+    li.error { background: var(--error-fondo); border-left-color: var(--warn); }
+    li.aviso { background: var(--aviso-fondo); border-left-color: #C99A2E; }
     .seccion { font-size: 0.5625rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.75; }
     .mensaje { font-size: 0.6875rem; line-height: 1.35; }
     li.error .mensaje { color: #7A1C16; }

@@ -100,7 +100,7 @@ import { ApiService } from '../../core/services/api.service';
     .filtros label { font-size: 0.75rem; color: var(--text-secondary); align-self: center; }
     .filtro-select { width: auto; min-width: 150px; padding: 0.375rem 0.5rem; }
     .filtros input { width: auto; min-width: 200px; padding: 0.375rem 0.5rem; }
-    .table-wrapper { overflow-x: auto; }
+    
     .matriz-table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
     .matriz-table th { 
       background: var(--primary); color: white; padding: 0.5rem 0.625rem;

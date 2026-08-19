@@ -69,7 +69,7 @@ import { ProyectoV2, SisProService } from './sis-pro.service';
     .btn-primary { background: var(--primary); color: white; }
     .btn-sm { background: var(--mdc-blue-50); color: var(--mdc-blue-800); margin-right: 0.25rem; }
     .data-table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
-    .data-table th, .data-table td { padding: 0.625rem 0.75rem; text-align: left; border-bottom: 1px solid var(--border); font-size: 0.8125rem; }
+    .data-table th, 
     .badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.6875rem; font-weight: 600; background: var(--mdc-blue-50); color: var(--mdc-blue-800); }
     .loading { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .empty { text-align: center; padding: 2rem; color: var(--text-secondary); }

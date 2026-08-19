@@ -65,7 +65,7 @@ import { ApiService } from '../../core/services/api.service';
     .page-header { margin-bottom: 1.5rem; }
     .page-header h2 { font-size: 1.5rem; margin-bottom: 0.25rem; }
     .text-secondary { color: var(--text-secondary); font-size: 0.875rem; }
-    .table-responsive { overflow-x: auto; }
+    
     table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
     th, td { padding: 0.5rem 0.625rem; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
     th { font-size: 0.6875rem; color: var(--text-secondary); text-transform: uppercase; }

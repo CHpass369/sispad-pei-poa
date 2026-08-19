@@ -384,7 +384,7 @@ import {
     </div>
   `,
   styles: [`
-    .poa-full { max-width: 1200px; margin: 0 auto; padding-bottom: 2rem; }
+    .poa-full { max-width: var(--ancho-trabajo); margin: 0 auto; padding-bottom: 2rem; }
     .poa-header h1 { font-size: 1.35rem; color: var(--primary); }
     .poa-header p { color: var(--text-secondary); font-size: 0.8125rem; margin-bottom: 1rem; }
     .migas { font-size: 0.6875rem; color: var(--text-secondary); margin-bottom: 0.3rem; display: flex; gap: 0.4rem; align-items: center; }
@@ -402,6 +402,7 @@ import {
     .step-label { font-weight: 700; font-size: 0.6875rem; }
 
     .wizard-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 1.25rem; align-items: start; }
+    app-control-metodologico { position: sticky; top: var(--e-2); align-self: start; max-height: calc(100vh - 5rem); overflow-y: auto; }
     .wizard-main { min-width: 0; }
     @media (max-width: 1100px) { .wizard-layout { grid-template-columns: 1fr; } }
 
@@ -410,9 +411,9 @@ import {
     .step-content h4 { font-size: 0.9rem; margin: 1rem 0 0.5rem; color: var(--text-secondary); }
     .step-content p { color: var(--text-secondary); margin-bottom: 0.75rem; font-size: 0.8125rem; }
 
-    .form-2col { display: grid; gap: 0.75rem; margin-bottom: 0.5rem; grid-template-columns: 1fr 1fr; }
+    .form-2col { display: grid; gap: 0.75rem; margin-bottom: 0.5rem; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
     .form-3col { display: grid; gap: 0.75rem; margin-bottom: 0.5rem; grid-template-columns: repeat(3, 1fr); }
-    .form-4col { display: grid; gap: 0.75rem; margin-bottom: 0.5rem; grid-template-columns: repeat(4, 1fr); }
+    .form-4col { display: grid; gap: 0.75rem; margin-bottom: 0.5rem; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
     .fechas-par { display: grid; grid-template-columns: 1fr 1fr; gap: 0.35rem; }
     .step-content h5 { font-size: 0.8125rem; margin: 0.9rem 0 0.4rem; color: var(--primary); }
     .atajo { max-width: 320px; }

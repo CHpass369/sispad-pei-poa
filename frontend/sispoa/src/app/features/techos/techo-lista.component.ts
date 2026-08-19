@@ -83,7 +83,7 @@ import { BudgetService, DirectiveCeiling } from '../sis-poa/budget/budget.servic
     .filter-bar label { font-size: 0.875rem; font-weight: 500; color: var(--text-secondary); }
     .select-input { padding: 0.5rem 0.75rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.875rem; background: var(--surface); color: var(--text-primary); }
     .select-input:focus { outline: none; border-color: var(--primary); }
-    .table-responsive { overflow-x: auto; }
+    
     table { width: 100%; border-collapse: collapse; }
     th, td { padding: 0.625rem 0.75rem; text-align: left; border-bottom: 1px solid var(--border); }
     th { font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; }

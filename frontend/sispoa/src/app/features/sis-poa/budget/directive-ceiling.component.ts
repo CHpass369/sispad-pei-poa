@@ -42,7 +42,7 @@ const TIPOS_DOCUMENTO = [
     .comp-card.destacada { border-color: var(--primary); background: #F4F8FD; }
     .comp-card.resalta { border-color: var(--mdc-green-800); background: #F1F8F2; }
     .data-table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
-    .data-table th, .data-table td { padding: 0.625rem 0.75rem; text-align: left; border-bottom: 1px solid var(--border); font-size: 0.8125rem; }
+    .data-table th, 
     .form-inline { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: flex-end; }
     .campo label { display: block; font-size: 0.75rem; font-weight: 600; margin-bottom: 0.375rem; }
     .input { padding: 0.5rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.875rem; min-width: 140px; }

@@ -169,7 +169,7 @@ export interface CadenaMapa {
 
     /* Nodo: caja blanca con borde superior de color por nivel */
     .nodo { background: #fff; border: 1px solid var(--border); border-top-width: 5px; border-radius: 8px; padding: 0.5rem 0.625rem; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
-    .nivel-1 { border-top-color: #1B5E20; }
+    .nivel-1 { border-top-color: var(--ok-tinta); }
     .nivel-2 { border-top-color: var(--mdc-blue-800); }
     .nivel-3 { border-top-color: #6A1B9A; }
     .nivel-4 { border-top-color: #E65100; }
@@ -179,7 +179,7 @@ export interface CadenaMapa {
 
     .nodo-cab { font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-secondary); font-weight: 700; margin-bottom: 0.15rem; }
     .nodo-codigo { font-family: monospace; font-weight: 700; font-size: 0.8125rem; color: var(--primary-dark); line-height: 1.3; }
-    .nivel-1 .nodo-codigo { color: #1B5E20; }
+    .nivel-1 .nodo-codigo { color: var(--ok-tinta); }
     .nivel-2 .nodo-codigo { color: var(--mdc-blue-800); }
     .nivel-3 .nodo-codigo { color: #6A1B9A; }
     .nivel-4 .nodo-codigo { color: #E65100; }
@@ -195,7 +195,7 @@ export interface CadenaMapa {
     .mapa-leyenda { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--border); }
     .leyenda-item { font-size: 0.6875rem; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 0.375rem; }
     .leyenda-item::before { content: ''; width: 12px; height: 4px; border-radius: 2px; display: inline-block; }
-    .nivel-1-dot::before { background: #1B5E20; }
+    .nivel-1-dot::before { background: var(--ok-tinta); }
     .nivel-2-dot::before { background: var(--mdc-blue-800); }
     .nivel-3-dot::before { background: #6A1B9A; }
     .nivel-4-dot::before { background: #E65100; }

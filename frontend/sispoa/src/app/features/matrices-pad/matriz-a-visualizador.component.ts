@@ -125,7 +125,7 @@ import { MatricesPadService } from './matrices-pad.service';
     .header-actions { display: flex; align-items: center; gap: 0.5rem; white-space: nowrap; }
 
     .table-card { padding: 0; overflow: hidden; }
-    .table-scroll { overflow-x: auto; max-height: 70vh; overflow-y: auto; }
+    
     .matriz-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
     .matriz-table th { position: sticky; top: 0; z-index: 2; text-align: left; padding: 0.5rem 0.625rem; background: var(--bg); color: var(--text-secondary); font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.03em; border-bottom: 1px solid var(--border); white-space: nowrap; }
     .matriz-table td { padding: 0.5rem 0.625rem; border-bottom: 1px solid var(--border); vertical-align: top; }

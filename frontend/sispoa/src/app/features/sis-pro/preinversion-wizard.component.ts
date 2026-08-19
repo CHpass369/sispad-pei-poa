@@ -419,7 +419,7 @@ import {
     .historial { margin-top: 1.5rem; }
     .historial h4 { font-size: 0.9375rem; }
     .data-table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
-    .data-table th, .data-table td { padding: 0.5rem 0.625rem; text-align: left; border-bottom: 1px solid var(--border); }
+    .data-table th, 
     .wizard-nav { display: flex; justify-content: space-between; align-items: center; }
     .nav-info { font-size: 0.8125rem; color: var(--text-secondary); }
     .btn { display: inline-flex; align-items: center; padding: 0.5rem 0.875rem; border-radius: 6px; border: none; font-size: 0.8125rem; font-weight: 600; cursor: pointer; text-decoration: none; }

@@ -24,7 +24,7 @@ const ESTADOS_TERMINALES = ['CERRADA', 'cerrada', 'archivada', 'VIGENTE'];
     .btn-danger { background: var(--mdc-red-50); color: var(--mdc-red-800); }
     .btn-danger:hover { background: var(--pip-gold-soft); }
     .data-table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
-    .data-table th, .data-table td { padding: 0.625rem 0.75rem; text-align: left; border-bottom: 1px solid var(--border); font-size: 0.8125rem; }
+    .data-table th, 
     .loading { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .empty { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .acciones { display: flex; gap: 0.5rem; }

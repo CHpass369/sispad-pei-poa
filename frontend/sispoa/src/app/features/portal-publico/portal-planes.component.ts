@@ -112,7 +112,7 @@ interface PlanNodo {
     .badge-estado-borrador, .badge-estado-pendiente { background: var(--mdc-grey-50); color: #616161; }
     .btn { display: inline-flex; align-items: center; padding: 0.5rem 1rem; border-radius: 6px; border: none; font-size: 0.875rem; font-weight: 600; cursor: pointer; }
     .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-primary); }
-    .btn-outline:hover { background: var(--hover, #f5f5f5); }
+    .btn-outline:hover { background: var(--hover, var(--neutro-fondo)); }
     .empty { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .loading { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .alert { padding: 0.75rem 1rem; border-radius: 6px; margin-top: 1rem; }

@@ -30,8 +30,8 @@ export const METODOS: { valor: string; etiqueta: string; usaPoblacion: boolean; 
     .campo label { display: block; font-size: 0.75rem; font-weight: 600; margin-bottom: 0.375rem; }
     .input { padding: 0.5rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.875rem; min-width: 140px; width: 100%; box-sizing: border-box; }
     .data-table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
-    .data-table th, .data-table td { padding: 0.5625rem 0.75rem; text-align: left; border-bottom: 1px solid var(--border); font-size: 0.8125rem; }
-    .data-table th { font-weight: 600; }
+    .data-table th, 
+    
     .monto-celda { text-align: right; white-space: nowrap; }
     .acciones { display: flex; gap: 0.375rem; flex-wrap: wrap; }
     .btn-sm { background: var(--surface); border: 1px solid var(--border); }

@@ -68,10 +68,9 @@ import { ModificacionesService, SolicitudModificacion } from './modificaciones.s
     .text-secondary { color: var(--text-secondary); font-size: 0.875rem; }
     .acciones-superior { display: flex; gap: 1rem; margin-bottom: 1.5rem; align-items: center; }
     .acciones-superior .field { flex: 1; }
-    .table-container { overflow-x: auto; }
+    
     .data-table { width: 100%; border-collapse: collapse; background: var(--surface); border-radius: 8px; overflow: hidden; }
-    .data-table th { background: var(--background, #f5f5f5); padding: 0.75rem 1rem; text-align: left; font-size: 0.75rem; text-transform: uppercase; color: var(--text-secondary); }
-    .data-table td { padding: 0.75rem 1rem; border-top: 1px solid var(--border); font-size: 0.875rem; }
+
     .data-table tr:hover td { background: var(--hover, #fafafa); }
     .badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.75rem; }
     .badge-pendiente { background: var(--mdc-amber-50); color: #E65100; }
@@ -83,7 +82,7 @@ import { ModificacionesService, SolicitudModificacion } from './modificaciones.s
     .btn-primary:hover { background: var(--primary-dark, #303F9F); }
     .btn-sm { padding: 0.25rem 0.5rem; font-size: 0.8125rem; }
     .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-primary); }
-    .btn-outline:hover { background: var(--hover, #f5f5f5); }
+    .btn-outline:hover { background: var(--hover, var(--neutro-fondo)); }
     .empty { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .loading { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .alert { padding: 0.75rem 1rem; border-radius: 6px; margin-top: 1rem; }

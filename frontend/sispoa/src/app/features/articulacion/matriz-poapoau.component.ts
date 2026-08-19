@@ -208,7 +208,6 @@ export function buildOperacionTree(rows: any[]): {
     .filtros .field { min-width: 160px; }
     .filtros .field label { display: block; font-size: 0.6875rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.25rem; }
 
-    .table-scroll { overflow-x: auto; }
     .table-card { padding: 0; overflow: hidden; }
 
     .matriz-table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }

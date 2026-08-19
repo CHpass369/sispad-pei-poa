@@ -129,7 +129,7 @@ import {
     .toolbar label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.75rem; color: var(--text-secondary); }
     .input { padding: 0.5rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.875rem; }
     .data-table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
-    .data-table th, .data-table td { padding: 0.5rem 0.625rem; text-align: left; border-bottom: 1px solid var(--border); }
+    .data-table th, 
     .fila { cursor: pointer; }
     .fila:hover { background: #F5F7FA; }
     .fila-seleccionada { background: var(--mdc-blue-50) !important; }

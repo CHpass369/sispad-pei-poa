@@ -138,10 +138,9 @@ import { ConsolidacionService, ConsolidacionUE } from './consolidacion.service';
     .resumen-item.verde .resumen-valor { color: var(--mdc-green-800); }
     .resumen-item.amarillo .resumen-valor { color: #F57F17; }
     .resumen-item.rojo .resumen-valor { color: var(--mdc-red-800); }
-    .table-container { overflow-x: auto; }
+    
     .data-table { width: 100%; border-collapse: collapse; background: var(--surface); border-radius: 8px; overflow: hidden; }
-    .data-table th { background: var(--background, #f5f5f5); padding: 0.75rem 1rem; text-align: left; font-size: 0.75rem; text-transform: uppercase; color: var(--text-secondary); }
-    .data-table td { padding: 0.75rem 1rem; border-top: 1px solid var(--border); font-size: 0.875rem; }
+
     .data-table tr:hover td { background: var(--hover, #fafafa); }
     .progress-cell { display: flex; align-items: center; gap: 0.5rem; min-width: 120px; }
     .progress-bar { flex: 1; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
@@ -158,7 +157,7 @@ import { ConsolidacionService, ConsolidacionUE } from './consolidacion.service';
     .badge-aprobado { background: var(--mdc-green-50); color: var(--mdc-green-800); }
     .btn { display: inline-flex; align-items: center; padding: 0.5rem 1rem; border-radius: 6px; border: none; font-size: 0.875rem; font-weight: 600; cursor: pointer; }
     .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-primary); }
-    .btn-outline:hover { background: var(--hover, #f5f5f5); }
+    .btn-outline:hover { background: var(--hover, var(--neutro-fondo)); }
     .btn-sm { padding: 0.25rem 0.5rem; font-size: 0.8125rem; }
     .empty { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .loading { text-align: center; padding: 2rem; color: var(--text-secondary); }

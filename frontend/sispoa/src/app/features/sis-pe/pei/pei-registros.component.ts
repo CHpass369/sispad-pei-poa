@@ -339,7 +339,7 @@ const BLOQUES_ARTICULACION: BloqueMatriz[] = [
     </div>
   `,
   styles: [`
-    .registros { max-width: 1200px; margin: 0 auto; }
+    .registros { width: 100%; max-width: none; padding-inline: var(--canal); }
     .page-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
     .page-header h2 { font-size: 1.25rem; color: var(--primary); margin-bottom: 0.25rem; }
     .text-secondary { color: var(--text-secondary); font-size: 0.8125rem; max-width: 66ch; }
@@ -347,9 +347,8 @@ const BLOQUES_ARTICULACION: BloqueMatriz[] = [
 
     .tabla-card { padding: 0; overflow: hidden; }
     .tabla { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
-    .tabla th { background: var(--primary); color: #fff; padding: 0.6rem 0.75rem; text-align: left; font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
-    .tabla td { padding: 0.55rem 0.75rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
-    .tabla tbody tr:hover td { background: #F0F7F3; }
+
+    
     .codigo { font-family: 'Courier New', monospace; font-weight: 700; }
     .celda-larga { max-width: 340px; }
     .num { text-align: right; }

@@ -161,7 +161,6 @@ import { MatrizCompletaTreeComponent } from './matriz-completa-tree.component';
     @keyframes spin { to { transform: rotate(360deg); } }
 
     .table-card { padding: 0; overflow: hidden; }
-    .table-scroll { overflow-x: auto; }
 
     .badge { font-size: 0.6875rem; }
     .btn-outline-success {

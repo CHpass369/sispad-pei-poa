@@ -79,7 +79,7 @@ import { ApiService } from '../../core/services/api.service';
     .search-bar { margin-bottom: 1.5rem; }
     .search-input { width: 100%; max-width: 400px; padding: 0.625rem 0.875rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.875rem; background: var(--surface); color: var(--text-primary); }
     .search-input:focus { outline: none; border-color: var(--primary); }
-    .table-responsive { overflow-x: auto; }
+    
     table { width: 100%; border-collapse: collapse; }
     th, td { padding: 0.625rem 0.75rem; text-align: left; border-bottom: 1px solid var(--border); }
     th { font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; }

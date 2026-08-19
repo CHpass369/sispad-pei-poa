@@ -76,7 +76,7 @@ import { PoaV2, ProgramacionFila, SisPoaService, ValidacionTecho } from './sis-p
     .card label { display: block; font-size: 0.75rem; font-weight: 600; margin-bottom: 0.375rem; }
     .input { padding: 0.5rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.875rem; width: 100%; max-width: 480px; }
     .data-table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 1rem; }
-    .data-table th, .data-table td { padding: 0.625rem 0.75rem; text-align: left; border-bottom: 1px solid var(--border); font-size: 0.8125rem; }
+    .data-table th, 
     .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.75rem; font-size: 0.875rem; }
     .actions { margin-top: 1rem; }
     .btn { display: inline-flex; align-items: center; padding: 0.5rem 0.875rem; border-radius: 6px; border: none; font-size: 0.8125rem; font-weight: 600; cursor: pointer; }

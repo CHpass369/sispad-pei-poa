@@ -129,10 +129,9 @@ import { NormativaService, Normativa, ReglaNormativa } from './normativa.service
     .seccion h3 { font-size: 1.125rem; margin-bottom: 1rem; }
     .contenido-card { padding: 1.5rem; }
     .contenido-texto { line-height: 1.7; white-space: pre-wrap; font-size: 0.9375rem; }
-    .table-container { overflow-x: auto; }
+    
     .data-table { width: 100%; border-collapse: collapse; background: var(--surface); border-radius: 8px; overflow: hidden; }
-    .data-table th { background: var(--background, #f5f5f5); padding: 0.75rem 1rem; text-align: left; font-size: 0.75rem; text-transform: uppercase; color: var(--text-secondary); }
-    .data-table td { padding: 0.75rem 1rem; border-top: 1px solid var(--border); font-size: 0.875rem; }
+
     .data-table tr:hover td { background: var(--hover, #fafafa); }
     .loading { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .alert { padding: 0.75rem 1rem; border-radius: 6px; margin-top: 1rem; }

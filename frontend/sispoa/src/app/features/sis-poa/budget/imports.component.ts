@@ -35,8 +35,8 @@ interface PasosDef {
     .campo label { display: block; font-size: 0.75rem; font-weight: 600; margin-bottom: 0.375rem; }
     .input, select.input { padding: 0.5rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.875rem; width: 100%; box-sizing: border-box; }
     .data-table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
-    .data-table th, .data-table td { padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid var(--border); font-size: 0.8125rem; }
-    .data-table th { font-weight: 600; }
+    .data-table th, 
+    
     .acciones { display: flex; gap: 0.5rem; margin-top: 1rem; flex-wrap: wrap; }
     .alert-error { background: var(--mdc-red-50); color: var(--mdc-red-800); border-radius: 6px; padding: 0.625rem 0.875rem; margin: 0.75rem 0; font-size: 0.875rem; }
     .alert-success { background: var(--mdc-green-50); color: var(--mdc-green-800); border-radius: 6px; padding: 0.625rem 0.875rem; margin: 0.75rem 0; font-size: 0.875rem; }

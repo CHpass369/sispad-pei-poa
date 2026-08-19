@@ -98,7 +98,7 @@ import { ApiService } from '../../core/services/api.service';
     .quick-actions { margin-bottom: 1.5rem; }
     .actions-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.75rem; }
     .action-card { text-align: center; text-decoration: none; color: var(--text-primary); padding: 1rem; }
-    .action-card:hover { background: #f5f5f5; }
+    .action-card:hover { background: var(--neutro-fondo); }
     .profile-card { margin-bottom: 1.5rem; }
     .profile-info { display: flex; align-items: center; gap: 1rem; }
     .profile-avatar { width: 48px; height: 48px; border-radius: 50%; background: var(--primary); color: white; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; font-weight: 700; }

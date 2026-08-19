@@ -119,7 +119,7 @@ import { ModificacionesService, SolicitudModificacion } from './modificaciones.s
     .acciones-resolucion { display: flex; gap: 0.75rem; justify-content: flex-end; }
     .btn { display: inline-flex; align-items: center; padding: 0.5rem 1rem; border-radius: 6px; border: none; font-size: 0.875rem; font-weight: 600; cursor: pointer; }
     .btn-success { background: var(--mdc-green-800); color: white; }
-    .btn-success:hover { background: #1B5E20; }
+    .btn-success:hover { background: var(--ok-tinta); }
     .btn-success:disabled, .btn-danger:disabled { opacity: 0.5; cursor: not-allowed; }
     .btn-danger { background: var(--mdc-red-800); color: white; }
     .btn-danger:hover { background: #B71C1C; }

@@ -142,7 +142,7 @@ import { CondicionITCP, ITCP, PreinversionService } from './preinversion.service
     .rojo { background: var(--mdc-red-50); color: var(--mdc-red-800); }
     .gris { background: var(--mdc-amber-50); color: #E65100; }
     .data-table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
-    .data-table th, .data-table td { padding: 0.5rem 0.625rem; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
+    .data-table th, 
     .no-aplica td { opacity: 0.6; }
     .texto { white-space: pre-wrap; }
     .badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.6875rem; font-weight: 600; background: var(--mdc-blue-50); color: var(--mdc-blue-800); }

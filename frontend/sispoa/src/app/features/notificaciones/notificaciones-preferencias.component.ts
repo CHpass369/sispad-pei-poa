@@ -74,8 +74,7 @@ import { NotificacionesService, PreferenciaNotificacion } from './notificaciones
     .text-secondary { color: var(--text-secondary); font-size: 0.875rem; }
     .preferencias-container { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; overflow-x: auto; }
     .data-table { width: 100%; border-collapse: collapse; }
-    .data-table th { background: var(--background, #f5f5f5); padding: 0.75rem 1rem; text-align: left; font-size: 0.75rem; text-transform: uppercase; color: var(--text-secondary); }
-    .data-table td { padding: 0.75rem 1rem; border-top: 1px solid var(--border); font-size: 0.875rem; }
+
     .data-table tr:hover td { background: var(--hover, #fafafa); }
     .col-center { text-align: center; }
     .evento-cell { min-width: 200px; }

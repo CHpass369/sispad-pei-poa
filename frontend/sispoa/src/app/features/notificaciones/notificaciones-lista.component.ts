@@ -85,7 +85,7 @@ import { NotificacionesService, Notificacion, ResumenNotificaciones } from './no
     .btn-primary { background: var(--primary); color: white; }
     .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
     .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-primary); }
-    .btn-outline:hover { background: var(--hover, #f5f5f5); }
+    .btn-outline:hover { background: var(--hover, var(--neutro-fondo)); }
     .empty { text-align: center; padding: 3rem; color: var(--text-secondary); }
     .loading { text-align: center; padding: 2rem; color: var(--text-secondary); }
     .alert { padding: 0.75rem 1rem; border-radius: 6px; margin-top: 1rem; }
