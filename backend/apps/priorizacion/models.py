@@ -184,6 +184,9 @@ class PlantillaActa(TimeStampedModel):
         max_length=80, default='MONTO BS.-', verbose_name='Rótulo del monto')
     rotulo_total = models.CharField(
         max_length=80, default='TOTAL', verbose_name='Rótulo del total')
+    aclaracion = models.TextField(
+        blank=True, verbose_name='Aclaración sobre los recursos',
+        help_text='Párrafo que va debajo de la tabla de proyectos.')
     nota = models.TextField(blank=True, verbose_name='Nota al pie')
     cierre = models.TextField(blank=True, verbose_name='Párrafo de cierre')
     firmas = models.JSONField(
@@ -212,6 +215,7 @@ class PlantillaActa(TimeStampedModel):
             'rotulo_descripcion': self.rotulo_descripcion,
             'rotulo_monto': self.rotulo_monto,
             'rotulo_total': self.rotulo_total,
+            'aclaracion': aplicar(self.aclaracion),
             'nota': aplicar(self.nota),
             'cierre': aplicar(self.cierre),
         }

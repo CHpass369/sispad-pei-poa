@@ -1,5 +1,6 @@
 """API del módulo Priorización POA."""
 from django.db.models import Count, F, Q, Sum
+from django.http import HttpResponse
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -10,6 +11,7 @@ from apps.articulacion.permissions import es_aprobador
 from .models import (
     ActaPriorizacion, EstadosActa, PlantillaActa, ProyectoCatalogo, normalizar,
 )
+from .pdf import generar_acta_pdf, hash_acta
 from .serializers import ActaPriorizacionSerializer, ProyectoCatalogoSerializer
 
 MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio',
@@ -146,10 +148,8 @@ class ActaPriorizacionViewSet(viewsets.ModelViewSet):
 
     # --- Acta oficial -------------------------------------------------------
 
-    @action(detail=True, methods=['get'], url_path='acta-oficial')
-    def acta_oficial(self, request, pk=None):
-        """El acta lista para emitir, con los textos de la plantilla."""
-        acta = self.get_object()
+    def _datos_acta(self, acta):
+        """Los datos del acta ya resueltos, o un Response con el motivo."""
         if not acta.fecha:
             return Response(
                 {'error': 'El acta no tiene fecha: no se puede emitir.'},
@@ -185,10 +185,14 @@ class ActaPriorizacionViewSet(viewsets.ModelViewSet):
         })
         valores = {'presidente': acta.presidente,
                    'responsable': acta.responsable_registro}
-        return Response({
+        return {
             **textos,
+            'acta_id': str(acta.id),
+            'gestion': acta.gestion,
             'distrito': acta.distrito.nombre,
             'otb': acta.otb,
+            'presidente': acta.presidente,
+            'fecha': acta.fecha.isoformat(),
             'proyectos': [{
                 'nro': p.orden, 'descripcion': p.nombre,
                 'monto': float(p.monto or 0),
@@ -199,7 +203,34 @@ class ActaPriorizacionViewSet(viewsets.ModelViewSet):
             'firmas': [{'rol': f.get('rol', ''),
                         'nombre': valores.get(f.get('campo', ''), '')}
                        for f in (plantilla.firmas or [])],
-        })
+        }
+
+    @action(detail=True, methods=['get'], url_path='acta-oficial')
+    def acta_oficial(self, request, pk=None):
+        """El acta lista para emitir, con los textos de la plantilla."""
+        datos = self._datos_acta(self.get_object())
+        if isinstance(datos, Response):
+            return datos
+        return Response({**datos, 'huella': hash_acta(datos)})
+
+    @action(detail=True, methods=['get'], url_path='pdf')
+    def pdf(self, request, pk=None):
+        """El acta en PDF tamaño oficio, armada en el servidor.
+
+        No se delega en la impresión del navegador: el diálogo nativo usa el
+        tamaño de papel que tenga configurado el usuario y escala la hoja.
+        """
+        acta = self.get_object()
+        datos = self._datos_acta(acta)
+        if isinstance(datos, Response):
+            return datos
+        contenido, huella = generar_acta_pdf(datos)
+        nombre = f'acta-{acta.distrito.codigo}-{acta.otb[:40]}-{acta.gestion}.pdf'
+        respuesta = HttpResponse(contenido, content_type='application/pdf')
+        respuesta['Content-Disposition'] = (
+            f'attachment; filename="{nombre.replace(chr(32), "-")}"')
+        respuesta['X-Acta-Huella'] = huella
+        return respuesta
 
 
 class MatrizPriorizacionViewSet(viewsets.ViewSet):

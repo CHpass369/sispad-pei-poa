@@ -275,3 +275,71 @@ class ActaTests(TestCase):
         d = self.client.get(f'{API}/matrices/?gestion=2029').json()
         self.assertEqual(d['total_filas'], 0)
         self.assertEqual(d['resumen'], [])
+
+
+class ActaPDFTests(ActaTests):
+    """El PDF lo arma el servidor: la medida no puede quedar a criterio del
+    diálogo de impresión del navegador."""
+
+    def test_sale_en_oficio_exacto(self):
+        import re
+        acta_id = self.crear_acta().json()['id']
+        r = self.client.get(f'{API}/actas/{acta_id}/pdf/')
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual(r['Content-Type'], 'application/pdf')
+        caja = re.search(rb'/MediaBox \[([^\]]+)\]', r.content)
+        ancho, alto = [float(v) for v in caja.group(1).split()[2:]]
+        # 216 x 330 mm en puntos, con tolerancia de redondeo.
+        self.assertAlmostEqual(ancho, 216 * 72 / 25.4, places=1)
+        self.assertAlmostEqual(alto, 330 * 72 / 25.4, places=1)
+        # El Legal norteamericano mediría 1008 puntos de alto.
+        self.assertLess(alto, 1000)
+
+    def test_se_descarga_con_nombre_propio(self):
+        acta_id = self.crear_acta().json()['id']
+        r = self.client.get(f'{API}/actas/{acta_id}/pdf/')
+        self.assertIn('attachment', r['Content-Disposition'])
+        self.assertIn('.pdf', r['Content-Disposition'])
+
+    def test_la_huella_del_contenido_es_estable_y_viaja_en_la_cabecera(self):
+        acta_id = self.crear_acta().json()['id']
+        primera = self.client.get(f'{API}/actas/{acta_id}/pdf/')['X-Acta-Huella']
+        segunda = self.client.get(f'{API}/actas/{acta_id}/pdf/')['X-Acta-Huella']
+        self.assertEqual(primera, segunda)
+        self.assertEqual(len(primera), 64)
+        # El JSON del acta declara la misma huella que el PDF.
+        d = self.client.get(f'{API}/actas/{acta_id}/acta-oficial/').json()
+        self.assertEqual(d['huella'], primera)
+
+    def test_cambiar_un_monto_cambia_la_huella(self):
+        acta_id = self.crear_acta().json()['id']
+        antes = self.client.get(f'{API}/actas/{acta_id}/pdf/')['X-Acta-Huella']
+        p = ProyectoPriorizado.objects.filter(acta_id=acta_id).first()
+        p.monto = 999
+        p.save()
+        despues = self.client.get(f'{API}/actas/{acta_id}/pdf/')['X-Acta-Huella']
+        self.assertNotEqual(antes, despues)
+
+    def test_la_huella_no_depende_de_la_redaccion_de_la_plantilla(self):
+        # Lo que se verifica es qué se priorizó y por cuánto, no cómo se
+        # redactó el acta: cambiar la plantilla no invalida lo firmado.
+        acta_id = self.crear_acta().json()['id']
+        antes = self.client.get(f'{API}/actas/{acta_id}/pdf/')['X-Acta-Huella']
+        PlantillaActa.objects.all().update(nota='Otra nota distinta')
+        despues = self.client.get(f'{API}/actas/{acta_id}/pdf/')['X-Acta-Huella']
+        self.assertEqual(antes, despues)
+
+    def test_el_pdf_incluye_la_aclaracion_de_recursos(self):
+        PlantillaActa.objects.all().update(
+            aclaracion='Aclarar que las transferencias del TGN del POA {gestion}')
+        acta_id = self.crear_acta().json()['id']
+        d = self.client.get(f'{API}/actas/{acta_id}/acta-oficial/').json()
+        self.assertIn('POA 2027', d['aclaracion'])
+        self.assertEqual(
+            self.client.get(f'{API}/actas/{acta_id}/pdf/').status_code,
+            status.HTTP_200_OK)
+
+    def test_sin_fecha_no_hay_pdf(self):
+        acta_id = self.crear_acta(fecha=None).json()['id']
+        r = self.client.get(f'{API}/actas/{acta_id}/pdf/')
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)

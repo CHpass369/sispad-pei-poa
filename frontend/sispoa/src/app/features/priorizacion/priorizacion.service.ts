@@ -87,6 +87,13 @@ export class PriorizacionService {
     return this.http.get(`${this.base}/actas/${id}/acta-oficial/`);
   }
 
+  /** El PDF lo arma el servidor con la medida oficio clavada. */
+  actaPdf(id: string): Observable<Blob> {
+    return this.http.get(`${this.base}/actas/${id}/pdf/`, {
+      responseType: 'blob',
+    });
+  }
+
   matrices(gestion: number): Observable<any> {
     return this.http.get(`${this.base}/matrices/`, {
       params: new HttpParams().set('gestion', gestion),

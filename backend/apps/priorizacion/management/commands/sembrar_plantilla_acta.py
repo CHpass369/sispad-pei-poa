@@ -17,6 +17,16 @@ PLANTILLA = {
     'rotulo_descripcion': 'DESCRIPCION',
     'rotulo_monto': 'MONTO BS.-',
     'rotulo_total': 'TOTAL',
+    'aclaracion': (
+        'Aclarar que las transferencias del TGN y la proyección de recursos '
+        'propios del GAMS programados en el POA {gestion} son proyectados y su '
+        'ejecución en actividades y proyectos de inversión pública está sujeto '
+        'a la recaudación efectiva por tanto son proyectados, por lo que su '
+        'recaudación puede ser menor o mayor durante la gestión fiscal, '
+        'asimismo la asignación de presupuesto no constituyen, obligaciones o '
+        'deudas por parte del GAMS debiendo los desembolsos sujetarse a la '
+        'recaudación efectiva.'
+    ),
     'nota': ('Nota:  Se aclara que, una vez priorizado el proyecto, no se podrá '
              'realizar ninguna modificación ni cambio de proyecto.'),
     'cierre': ('En constancia de conformidad firman al pie del presente '
