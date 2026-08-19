@@ -1,5 +1,7 @@
 import uuid
 from django.db import models
+
+from .revision_poau import EstadosPOAU
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from apps.core.models import TimeStampedModel
@@ -723,7 +725,11 @@ class OperacionPOAU(CodigoSegmentadoModel):
     requerimientos = models.TextField(blank=True, verbose_name='Requerimientos')
     riesgo = models.TextField(blank=True, verbose_name='Riesgo')
     accion_correctiva = models.TextField(blank=True, verbose_name='Acción correctiva')
-    estado = models.CharField(max_length=20, default='REFERENCIAL', verbose_name='Estado')
+    estado = models.CharField(
+        max_length=20, choices=EstadosPOAU.choices,
+        default=EstadosPOAU.BORRADOR, verbose_name='Estado'
+    )
+    observacion = models.TextField(blank=True, verbose_name='Observación')
 
     class Meta:
         verbose_name = 'Operación POAU'
@@ -796,7 +802,11 @@ class ActividadPOAU(CodigoSegmentadoModel):
     requerimientos = models.TextField(blank=True, verbose_name='Requerimientos')
     riesgo = models.TextField(blank=True, verbose_name='Riesgo')
     accion_correctiva = models.TextField(blank=True, verbose_name='Acción correctiva')
-    estado = models.CharField(max_length=20, default='REFERENCIAL', verbose_name='Estado')
+    estado = models.CharField(
+        max_length=20, choices=EstadosPOAU.choices,
+        default=EstadosPOAU.BORRADOR, verbose_name='Estado'
+    )
+    observacion = models.TextField(blank=True, verbose_name='Observación')
 
     class Meta:
         verbose_name = 'Actividad POAU'
@@ -885,7 +895,11 @@ class TareaPOAU(CodigoSegmentadoModel):
         verbose_name='Normativas'
     )
     evidencia = models.TextField(blank=True, verbose_name='Evidencia')
-    estado = models.CharField(max_length=20, default='REFERENCIAL', verbose_name='Estado')
+    estado = models.CharField(
+        max_length=20, choices=EstadosPOAU.choices,
+        default=EstadosPOAU.BORRADOR, verbose_name='Estado'
+    )
+    observacion = models.TextField(blank=True, verbose_name='Observación')
 
     class Meta:
         verbose_name = 'Tarea POAU'

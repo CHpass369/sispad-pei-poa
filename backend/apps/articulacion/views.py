@@ -28,6 +28,7 @@ from .serializers import (
     AsignacionObjetoGastoSerializer, BorradorMatrizPADSerializer,
     validar_estructura_resultados,
 )
+from .revision_poau import EstadosPOAU, RevisionPOAUMixin
 from .permissions import ArticulacionPermisos, permisos_revision_matriz
 from .services import (
     construir_matriz_a,
@@ -275,7 +276,7 @@ class AccionPOAViewSet(EstadoActionsMixin, viewsets.ModelViewSet):
     ordering_fields = ['codigo_accion', 'gestion', 'denominacion']
 
 
-class OperacionPOAUViewSet(EstadoActionsMixin, viewsets.ModelViewSet):
+class OperacionPOAUViewSet(RevisionPOAUMixin, viewsets.ModelViewSet):
     queryset = OperacionPOAU.objects.all()
     serializer_class = OperacionPOAUSerializer
     permission_classes = [ArticulacionPermisos]
@@ -284,7 +285,7 @@ class OperacionPOAUViewSet(EstadoActionsMixin, viewsets.ModelViewSet):
     ordering_fields = ['codigo_operacion', 'denominacion']
 
 
-class ActividadPOAUViewSet(EstadoActionsMixin, viewsets.ModelViewSet):
+class ActividadPOAUViewSet(RevisionPOAUMixin, viewsets.ModelViewSet):
     queryset = ActividadPOAU.objects.all()
     serializer_class = ActividadPOAUSerializer
     permission_classes = [ArticulacionPermisos]
@@ -301,7 +302,7 @@ class ActividadNormativaViewSet(viewsets.ModelViewSet):
     ordering_fields = ['actividad', 'normativa']
 
 
-class TareaPOAUViewSet(EstadoActionsMixin, viewsets.ModelViewSet):
+class TareaPOAUViewSet(RevisionPOAUMixin, viewsets.ModelViewSet):
     queryset = TareaPOAU.objects.all()
     serializer_class = TareaPOAUSerializer
     permission_classes = [ArticulacionPermisos]
