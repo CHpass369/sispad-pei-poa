@@ -1,50 +1,42 @@
 #!/bin/bash
-# Backup de PostgreSQL + PostGIS
-# Uso: ./backup_database.sh [output_dir]
+# Respaldo de PostgreSQL + PostGIS (instalación local, sin contenedores).
+# Uso: ./backup_database.sh [directorio_destino]
+#
+# Toma las credenciales de .env en la raíz del repositorio.
 
-set -e
+set -euo pipefail
 
-BACKUP_DIR="${1:-./backups}"
-TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-DB_CONTAINER="${DB_CONTAINER:-postgres-postgis}"
+RAIZ="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+DESTINO="${1:-${RAIZ}/backups}"
+
+if [ -f "${RAIZ}/.env" ]; then
+  set -a; . "${RAIZ}/.env"; set +a
+fi
+
 DB_NAME="${DB_NAME:-gams_pip}"
-DB_USER="${DB_USER:-pip_user}"
-BACKUP_FILE="${BACKUP_DIR}/pip_db_${TIMESTAMP}.dump"
-LOG_FILE="${BACKUP_DIR}/backup_${TIMESTAMP}.log"
+DB_USER="${DB_USER:-postgres}"
+DB_HOST="${DB_HOST:-localhost}"
+DB_PORT="${DB_PORT:-5432}"
 
-mkdir -p "${BACKUP_DIR}"
+SELLO="$(date +%Y%m%d-%H%M%S)"
+ARCHIVO="${DESTINO}/${DB_NAME}-${SELLO}.dump"
 
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] Iniciando backup de ${DB_NAME}..." | tee -a "${LOG_FILE}"
+mkdir -p "${DESTINO}"
+export PGPASSWORD="${DB_PASSWORD:-}"
 
-# Backup con pg_dump en formato custom (comprimido, paralelizable)
-docker compose exec -T "${DB_CONTAINER}" pg_dump \
-  -U "${DB_USER}" \
-  -d "${DB_NAME}" \
-  -F c \
-  -v \
-  -f "/tmp/$(basename ${BACKUP_FILE})" 2>&1 | tee -a "${LOG_FILE}"
+echo "[$(date '+%F %T')] Respaldando ${DB_NAME} desde ${DB_HOST}:${DB_PORT}..."
 
-# Copiar el backup del contenedor al host
-docker compose cp "${DB_CONTAINER}:/tmp/$(basename ${BACKUP_FILE})" "${BACKUP_FILE}" 2>&1 | tee -a "${LOG_FILE}"
+# Formato custom: comprimido y restaurable de forma selectiva con pg_restore.
+pg_dump -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USER}" -d "${DB_NAME}" \
+        -Fc -f "${ARCHIVO}"
 
-# Limpiar archivo temporal en el contenedor
-docker compose exec -T "${DB_CONTAINER}" rm -f "/tmp/$(basename ${BACKUP_FILE})"
-
-# Validar backup
-if [ -f "${BACKUP_FILE}" ]; then
-  echo "Backup creado: ${BACKUP_FILE}" | tee -a "${LOG_FILE}"
-  ls -lh "${BACKUP_FILE}" | tee -a "${LOG_FILE}"
-
-  # Validar integridad con pg_restore --list
-  if docker compose exec -T "${DB_CONTAINER}" pg_restore -l "/tmp/$(basename ${BACKUP_FILE})" > /dev/null 2>&1; then
-    echo "✅ Backup validado correctamente" | tee -a "${LOG_FILE}"
-  else
-    echo "⚠️ No se pudo validar el backup (puede estar incompleto)" | tee -a "${LOG_FILE}"
-    exit 1
-  fi
-else
-  echo "❌ ERROR: No se creó el archivo de backup" | tee -a "${LOG_FILE}"
+# Un respaldo que no se puede listar no es un respaldo.
+if ! pg_restore -l "${ARCHIVO}" > /dev/null 2>&1; then
+  echo "ERROR: el archivo generado no es un dump válido." >&2
   exit 1
 fi
 
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] Backup completado: $(du -h "${BACKUP_FILE}" | cut -f1)" | tee -a "${LOG_FILE}"
+OBJETOS="$(pg_restore -l "${ARCHIVO}" | grep -c '^[0-9]')"
+echo "[$(date '+%F %T')] Listo: ${ARCHIVO}"
+echo "  tamaño:  $(du -h "${ARCHIVO}" | cut -f1)"
+echo "  objetos: ${OBJETOS}"

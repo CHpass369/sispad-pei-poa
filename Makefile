@@ -1,7 +1,7 @@
 # ============================================
 # PIP-GAMS — Makefile
 # ============================================
-# Comandos para desarrollo local con Docker
+# Despliegue local: PostgreSQL nativo, sin contenedores.
 # Uso: make <target>
 # ============================================
 
@@ -11,112 +11,85 @@ ifneq (,$(wildcard .env))
     export
 endif
 
-.PHONY: setup build up down restart logs migrate makemigrations createsuperuser seed test test-backend test-frontend lint format shell dbshell backup backup-db backup-minio backup-geoserver restore-db restore-minio restore-geoserver openapi clean full-reset env
+PYTHON ?= .venv/bin/python
+BACKEND ?= backend
+FRONTEND ?= frontend/sispoa
 
-# --- Infraestructura ---
-setup: build up migrate seed
+.PHONY: setup migrate makemigrations createsuperuser seed shell dbshell \
+        test test-backend test-frontend lint format \
+        backup backup-db restore-db openapi build-frontend clean env help
 
-build:
-	docker compose --profile dev build
+help:
+	@echo "PIP-GAMS — comandos disponibles:"
+	@grep -E '^[a-z][a-z-]*:.*?## .*$$' $(MAKEFILE_LIST) \
+	  | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 
-up:
-	docker compose --profile dev up -d
+# --- Puesta en marcha ---
 
-down:
-	docker compose --profile dev down
+setup: env migrate seed ## Prepara el entorno: .env, migraciones y semillas
 
-restart: down up
+env: ## Copia .env.example a .env (no sobrescribe)
+	@cp -n .env.example .env 2>/dev/null || echo ".env ya existe"
 
-logs:
-	docker compose logs -f
+# --- Base de datos ---
 
-# --- Django ---
-migrate:
-	docker compose exec backend python manage.py migrate
+migrate: ## Aplica las migraciones pendientes
+	cd $(BACKEND) && ../$(PYTHON) manage.py migrate
 
-makemigrations:
-	docker compose exec backend python manage.py makemigrations
+makemigrations: ## Genera migraciones a partir de los modelos
+	cd $(BACKEND) && ../$(PYTHON) manage.py makemigrations
 
-createsuperuser:
-	docker compose exec backend python manage.py createsuperuser
+createsuperuser: ## Crea un superusuario
+	cd $(BACKEND) && ../$(PYTHON) manage.py createsuperuser
 
-seed:
-	docker compose exec backend python manage.py shell -c "exec(open('scripts/seed.py').read())" || echo "Seed ya ejecutado o script no encontrado"
+seed: ## Siembra los datos base
+	cd $(BACKEND) && ../$(PYTHON) manage.py shell -c "exec(open('scripts/seed.py').read())"
 
-shell:
-	docker compose exec backend python manage.py shell
+shell: ## Abre la consola de Django
+	cd $(BACKEND) && ../$(PYTHON) manage.py shell
 
-dbshell:
-	docker compose exec postgres-postgis psql -U $(DB_USER) -d $(DB_NAME)
-
-# --- Testing ---
-test:
-	docker compose exec backend python -m pytest
-
-# Gates de testing locales (fuente de verdad: pytest.ini para backend; Karma/Jasmine para frontend).
-# Requieren Python (backend/.venv) y Node (frontend/sispoa/node_modules) instalados localmente.
-test-backend:
-	cd backend && python -m pytest
-
-test-frontend:
-	cd frontend/sispoa && npm test -- --watch=false
+dbshell: ## Abre psql contra la base configurada
+	@PGPASSWORD="$(DB_PASSWORD)" psql -h "$(DB_HOST)" -p "$(DB_PORT)" -U "$(DB_USER)" -d "$(DB_NAME)"
 
 # --- Calidad ---
-lint:
-	cd backend && python -m ruff check .
 
-format:
-	docker compose exec backend ruff format . || echo "ruff no instalado"
+test: test-backend ## Alias de test-backend
 
-# === Backups ===
+test-backend: ## Suite de pytest
+	cd $(BACKEND) && ../$(PYTHON) -m pytest
 
-.PHONY: backup backup-db backup-minio backup-geoserver restore-db restore-minio restore-geoserver
+test-frontend: ## Suite de Karma. Chromium por snap necesita TMPDIR fuera de /tmp
+	cd $(FRONTEND) && TMPDIR="$$HOME/karma-tmp" \
+	  npx ng test --watch=false --browsers=ChromeHeadlessNoSandbox
 
-backup:
-	@echo "=== Backup completo del sistema ==="
+lint: ## Ruff sobre el backend
+	cd $(BACKEND) && ../$(PYTHON) -m ruff check .
+
+format: ## Formatea el backend con ruff
+	cd $(BACKEND) && ../$(PYTHON) -m ruff format .
+
+build-frontend: ## Compila el frontend para producción
+	cd $(FRONTEND) && npx ng build --configuration production
+
+openapi: ## Genera el esquema OpenAPI en ./schema.yml
+	cd $(BACKEND) && ../$(PYTHON) manage.py spectacular --file ../schema.yml
+
+# --- Respaldos ---
+
+backup: backup-db ## Respaldo completo (hoy: solo base de datos)
+
+backup-db: ## Vuelca la base a backups/ en formato custom
 	@mkdir -p backups
 	@./infra/backup/backup_database.sh backups
-	@echo "Backup de base de datos completado."
-	@echo "Para backup de MinIO: ./infra/backup/backup_minio.sh"
-	@echo "Para backup de GeoServer: ./infra/backup/backup_geoserver.sh"
 
-backup-db:
-	@./infra/backup/backup_database.sh backups
+restore-db: ## Restaura un dump: make restore-db FILE=backups/archivo.dump
+	@if [ -z "$(FILE)" ]; then \
+	  echo "Uso: make restore-db FILE=backups/archivo.dump"; exit 1; fi
+	@./infra/backup/restore_database.sh "$(FILE)"
 
-backup-minio:
-	@./infra/backup/backup_minio.sh backups
+# --- Limpieza ---
 
-backup-geoserver:
-	@./infra/backup/backup_geoserver.sh backups
-
-restore-db:
-	@if [ -z "$(FILE)" ]; then echo "Uso: make restore-db FILE=backups/archivo.dump"; exit 1; fi
-	@./infra/backup/restore_database.sh $(FILE)
-
-restore-minio:
-	@if [ -z "$(DIR)" ]; then echo "Uso: make restore-minio DIR=backups/minio/20260101_120000"; exit 1; fi
-	@./infra/backup/restore_minio.sh $(DIR)
-
-restore-geoserver:
-	@if [ -z "$(DIR)" ]; then echo "Uso: make restore-geoserver DIR=backups/geoserver/20260101_120000"; exit 1; fi
-	@./infra/backup/restore_geoserver.sh $(DIR)
-
-# --- Documentación ---
-openapi:
-	docker compose exec backend python manage.py spectacular --file /tmp/schema.yml
-	docker compose cp backend:/tmp/schema.yml ./schema.yml
-
-# --- Utilidades ---
-clean:
-	docker compose down -v
-	docker system prune -f
-
-full-reset: down
-	docker compose --profile dev build --no-cache
-	docker compose --profile dev up -d
-	make migrate
-	make seed
-
-env:
-	@echo "Copiando .env.example a .env (no sobrescribe si existe)"
-	cp -n .env.example .env 2>/dev/null || echo ".env ya existe"
+clean: ## Borra artefactos de compilación y cachés
+	@find . -type d -name __pycache__ -not -path "./node_modules/*" -exec rm -rf {} + 2>/dev/null || true
+	@rm -rf $(FRONTEND)/dist .pytest_cache
+	@echo "Artefactos eliminados."

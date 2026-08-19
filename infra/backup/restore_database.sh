@@ -1,44 +1,44 @@
 #!/bin/bash
-# Restauración de PostgreSQL + PostGIS
-# Uso: ./restore_database.sh <backup_file>
+# Restauración de PostgreSQL + PostGIS (instalación local, sin contenedores).
+# Uso: ./restore_database.sh <archivo.dump> [base_destino]
+#
+# Por defecto restaura sobre una base NUEVA llamada <DB_NAME>_restore, para no
+# pisar la base en uso. Para restaurar sobre la real hay que nombrarla
+# explícitamente como segundo argumento.
 
-set -e
+set -euo pipefail
 
-BACKUP_FILE="${1}"
-if [ -z "${BACKUP_FILE}" ]; then
-  echo "❌ Uso: $0 <archivo_backup.dump>"
-  echo "   Ej: $0 ./backups/pip_db_20260101_120000.dump"
+ARCHIVO="${1:-}"
+if [ -z "${ARCHIVO}" ] || [ ! -f "${ARCHIVO}" ]; then
+  echo "Uso: $0 <archivo.dump> [base_destino]" >&2
   exit 1
 fi
 
-if [ ! -f "${BACKUP_FILE}" ]; then
-  echo "❌ Archivo no encontrado: ${BACKUP_FILE}"
-  exit 1
+RAIZ="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+if [ -f "${RAIZ}/.env" ]; then
+  set -a; . "${RAIZ}/.env"; set +a
 fi
 
-DB_CONTAINER="${DB_CONTAINER:-postgres-postgis}"
-DB_NAME="${DB_NAME:-gams_pip}"
-DB_USER="${DB_USER:-pip_user}"
+DB_USER="${DB_USER:-postgres}"
+DB_HOST="${DB_HOST:-localhost}"
+DB_PORT="${DB_PORT:-5432}"
+DESTINO="${2:-${DB_NAME:-gams_pip}_restore}"
 
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] Iniciando restauración de ${BACKUP_FILE}..."
+export PGPASSWORD="${DB_PASSWORD:-}"
 
-# Copiar backup al contenedor
-echo "Copiando backup al contenedor..."
-docker compose cp "${BACKUP_FILE}" "${DB_CONTAINER}:/tmp/restore.dump"
+if [ "${DESTINO}" = "${DB_NAME:-}" ]; then
+  echo "ATENCIÓN: va a restaurar SOBRE la base en uso (${DESTINO})."
+  read -r -p "Escriba 'confirmo' para continuar: " respuesta
+  [ "${respuesta}" = "confirmo" ] || { echo "Cancelado."; exit 1; }
+fi
 
-# Restaurar
-echo "Restaurando base de datos ${DB_NAME}..."
-docker compose exec -T "${DB_CONTAINER}" pg_restore \
-  -U "${DB_USER}" \
-  -d "${DB_NAME}" \
-  --clean \
-  --if-exists \
-  --no-owner \
-  --no-acl \
-  -v \
-  "/tmp/restore.dump" 2>&1
+echo "[$(date '+%F %T')] Restaurando ${ARCHIVO} en ${DESTINO}..."
+createdb -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USER}" "${DESTINO}" 2>/dev/null \
+  || echo "  (la base ${DESTINO} ya existía)"
 
-# Limpiar
-docker compose exec -T "${DB_CONTAINER}" rm -f /tmp/restore.dump
+pg_restore -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USER}" -d "${DESTINO}" \
+           --no-owner --no-privileges "${ARCHIVO}"
 
-echo "✅ Restauración completada"
+TABLAS="$(psql -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USER}" -d "${DESTINO}" -tAc \
+  "select count(*) from pg_stat_user_tables")"
+echo "[$(date '+%F %T')] Listo: ${DESTINO} con ${TABLAS} tablas."
