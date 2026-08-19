@@ -7,7 +7,7 @@ from .views import (
     ActividadPOAUViewSet, ActividadNormativaViewSet, TareaPOAUViewSet,
     TareaNormativaViewSet, SeguimientoPresupuestoViewSet,
     AsignacionObjetoGastoViewSet, BorradorMatrizPADViewSet,
-    BorradorMatrizPEIViewSet,
+    BorradorMatrizPEIViewSet, BorradorMatrizPOAViewSet,
 )
 from .views_matrices import MatrizViewSet
 
@@ -32,6 +32,7 @@ router.register(r'codigos-nivel', CodigoNivelViewSet)
 router.register(r'lineamientos-pad', LineamientoPADViewSet)
 router.register(r'borradores-matriz-pad', BorradorMatrizPADViewSet)
 router.register(r'borradores-matriz-pei', BorradorMatrizPEIViewSet)
+router.register(r'borradores-matriz-poa', BorradorMatrizPOAViewSet)
 router.register(r'matrices', MatrizViewSet, basename='matrices')
 
 urlpatterns = router.urls

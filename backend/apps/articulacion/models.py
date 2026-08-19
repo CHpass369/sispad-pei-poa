@@ -1278,3 +1278,107 @@ class BorradorMatrizPEI(TimeStampedModel):
             f'Borrador PEI G{self.gestion} {self.get_estado_display()} '
             f'({self.created_at:%Y-%m-%d %H:%M})'
         )
+
+
+class BorradorMatrizPOA(TimeStampedModel):
+    """Borrador del asistente de Matriz POA (guardado por secciones).
+
+    Espejo de :class:`BorradorMatrizPEI` para el instrumento operativo anual.
+    Cada sección del asistente persiste en ``datos`` mediante PATCH parcial
+    (``seccion`` + ``valores``); la action ``materializar`` crea la cadena
+    operativa (AccionPOA → OperacionPOAU → ActividadPOAU → TareaPOAU) en una
+    transacción y deja el borrador en COMPLETO.
+
+    Estructura de ``datos``::
+
+        s1_articulacion: {producto_pei, cod_producto_pei,
+                          accion_institucional_especifica, indicador_proceso,
+                          cod_resultado_pei, resultado_pei}
+        s2_responsable:  {unidad_responsable, area_responsable}
+        acciones: [
+          {codigo, denominacion, resultado_esperado,
+           programa, proyecto, actividad, categoria_programatica,
+           presupuesto_programado, cargo_reacp, fecha_inicio, fecha_fin,
+           operaciones: [
+             {denominacion, tipo_operacion, producto_entregable,
+              unidad_ejecutora, responsable, meta_anual,
+              fecha_inicio, fecha_fin,
+              actividades: [
+                {denominacion, producto_entregable, meta_anual,
+                 fecha_inicio, fecha_fin,
+                 tareas: [{denominacion, responsable, metas,
+                           fecha_inicio, fecha_fin}]}
+              ]}
+           ]}
+        ]
+    """
+
+    ESTADO_BORRADOR = 'BORRADOR'
+    ESTADO_COMPLETO = 'COMPLETO'
+    ESTADO_CHOICES = [
+        (ESTADO_BORRADOR, 'Borrador'),
+        (ESTADO_COMPLETO, 'Completo'),
+    ]
+
+    SECCIONES = (
+        's1_articulacion',
+        's2_responsable',
+        'acciones',
+    )
+
+    # Circuito de revisión: idéntico al del PAD y al del PEI.
+    REVISION_PENDIENTE = 'PENDIENTE'
+    REVISION_VALIDADO = 'VALIDADO'
+    REVISION_OBSERVADO = 'OBSERVADO'
+    REVISION_APROBADO = 'APROBADO'
+    REVISION_CHOICES = [
+        (REVISION_PENDIENTE, 'Pendiente de validación'),
+        (REVISION_VALIDADO, 'Validado por el técnico'),
+        (REVISION_OBSERVADO, 'Observado'),
+        (REVISION_APROBADO, 'Aprobado'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    gestion = models.IntegerField(default=2026, verbose_name='Gestión fiscal')
+    estado = models.CharField(
+        max_length=20, choices=ESTADO_CHOICES, default=ESTADO_BORRADOR,
+        verbose_name='Estado',
+    )
+    datos = models.JSONField(default=dict, verbose_name='Datos del asistente')
+    id_accion_poa = models.ForeignKey(
+        AccionPOA, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='borradores_matriz_poa',
+        verbose_name='Acción POA materializada',
+    )
+
+    estado_revision = models.CharField(
+        max_length=20, choices=REVISION_CHOICES, default=REVISION_PENDIENTE,
+        verbose_name='Estado de revisión',
+    )
+    validado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='matrices_poa_validadas', verbose_name='Validado por',
+    )
+    validado_en = models.DateTimeField(null=True, blank=True, verbose_name='Validado en')
+    aprobado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='matrices_poa_aprobadas', verbose_name='Aprobado por',
+    )
+    aprobado_en = models.DateTimeField(null=True, blank=True, verbose_name='Aprobado en')
+    observacion = models.TextField(blank=True, verbose_name='Observación')
+    observado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='matrices_poa_observadas', verbose_name='Observado por',
+    )
+    observado_en = models.DateTimeField(null=True, blank=True, verbose_name='Observado en')
+
+    class Meta:
+        verbose_name = 'Borrador de Matriz POA'
+        verbose_name_plural = 'Borradores de Matrices POA'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return (
+            f'Borrador POA G{self.gestion} {self.get_estado_display()} '
+            f'({self.created_at:%Y-%m-%d %H:%M})'
+        )

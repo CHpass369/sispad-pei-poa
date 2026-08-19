@@ -5,6 +5,7 @@ from .models import (
     ArticulacionPADPEI, IndicadorCadena, AccionPOA, OperacionPOAU,
     ActividadPOAU, ActividadNormativa, TareaPOAU, TareaNormativa,
     SeguimientoPresupuesto, AsignacionObjetoGasto, BorradorMatrizPAD,
+    BorradorMatrizPOA,
 )
 
 
@@ -280,6 +281,46 @@ class BorradorMatrizPEISerializer(serializers.ModelSerializer):
             'estado_revision', 'validado_por', 'validado_en',
             'aprobado_por', 'aprobado_en', 'observacion',
             'observado_por', 'observado_en', 'id_resultado_pei',
+        ]
+
+    def _nombre(self, usuario):
+        if not usuario:
+            return ''
+        return usuario.get_full_name() or usuario.get_username()
+
+    def get_validado_por_nombre(self, obj):
+        return self._nombre(obj.validado_por)
+
+    def get_aprobado_por_nombre(self, obj):
+        return self._nombre(obj.aprobado_por)
+
+    def get_observado_por_nombre(self, obj):
+        return self._nombre(obj.observado_por)
+
+    def get_permisos(self, obj):
+        from .permissions import permisos_revision_matriz
+        usuario = getattr(self.context.get('request'), 'user', None)
+        return permisos_revision_matriz(obj, usuario)
+
+
+class BorradorMatrizPOASerializer(serializers.ModelSerializer):
+    """Borrador del asistente de Matriz POA, con su circuito de revisión."""
+
+    estado_revision_display = serializers.CharField(
+        source='get_estado_revision_display', read_only=True,
+    )
+    validado_por_nombre = serializers.SerializerMethodField()
+    aprobado_por_nombre = serializers.SerializerMethodField()
+    observado_por_nombre = serializers.SerializerMethodField()
+    permisos = serializers.SerializerMethodField()
+
+    class Meta:
+        model = BorradorMatrizPOA
+        fields = '__all__'
+        read_only_fields = AUDIT_READ_ONLY_FIELDS + [
+            'estado_revision', 'validado_por', 'validado_en',
+            'aprobado_por', 'aprobado_en', 'observacion',
+            'observado_por', 'observado_en', 'id_accion_poa',
         ]
 
     def _nombre(self, usuario):

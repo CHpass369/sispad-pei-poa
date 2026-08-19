@@ -1,10 +1,11 @@
 from rest_framework import viewsets, status
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db import transaction
 from django.utils import timezone
 from .models import (
-    BorradorMatrizPEI,
+    BorradorMatrizPEI, BorradorMatrizPOA,
     CodigoNivel, AcuerdoInternacional, Normativa, LineamientoPAD,
     ResultadoPAD, ProductoPAD, ResultadoPEI, ProductoPEI,
     ArticulacionPADPEI, IndicadorCadena, AccionPOA, OperacionPOAU,
@@ -12,7 +13,7 @@ from .models import (
     SeguimientoPresupuesto, AsignacionObjetoGasto, BorradorMatrizPAD,
 )
 from .serializers import (
-    BorradorMatrizPEISerializer,
+    BorradorMatrizPEISerializer, BorradorMatrizPOASerializer,
     CodigoNivelSerializer, AcuerdoInternacionalSerializer, NormativaSerializer,
     LineamientoPADSerializer, ResultadoPADSerializer, ProductoPADSerializer,
     ResultadoPEISerializer, ProductoPEISerializer, ArticulacionPADPEISerializer,
@@ -32,6 +33,10 @@ from .services import (
 from .services.materializacion_matriz_pei import (
     construir_filas_pei,
     materializar_borrador_pei,
+)
+from .services.materializacion_matriz_poa import (
+    construir_filas_poa,
+    materializar_borrador_poa,
 )
 
 
@@ -680,5 +685,214 @@ class BorradorMatrizPEIViewSet(viewsets.ModelViewSet):
             usuario=request.user, accion='observar',
             entidad='BorradorMatrizPEI', entidad_id=str(borrador.id),
             detalle=f'Matriz PEI observada: {texto[:180]}',
+        )
+        return Response(self.get_serializer(borrador).data)
+
+
+class BorradorMatrizPOAViewSet(viewsets.ModelViewSet):
+    """CRUD del borrador de Matriz POA (guardado incremental por sección).
+
+    Espejo de :class:`BorradorMatrizPEIViewSet`: PATCH parcial por sección,
+    materialización atómica de la cadena operativa y circuito de revisión
+    validar → aprobar/observar.
+    """
+
+    queryset = BorradorMatrizPOA.objects.select_related('id_accion_poa')
+    serializer_class = BorradorMatrizPOASerializer
+    permission_classes = [ArticulacionPermisos]
+    filterset_fields = ['gestion', 'estado', 'estado_revision']
+
+    # Las tres actions de revisión las gobierna `permisos_revision_matriz`, que
+    # es quien conoce a la jefatura (ROLES_APROBADORES). `ArticulacionPermisos`
+    # solo deja escribir a superadmin/planificador/tecnico_admin, de modo que
+    # aplicarlo aquí dejaría a la jefatura sin poder aprobar ni observar.
+    ACCIONES_DE_REVISION = ('validar', 'aprobar', 'observar')
+
+    def get_permissions(self):
+        if getattr(self, 'action', None) in self.ACCIONES_DE_REVISION:
+            return [IsAuthenticated()]
+        return super().get_permissions()
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user, updated_by=self.request.user)
+
+    def _denegar(self, mensaje):
+        return Response({'error': mensaje}, status=status.HTTP_403_FORBIDDEN)
+
+    def _guardar_seccion(self, request, borrador):
+        """PATCH {"seccion": ..., "valores": ...} actualiza solo esa sección.
+
+        Devuelve ``None`` cuando el PATCH no trae ``seccion``, para que siga
+        el update parcial estándar (``{"datos": {...}}``).
+        """
+        seccion = request.data.get('seccion')
+        if not seccion:
+            return None
+        if seccion not in BorradorMatrizPOA.SECCIONES:
+            return Response(
+                {'error': f'Sección inválida: {seccion}. '
+                          f'Válidas: {", ".join(BorradorMatrizPOA.SECCIONES)}'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if 'valores' not in request.data:
+            return Response(
+                {'error': 'Se requiere "valores" junto a "seccion".'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        datos = dict(borrador.datos or {})
+        datos[seccion] = request.data.get('valores')
+        borrador.datos = datos
+        borrador.updated_by = request.user
+        borrador.save(update_fields=['datos', 'updated_by', 'updated_at'])
+        return Response(self.get_serializer(borrador).data)
+
+    def partial_update(self, request, *args, **kwargs):
+        borrador = self.get_object()
+        if not permisos_revision_matriz(borrador, request.user)['editar']:
+            return self._denegar(
+                'El registro está aprobado: queda permanentemente registrado '
+                'y no admite modificaciones.'
+            )
+        respuesta = self._guardar_seccion(request, borrador)
+        if respuesta is not None:
+            return respuesta
+        return super().partial_update(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        borrador = self.get_object()
+        if not permisos_revision_matriz(borrador, request.user)['editar']:
+            return self._denegar(
+                'El registro está aprobado: queda permanentemente registrado '
+                'y no admite modificaciones.'
+            )
+        return super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        borrador = self.get_object()
+        if not permisos_revision_matriz(borrador, request.user)['borrar']:
+            return self._denegar(
+                'Solo el técnico que creó el registro o la jefatura de SIS-POA '
+                'pueden eliminarlo, y únicamente mientras no esté aprobado.'
+            )
+        registrar_auditoria(
+            usuario=request.user, accion='eliminar',
+            entidad='BorradorMatrizPOA', entidad_id=str(borrador.id),
+            detalle='Matriz POA eliminada',
+        )
+        return super().destroy(request, *args, **kwargs)
+
+    @action(detail=True, methods=['get'])
+    def matriz(self, request, pk=None):
+        """Filas de la matriz POA (15 columnas) de este borrador.
+
+        Cada fila lleva también las claves de ``m2_pei_poa``: la vista
+        "Articulación PEI → POA" del listado es otra proyección de estas
+        mismas filas, no una consulta aparte.
+        """
+        return Response(construir_filas_poa(self.get_object()))
+
+    @action(detail=True, methods=['post'])
+    def materializar(self, request, pk=None):
+        borrador = self.get_object()
+        try:
+            with transaction.atomic():
+                creados = materializar_borrador_poa(borrador, usuario=request.user)
+                borrador.id_accion_poa = creados['acciones'][0]
+                borrador.estado = BorradorMatrizPOA.ESTADO_COMPLETO
+                borrador.save(update_fields=[
+                    'id_accion_poa', 'estado', 'datos', 'updated_at',
+                ])
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        registrar_auditoria(
+            usuario=request.user, accion='materializar',
+            entidad='BorradorMatrizPOA', entidad_id=str(borrador.id),
+            detalle=(
+                f'Materializado: {len(creados["acciones"])} acción(es), '
+                f'{len(creados["operaciones"])} operación(es), '
+                f'{len(creados["actividades"])} actividad(es), '
+                f'{len(creados["tareas"])} tarea(s)'
+            ),
+        )
+        return Response({
+            'estado': borrador.estado,
+            'id_accion_poa': str(borrador.id_accion_poa_id),
+            'acciones': len(creados['acciones']),
+            'operaciones': len(creados['operaciones']),
+            'actividades': len(creados['actividades']),
+            'tareas': len(creados['tareas']),
+            'codigos': {
+                'acciones': [a.codigo_accion for a in creados['acciones']],
+            },
+        })
+
+    @action(detail=True, methods=['post'])
+    def validar(self, request, pk=None):
+        borrador = self.get_object()
+        if not permisos_revision_matriz(borrador, request.user)['validar']:
+            return self._denegar(
+                'Solo el técnico que creó el registro puede validarlo, '
+                'y un registro aprobado ya no admite cambios.'
+            )
+        borrador.estado_revision = BorradorMatrizPOA.REVISION_VALIDADO
+        borrador.validado_por = request.user
+        borrador.validado_en = timezone.now()
+        borrador.save(update_fields=[
+            'estado_revision', 'validado_por', 'validado_en', 'updated_at',
+        ])
+        registrar_auditoria(
+            usuario=request.user, accion='validar',
+            entidad='BorradorMatrizPOA', entidad_id=str(borrador.id),
+            detalle='Matriz POA validada por el técnico',
+        )
+        return Response(self.get_serializer(borrador).data)
+
+    @action(detail=True, methods=['post'])
+    def aprobar(self, request, pk=None):
+        borrador = self.get_object()
+        if not permisos_revision_matriz(borrador, request.user)['aprobar']:
+            return self._denegar(
+                'La aprobación corresponde a la jefatura de SIS-POA y requiere '
+                'que el registro esté validado por el técnico.'
+            )
+        borrador.estado_revision = BorradorMatrizPOA.REVISION_APROBADO
+        borrador.aprobado_por = request.user
+        borrador.aprobado_en = timezone.now()
+        borrador.save(update_fields=[
+            'estado_revision', 'aprobado_por', 'aprobado_en', 'updated_at',
+        ])
+        registrar_auditoria(
+            usuario=request.user, accion='aprobar',
+            entidad='BorradorMatrizPOA', entidad_id=str(borrador.id),
+            detalle='Matriz POA aprobada; registro inmutable',
+        )
+        return Response(self.get_serializer(borrador).data)
+
+    @action(detail=True, methods=['post'])
+    def observar(self, request, pk=None):
+        borrador = self.get_object()
+        if not permisos_revision_matriz(borrador, request.user)['observar']:
+            return self._denegar(
+                'Solo la jefatura de SIS-POA puede observar, y un registro '
+                'aprobado ya no admite observaciones.'
+            )
+        texto = (request.data.get('observacion') or '').strip()
+        if not texto:
+            return Response(
+                {'error': 'Detalle la observación.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        borrador.estado_revision = BorradorMatrizPOA.REVISION_OBSERVADO
+        borrador.observacion = texto
+        borrador.observado_por = request.user
+        borrador.observado_en = timezone.now()
+        borrador.save(update_fields=[
+            'estado_revision', 'observacion', 'observado_por', 'observado_en',
+            'updated_at',
+        ])
+        registrar_auditoria(
+            usuario=request.user, accion='observar',
+            entidad='BorradorMatrizPOA', entidad_id=str(borrador.id),
+            detalle=f'Matriz POA observada: {texto[:180]}',
         )
         return Response(self.get_serializer(borrador).data)
