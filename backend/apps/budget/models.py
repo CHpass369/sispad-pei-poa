@@ -14,6 +14,7 @@ estructura organizacional de `apps.organizacion`.
 import hashlib
 import json
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
@@ -510,6 +511,28 @@ class EstadoApertura:
     ]
 
 
+class RevisionApertura:
+    """Circuito de revisión de una categoría programática del gasto.
+
+    Es distinto de `EstadoApertura`, que dice si la línea está abierta o
+    cerrada: una apertura puede estar ACTIVA y todavía sin aprobar. Cada
+    categoría se revisa por separado porque las unidades presentan su gasto en
+    momentos distintos.
+    """
+
+    BORRADOR = 'BORRADOR'
+    VALIDADO = 'VALIDADO'
+    OBSERVADO = 'OBSERVADO'
+    APROBADO = 'APROBADO'
+
+    CHOICES = [
+        (BORRADOR, 'Borrador'),
+        (VALIDADO, 'Validado'),
+        (OBSERVADO, 'Observado'),
+        (APROBADO, 'Aprobado'),
+    ]
+
+
 class TipoReserva:
     """Tipo de reserva. DISTRITAL: reserva para el reparto territorial
     (Fase 6). DISTRIBUCION: reserva global de la distribución. OTRA: otras."""
@@ -684,6 +707,29 @@ class Apertura(TimeStampedModel):
         default=EstadoApertura.ACTIVA,
     )
     orden = models.PositiveIntegerField(default=0)
+
+    # Revisión por categoría programática: cada línea se valida y aprueba por
+    # separado. Independiente de `estado`, que es el ciclo de vida.
+    estado_revision = models.CharField(
+        max_length=20, choices=RevisionApertura.CHOICES,
+        default=RevisionApertura.BORRADOR, verbose_name='Estado de revisión',
+    )
+    validado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='aperturas_validadas', verbose_name='Validado por',
+    )
+    validado_en = models.DateTimeField(null=True, blank=True)
+    aprobado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='aperturas_aprobadas', verbose_name='Aprobado por',
+    )
+    aprobado_en = models.DateTimeField(null=True, blank=True)
+    observacion = models.TextField(blank=True, default='')
+    observado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='aperturas_observadas', verbose_name='Observado por',
+    )
+    observado_en = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = 'presupuesto_apertura'

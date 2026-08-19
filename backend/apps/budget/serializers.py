@@ -510,6 +510,8 @@ class AperturaSerializer(serializers.ModelSerializer):
 
     fuentes = AperturaFuenteSerializer(many=True, read_only=True)
     estado_display = serializers.CharField(source='get_estado_display', read_only=True)
+    estado_revision_display = serializers.CharField(
+        source='get_estado_revision_display', read_only=True)
     tipo_apertura_display = serializers.CharField(
         source='get_tipo_apertura_display', read_only=True,
     )
@@ -530,7 +532,9 @@ class AperturaSerializer(serializers.ModelSerializer):
             'categoria', 'categoria_detalle', 'proyecto_codigo',
             'codigo_sisin', 'actividad_codigo', 'denominacion',
             'tipo_apertura', 'tipo_apertura_display', 'estado',
-            'estado_display', 'fuentes', 'total', 'created_at', 'updated_at',
+            'estado_display', 'estado_revision', 'estado_revision_display',
+            'observacion', 'validado_en', 'aprobado_en',
+            'fuentes', 'total', 'created_at', 'updated_at',
         ]
         read_only_fields = [
             'id', 'version', 'estado', 'estado_display', 'created_at',

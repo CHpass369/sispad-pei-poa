@@ -29,6 +29,8 @@ from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import OpenApiTypes, extend_schema
 from decimal import Decimal
 
+from django.utils import timezone
+
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
@@ -45,6 +47,8 @@ from apps.gestion.models import GestionFiscal
 from .models import (
     Apertura,
     EstadosTecho,
+    NivelCategoria,
+    RevisionApertura,
     DocumentoPresupuestario,
     RecursoTecho,
     TechoDirectivo,
@@ -247,9 +251,35 @@ class TechoDirectivoViewSet(viewsets.ModelViewSet):
             total_corriente += rubro.monto_corriente or Decimal('0')
             total_inversion += rubro.monto_inversion or Decimal('0')
 
+        # El resumen por FF/OF se calcula: varios rubros pueden compartir el
+        # mismo par (41/113 aparece en Coparticipacion y en sus saldos) y hay
+        # que verlos sumados, no fila por fila.
+        por_par: dict[str, dict] = {}
+        for rubro in rubros:
+            for r in [rubro, *rubro.componentes.all()]:
+                if not (r.fuente and r.organismo):
+                    continue
+                clave = f'{r.fuente.codigo}/{r.organismo.codigo}'
+                acumulado = por_par.setdefault(clave, {
+                    'ff_of': clave,
+                    'fuente': r.fuente.denominacion,
+                    'organismo': r.organismo.denominacion,
+                    'monto': Decimal('0'),
+                })
+                # Solo los rubros suman: los componentes ya estan dentro del
+                # total de su grupo y contarlos otra vez duplicaria.
+                if r.padre_id is None:
+                    acumulado['monto'] += r.monto
+
+        resumen = sorted(por_par.values(), key=lambda x: x['ff_of'])
+        for linea in resumen:
+            linea['porcentaje'] = porcentaje(linea['monto'], total)
+
         return Response({
             'gestion': techo.gestion.anio,
             'estado': techo.estado,
+            'por_fuente': resumen,
+            'version_id': version.id,
             'version': version.numero if hasattr(version, 'numero') else None,
             'editable': techo.estado in (EstadosTecho.BORRADOR, EstadosTecho.OBSERVADO),
             'rubros': filas,
@@ -540,6 +570,133 @@ def _respuesta_exceso_409(exc):
     )
 
 
+class PresupuestoGastosViewSet(viewsets.ViewSet):
+    """Presupuesto General de Gastos: el arbol Programa → Subprograma → Actividad.
+
+    Reproduce la hoja `gastos` de la planilla oficial: cada actividad lleva su
+    unidad ejecutora, direccion administrativa y distrito, con el monto abierto
+    por fuente de financiamiento. Los totales de subprograma y programa se
+    calculan aqui; en la planilla son formulas que hay que mantener a mano.
+    """
+
+    def list(self, request):
+        anio = request.query_params.get('gestion')
+        if not anio:
+            return Response(
+                {'error': 'Indique la gestión: ?gestion=2027'}, status=400)
+
+        aperturas = (
+            Apertura.objects
+            .filter(gestion__anio=int(anio))
+            .select_related('categoria', 'categoria__parent', 'da', 'ue', 'distrito')
+            .prefetch_related('fuentes__fuente', 'fuentes__organismo')
+            .order_by('categoria__codigo', 'actividad_codigo')
+        )
+
+        # Las fuentes viven como filas; la planilla las lee como columnas.
+        pares: dict[str, str] = {}
+
+        def montos_por_fuente(apertura):
+            fila = {}
+            for f in apertura.fuentes.all():
+                if not (f.fuente and f.organismo):
+                    continue
+                clave = f'{f.fuente.codigo}/{f.organismo.codigo}'
+                pares.setdefault(clave, f.organismo.denominacion)
+                fila[clave] = fila.get(clave, Decimal('0')) + f.monto
+            return fila
+
+        # Arbol por programa y subprograma, deducido de la categoria.
+        programas: dict[str, dict] = {}
+        for apertura in aperturas:
+            categoria = apertura.categoria
+            if categoria is None:
+                continue
+            subprograma = categoria if categoria.nivel == NivelCategoria.SUBPROGRAMA \
+                else categoria.parent
+            programa = subprograma.parent if subprograma else None
+            cod_prog = programa.codigo if programa else 'SIN PROGRAMA'
+            cod_sub = subprograma.codigo if subprograma else 'SIN SUBPROGRAMA'
+
+            p_nodo = programas.setdefault(cod_prog, {
+                'codigo': cod_prog,
+                'denominacion': programa.denominacion if programa else 'Sin programa',
+                'subprogramas': {},
+            })
+            s_nodo = p_nodo['subprogramas'].setdefault(cod_sub, {
+                'codigo': cod_sub,
+                'denominacion': subprograma.denominacion if subprograma else 'Sin subprograma',
+                'actividades': [],
+            })
+            s_nodo['actividades'].append({
+                'id': apertura.id,
+                'categoria': categoria.codigo,
+                'denominacion': apertura.denominacion,
+                'unidad_ejecutora': apertura.ue.codigo if apertura.ue else '',
+                'direccion_administrativa': apertura.da.codigo if apertura.da else '',
+                'distrito': apertura.distrito.codigo if apertura.distrito else '',
+                'codigo_sisin': apertura.codigo_sisin,
+                'actividad': apertura.actividad_codigo,
+                'estado_revision': apertura.estado_revision,
+                'observacion': apertura.observacion,
+                'montos': montos_por_fuente(apertura),
+            })
+
+        def sumar(filas):
+            total: dict[str, Decimal] = {}
+            for f in filas:
+                for clave, monto in f['montos'].items():
+                    total[clave] = total.get(clave, Decimal('0')) + monto
+            return total
+
+        salida, total_general = [], {}
+        for p_nodo in programas.values():
+            subs = []
+            for s_nodo in p_nodo['subprogramas'].values():
+                s_nodo['total'] = sumar(s_nodo['actividades'])
+                subs.append(s_nodo)
+            p_nodo['subprogramas'] = subs
+            p_nodo['total'] = sumar(
+                [{'montos': s['total']} for s in subs])
+            for clave, monto in p_nodo['total'].items():
+                total_general[clave] = total_general.get(clave, Decimal('0')) + monto
+            salida.append(p_nodo)
+
+        # Techo por FF/OF: sale del Presupuesto General de Recursos. Es el
+        # limite contra el que se contrasta el gasto mientras se elabora el
+        # POA, y la diferencia es lo que queda por asignar de cada fuente.
+        techos: dict[str, Decimal] = {}
+        techo = TechoDirectivo.objects.filter(gestion__anio=int(anio)).first()
+        if techo:
+            version_techo = TechoVersion.objects.filter(
+                ceiling=techo, numero=techo.version_actual).first()
+            if version_techo:
+                for recurso in version_techo.recursos.select_related(
+                        'fuente', 'organismo').filter(padre__isnull=True):
+                    if not (recurso.fuente and recurso.organismo):
+                        continue
+                    clave = f'{recurso.fuente.codigo}/{recurso.organismo.codigo}'
+                    techos[clave] = techos.get(clave, Decimal('0')) + recurso.monto
+                    pares.setdefault(clave, recurso.organismo.denominacion)
+
+        diferencia = {
+            clave: techos.get(clave, Decimal('0')) - total_general.get(clave, Decimal('0'))
+            for clave in set(techos) | set(total_general)
+        }
+
+        return Response({
+            'gestion': int(anio),
+            'gestion_id': GestionFiscal.objects.filter(anio=int(anio)).values_list('id', flat=True).first(),
+            'techos': techos,
+            'diferencia': diferencia,
+            'columnas': [
+                {'ff_of': k, 'denominacion': v} for k, v in sorted(pares.items())
+            ],
+            'programas': salida,
+            'total': total_general,
+        })
+
+
 class DistribucionVersionViewSet(viewsets.ModelViewSet):
     """Versiones de distribución: CRUD liviano + ciclo de fijación (Fase 7).
 
@@ -738,6 +895,64 @@ class AperturaViewSet(viewsets.ModelViewSet):
         except DjangoValidationError as exc:
             return _respuesta_error(exc)
         return Response(self.get_serializer(allocation).data)
+
+    # --- Revisión por categoría programática ---------------------------------
+    #
+    # Cada apertura se valida y aprueba por separado: las unidades presentan su
+    # gasto en momentos distintos y la jefatura no espera a tenerlas todas.
+
+    def _transicion(self, request, destino, exige_estado=None, con_motivo=False):
+        apertura = self.get_object()
+        if exige_estado and apertura.estado_revision != exige_estado:
+            return Response(
+                {'error': {'detail': [
+                    f'La categoría está en {apertura.get_estado_revision_display()}: '
+                    f'no admite esta acción.']}},
+                status=400,
+            )
+        if apertura.estado_revision == RevisionApertura.APROBADO and not con_motivo:
+            return Response(
+                {'error': {'detail': ['Una categoría aprobada ya no se modifica.']}},
+                status=400,
+            )
+
+        campos = ['estado_revision']
+        apertura.estado_revision = destino
+        ahora = timezone.now()
+        if destino == RevisionApertura.VALIDADO:
+            apertura.validado_por, apertura.validado_en = request.user, ahora
+            campos += ['validado_por', 'validado_en']
+        elif destino == RevisionApertura.APROBADO:
+            apertura.aprobado_por, apertura.aprobado_en = request.user, ahora
+            campos += ['aprobado_por', 'aprobado_en']
+        elif destino == RevisionApertura.OBSERVADO:
+            motivo = (request.data.get('observacion') or '').strip()
+            if not motivo:
+                return Response(
+                    {'error': {'detail': ['Detalle qué debe corregirse.']}}, status=400)
+            apertura.observacion = motivo
+            apertura.observado_por, apertura.observado_en = request.user, ahora
+            campos += ['observacion', 'observado_por', 'observado_en']
+        apertura.save(update_fields=campos)
+        return Response(self.get_serializer(apertura).data)
+
+    @action(detail=True, methods=['post'])
+    def validar(self, request, pk=None):
+        """BORRADOR|OBSERVADO → VALIDADO."""
+        return self._transicion(request, RevisionApertura.VALIDADO)
+
+    @action(detail=True, methods=['post'])
+    def aprobar(self, request, pk=None):
+        """VALIDADO → APROBADO. No se aprueba lo que nadie validó."""
+        return self._transicion(
+            request, RevisionApertura.APROBADO,
+            exige_estado=RevisionApertura.VALIDADO)
+
+    @action(detail=True, methods=['post'])
+    def observar(self, request, pk=None):
+        """Devuelve la categoría a la unidad con el motivo."""
+        return self._transicion(
+            request, RevisionApertura.OBSERVADO, con_motivo=True)
 
 
 class ReservaViewSet(viewsets.ModelViewSet):

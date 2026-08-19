@@ -13,6 +13,7 @@ from .views import (
     ImportacionViewSet,
     CatalogOptionsView,
     RecursoTechoViewSet,
+    PresupuestoGastosViewSet,
     CompositionView,
     TechoDirectivoViewSet,
     DistributionDashboardView,
@@ -33,6 +34,10 @@ budget_router.register(
     basename='v2-directive-ceilings',
 )
 budget_router.register('resources', RecursoTechoViewSet, basename='v2-budget-resources')
+budget_router.register(
+    'presupuesto-gastos', PresupuestoGastosViewSet,
+    basename='v2-presupuesto-gastos',
+)
 budget_router.register(
     'mandatory-expenses', GastoObligatorioViewSet,
     basename='v2-mandatory-expenses',
