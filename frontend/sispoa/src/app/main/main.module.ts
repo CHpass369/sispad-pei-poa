@@ -42,6 +42,7 @@ const routes: Routes = [
       { path: 'notificaciones', loadChildren: () => import('../features/notificaciones/notificaciones.module').then(m => m.NotificacionesModule) },
       { path: 'documentos', loadChildren: () => import('../features/documentos/documentos.module').then(m => m.DocumentosModule) },
       { path: 'normativa', loadChildren: () => import('../features/normativa/normativa.module').then(m => m.NormativaModule) },
+      { path: 'priorizacion', loadChildren: () => import('../features/priorizacion/priorizacion.module').then(m => m.PriorizacionModule) },
       { path: 'poau_recursos', loadChildren: () => import('../features/poau-recursos/poau-recursos.module').then(m => m.PoauRecursosModule) },
     ],
   },
