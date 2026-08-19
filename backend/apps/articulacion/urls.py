@@ -10,6 +10,7 @@ from .views import (
     BorradorMatrizPEIViewSet, BorradorMatrizPOAViewSet,
 )
 from .views_matrices import MatrizViewSet
+from .views_poau import MatrizPOAUViewSet
 
 router = DefaultRouter()
 router.register(r'resultados-pad', ResultadoPADViewSet)
@@ -34,5 +35,6 @@ router.register(r'borradores-matriz-pad', BorradorMatrizPADViewSet)
 router.register(r'borradores-matriz-pei', BorradorMatrizPEIViewSet)
 router.register(r'borradores-matriz-poa', BorradorMatrizPOAViewSet)
 router.register(r'matrices', MatrizViewSet, basename='matrices')
+router.register(r'matriz-poau', MatrizPOAUViewSet, basename='matriz-poau')
 
 urlpatterns = router.urls
