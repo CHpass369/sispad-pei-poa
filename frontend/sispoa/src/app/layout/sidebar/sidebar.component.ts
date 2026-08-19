@@ -36,6 +36,7 @@ const RUTAS_POR_SISTEMA: Record<string, string> = {
   '/territorio': 'sis-pe',
   '/matrices-pad': 'sis-pe',
   // SIS-POA
+  '/priorizacion': 'sis-poa',
   '/poau': 'sis-poa',
   '/poau_recursos': 'sis-poa',
   '/planificacion': 'sis-poa',
@@ -245,6 +246,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         { route: '/sis-poa/budget/gestion-fiscal', label: 'Habilitación de Gestión', icon: 'calendar-check', roles: SOLO_JEFE_POA, v1: true },
         { route: '/sis-poa/presupuesto-recursos', label: 'Presupuesto General de Recursos', icon: 'banknote', roles: EQUIPO_POA, v1: true },
         { route: '/sis-poa/presupuesto-gastos', label: 'Presupuesto General de Gastos', icon: 'wallet', roles: EQUIPO_POA, v1: true },
+        { route: '/priorizacion/actas', label: 'Priorización POA', icon: 'clipboard-list', roles: EQUIPO_POA, v1: true },
         { route: '/sis-poa/poas', label: 'POA', icon: 'calendar-days', roles: EQUIPO_POA_PE, legacy: true },
         { route: '/sis-poa/poaus', label: 'POAUs', icon: 'list-tree', roles: EQUIPO_POA_PE, v1: true },
         { route: '/poau', label: 'POAU (Físico)', icon: 'list-todo', roles: EQUIPO_POA_PE, legacy: true },

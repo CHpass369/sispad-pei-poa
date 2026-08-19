@@ -164,6 +164,7 @@ describe('SidebarComponent', () => {
       ['Habilitación de Gestión', '/sis-poa/budget/gestion-fiscal'],
       ['Presupuesto General de Recursos', '/sis-poa/presupuesto-recursos'],
       ['Presupuesto General de Gastos', '/sis-poa/presupuesto-gastos'],
+      ['Priorización POA', '/priorizacion/actas'],
       ['POA', '/sis-poa/poas'],
       ['POAUs', '/sis-poa/poaus'],
       ['POAU (Físico)', '/poau'],
@@ -181,7 +182,7 @@ describe('SidebarComponent', () => {
     const v1 = seccion.items.filter(i => i.legacy || i.v1).map(i => i.route);
 
     expect(beta).toEqual(['/sis-poa/dashboard', '/sis-poa/seguimiento']);
-    expect(v1.length).toBe(7);
+    expect(v1.length).toBe(8);
     expect(beta.some(r => v1.includes(r))).toBeFalse();
   });
 
