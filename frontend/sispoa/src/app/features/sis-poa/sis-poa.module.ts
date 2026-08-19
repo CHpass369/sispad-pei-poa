@@ -8,6 +8,8 @@ import { modulosPendientes } from '../sistemas/modulos-pendientes';
 import { SisPoaDashboardComponent } from './sis-poa-dashboard.component';
 import { PoaWizardComponent } from './poa/poa-wizard.component';
 import { PoaMatrizViewerComponent } from './poa/poa-matriz-viewer.component';
+import { PoaHomeComponent } from './poa/poa-home.component';
+import { PoaRegistrosComponent } from './poa/poa-registros.component';
 import { SisPoaPresupuestoComponent } from './sis-poa-presupuesto.component';
 import { SisPoaTechosComponent } from './sis-poa-techos.component';
 
@@ -21,9 +23,14 @@ const routes: Routes = [
   },
   {
     path: 'poas',
-    component: PoaWizardComponent,
     canActivate: [CapabilityGuard],
     data: { capacidades: ['sis_poa.formulate'] },
+    children: [
+      { path: '', component: PoaHomeComponent },
+      { path: 'nuevo', component: PoaWizardComponent },
+      { path: 'nuevo/:id', component: PoaWizardComponent },
+      { path: 'registros', component: PoaRegistrosComponent },
+    ],
   },
   {
     path: 'presupuesto',
@@ -61,7 +68,9 @@ const routes: Routes = [
 @NgModule({
   declarations: [
     SisPoaDashboardComponent,
+    PoaHomeComponent,
     PoaWizardComponent,
+    PoaRegistrosComponent,
     PoaMatrizViewerComponent,
     SisPoaPresupuestoComponent,
     SisPoaTechosComponent,

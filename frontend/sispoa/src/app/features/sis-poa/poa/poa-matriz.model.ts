@@ -52,6 +52,75 @@ export function articulacionVacia(): ArticulacionPeiPoa {
   };
 }
 
+/**
+ * Cadena operativa que cuelga de la acción de corto plazo. La materialización
+ * la convierte en OperacionPOAU → ActividadPOAU → TareaPOAU; sin ella el POA
+ * se queda en la AccionPOA y no llega al POAU de cada unidad.
+ */
+export interface TareaForm {
+  denominacion: string;
+  responsable: string;
+  metas: number | null;
+  fechaInicio: string;
+  fechaFin: string;
+}
+
+export interface ActividadForm {
+  denominacion: string;
+  productoEntregable: string;
+  metaAnual: number | null;
+  fechaInicio: string;
+  fechaFin: string;
+  tareas: TareaForm[];
+}
+
+export interface OperacionForm {
+  denominacion: string;
+  tipoOperacion: string;
+  productoEntregable: string;
+  unidadEjecutora: string;
+  responsable: string;
+  metaAnual: number | null;
+  fechaInicio: string;
+  fechaFin: string;
+  actividades: ActividadForm[];
+}
+
+export function tareaVacia(): TareaForm {
+  return {
+    denominacion: '',
+    responsable: '',
+    metas: null,
+    fechaInicio: '',
+    fechaFin: '',
+  };
+}
+
+export function actividadVacia(): ActividadForm {
+  return {
+    denominacion: '',
+    productoEntregable: '',
+    metaAnual: null,
+    fechaInicio: '',
+    fechaFin: '',
+    tareas: [],
+  };
+}
+
+export function operacionVacia(): OperacionForm {
+  return {
+    denominacion: '',
+    tipoOperacion: '',
+    productoEntregable: '',
+    unidadEjecutora: '',
+    responsable: '',
+    metaAnual: null,
+    fechaInicio: '',
+    fechaFin: '',
+    actividades: [],
+  };
+}
+
 /** Acción de corto plazo: campos 5 a 11 de la matriz fusionada. */
 export interface AccionCortoPlazoForm {
   /** (5) Código de la acción de corto plazo. */
@@ -74,6 +143,8 @@ export interface AccionCortoPlazoForm {
   fechaInicio: string;
   /** (11) Fecha prevista de finalización. */
   fechaFin: string;
+  /** Cadena operativa: operaciones → actividades → tareas. */
+  operaciones: OperacionForm[];
 }
 
 export function accionVacia(): AccionCortoPlazoForm {
@@ -88,6 +159,7 @@ export function accionVacia(): AccionCortoPlazoForm {
     cargoReacp: '',
     fechaInicio: '',
     fechaFin: '',
+    operaciones: [],
   };
 }
 
@@ -287,6 +359,42 @@ export function validarMatriz(
         mensaje: 'La acción no tiene presupuesto programado para la gestión.',
       });
     }
+    if (!(accion.operaciones || []).length) {
+      hallazgos.push({
+        severidad: 'aviso',
+        seccion: etiqueta,
+        mensaje:
+          'Sin operaciones la acción no baja al POAU: se registra la acción de corto plazo pero ninguna unidad recibe operaciones, actividades ni tareas.',
+      });
+    }
+    (accion.operaciones || []).forEach((operacion, j) => {
+      const rotulo = `${etiqueta} · Operación ${j + 1}`;
+      if (!operacion.denominacion.trim()) {
+        hallazgos.push({
+          severidad: 'error',
+          seccion: rotulo,
+          mensaje: 'Registre la denominación de la operación.',
+        });
+      }
+      (operacion.actividades || []).forEach((actividad, k) => {
+        if (!actividad.denominacion.trim()) {
+          hallazgos.push({
+            severidad: 'error',
+            seccion: `${rotulo} · Actividad ${k + 1}`,
+            mensaje: 'Registre la denominación de la actividad.',
+          });
+        }
+        (actividad.tareas || []).forEach((tarea, m) => {
+          if (!tarea.denominacion.trim()) {
+            hallazgos.push({
+              severidad: 'error',
+              seccion: `${rotulo} · Actividad ${k + 1} · Tarea ${m + 1}`,
+              mensaje: 'Registre la denominación de la tarea.',
+            });
+          }
+        });
+      });
+    });
   });
 
   return hallazgos;
