@@ -7,6 +7,7 @@ defecto para que el acta salga escalada.
 import hashlib
 import io
 import json
+from datetime import datetime
 
 import segno
 from reportlab.lib import colors
@@ -46,6 +47,27 @@ def hash_acta(datos):
     crudo = json.dumps(canonico, ensure_ascii=False, sort_keys=True,
                        separators=(',', ':'))
     return hashlib.sha256(crudo.encode('utf-8')).hexdigest()
+
+
+ENTIDAD = 'Gobierno Autonomo Municipal de Sacaba'
+
+
+def contenido_qr(datos, huella, generado_en):
+    """Lo que se lee al escanear el QR.
+
+    Va en texto plano y sin tildes: los lectores de codigo de barras baratos
+    que usan en ventanilla no manejan UTF-8 y devuelven simbolos rotos.
+    """
+    firmantes = ', '.join(
+        f['nombre'] for f in (datos.get('firmas') or []) if f.get('nombre'))
+    return '\n'.join([
+        f"ACTA DE PRIORIZACION POA {datos['gestion']}",
+        f"{datos['otb']} - {datos['distrito']}",
+        f"Firmantes: {firmantes or 'sin registrar'}",
+        f"Generada: {generado_en.strftime('%d/%m/%Y %H:%M')}",
+        f"SHA-256: {huella}",
+        f"{ENTIDAD} - POA {datos['gestion']}",
+    ])
 
 
 def _estilos():
@@ -90,9 +112,10 @@ def _qr(texto, lado=26 * mm):
     return Image(buffer, width=lado, height=lado)
 
 
-def generar_acta_pdf(datos, url_verificacion=''):
+def generar_acta_pdf(datos, generado_en=None):
     """Devuelve (bytes del PDF, huella del contenido)."""
     huella = hash_acta(datos)
+    generado_en = generado_en or datetime.now()
     est = _estilos()
     salida = io.BytesIO()
     # Márgenes amplios y parejos: el bloque queda centrado en la hoja.
@@ -165,11 +188,15 @@ def generar_acta_pdf(datos, url_verificacion=''):
         ]))
         piezas.append(tabla_firmas)
 
-    contenido_qr = url_verificacion or f'PIP-GAMS|ACTA|{datos["acta_id"]}|{huella}'
     piezas += [
         Spacer(1, 12 * mm),
-        _qr(contenido_qr),
-        Paragraph(f'Verificación del contenido · SHA-256<br/>{huella}', est['qr']),
+        # Mas grande que el minimo: el QR lleva seis lineas y con 26 mm los
+        # modulos quedan demasiado finos para un lector de ventanilla.
+        _qr(contenido_qr(datos, huella, generado_en), lado=32 * mm),
+        Paragraph(huella, est['qr']),
+        Paragraph(f'{ENTIDAD} · POA {datos["gestion"]} · '
+                  f'generada el {generado_en.strftime("%d/%m/%Y %H:%M")}',
+                  est['qr']),
     ]
 
     doc.build(piezas)

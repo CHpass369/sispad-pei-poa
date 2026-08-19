@@ -71,7 +71,6 @@ import { PriorizacionService } from './priorizacion.service';
         <div class="huella" *ngIf="acta.huella">
           <span class="marca">QR</span>
           <div>
-            <strong>Verificación del contenido · SHA-256</strong>
             <code>{{ acta.huella }}</code>
             <em>El código QR con esta huella se imprime en el PDF.</em>
           </div>

@@ -343,3 +343,91 @@ class ActaPDFTests(ActaTests):
         acta_id = self.crear_acta(fecha=None).json()['id']
         r = self.client.get(f'{API}/actas/{acta_id}/pdf/')
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class ContenidoQRTests(TestCase):
+    """Lo que se lee al escanear el QR del acta."""
+
+    DATOS = {
+        'acta_id': 'abc', 'gestion': 2027, 'distrito': 'DISTRITO 2',
+        'otb': 'OTB SAN JOSE DE KORIPILA', 'presidente': 'LIZETTE CUBA',
+        'fecha': '2026-09-03',
+        'proyectos': [{'nro': 1, 'descripcion': 'X', 'monto': 1.0}],
+        'total': 1.0,
+        'firmas': [{'rol': 'Presidente de la OTB', 'nombre': 'LIZETTE CUBA'},
+                   {'rol': 'Responsable del registro', 'nombre': 'LILIANA AYALA'}],
+    }
+
+    def contenido(self, datos=None):
+        from datetime import datetime
+
+        from apps.priorizacion.pdf import contenido_qr, hash_acta
+        datos = datos or self.DATOS
+        return contenido_qr(datos, hash_acta(datos), datetime(2026, 8, 19, 18, 42))
+
+    def test_lleva_los_nombres_de_los_firmantes(self):
+        texto = self.contenido()
+        self.assertIn('Firmantes: LIZETTE CUBA, LILIANA AYALA', texto)
+
+    def test_lleva_la_fecha_y_hora_de_generacion(self):
+        self.assertIn('Generada: 19/08/2026 18:42', self.contenido())
+
+    def test_cierra_con_la_entidad_y_la_gestion(self):
+        self.assertTrue(self.contenido().rstrip().endswith(
+            'Gobierno Autonomo Municipal de Sacaba - POA 2027'))
+
+    def test_incluye_la_huella_del_contenido(self):
+        from apps.priorizacion.pdf import hash_acta
+        self.assertIn(hash_acta(self.DATOS), self.contenido())
+
+    def test_va_sin_tildes(self):
+        # Los lectores de ventanilla devuelven símbolos rotos con UTF-8.
+        texto = self.contenido()
+        self.assertEqual(texto, texto.encode('ascii', 'ignore').decode())
+
+    def test_un_acta_sin_firmantes_lo_dice_en_vez_de_dejar_el_campo_colgando(self):
+        datos = {**self.DATOS, 'firmas': []}
+        self.assertIn('Firmantes: sin registrar', self.contenido(datos))
+
+    def test_ignora_los_firmantes_sin_nombre_cargado(self):
+        datos = {**self.DATOS, 'firmas': [
+            {'rol': 'Presidente', 'nombre': 'JUAN'},
+            {'rol': 'Responsable', 'nombre': ''}]}
+        self.assertIn('Firmantes: JUAN\n', self.contenido(datos))
+
+
+class TextoDelPDFTests(ActaTests):
+    """El PDF se lee de verdad, no se supone."""
+
+    def texto_pdf(self, acta_id):
+        import io
+
+        from pypdf import PdfReader
+        contenido = self.client.get(f'{API}/actas/{acta_id}/pdf/').content
+        return '\n'.join(p.extract_text() for p in
+                         PdfReader(io.BytesIO(contenido)).pages)
+
+    def test_imprime_el_acta_completa(self):
+        PlantillaActa.objects.all().update(
+            aclaracion='Aclarar que las transferencias del TGN del POA {gestion}')
+        texto = self.texto_pdf(self.crear_acta().json()['id'])
+        self.assertIn('ACTA DE PRIORIZACIÓN DE PROYECTOS Y ACTIVIDADES', texto)
+        self.assertIn('DISTRITO 2', texto)
+        self.assertIn('CONST. PAVIMENTO ZONA SUDOESTE', texto)
+        self.assertIn('transferencias del TGN', texto)
+        self.assertIn('LIZETTE SHIRLEY CUBA ALDUNATE', texto)
+
+    def test_no_lleva_el_rotulo_de_verificacion(self):
+        texto = self.texto_pdf(self.crear_acta().json()['id'])
+        self.assertNotIn('SHA-256', texto)
+        self.assertNotIn('Verificación del contenido', texto)
+
+    def test_cierra_con_la_entidad_y_la_gestion(self):
+        texto = self.texto_pdf(self.crear_acta().json()['id'])
+        self.assertIn('Gobierno Autonomo Municipal de Sacaba', texto)
+        self.assertIn('POA 2027', texto)
+
+    def test_la_huella_queda_impresa_bajo_el_qr(self):
+        acta_id = self.crear_acta().json()['id']
+        huella = self.client.get(f'{API}/actas/{acta_id}/pdf/')['X-Acta-Huella']
+        self.assertIn(huella, self.texto_pdf(acta_id))

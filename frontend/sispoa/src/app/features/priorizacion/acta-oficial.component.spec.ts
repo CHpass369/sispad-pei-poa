@@ -88,11 +88,12 @@ describe('ActaOficialComponent', () => {
       .toBeGreaterThan(texto.indexOf('MONTO BS.-'));
   });
 
-  it('muestra la huella del contenido al pie', () => {
+  it('muestra la huella al pie, sin el rótulo', () => {
     cargar();
     const texto = (fixture.nativeElement as HTMLElement).textContent || '';
-    expect(texto).toContain('SHA-256');
     expect(texto).toContain('a'.repeat(64));
+    expect(texto).not.toContain('Verificación del contenido');
+    expect(texto).not.toContain('SHA-256');
   });
 
   it('descarga el PDF del servidor en vez de abrir el diálogo del navegador',
