@@ -1,5 +1,5 @@
 import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
-import { finalize } from 'rxjs';
+import { finalize, forkJoin } from 'rxjs';
 import { BudgetService, FilaRecurso, PresupuestoRecursos } from './budget/budget.service';
 
 /**
@@ -29,6 +29,14 @@ import { BudgetService, FilaRecurso, PresupuestoRecursos } from './budget/budget
           <span class="pastilla-estado" [ngClass]="claseEstado()">{{ etiquetaEstado() }}</span>
           <button class="btn btn-outline btn-sm" (click)="cargar()" [disabled]="cargando">
             Actualizar
+          </button>
+          <button class="btn btn-primary btn-sm" *ngIf="datos?.editable && !editando"
+                  (click)="entrarAEdicion()">Editar montos</button>
+          <button class="btn btn-outline btn-sm" *ngIf="editando"
+                  (click)="cancelarEdicion()" [disabled]="guardando">Cancelar</button>
+          <button class="btn btn-accent btn-sm" *ngIf="editando"
+                  (click)="guardar()" [disabled]="guardando || !hayCambios()">
+            {{ guardando ? 'Guardando…' : 'Guardar cambios (' + cantidadCambios() + ')' }}
           </button>
         </div>
       </div>
@@ -63,17 +71,40 @@ import { BudgetService, FilaRecurso, PresupuestoRecursos } from './budget/budget
                 <tr class="fila-rubro">
                   <td class="col-descripcion"><strong>{{ rubro.concepto }}</strong></td>
                   <td class="cod">{{ rubro.ff_of || '—' }}</td>
-                  <td class="num"><strong>{{ moneda(rubro.monto) }}</strong></td>
+                  <td class="num">
+                    <strong *ngIf="!editando">{{ moneda(rubro.monto) }}</strong>
+                    <input *ngIf="editando" class="celda-num" type="number" step="0.01"
+                           [value]="valor(rubro, 'monto')"
+                           (input)="editar(rubro, 'monto', $event)">
+                  </td>
                   <td class="num">{{ porcentaje(rubro.porcentaje) }}</td>
-                  <td class="num">{{ moneda(rubro.monto_corriente) }}</td>
-                  <td class="num">{{ porcentaje(rubro.porcentaje_corriente) }}</td>
-                  <td class="num">{{ moneda(rubro.monto_inversion) }}</td>
-                  <td class="num">{{ porcentaje(rubro.porcentaje_inversion) }}</td>
+                  <td class="num">
+                    <span *ngIf="!editando">{{ moneda(rubro.monto_corriente) }}</span>
+                    <input *ngIf="editando" class="celda-num" type="number" step="0.01"
+                           [value]="valor(rubro, 'monto_corriente')"
+                           (input)="editar(rubro, 'monto_corriente', $event)">
+                  </td>
+                  <td class="num">{{ porcentajeVivo(rubro, 'corriente') }}</td>
+                  <td class="num">
+                    <span *ngIf="!editando">{{ moneda(rubro.monto_inversion) }}</span>
+                    <input *ngIf="editando" class="celda-num" type="number" step="0.01"
+                           [value]="valor(rubro, 'monto_inversion')"
+                           (input)="editar(rubro, 'monto_inversion', $event)">
+                  </td>
+                  <td class="num">{{ porcentajeVivo(rubro, 'inversion') }}</td>
+                </tr>
+                <tr class="fila-aviso" *ngIf="editando && descuadre(rubro) as aviso">
+                  <td colspan="8">⚠ {{ aviso }}</td>
                 </tr>
                 <tr class="fila-componente" *ngFor="let c of rubro.componentes">
                   <td class="col-descripcion sangria">{{ c.concepto }}</td>
                   <td class="cod">{{ c.ff_of || '—' }}</td>
-                  <td class="num">{{ moneda(c.monto) }}</td>
+                  <td class="num">
+                    <span *ngIf="!editando">{{ moneda(c.monto) }}</span>
+                    <input *ngIf="editando" class="celda-num" type="number" step="0.01"
+                           [value]="valor(c, 'monto')"
+                           (input)="editar(c, 'monto', $event)">
+                  </td>
                   <td class="num">{{ porcentaje(c.porcentaje) }}</td>
                   <td class="num" colspan="4"></td>
                 </tr>
@@ -158,6 +189,20 @@ import { BudgetService, FilaRecurso, PresupuestoRecursos } from './budget/budget
       display: flex; justify-content: space-between; align-items: center;
       gap: var(--e-3); flex-wrap: wrap;
     }
+    .celda-num {
+      width: 100%; max-width: 130px; text-align: right; padding: 0.15rem 0.35rem;
+      border: 1px solid var(--border); border-radius: 4px; background: var(--surface);
+      font-family: var(--font-mono); font-size: 0.6875rem;
+      font-variant-numeric: tabular-nums; color: var(--text);
+    }
+    .celda-num:focus {
+      outline: 2px solid var(--pip-green-500); outline-offset: -1px;
+      border-color: var(--pip-green-500);
+    }
+    .fila-aviso td {
+      background: var(--aviso-fondo); color: var(--aviso-tinta);
+      font-size: 0.6875rem; padding: 0.35rem 0.8rem;
+    }
     .msg-box.error { background: var(--error-fondo); color: var(--error-tinta); padding: 0.7rem 0.9rem; border-radius: var(--radius); margin-bottom: var(--e-2); }
   `],
 })
@@ -167,6 +212,11 @@ export class PresupuestoRecursosComponent implements OnInit {
   ocupado = false;
   error = '';
   private techoId: number | null = null;
+
+  editando = false;
+  guardando = false;
+  /** Cambios sin guardar, por id de fila. Nada se escribe hasta confirmar. */
+  private pendientes = new Map<number, Record<string, number | null>>();
 
   constructor(private servicio: BudgetService, private cdr: ChangeDetectorRef) {}
 
@@ -204,6 +254,105 @@ export class PresupuestoRecursosComponent implements OnInit {
         next: d => { this.datos = d; this.cdr.markForCheck(); },
         error: () => {
           this.error = 'No se pudo cargar el presupuesto de recursos.';
+          this.cdr.markForCheck();
+        },
+      });
+  }
+
+  // --- Edición --------------------------------------------------------------
+
+  entrarAEdicion(): void { this.editando = true; this.pendientes.clear(); }
+
+  cancelarEdicion(): void {
+    this.editando = false;
+    this.pendientes.clear();
+    this.error = '';
+    this.cargarTabla();
+  }
+
+  hayCambios(): boolean { return this.pendientes.size > 0; }
+  cantidadCambios(): number { return this.pendientes.size; }
+
+  /** El valor en pantalla: lo tecleado si hay algo pendiente, si no lo guardado. */
+  valor(fila: FilaRecurso, campo: string): string {
+    const pendiente = this.pendientes.get(fila.id);
+    if (pendiente && campo in pendiente) {
+      const v = pendiente[campo];
+      return v === null ? '' : String(v);
+    }
+    const guardado = (fila as any)[campo];
+    return guardado === null || guardado === undefined ? '' : String(Number(guardado));
+  }
+
+  editar(fila: FilaRecurso, campo: string, evento: Event): void {
+    const bruto = (evento.target as HTMLInputElement).value;
+    const numero = bruto === '' ? null : Number(bruto);
+    const actual = this.pendientes.get(fila.id) ?? {};
+    actual[campo] = Number.isNaN(numero as number) ? null : numero;
+    this.pendientes.set(fila.id, actual);
+  }
+
+  private numero(fila: FilaRecurso, campo: string): number {
+    const v = this.valor(fila, campo);
+    return v === '' ? 0 : Number(v);
+  }
+
+  /** Porcentaje recalculado mientras se escribe, sin esperar al servidor. */
+  porcentajeVivo(fila: FilaRecurso, cual: 'corriente' | 'inversion'): string {
+    if (!this.editando) {
+      return this.porcentaje(
+        cual === 'corriente' ? fila.porcentaje_corriente : fila.porcentaje_inversion);
+    }
+    const total = this.numero(fila, 'monto');
+    if (!total) { return '—'; }
+    const parte = this.numero(fila, `monto_${cual}`);
+    return `${((parte * 100) / total).toFixed(2)}%`;
+  }
+
+  /**
+   * El backend rechaza el guardado si no cuadra; avisar antes evita que la
+   * persona descubra el error recién al confirmar toda la tabla.
+   */
+  descuadre(rubro: FilaRecurso): string | null {
+    if (!this.editando) { return null; }
+    const total = this.numero(rubro, 'monto');
+    const suma = this.numero(rubro, 'monto_corriente') + this.numero(rubro, 'monto_inversion');
+    if (Math.abs(suma - total) > 0.005) {
+      return `Corriente e inversión suman ${suma.toLocaleString('es-BO')}, `
+        + `y el rubro es de ${total.toLocaleString('es-BO')}.`;
+    }
+    const hijos = (rubro.componentes || []).reduce((n, c) => n + this.numero(c, 'monto'), 0);
+    if (rubro.componentes?.length && Math.abs(hijos - total) > 0.005) {
+      return `Los componentes suman ${hijos.toLocaleString('es-BO')}, `
+        + `y el rubro es de ${total.toLocaleString('es-BO')}.`;
+    }
+    return null;
+  }
+
+  guardar(): void {
+    if (!this.hayCambios() || this.guardando) { return; }
+    const conDescuadre = (this.datos?.rubros || []).filter(r => this.descuadre(r));
+    if (conDescuadre.length) {
+      this.error = `Corrija el descuadre en ${conDescuadre.length} rubro(s) antes de guardar.`;
+      return;
+    }
+    this.guardando = true;
+    this.error = '';
+
+    const envios = [...this.pendientes.entries()].map(
+      ([id, campos]) => this.servicio.actualizarRecurso(id, campos));
+
+    forkJoin(envios)
+      .pipe(finalize(() => { this.guardando = false; this.cdr.markForCheck(); }))
+      .subscribe({
+        next: () => {
+          this.pendientes.clear();
+          this.editando = false;
+          this.cargarTabla();
+        },
+        error: (e: any) => {
+          const detalle = e?.error?.detail || e?.error?.non_field_errors?.[0];
+          this.error = detalle || 'No se pudieron guardar los cambios.';
           this.cdr.markForCheck();
         },
       });

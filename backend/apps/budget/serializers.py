@@ -167,9 +167,15 @@ class RecursoTechoSerializer(serializers.ModelSerializer):
             'id', 'version', 'origen', 'origen_display', 'rubro', 'rubro_detalle',
             'fuente', 'fuente_detalle', 'organismo', 'organismo_detalle',
             'entidad_otorgante', 'entidad_detalle', 'concepto', 'monto',
+            'padre', 'orden', 'monto_corriente', 'monto_inversion',
+            'porcentaje_corriente', 'porcentaje_inversion',
             'documento', 'documento_nombre', 'created_at', 'updated_at',
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = [
+            'id', 'created_at', 'updated_at',
+            # Derivados: se calculan, nunca se envian.
+            'porcentaje_corriente', 'porcentaje_inversion',
+        ]
 
     def get_rubro_detalle(self, obj) -> dict | None:
         return _detalle_catalogo(obj.rubro)
