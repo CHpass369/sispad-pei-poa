@@ -11,9 +11,10 @@ import { AuthService } from '../../core/services/auth.service';
     <div class="login-page">
       <div class="login-card">
         <div class="login-header">
-          <div class="logo-icon">G</div>
-          <h1>PIP Sacaba</h1>
-          <p>Sistema de Formulación del POA</p>
+          <img class="logo-institucional" src="assets/images/logo-sacaba-horizontal.png"
+               alt="Gobierno Autónomo Municipal de Sacaba" width="800" height="252">
+          <h1>Plataforma Integral de Planificación</h1>
+          <p>Planificación estratégica, operativa y de inversión</p>
         </div>
         <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="login-form">
           <div class="field">
@@ -53,13 +54,13 @@ import { AuthService } from '../../core/services/auth.service';
     .login-header {
       padding: 2rem 2rem 0; text-align: center;
     }
-    .login-header .logo-icon {
-      width: 56px; height: 56px; background: var(--primary); color: white;
-      border-radius: 14px; display: inline-flex; align-items: center;
-      justify-content: center; font-size: 1.75rem; font-weight: 800;
-      margin-bottom: 1rem;
+    .login-header .logo-institucional {
+      width: 100%; max-width: 260px; height: auto; margin-bottom: 1.25rem;
     }
-    .login-header h1 { font-size: 1.5rem; color: var(--text); margin-bottom: 0.25rem; }
+    .login-header h1 {
+      font-size: 1.15rem; color: var(--text); margin-bottom: 0.25rem;
+      text-wrap: balance; letter-spacing: -0.01em;
+    }
     .login-header p { color: var(--text-secondary); font-size: 0.875rem; }
     .login-form { padding: 2rem; }
     .field { margin-bottom: 1rem; }

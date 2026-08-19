@@ -1,13 +1,21 @@
+@use 'assets/fonts/fuentes';
+
 /* ============ PIP — PIEL INSTITUCIONAL (prototipo fusionado) ============ */
 :root {
   /* Tokens núcleo */
   --pip-ink: #132019;
   --pip-ink-soft: #4A5B51;
-  --pip-green-900: #0C2E1D;
-  --pip-green-800: #103D26;
-  --pip-green-700: #155E3A;
-  --pip-green-500: #2E8B57;
-  --pip-green-100: #E2F0E7;
+  /* Rampa derivada del verde del escudo institucional (#007229, H142 S100
+     L22). La paleta anterior partia de #155E3A: mismo brillo pero 8 grados de
+     tono corridos y 37 puntos menos de saturacion, asi que el logo se veia
+     mas verde que la interfaz que lo rodeaba. Contraste sobre blanco
+     verificado: 700 llega a 6.25:1 (AA). */
+  --pip-green-900: #033014;
+  --pip-green-800: #034E1F;
+  --pip-green-700: #007229;
+  --pip-green-600: #098637;
+  --pip-green-500: #23954D;
+  --pip-green-100: #E3F2E9;
   --pip-gold: #C9972E;
   --pip-gold-soft: #F5EAD2;
   --pip-surface: #F4F7F4;
@@ -15,15 +23,18 @@
   --pip-line: #DEE7E0;
   --pip-danger: #C0392B;
   --pip-warn: #B9770E;
-  --font-display: 'Space Grotesk', sans-serif;
-  --font-body: 'Inter', sans-serif;
-  --font-mono: 'IBM Plex Mono', monospace;
+  /* Fraunces da el peso institucional; IBM Plex Sans comparte esqueleto
+     con el mono, asi que un codigo dentro de un parrafo deja de verse
+     pegado. Ambas se sirven desde /assets/fonts. */
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-body: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
   --radius: 12px;
   --shadow: 0 1px 2px rgba(19,32,25,.05), 0 8px 24px rgba(19,32,25,.06);
 
   /* Acentos por sistema */
   --pe: #DCEEFF; --pe-ink: #0F4C81;
-  --poa: #E2F0E7; --poa-ink: #155E3A;
+  --poa: #E3F2E9; --poa-ink: #007229;
   --pro: #FFE9E2; --pro-ink: #9A3B1F;
   --tra: #EFE9FC; --tra-ink: #5B3B9A;
 
@@ -188,4 +199,129 @@ th {
 
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
+}
+
+/* ============================================================================
+   SISTEMA DE SUPERFICIE — capa compartida
+   ----------------------------------------------------------------------------
+   Antes de esto habia 7 nombres de clase para la misma tabla (data-table,
+   table-scroll, mz, table-container, table-responsive, tabla, table-wrapper) y
+   71 componentes con su propio estilo. Aqui vive la version unica; los alias
+   apuntan todos al mismo lugar.
+   ============================================================================ */
+
+:root {
+  /* Escala de espaciado: cuatro pasos, no valores sueltos por pantalla. */
+  --e-1: 0.375rem; --e-2: 0.75rem; --e-3: 1.25rem; --e-4: 2rem; --e-5: 3rem;
+
+  /* Anchos con intencion. Un formulario a 1200px se lee mal; una matriz de 15
+     columnas a 1200px obliga a desplazarse sin necesidad. No es el mismo caso. */
+  --ancho-lectura: 68ch;     /* prosa, formularios de una columna */
+  --ancho-trabajo: 1400px;   /* pantallas de gestion */
+  --ancho-datos: 100%;       /* tablas y matrices: todo el alto disponible */
+  --canal: clamp(1rem, 2.5vw, 2rem);
+
+  --fila-alta: 2.75rem; --fila-media: 2.25rem; --fila-baja: 1.85rem;
+
+  /* Estado: un par fondo/tinta por significado. Cada pantalla venia
+     inventando el suyo, de ahi los 106 tonos distintos para cuatro ideas. */
+  --ok-fondo: var(--pip-green-100);   --ok-tinta: var(--pip-green-700);
+  --aviso-fondo: var(--pip-gold-soft); --aviso-tinta: #8A6100;
+  --error-fondo: #FBE9E7;              --error-tinta: var(--pip-danger);
+  --info-fondo: #DCEEFF;               --info-tinta: #0F4C81;
+  --neutro-fondo: #EDF1EE;             --neutro-tinta: var(--pip-ink-soft);
+  --realce: #F0F7F3;
+}
+
+/* --- Contenedores --------------------------------------------------------- */
+
+.lienzo        { width: 100%; padding-inline: var(--canal); }
+.lienzo-lectura { max-width: var(--ancho-lectura); margin-inline: auto; }
+.lienzo-trabajo { max-width: var(--ancho-trabajo); margin-inline: auto; }
+.lienzo-datos   { max-width: none; }
+
+/* --- Encabezado de pantalla ----------------------------------------------- */
+
+.encabezado-pantalla {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: var(--e-3); flex-wrap: wrap; margin-bottom: var(--e-3);
+}
+.encabezado-pantalla h1,
+.encabezado-pantalla h2 { font-size: 1.3rem; letter-spacing: -0.01em; }
+.encabezado-pantalla .sub {
+  color: var(--text-secondary); font-size: 0.8125rem; max-width: 66ch; margin-top: 0.15rem;
+}
+.encabezado-acciones { display: flex; gap: var(--e-1); flex-wrap: wrap; }
+
+/* --- Tabla unica ---------------------------------------------------------- */
+
+.tabla-caja,
+.table-scroll, .table-container, .table-responsive, .table-wrapper {
+  width: 100%; overflow-x: auto; overflow-y: visible;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+  scrollbar-gutter: stable;
+}
+
+table.tabla, table.data-table, table.datos {
+  width: 100%; border-collapse: separate; border-spacing: 0;
+  font-size: 0.8125rem; font-variant-numeric: tabular-nums;
+}
+
+/* La cabecera queda fija: una matriz POA tiene 190 filas y al desplazarse se
+   pierde de vista que columna se esta leyendo. */
+table.tabla thead th, table.data-table thead th, table.datos thead th {
+  position: sticky; top: 0; z-index: 2;
+  background: var(--bg); color: var(--text-secondary);
+  font-size: 0.625rem; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
+  text-align: left; padding: 0.6rem 0.8rem; white-space: nowrap;
+  border-bottom: 1px solid var(--border);
+}
+table.tabla tbody td, table.data-table tbody td, table.datos tbody td {
+  padding: 0.6rem 0.8rem; border-bottom: 1px solid var(--border); vertical-align: middle;
+}
+table.tabla tbody tr:last-child td,
+table.data-table tbody tr:last-child td { border-bottom: none; }
+
+table.tabla tbody tr, table.data-table tbody tr { transition: background .12s ease; }
+table.tabla tbody tr:nth-child(even) td,
+table.data-table tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--pip-green-100) 34%, transparent); }
+table.tabla tbody tr:hover td,
+table.data-table tbody tr:hover td { background: color-mix(in srgb, var(--pip-green-500) 9%, transparent); }
+
+/* Densidad: las matrices necesitan mas filas a la vista que un listado. */
+.tabla-compacta tbody td, .tabla-compacta thead th { padding: 0.3rem 0.45rem; font-size: 0.6875rem; }
+.tabla-holgada  tbody td { padding: 0.85rem 1rem; }
+
+.col-num, td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.col-cod, td.cod { font-family: var(--font-mono); font-weight: 600; white-space: nowrap; }
+.col-fija { position: sticky; left: 0; z-index: 1; background: var(--surface); }
+
+/* --- Estado de carga ------------------------------------------------------ */
+
+.esqueleto {
+  background: linear-gradient(90deg,
+    var(--border) 25%, color-mix(in srgb, var(--border) 40%, var(--surface)) 50%, var(--border) 75%);
+  background-size: 200% 100%; animation: brillo 1.4s ease-in-out infinite;
+  border-radius: 4px; height: 0.85rem;
+}
+@keyframes brillo { to { background-position: -200% 0; } }
+
+/* --- Vacio ---------------------------------------------------------------- */
+
+.sin-datos {
+  display: flex; flex-direction: column; align-items: center; gap: var(--e-1);
+  padding: var(--e-5) var(--e-3); text-align: center; color: var(--text-secondary);
+}
+.sin-datos .sin-datos-icono { font-size: 1.75rem; opacity: .45; }
+.sin-datos strong { font-family: var(--font-display); color: var(--text); font-size: 0.95rem; }
+
+/* --- Entrada ------------------------------------------------------------- */
+
+@keyframes surgir { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.card, .tabla-caja, .table-container { animation: surgir .26s ease both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .esqueleto { animation: none; }
+  .card, .tabla-caja, .table-container { animation: none; }
 }

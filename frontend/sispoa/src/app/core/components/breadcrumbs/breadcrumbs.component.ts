@@ -154,7 +154,33 @@ export class BreadcrumbsComponent implements OnInit, OnDestroy {
       'mapa': 'Mapa de Inversiones',
       'planes': 'Planes',
       'estadisticas': 'Estadísticas',
+      // Sistemas y sus instrumentos.
+      'sistemas': 'Selección de sistemas',
+      'sis-pe': 'SIS-PE',
+      'sis-poa': 'SIS-POA',
+      'sis-pro': 'SIS-PRO',
+      'pei': 'PEI',
+      'pad': 'PAD',
+      'poas': 'POA',
+      'poaus': 'POAUs',
+      'poau_recursos': 'POAU (Recursos)',
+      'poau-recursos': 'POAU (Recursos)',
+      'budget': 'Presupuesto',
+      'presupuesto-recursos': 'Presupuesto de Recursos',
+      'presupuesto-gastos': 'Presupuesto de Gastos',
+      'articulacion': 'Articulación',
+      'registros': 'Registros',
+      'formulacion': 'Formulación',
+      'preinversion': 'Preinversión',
+      'gestion-fiscal': 'Habilitación de Gestión',
     };
-    return labels[segment] || segment;
+    if (labels[segment]) {
+      return labels[segment];
+    }
+    // Sin entrada en el mapa, al menos no mostrar el nombre crudo de la ruta:
+    // 'poau_recursos' se leia tal cual, con guion bajo incluido.
+    return segment
+      .replace(/[-_]+/g, ' ')
+      .replace(/^./, c => c.toUpperCase());
   }
 }

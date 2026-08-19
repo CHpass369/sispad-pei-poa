@@ -70,12 +70,13 @@ const EQUIPO_POA_PE = [...ROLES_POA, ...ROLES_PE, ...ROLES_ADMIN];
         <div class="sidebar-overlay" (click)="toggleMobile()"></div>
       }
       <div class="brand">
-        <div class="brand-mark">PIP</div>
-        @if (!collapsed) {
-          <div class="brand-copy">
-            <strong>PIP SACABA</strong>
-            <span>Planificación integral</span>
-          </div>
+        @if (collapsed) {
+          <img class="brand-escudo" src="assets/images/escudo-sacaba.png"
+               alt="Gobierno Autónomo Municipal de Sacaba" width="38" height="38">
+        } @else {
+          <img class="brand-logo" src="assets/images/logo-sacaba-horizontal.png"
+               alt="Gobierno Autónomo Municipal de Sacaba — una ciudad con valor"
+               width="800" height="252">
         }
         <button class="collapse-btn" (click)="toggleCollapse()"
           [attr.aria-label]="collapsed ? 'Expandir menú' : 'Contraer menú'"
@@ -131,21 +132,16 @@ const EQUIPO_POA_PE = [...ROLES_POA, ...ROLES_PE, ...ROLES_ADMIN];
       padding: 18px 16px 14px;
       border-bottom: 1px solid rgba(255,255,255,.08);
     }
-    .brand-mark {
-      width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
-      background: linear-gradient(135deg, var(--pip-green-500), var(--pip-green-700));
-      display: grid; place-items: center;
-      font-family: var(--font-display); font-weight: 700; font-size: 13px; color: #fff;
-      letter-spacing: .5px;
+    /* El logo institucional lleva el texto en verde oscuro: sobre el verde
+       profundo del sidebar desapareceria. Va sobre placa blanca, que ademas es
+       como la marca se usa en papeleria. */
+    .brand-logo {
+      width: 100%; max-width: 196px; height: auto; display: block;
+      background: #fff; border-radius: 8px; padding: 7px 9px;
     }
-    .brand-copy { display: flex; flex-direction: column; min-width: 0; }
-    .brand-copy strong {
-      font-family: var(--font-display); font-size: 14px; color: #fff;
-      letter-spacing: .4px; white-space: nowrap;
-    }
-    .brand-copy span {
-      font-size: 10.5px; color: #8FB89E; text-transform: uppercase;
-      letter-spacing: .5px; white-space: nowrap;
+    .brand-escudo {
+      width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
+      background: #fff; padding: 2px; object-fit: contain;
     }
     .collapse-btn {
       margin-left: auto; background: none; border: none; color: #7FA792;
