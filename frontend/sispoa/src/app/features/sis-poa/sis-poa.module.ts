@@ -13,6 +13,7 @@ import { PoaRegistrosComponent } from './poa/poa-registros.component';
 import { SisPoaPresupuestoComponent } from './sis-poa-presupuesto.component';
 import { SisPoaTechosComponent } from './sis-poa-techos.component';
 import { PresupuestoRecursosComponent } from './presupuesto-recursos.component';
+import { PresupuestoGastosComponent } from './presupuesto-gastos.component';
 
 const routes: Routes = [
   { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
@@ -32,6 +33,12 @@ const routes: Routes = [
       { path: 'nuevo/:id', component: PoaWizardComponent },
       { path: 'registros', component: PoaRegistrosComponent },
     ],
+  },
+  {
+    path: 'presupuesto-gastos',
+    component: PresupuestoGastosComponent,
+    canActivate: [CapabilityGuard],
+    data: { capacidades: ['sis_poa.formulate'] },
   },
   {
     path: 'presupuesto-recursos',
@@ -58,7 +65,6 @@ const routes: Routes = [
   // Módulos del plan maestro (§18.1 SIS-POA) en desarrollo
   ...modulosPendientes(
     [
-      { ruta: 'presupuesto-gastos', nombre: 'Presupuesto General de Gastos' },
       { ruta: 'poaus', nombre: 'POAUs' },
       { ruta: 'poau', nombre: 'POAU por unidad' },
       { ruta: 'recursos', nombre: 'Recursos' },
@@ -81,6 +87,7 @@ const routes: Routes = [
     SisPoaPresupuestoComponent,
     SisPoaTechosComponent,
     PresupuestoRecursosComponent,
+    PresupuestoGastosComponent,
   ],
   imports: [CommonModule, FormsModule, SharedModule, RouterModule.forChild(routes)],
 })

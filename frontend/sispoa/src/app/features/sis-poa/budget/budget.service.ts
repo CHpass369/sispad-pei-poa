@@ -692,10 +692,21 @@ export interface FilaRecurso {
   componentes?: FilaRecurso[];
 }
 
+/** Un par FF/OF con su monto acumulado; lo calcula el backend. */
+export interface ResumenFuente {
+  ff_of: string;
+  fuente: string;
+  organismo: string;
+  monto: string;
+  porcentaje: string | null;
+}
+
 export interface PresupuestoRecursos {
   gestion: number;
   estado: string;
   editable: boolean;
+  version_id: number | null;
+  por_fuente: ResumenFuente[];
   rubros: FilaRecurso[];
   total: {
     monto: string;
@@ -1143,10 +1154,6 @@ export class BudgetService {
     return this.http.get<PresupuestoRecursos>(
       `${this.base}/directive-ceilings/${id}/presupuesto-recursos/`,
     );
-  }
-
-  guardarRecurso(datos: Record<string, unknown>) {
-    return this.http.post(`${this.base}/resources/`, datos);
   }
 
   actualizarRecurso(id: number, datos: Record<string, unknown>) {
