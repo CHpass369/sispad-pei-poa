@@ -257,7 +257,25 @@ class AsignacionObjetoGastoViewSet(EstadoActionsMixin, viewsets.ModelViewSet):
     ordering_fields = ['codigo_asignacion', 'gestion']
 
 
-class BorradorMatrizPADViewSet(viewsets.ModelViewSet):
+class RevisionMatrizMixin:
+    """Autoridad única sobre las actions del circuito de revisión.
+
+    `ArticulacionPermisos` solo deja escribir a quien FORMULA. La jefatura que
+    aprueba y observa (ROLES_APROBADORES) no formula, así que aplicarle esa
+    clase la dejaba sin poder cerrar el circuito. Aquí la decisión queda
+    enteramente en `permisos_revision_matriz`, que es quien conoce autor,
+    jefatura y estado del registro; cada action deniega con su propio mensaje.
+    """
+
+    ACCIONES_DE_REVISION = ('validar', 'aprobar', 'observar')
+
+    def get_permissions(self):
+        if getattr(self, 'action', None) in self.ACCIONES_DE_REVISION:
+            return [IsAuthenticated()]
+        return super().get_permissions()
+
+
+class BorradorMatrizPADViewSet(RevisionMatrizMixin, viewsets.ModelViewSet):
     """CRUD del borrador de Matrices PAD (guardado incremental por paso).
 
     Contrato del PATCH parcial (por sección del wizard):
@@ -528,7 +546,7 @@ class BorradorMatrizPADViewSet(viewsets.ModelViewSet):
         return Response(construir_matriz_b(borrador))
 
 
-class BorradorMatrizPEIViewSet(viewsets.ModelViewSet):
+class BorradorMatrizPEIViewSet(RevisionMatrizMixin, viewsets.ModelViewSet):
     """CRUD del borrador de Matriz PEI (guardado incremental por sección).
 
     Espejo de :class:`BorradorMatrizPADViewSet`: PATCH parcial por sección,
@@ -689,7 +707,7 @@ class BorradorMatrizPEIViewSet(viewsets.ModelViewSet):
         return Response(self.get_serializer(borrador).data)
 
 
-class BorradorMatrizPOAViewSet(viewsets.ModelViewSet):
+class BorradorMatrizPOAViewSet(RevisionMatrizMixin, viewsets.ModelViewSet):
     """CRUD del borrador de Matriz POA (guardado incremental por sección).
 
     Espejo de :class:`BorradorMatrizPEIViewSet`: PATCH parcial por sección,
@@ -701,17 +719,6 @@ class BorradorMatrizPOAViewSet(viewsets.ModelViewSet):
     serializer_class = BorradorMatrizPOASerializer
     permission_classes = [ArticulacionPermisos]
     filterset_fields = ['gestion', 'estado', 'estado_revision']
-
-    # Las tres actions de revisión las gobierna `permisos_revision_matriz`, que
-    # es quien conoce a la jefatura (ROLES_APROBADORES). `ArticulacionPermisos`
-    # solo deja escribir a superadmin/planificador/tecnico_admin, de modo que
-    # aplicarlo aquí dejaría a la jefatura sin poder aprobar ni observar.
-    ACCIONES_DE_REVISION = ('validar', 'aprobar', 'observar')
-
-    def get_permissions(self):
-        if getattr(self, 'action', None) in self.ACCIONES_DE_REVISION:
-            return [IsAuthenticated()]
-        return super().get_permissions()
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user, updated_by=self.request.user)

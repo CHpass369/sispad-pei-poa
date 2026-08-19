@@ -1,17 +1,34 @@
 from rest_framework import permissions
 
 
+# Roles que formulan instrumentos: son los que pueden escribir en articulación.
+#
+# `planificador` y `tecnico_admin` se conservan por compatibilidad, pero NO
+# existen en el catálogo de Rol: mientras fueron los únicos acompañando a
+# `superadmin`, toda la superficie de escritura de articulación quedaba
+# reservada de hecho a los superusuarios. Los cuatro perfiles POA/PE son los
+# que el sidebar ya usaba para mostrar las herramientas.
+ROLES_FORMULADORES = (
+    'superadmin',
+    'planificador',
+    'tecnico_admin',
+    'admin_poa',
+    'jefe_poa',
+    'tecnico_poa',
+    'jefe_pe',
+    'tecnico_pe',
+)
+
+
 class ArticulacionPermisos(permissions.BasePermission):
-    """Permisos por acción: solo superadmin, planificador y técnico admin pueden modificar."""
+    """Lectura para cualquier autenticado; escritura para quien formula."""
 
     def has_permission(self, request, view):
         if request.method in permissions.SAFE_METHODS:
             return request.user.is_authenticated
         return request.user.is_authenticated and (
             request.user.is_superuser
-            or request.user.roles.filter(
-                codigo__in=['superadmin', 'planificador', 'tecnico_admin']
-            ).exists()
+            or request.user.roles.filter(codigo__in=ROLES_FORMULADORES).exists()
         )
 
 
@@ -21,7 +38,9 @@ class ArticulacionPermisos(permissions.BasePermission):
 
 # Roles que ejercen la jefatura o administración de SIS-PE: aprueban y observan.
 # Ajustar aquí si la entidad define un rol propio para esa función.
-ROLES_APROBADORES = ('superadmin', 'revisor_planificacion', 'mae')
+ROLES_APROBADORES = (
+    'superadmin', 'revisor_planificacion', 'mae', 'jefe_poa', 'jefe_pe',
+)
 
 
 def es_aprobador(usuario):
