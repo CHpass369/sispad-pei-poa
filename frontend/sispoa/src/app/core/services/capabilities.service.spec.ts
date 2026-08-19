@@ -68,4 +68,15 @@ describe('CapabilitiesService', () => {
     expect(alcances[0].tipo).toBe('organizacional');
     expect(alcances[0].unidad_nombre).toBe('Secretaría de Capacidades');
   });
+
+  it('should finalize the loaded state when the request fails', () => {
+    expect(service.cargadas$.value).toBeFalse();
+
+    service.cargar().subscribe({ error: () => undefined });
+    const request = httpMock.expectOne(`${environment.apiUrlV2}/me/capabilities/`);
+    request.flush('unavailable', { status: 503, statusText: 'Service Unavailable' });
+
+    expect(service.cargadas$.value).toBeTrue();
+    expect(service.listar()).toEqual([]);
+  });
 });

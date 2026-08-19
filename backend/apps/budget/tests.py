@@ -11,6 +11,7 @@ import tempfile
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -511,8 +512,46 @@ class FiscalYearApiTests(TestCase):
         self.assertEqual(resp.status_code, 201, resp.data)
         self.assertEqual(resp.data['anio'], 2020)
         self.assertEqual(resp.data['estado'], 'preparacion')
+        self.assertEqual(resp.data['fecha_inicio'], '2020-01-01')
+        self.assertEqual(resp.data['fecha_cierre_programada'], '2020-12-31')
         self.assertIsNone(resp.data['gestion_anterior'])
         self.assertTrue(GestionFiscal.objects.filter(anio=2020).exists())
+
+    def test_crear_gestion_con_documento_expone_metadatos_de_cargado(self):
+        archivo = SimpleUploadedFile(
+            'habilitacion-2029.pdf', b'%PDF-1.4 fiscal year',
+            content_type='application/pdf',
+        )
+        resp = self.client.post(
+            self.url,
+            {'anio': 2029, 'documento_habilitacion': archivo},
+            format='multipart',
+        )
+
+        self.assertEqual(resp.status_code, 201, resp.data)
+        gestion = GestionFiscal.objects.get(anio=2029)
+        self.assertEqual(gestion.fecha_inicio.isoformat(), '2029-01-01')
+        self.assertEqual(
+            gestion.fecha_cierre_programada.isoformat(), '2029-12-31'
+        )
+        self.assertEqual(resp.data['fecha_inicio'], '2029-01-01')
+        self.assertEqual(resp.data['fecha_cierre_programada'], '2029-12-31')
+        self.assertTrue(resp.data['documento_habilitacion'])
+        self.assertEqual(resp.data['encargado_cargado'], self.admin.email)
+        self.assertIsNotNone(resp.data['fecha_cargado'])
+        self.assertIsNone(gestion.fecha_cierre)
+
+    def test_serializar_registro_legacy_deriva_fechas_anuales(self):
+        gestion = crear_gestion(2019)
+        GestionFiscal.objects.filter(pk=gestion.pk).update(
+            fecha_inicio=None, fecha_cierre_programada=None,
+        )
+
+        resp = self.client.get(f'{self.url}{gestion.id}/')
+
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(resp.data['fecha_inicio'], '2019-01-01')
+        self.assertEqual(resp.data['fecha_cierre_programada'], '2019-12-31')
 
     def test_crear_gestion_duplicada_rechazada(self):
         crear_gestion(2028)

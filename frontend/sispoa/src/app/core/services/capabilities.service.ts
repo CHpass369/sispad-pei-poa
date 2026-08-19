@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, tap } from 'rxjs';
+import { BehaviorSubject, Observable, finalize, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
 export interface AlcanceOrganizacional {
@@ -39,8 +39,9 @@ export class CapabilitiesService {
       tap(data => {
         this.capabilities = data.capabilities ?? [];
         this.alcances = data.alcances ?? [];
-        this.cargadas$.next(true);
       }),
+      // La navegación debe continuar también cuando la petición falla.
+      finalize(() => this.cargadas$.next(true)),
     );
   }
 

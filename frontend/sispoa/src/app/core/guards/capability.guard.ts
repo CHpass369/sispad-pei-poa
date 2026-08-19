@@ -1,5 +1,7 @@
 import { Injectable } from '@angular/core';
-import { ActivatedRouteSnapshot, CanActivate, Router } from '@angular/router';
+import { ActivatedRouteSnapshot, CanActivate, Router, UrlTree } from '@angular/router';
+import { Observable, catchError, filter, map, of, take } from 'rxjs';
+import { CapabilitiesService } from '../services/capabilities.service';
 import { PermissionsService } from '../services/permissions.service';
 
 /**
@@ -11,18 +13,23 @@ import { PermissionsService } from '../services/permissions.service';
 export class CapabilityGuard implements CanActivate {
   constructor(
     private permissions: PermissionsService,
+    private capabilities: CapabilitiesService,
     private router: Router,
   ) {}
 
-  canActivate(route: ActivatedRouteSnapshot): boolean {
+  canActivate(route: ActivatedRouteSnapshot): boolean | Observable<boolean | UrlTree> {
     const requeridas = route.data?.['capacidades'] as string[] | undefined;
     if (!requeridas?.length) {
       return true;
     }
-    if (this.permissions.hasAnyCapability(requeridas)) {
-      return true;
-    }
-    this.router.navigate(['/dashboard']);
-    return false;
+
+    return this.capabilities.cargadas$.pipe(
+      filter(cargadas => cargadas),
+      take(1),
+      map(() => this.permissions.hasAnyCapability(requeridas)
+        ? true
+        : this.router.parseUrl('/dashboard')),
+      catchError(() => of(this.router.parseUrl('/dashboard'))),
+    );
   }
 }

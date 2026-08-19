@@ -2,8 +2,12 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpClientTestingModule } from '@angular/common/http/testing';
 import { FormsModule } from '@angular/forms';
 import { RouterTestingModule } from '@angular/router/testing';
-import { of } from 'rxjs';
+import { HttpErrorResponse } from '@angular/common/http';
+import { ChangeDetectorRef } from '@angular/core';
+import { fakeAsync, tick } from '@angular/core/testing';
+import { NEVER, Subject, of, throwError } from 'rxjs';
 import { BudgetService, FiscalYear } from './budget.service';
+import { AuthService } from '../../../core/services/auth.service';
 import { PermissionsService } from '../../../core/services/permissions.service';
 import { FiscalYearComponent } from './fiscal-year.component';
 
@@ -11,6 +15,7 @@ describe('FiscalYearComponent', () => {
   let component: FiscalYearComponent;
   let fixture: ComponentFixture<FiscalYearComponent>;
   let serviceSpy: jasmine.SpyObj<BudgetService>;
+  let authSpy: jasmine.SpyObj<AuthService>;
   let permissionsSpy: jasmine.SpyObj<PermissionsService>;
 
   const mockGestiones: FiscalYear[] = [
@@ -49,6 +54,23 @@ describe('FiscalYearComponent', () => {
     serviceSpy.habilitar.and.returnValue(of(mockGestiones[0]));
     serviceSpy.cerrar.and.returnValue(of(mockGestiones[0]));
 
+    authSpy = jasmine.createSpyObj('AuthService', [], { user$: of({
+      id: 'u1',
+      email: 'admin@budget.test',
+      first_name: 'Ada',
+      last_name: 'Admin',
+      cargo: 'Responsable',
+      telefono: '',
+      roles: [],
+      roles_detalle: [],
+      activo: true,
+      is_staff: true,
+      is_superuser: true,
+      debe_cambiar_password: false,
+      last_login: '',
+      date_joined: '',
+    }) });
+
     permissionsSpy = jasmine.createSpyObj('PermissionsService', ['hasAnyCapability']);
     permissionsSpy.hasAnyCapability.and.returnValue(true);
 
@@ -57,6 +79,7 @@ describe('FiscalYearComponent', () => {
       imports: [FormsModule, HttpClientTestingModule, RouterTestingModule],
       providers: [
         { provide: BudgetService, useValue: serviceSpy },
+        { provide: AuthService, useValue: authSpy },
         { provide: PermissionsService, useValue: permissionsSpy },
       ],
     }).compileComponents();
@@ -74,6 +97,28 @@ describe('FiscalYearComponent', () => {
     expect(serviceSpy.listar).toHaveBeenCalled();
     expect(component.gestiones.length).toBe(2);
     expect(component.cargando).toBeFalse();
+  });
+
+  it('should mark the view after an asynchronous fiscal year response', () => {
+    const response$ = new Subject<{ count: number; results: FiscalYear[] }>();
+    serviceSpy.listar.and.returnValue(response$.asObservable());
+    const markForCheck = spyOn(
+      (component as unknown as { cdr: ChangeDetectorRef }).cdr,
+      'markForCheck',
+    );
+
+    fixture.detectChanges();
+    markForCheck.calls.reset();
+
+    response$.next({ count: 2, results: mockGestiones });
+    response$.complete();
+
+    expect(component.gestiones).toEqual(mockGestiones);
+    expect(component.cargando).toBeFalse();
+    expect(markForCheck).toHaveBeenCalled();
+
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelectorAll('tbody tr').length).toBe(2);
   });
 
   it('should render rows with estado badge', () => {
@@ -105,10 +150,220 @@ describe('FiscalYearComponent', () => {
     expect(empty.textContent).toContain('Sin gestiones');
   });
 
+  it('should clear the error and keep a valid response', () => {
+    component.error = 'Error anterior';
+    component.cargar();
+
+    expect(component.error).toBe('');
+    expect(component.gestiones).toEqual(mockGestiones);
+    expect(component.cargando).toBeFalse();
+  });
+
+  it('should use an empty list for a null response', () => {
+    serviceSpy.listar.and.returnValue(of(null as unknown as { count: number; results: FiscalYear[] }));
+    component.gestiones = mockGestiones;
+
+    component.cargar();
+
+    expect(component.gestiones).toEqual([]);
+    expect(component.cargando).toBeFalse();
+  });
+
+  it('should use an empty list when results is not an array', () => {
+    serviceSpy.listar.and.returnValue(of({ count: 1, results: {} } as unknown as { count: number; results: FiscalYear[] }));
+
+    component.cargar();
+
+    expect(component.gestiones).toEqual([]);
+    expect(component.cargando).toBeFalse();
+  });
+
+  it('should show a session error and stop loading for unauthorized responses', () => {
+    serviceSpy.listar.and.returnValue(
+      throwError(() => new HttpErrorResponse({ status: 401 })),
+    );
+
+    component.cargar();
+
+    expect(component.error).toContain('Inicie sesión nuevamente');
+    expect(component.cargando).toBeFalse();
+  });
+
+  it('should show an error and stop loading after the request timeout', fakeAsync(() => {
+    serviceSpy.listar.and.returnValue(NEVER);
+
+    component.cargar();
+    expect(component.cargando).toBeTrue();
+
+    tick(10_000);
+
+    expect(component.error).toContain('tardó demasiado');
+    expect(component.cargando).toBeFalse();
+  }));
+
   it('should hide action buttons without budget.manage capability', () => {
     permissionsSpy.hasAnyCapability.and.returnValue(false);
     fixture.detectChanges();
     expect(component.puedeGestionar).toBeFalse();
     expect(fixture.nativeElement.querySelectorAll('tbody tr button').length).toBe(0);
+  });
+
+  it('should open an accessible modal and derive annual dates after year changes', () => {
+    fixture.detectChanges();
+
+    const abrir = Array.from(fixture.nativeElement.querySelectorAll('button'))
+      .find((button: Element) => button.textContent?.includes('Nueva gestión')) as HTMLButtonElement;
+    abrir.click();
+    component.form.anio = 2027;
+    fixture.detectChanges();
+
+    const dialog = fixture.nativeElement.querySelector('[role="dialog"]');
+    expect(dialog.getAttribute('aria-modal')).toBe('true');
+    expect(component.fechaInicioProgramada).toBe('01/01/2027');
+    expect(component.fechaCierreProgramada).toBe('31/12/2027');
+
+    component.form.anio = 2031;
+    expect(component.fechaInicioProgramada).toBe('01/01/2031');
+    expect(component.fechaCierreProgramada).toBe('31/12/2031');
+  });
+
+  it('should require the habilitation document before creating', () => {
+    component.abrirModal();
+    component.form.anio = 2027;
+
+    component.crear();
+
+    expect(component.error).toContain('documento');
+    expect(serviceSpy.crear).not.toHaveBeenCalled();
+  });
+
+  it('should close the form and open confirmation with the created year', () => {
+    serviceSpy.crear.and.returnValue(of({ ...mockGestiones[0], anio: 2028 }));
+    fixture.detectChanges();
+    component.abrirModal();
+    component.form.anio = 2028;
+    component.archivo = new File(['document'], 'habilitacion.pdf', { type: 'application/pdf' });
+
+    component.crear();
+    fixture.detectChanges();
+
+    expect(component.modalAbierto).toBeFalse();
+    expect(component.confirmacionAbierta).toBeTrue();
+    expect(component.anioCreado).toBe(2028);
+    expect(component.form).toEqual({ anio: null, heredar_de: null });
+    expect(component.archivo).toBeNull();
+    expect(component.creando).toBeFalse();
+    expect(serviceSpy.listar).toHaveBeenCalledTimes(2);
+
+    const dialog = fixture.nativeElement.querySelector('[role="dialog"]');
+    expect(dialog.getAttribute('aria-modal')).toBe('true');
+    expect(dialog.getAttribute('aria-labelledby')).toBe('confirmacion-gestion-titulo');
+    expect(dialog.textContent).toContain('Gestión fiscal 2028 creada correctamente.');
+  });
+
+  it('should close the creation confirmation when accepting', () => {
+    component.anioCreado = 2028;
+    component.confirmacionAbierta = true;
+    fixture.detectChanges();
+
+    const aceptar = Array.from(fixture.nativeElement.querySelectorAll('button'))
+      .find((button: Element) => button.textContent?.trim() === 'Aceptar') as HTMLButtonElement;
+    aceptar.click();
+
+    expect(component.confirmacionAbierta).toBeFalse();
+    expect(component.anioCreado).toBeNull();
+  });
+
+  it('should not open confirmation after a creation error', () => {
+    serviceSpy.crear.and.returnValue(
+      throwError(() => new HttpErrorResponse({ status: 400, error: { detail: 'Solicitud inválida' } })),
+    );
+    fixture.detectChanges();
+    component.abrirModal();
+    component.form.anio = 2028;
+    component.archivo = new File(['document'], 'habilitacion.pdf', { type: 'application/pdf' });
+
+    component.crear();
+    fixture.detectChanges();
+
+    expect(component.confirmacionAbierta).toBeFalse();
+    expect(component.modalAbierto).toBeTrue();
+    expect(component.creando).toBeFalse();
+  });
+
+  it('should reject a fiscal year that already exists without sending a request', () => {
+    fixture.detectChanges();
+    component.abrirModal();
+    component.form.anio = 2027;
+    component.archivo = new File(['document'], 'habilitacion.pdf', { type: 'application/pdf' });
+
+    component.crear();
+    fixture.detectChanges();
+
+    expect(component.creando).toBeFalse();
+    expect(component.error).toBe('Ya existe una gestión para el año 2027. Seleccione otro año.');
+    expect(fixture.nativeElement.querySelector('.modal-error').textContent)
+      .toContain('Ya existe una gestión para el año 2027.');
+    expect(component.confirmacionAbierta).toBeFalse();
+    expect(serviceSpy.crear).not.toHaveBeenCalled();
+  });
+
+  it('should show the interceptor message and stop creating after an HTTP 400', () => {
+    serviceSpy.crear.and.returnValue(
+      throwError(() => ({ status: 400, message: 'Ya existe una gestión para el año 2027.' })),
+    );
+    fixture.detectChanges();
+    component.abrirModal();
+    component.form.anio = 2028;
+    component.archivo = new File(['document'], 'habilitacion.pdf', { type: 'application/pdf' });
+
+    component.crear();
+    fixture.detectChanges();
+
+    expect(component.creando).toBeFalse();
+    expect(component.error).toBe('Ya existe una gestión para el año 2027.');
+    expect(fixture.nativeElement.querySelector('.modal-error').textContent)
+      .toContain('Ya existe una gestión para el año 2027.');
+    expect(component.confirmacionAbierta).toBeFalse();
+    expect(serviceSpy.crear).toHaveBeenCalledTimes(1);
+  });
+
+  it('should show a timeout message and stop creating after 15 seconds', fakeAsync(() => {
+    serviceSpy.crear.and.returnValue(NEVER);
+    fixture.detectChanges();
+    component.abrirModal();
+    component.form.anio = 2028;
+    component.archivo = new File(['document'], 'habilitacion.pdf', { type: 'application/pdf' });
+
+    component.crear();
+    expect(component.creando).toBeTrue();
+
+    tick(15_000);
+    fixture.detectChanges();
+
+    expect(component.creando).toBeFalse();
+    expect(component.error).toContain('La creación tardó demasiado');
+    expect(fixture.nativeElement.querySelector('.modal-error').textContent)
+      .toContain('La creación tardó demasiado');
+    expect(component.confirmacionAbierta).toBeFalse();
+  }));
+
+  it('should send the authenticated user display as read-only modal data', () => {
+    component.abrirModal();
+    fixture.detectChanges();
+
+    const input = fixture.nativeElement.querySelector('#encargado-cargado') as HTMLInputElement;
+    expect(input.readOnly).toBeTrue();
+    expect(input.value).toBe('Ada Admin');
+  });
+
+  it('should cancel without saving and close the modal', () => {
+    component.abrirModal();
+    component.form.anio = 2027;
+    component.cancelar();
+
+    expect(component.modalAbierto).toBeFalse();
+    expect(component.form.anio).toBeNull();
+    expect(serviceSpy.crear).not.toHaveBeenCalled();
   });
 });

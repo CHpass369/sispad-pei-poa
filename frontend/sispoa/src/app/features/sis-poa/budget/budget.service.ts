@@ -13,6 +13,11 @@ export interface FiscalYear {
   anio_fin_plurianual: number | null;
   fecha_apertura: string | null;
   fecha_cierre: string | null;
+  fecha_inicio?: string | null;
+  fecha_cierre_programada?: string | null;
+  documento_habilitacion?: string | null;
+  fecha_cargado?: string | null;
+  encargado_cargado?: string | null;
   activa: boolean;
   gestion_anterior: number | null;
 }
@@ -22,6 +27,9 @@ export interface FiscalYearInput {
   descripcion?: string;
   anio_inicio_plurianual?: number | null;
   anio_fin_plurianual?: number | null;
+  fecha_inicio?: string | null;
+  fecha_cierre_programada?: string | null;
+  documento_habilitacion?: File | null;
   heredar_de?: number | null;
 }
 
@@ -691,7 +699,19 @@ export class BudgetService {
   }
 
   crear(data: FiscalYearInput): Observable<FiscalYear> {
-    return this.http.post<FiscalYear>(`${this.base}/fiscal-years/`, data);
+    const { documento_habilitacion, ...jsonData } = data;
+    if (!documento_habilitacion) {
+      return this.http.post<FiscalYear>(`${this.base}/fiscal-years/`, jsonData);
+    }
+
+    const formData = new FormData();
+    Object.entries(jsonData).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        formData.append(key, String(value));
+      }
+    });
+    formData.append('documento_habilitacion', documento_habilitacion);
+    return this.http.post<FiscalYear>(`${this.base}/fiscal-years/`, formData);
   }
 
   habilitar(id: string): Observable<FiscalYear> {

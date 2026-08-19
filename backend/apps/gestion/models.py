@@ -1,7 +1,14 @@
 import uuid
+from datetime import date
+
 from django.db import models
 from django.conf import settings
 from django.core.exceptions import ValidationError
+
+
+def gestion_fiscal_documento_upload_to(instance, filename):
+    """Store fiscal-year authorization documents under their fiscal year."""
+    return f'gestion/fiscal/{instance.anio}/{filename}'
 
 
 class GestionFiscal(models.Model):
@@ -38,6 +45,13 @@ class GestionFiscal(models.Model):
     )
     fecha_apertura = models.DateTimeField(null=True, blank=True)
     fecha_cierre = models.DateTimeField(null=True, blank=True)
+    fecha_inicio = models.DateField(null=True, blank=True)
+    fecha_cierre_programada = models.DateField(null=True, blank=True)
+    documento_habilitacion = models.FileField(
+        upload_to=gestion_fiscal_documento_upload_to,
+        null=True,
+        blank=True,
+    )
     activa = models.BooleanField(default=True)
 
     creado_en = models.DateTimeField(auto_now_add=True)
@@ -67,6 +81,10 @@ class GestionFiscal(models.Model):
                 )
 
     def save(self, *args, **kwargs):
+        if self.fecha_inicio is None:
+            self.fecha_inicio = date(self.anio, 1, 1)
+        if self.fecha_cierre_programada is None:
+            self.fecha_cierre_programada = date(self.anio, 12, 31)
         self.full_clean()
         super().save(*args, **kwargs)
 

@@ -30,6 +30,7 @@ from drf_spectacular.utils import OpenApiTypes, extend_schema
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -132,6 +133,7 @@ def _version_actual_de(ceiling):
 class FiscalYearViewSet(viewsets.ModelViewSet):
     queryset = GestionFiscal.objects.all()
     serializer_class = FiscalYearSerializer
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
     filterset_fields = ['anio', 'estado', 'activa']
     search_fields = ['anio', 'descripcion']
 

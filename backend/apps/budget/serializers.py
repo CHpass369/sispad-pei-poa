@@ -7,6 +7,7 @@ obligatorios y documentos).
 Los montos (DecimalField) se serializan como string por convención de DRF
 (COERCE_DECIMAL_TO_STRING) y se respeta en la composición (str(Decimal)).
 """
+from datetime import date
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -49,6 +50,10 @@ class FiscalYearSerializer(serializers.ModelSerializer):
     """Gestión fiscal del ciclo presupuestario (`apps.gestion.GestionFiscal`)."""
 
     estado_display = serializers.CharField(source='get_estado_display', read_only=True)
+    fecha_cargado = serializers.DateTimeField(source='creado_en', read_only=True)
+    encargado_cargado = serializers.EmailField(
+        source='creado_por.email', read_only=True, allow_null=True,
+    )
     gestion_anterior = serializers.SerializerMethodField()
     heredar_de = serializers.IntegerField(
         write_only=True, required=False, allow_null=True,
@@ -61,13 +66,27 @@ class FiscalYearSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'anio', 'estado', 'estado_display', 'descripcion',
             'anio_inicio_plurianual', 'anio_fin_plurianual',
-            'fecha_apertura', 'fecha_cierre', 'activa',
+            'fecha_apertura', 'fecha_cierre', 'fecha_inicio',
+            'fecha_cierre_programada', 'documento_habilitacion', 'activa',
             'gestion_anterior', 'heredar_de', 'creado_en', 'actualizado_en',
+            'fecha_cargado', 'encargado_cargado',
         ]
         read_only_fields = [
             'id', 'estado', 'estado_display', 'fecha_apertura',
             'fecha_cierre', 'gestion_anterior', 'creado_en', 'actualizado_en',
+            'fecha_cargado', 'encargado_cargado',
         ]
+
+    def to_representation(self, instance):
+        """Keep the annual dates safe for rows created before these fields."""
+        data = super().to_representation(instance)
+        data['fecha_inicio'] = (
+            instance.fecha_inicio or date(instance.anio, 1, 1)
+        ).isoformat()
+        data['fecha_cierre_programada'] = (
+            instance.fecha_cierre_programada or date(instance.anio, 12, 31)
+        ).isoformat()
+        return data
 
     def get_gestion_anterior(self, obj):
         anterior = (

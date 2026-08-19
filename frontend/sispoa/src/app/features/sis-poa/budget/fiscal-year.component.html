@@ -3,7 +3,7 @@
   <p class="text-secondary">Ciclo presupuestario: configuración, habilitación, formulación, vigencia y cierre</p>
 </div>
 
-@if (error) {
+@if (error && !modalAbierto) {
   <div class="alert alert-error">{{ error }}</div>
 }
 @if (mensaje) {
@@ -11,26 +11,7 @@
 }
 
 @if (puedeGestionar) {
-  <form (ngSubmit)="crear()" class="card form-inline">
-    <div class="campo">
-      <label>Año de gestión</label>
-      <input [(ngModel)]="form.anio" name="anio" type="number" required class="input" placeholder="Ej: 2027" />
-    </div>
-    <div class="campo">
-      <label>Heredar configuración de</label>
-      <select [(ngModel)]="form.heredar_de" name="heredar_de" class="input">
-        <option [ngValue]="null">— No heredar —</option>
-        @for (gestion of gestiones; track gestion) {
-          <option [ngValue]="gestion.anio">
-            Gestión {{ gestion.anio }} ({{ gestion.estado_display }})
-          </option>
-        }
-      </select>
-    </div>
-    <div class="campo">
-      <button type="submit" class="btn btn-primary">+ Nueva gestión</button>
-    </div>
-  </form>
+  <button type="button" class="btn btn-primary" (click)="abrirModal()">+ Nueva gestión</button>
 }
 
 @if (cargando) {
@@ -80,4 +61,76 @@
 }
 @if (!cargando && gestiones.length === 0) {
   <div class="empty">Sin gestiones fiscales registradas</div>
+}
+
+@if (modalAbierto) {
+  <div class="modal-overlay">
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="nueva-gestion-titulo">
+      <div class="modal-header">
+        <h3 id="nueva-gestion-titulo">Nueva gestión fiscal</h3>
+        <span class="text-secondary">Datos de habilitación anual</span>
+      </div>
+
+      <form (ngSubmit)="crear()">
+        <div class="modal-grid">
+          <div class="campo">
+            <label for="anio">Gestión (año)</label>
+            <input id="anio" [(ngModel)]="form.anio" name="anio" type="number" min="1" required class="input" placeholder="Ej: 2027" />
+          </div>
+          <div class="campo">
+            <label for="fecha-inicio">Fecha Inicio</label>
+            <input id="fecha-inicio" [value]="fechaInicioProgramada" type="text" readonly class="input" />
+          </div>
+          <div class="campo">
+            <label for="fecha-cierre-programada">Fecha Cierre</label>
+            <input id="fecha-cierre-programada" [value]="fechaCierreProgramada" type="text" readonly class="input" />
+          </div>
+          <div class="campo">
+            <label for="fecha-cargado">Fecha de cargado</label>
+            <input id="fecha-cargado" [value]="fechaCargado | date: 'dd/MM/yyyy'" type="text" readonly class="input" />
+          </div>
+          <div class="campo">
+            <label for="encargado-cargado">Encargado del cargado</label>
+            <input id="encargado-cargado" [value]="usuarioCargado" type="text" readonly class="input" />
+          </div>
+          <div class="campo campo-completo">
+            <label for="documento-habilitacion">Documento de habilitación de año fiscal <span aria-hidden="true">*</span></label>
+            <input id="documento-habilitacion" type="file" required aria-required="true" class="input" (change)="seleccionarArchivo($event)" />
+            <small>{{ archivoNombre }}</small>
+          </div>
+          <div class="campo campo-completo">
+            <label for="heredar-de">Heredar configuración de</label>
+            <select id="heredar-de" [(ngModel)]="form.heredar_de" name="heredar_de" class="input">
+              <option [ngValue]="null">— No heredar —</option>
+              @for (gestion of gestiones; track gestion.id) {
+                <option [ngValue]="gestion.anio">Gestión {{ gestion.anio }} ({{ gestion.estado_display }})</option>
+              }
+            </select>
+          </div>
+        </div>
+
+        @if (error) {
+          <div class="alert alert-error modal-error" role="alert">{{ error }}</div>
+        }
+
+        <div class="modal-acciones">
+          <button type="button" class="btn btn-sm" (click)="cancelar()" [disabled]="creando">Cancelar</button>
+          <button type="submit" class="btn btn-primary" [disabled]="creando || !form.anio || !archivo">{{ creando ? 'Creando...' : 'Crear' }}</button>
+        </div>
+      </form>
+    </section>
+  </div>
+}
+
+@if (confirmacionAbierta && anioCreado !== null) {
+  <div class="modal-overlay">
+    <section class="modal confirmation-modal" role="dialog" aria-modal="true" aria-labelledby="confirmacion-gestion-titulo">
+      <div class="confirmation-check" role="img" aria-label="Creación completada">✓</div>
+      <h3 id="confirmacion-gestion-titulo">Gestión fiscal creada</h3>
+      <p class="confirmation-message">Gestión fiscal {{ anioCreado }} creada correctamente.</p>
+      <div class="modal-acciones confirmation-actions">
+        <button type="button" class="btn btn-primary" (click)="cerrarConfirmacion()">Aceptar</button>
+      </div>
+    </section>
+  </div>
 }
