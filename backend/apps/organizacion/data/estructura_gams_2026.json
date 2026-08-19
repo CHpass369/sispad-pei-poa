@@ -1,0 +1,1716 @@
+{
+ "fuente": "CODIFICACION 2026.pdf — GAM Sacaba",
+ "gestion": 2026,
+ "unidades": [
+  {
+   "codigo": "EM",
+   "nombre": "STAFF MAE",
+   "tipo": "SEC",
+   "padre": null,
+   "sigla": "",
+   "clase": "",
+   "orden": 0
+  },
+  {
+   "codigo": "EM-DJR",
+   "nombre": "DIRECCIÓN JURÍDICA",
+   "tipo": "DIR",
+   "padre": "EM",
+   "sigla": "DJR",
+   "clase": "",
+   "orden": 1
+  },
+  {
+   "codigo": "EM-DJR-01",
+   "nombre": "JURÍDICA",
+   "tipo": "UNI",
+   "padre": "EM-DJR",
+   "sigla": "",
+   "clase": "ASESORAMIENTO",
+   "orden": 2
+  },
+  {
+   "codigo": "EM-DJR-01-1",
+   "nombre": "ANÁLISIS JURÍDICO NORMATIVO",
+   "tipo": "ARE",
+   "padre": "EM-DJR-01",
+   "sigla": "",
+   "clase": "ASESORAMIENTO",
+   "orden": 3
+  },
+  {
+   "codigo": "EM-DJR-01-2",
+   "nombre": "GESTIÓN JURÍDICO ADMINISTRATIVO",
+   "tipo": "ARE",
+   "padre": "EM-DJR-01",
+   "sigla": "",
+   "clase": "ASESORAMIENTO",
+   "orden": 4
+  },
+  {
+   "codigo": "EM-DJR-01-3",
+   "nombre": "GACETA MUNICIPAL",
+   "tipo": "ARE",
+   "padre": "EM-DJR-01",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 5
+  },
+  {
+   "codigo": "EM-DJR-01-4",
+   "nombre": "PROCESOS PENALES",
+   "tipo": "ARE",
+   "padre": "EM-DJR-01",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 6
+  },
+  {
+   "codigo": "EM-DCR",
+   "nombre": "COORDINACIÓN Y RELACIONES INTERINSTITUCIONALES",
+   "tipo": "DIR",
+   "padre": "EM",
+   "sigla": "DCR",
+   "clase": "ADMINISTRATIVA",
+   "orden": 7
+  },
+  {
+   "codigo": "EM-DCR-02",
+   "nombre": "DESPACHO Y GABINETE",
+   "tipo": "UNI",
+   "padre": "EM-DCR",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 8
+  },
+  {
+   "codigo": "EM-DCR-02-1",
+   "nombre": "PROTOCOLO",
+   "tipo": "ARE",
+   "padre": "EM-DCR-02",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 9
+  },
+  {
+   "codigo": "EM-DCR-02-2",
+   "nombre": "COORDINADOR DE VENTANILLA UNICA",
+   "tipo": "ARE",
+   "padre": "EM-DCR-02",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 10
+  },
+  {
+   "codigo": "EM-DCR-03",
+   "nombre": "COMUNICACIÓN E IMAGEN INSTITUCIONAL",
+   "tipo": "UNI",
+   "padre": "EM-DCR",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 11
+  },
+  {
+   "codigo": "EM-DAI",
+   "nombre": "DIRECCIÓN DE AUDITORÍA INTERNA",
+   "tipo": "DIR",
+   "padre": "EM",
+   "sigla": "DAI",
+   "clase": "ASESORAMIENTO",
+   "orden": 12
+  },
+  {
+   "codigo": "EM-DAI-04",
+   "nombre": "AUDITORÍA INTERNA",
+   "tipo": "UNI",
+   "padre": "EM-DAI",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 13
+  },
+  {
+   "codigo": "EM-000-05",
+   "nombre": "TRANSPARENCIA",
+   "tipo": "UNI",
+   "padre": "EM",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 14
+  },
+  {
+   "codigo": "EM-D01",
+   "nombre": "SUBALCALDÍA DISTRITO 1",
+   "tipo": "DIR",
+   "padre": "EM",
+   "sigla": "D01",
+   "clase": "ADMINISTRATIVA",
+   "orden": 15
+  },
+  {
+   "codigo": "EM-D02",
+   "nombre": "SUBALCALDÍA DISTRITO 2",
+   "tipo": "DIR",
+   "padre": "EM",
+   "sigla": "D02",
+   "clase": "ADMINISTRATIVA",
+   "orden": 16
+  },
+  {
+   "codigo": "EM-D02-06",
+   "nombre": "SERVICIOS DE URBANISMO D2",
+   "tipo": "UNI",
+   "padre": "EM-D02",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 17
+  },
+  {
+   "codigo": "EM-D02-06-1",
+   "nombre": "ASESORÍA JURÍDICA D2",
+   "tipo": "ARE",
+   "padre": "EM-D02-06",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 18
+  },
+  {
+   "codigo": "EM-D02-06-2",
+   "nombre": "NORMAS Y REGLAMENTOS D2",
+   "tipo": "ARE",
+   "padre": "EM-D02-06",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 19
+  },
+  {
+   "codigo": "EM-D02-06-3",
+   "nombre": "CATASTRO D2",
+   "tipo": "ARE",
+   "padre": "EM-D02-06",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 20
+  },
+  {
+   "codigo": "EM-D02-06-4",
+   "nombre": "TOPOGRAFÍA D2",
+   "tipo": "ARE",
+   "padre": "EM-D02-06",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 21
+  },
+  {
+   "codigo": "EM-D02-06-5",
+   "nombre": "SERVICIO DE INGRESOS MUNICIPALES D2",
+   "tipo": "ARE",
+   "padre": "EM-D02-06",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 22
+  },
+  {
+   "codigo": "EM-D02-06-6",
+   "nombre": "ADMINISTRACIÓN Y ARCHIVOS D2",
+   "tipo": "ARE",
+   "padre": "EM-D02-06",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 23
+  },
+  {
+   "codigo": "EM-D03",
+   "nombre": "SUBALCALDÍA DISTRITO 3",
+   "tipo": "DIR",
+   "padre": "EM",
+   "sigla": "D03",
+   "clase": "ADMINISTRATIVA",
+   "orden": 24
+  },
+  {
+   "codigo": "EM-D03-07",
+   "nombre": "SERVICIOS DE URBANISMO D3",
+   "tipo": "UNI",
+   "padre": "EM-D03",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 25
+  },
+  {
+   "codigo": "EM-D03-07-1",
+   "nombre": "ASESORÍA JURÍDICA D3",
+   "tipo": "ARE",
+   "padre": "EM-D03-07",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 26
+  },
+  {
+   "codigo": "EM-D03-07-2",
+   "nombre": "NORMAS Y REGLAMENTOS D3",
+   "tipo": "ARE",
+   "padre": "EM-D03-07",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 27
+  },
+  {
+   "codigo": "EM-D03-07-3",
+   "nombre": "TOPOGRAFÍA D3",
+   "tipo": "ARE",
+   "padre": "EM-D03-07",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 28
+  },
+  {
+   "codigo": "EM-D03-07-4",
+   "nombre": "INGRESOS MUNICIPALES Y CATASTRALES D3",
+   "tipo": "ARE",
+   "padre": "EM-D03-07",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 29
+  },
+  {
+   "codigo": "EM-D03-07-5",
+   "nombre": "ADMINISTRACIÓN Y ARCHIVOS D3",
+   "tipo": "ARE",
+   "padre": "EM-D03-07",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 30
+  },
+  {
+   "codigo": "EM-D04",
+   "nombre": "SUBALCALDÍA DISTRITO 4",
+   "tipo": "DIR",
+   "padre": "EM",
+   "sigla": "D04",
+   "clase": "ADMINISTRATIVA",
+   "orden": 31
+  },
+  {
+   "codigo": "EM-D04-08",
+   "nombre": "SERVICIOS DE URBANISMO D4",
+   "tipo": "UNI",
+   "padre": "EM-D04",
+   "sigla": "",
+   "clase": "",
+   "orden": 32
+  },
+  {
+   "codigo": "EM-D04-08-1",
+   "nombre": "ASESORÍA JURÍDICA D4",
+   "tipo": "ARE",
+   "padre": "EM-D04-08",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 33
+  },
+  {
+   "codigo": "EM-D04-08-2",
+   "nombre": "NORMAS Y REGLAMENTOS D4",
+   "tipo": "ARE",
+   "padre": "EM-D04-08",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 34
+  },
+  {
+   "codigo": "EM-D04-08-3",
+   "nombre": "CATASTRO D4",
+   "tipo": "ARE",
+   "padre": "EM-D04-08",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 35
+  },
+  {
+   "codigo": "EM-D04-08-4",
+   "nombre": "TOPOGRAFÍA D4",
+   "tipo": "ARE",
+   "padre": "EM-D04-08",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 36
+  },
+  {
+   "codigo": "EM-D04-08-5",
+   "nombre": "SERVICIO DE INGRESOS MUNICIPALES D4",
+   "tipo": "ARE",
+   "padre": "EM-D04-08",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 37
+  },
+  {
+   "codigo": "EM-D04-08-6",
+   "nombre": "ADMINISTRACIÓN Y ARCHIVOS D4",
+   "tipo": "ARE",
+   "padre": "EM-D04-08",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 38
+  },
+  {
+   "codigo": "EM-D06",
+   "nombre": "SUBALCALDÍA DISTRITO 6",
+   "tipo": "DIR",
+   "padre": "EM",
+   "sigla": "D06",
+   "clase": "ADMINISTRATIVA",
+   "orden": 39
+  },
+  {
+   "codigo": "EM-D06-09",
+   "nombre": "SUBALCALDÍA DISTRITO 6 SERVICIOS DE URBANISMO D6",
+   "tipo": "UNI",
+   "padre": "EM-D06",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 40
+  },
+  {
+   "codigo": "EM-D06-09-1",
+   "nombre": "ASESORÍA JURÍDICA D6",
+   "tipo": "ARE",
+   "padre": "EM-D06-09",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 41
+  },
+  {
+   "codigo": "EM-D06-09-2",
+   "nombre": "NORMAS Y REGLAMENTOS D6",
+   "tipo": "ARE",
+   "padre": "EM-D06-09",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 42
+  },
+  {
+   "codigo": "EM-D06-09-3",
+   "nombre": "CATASTRO D6",
+   "tipo": "ARE",
+   "padre": "EM-D06-09",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 43
+  },
+  {
+   "codigo": "EM-D06-09-4",
+   "nombre": "TOPOGRAFÍA D6",
+   "tipo": "ARE",
+   "padre": "EM-D06-09",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 44
+  },
+  {
+   "codigo": "EM-D06-09-5",
+   "nombre": "SERVICIO DE INGRESOS MUNICIPALES D6",
+   "tipo": "ARE",
+   "padre": "EM-D06-09",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 45
+  },
+  {
+   "codigo": "EM-D06-09-6",
+   "nombre": "ADMINISTRACIÓN Y ARCHIVOS D6",
+   "tipo": "ARE",
+   "padre": "EM-D06-09",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 46
+  },
+  {
+   "codigo": "EM-D07",
+   "nombre": "SUBALCALDÍA DISTRITO 7",
+   "tipo": "DIR",
+   "padre": "EM",
+   "sigla": "D07",
+   "clase": "ADMINISTRATIVA",
+   "orden": 47
+  },
+  {
+   "codigo": "EM-D07-10",
+   "nombre": "SERVICIOS DE URBANISMO D7",
+   "tipo": "UNI",
+   "padre": "EM-D07",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 48
+  },
+  {
+   "codigo": "EM-D07-10-1",
+   "nombre": "ASESORÍA JURÍDICA D7",
+   "tipo": "ARE",
+   "padre": "EM-D07-10",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 49
+  },
+  {
+   "codigo": "EM-D07-10-2",
+   "nombre": "NORMAS Y REGLAMENTOS D7",
+   "tipo": "ARE",
+   "padre": "EM-D07-10",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 50
+  },
+  {
+   "codigo": "EM-D07-10-3",
+   "nombre": "CATASTRO D7",
+   "tipo": "ARE",
+   "padre": "EM-D07-10",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 51
+  },
+  {
+   "codigo": "EM-D07-10-4",
+   "nombre": "TOPOGRAFÍA D7",
+   "tipo": "ARE",
+   "padre": "EM-D07-10",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 52
+  },
+  {
+   "codigo": "EM-D07-10-5",
+   "nombre": "SERVICIO DE INGRESOS MUNICIPALES D7",
+   "tipo": "ARE",
+   "padre": "EM-D07-10",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 53
+  },
+  {
+   "codigo": "EM-D07-10-6",
+   "nombre": "ADMINISTRACIÓN Y ARCHIVOS D7",
+   "tipo": "ARE",
+   "padre": "EM-D07-10",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 54
+  },
+  {
+   "codigo": "EM-DLL",
+   "nombre": "SUBALCALDÍA DISTRITO LAVA LAVA",
+   "tipo": "DIR",
+   "padre": "EM",
+   "sigla": "DLL",
+   "clase": "ADMINISTRATIVA",
+   "orden": 55
+  },
+  {
+   "codigo": "EM-DLL-11",
+   "nombre": "SERVICIOS DE URBANISMO DLL",
+   "tipo": "UNI",
+   "padre": "EM-DLL",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 56
+  },
+  {
+   "codigo": "EM-DLL-11-1",
+   "nombre": "ASESORÍA JURÍDICA DLL",
+   "tipo": "ARE",
+   "padre": "EM-DLL-11",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 57
+  },
+  {
+   "codigo": "EM-DLL-11-2",
+   "nombre": "NORMAS Y REGLAMENTOS DLL",
+   "tipo": "ARE",
+   "padre": "EM-DLL-11",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 58
+  },
+  {
+   "codigo": "EM-DLL-11-3",
+   "nombre": "CATASTRO DLL",
+   "tipo": "ARE",
+   "padre": "EM-DLL-11",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 59
+  },
+  {
+   "codigo": "EM-DLL-11-4",
+   "nombre": "TOPOGRAFÍA DLL",
+   "tipo": "ARE",
+   "padre": "EM-DLL-11",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 60
+  },
+  {
+   "codigo": "EM-DLL-11-5",
+   "nombre": "SERVICIO DE INGRESOS MUNICIPALES DLL",
+   "tipo": "ARE",
+   "padre": "EM-DLL-11",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 61
+  },
+  {
+   "codigo": "EM-DLL-11-6",
+   "nombre": "ADMINISTRACIÓN Y ARCHIVOS DLL",
+   "tipo": "ARE",
+   "padre": "EM-DLL-11",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 62
+  },
+  {
+   "codigo": "EM-DAG-12",
+   "nombre": "SUB ALCALDÍA RURAL AGUIRRE",
+   "tipo": "UNI",
+   "padre": "EM",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 63
+  },
+  {
+   "codigo": "EM-DCH-13",
+   "nombre": "SUB ALCALDÍA RURAL CHIÑATA",
+   "tipo": "UNI",
+   "padre": "EM",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 64
+  },
+  {
+   "codigo": "EM-DPA-14",
+   "nombre": "SUB ALCALDÍA RURAL PALCA",
+   "tipo": "UNI",
+   "padre": "EM",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 65
+  },
+  {
+   "codigo": "EM-DUC-15",
+   "nombre": "SUB ALCALDÍA RURAL UCUCHI",
+   "tipo": "UNI",
+   "padre": "EM",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 66
+  },
+  {
+   "codigo": "EM-D05-16",
+   "nombre": "SUB ALCALDÍA DISTRITO 5",
+   "tipo": "UNI",
+   "padre": "EM",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 67
+  },
+  {
+   "codigo": "SP",
+   "nombre": "SECRETARIA MUNICIPAL DE PLANIFICACIÓN Y DESARROLLO TERRITORIAL",
+   "tipo": "SEC",
+   "padre": null,
+   "sigla": "",
+   "clase": "",
+   "orden": 68
+  },
+  {
+   "codigo": "SP-DPD",
+   "nombre": "DIRECCIÓN DE PLANIFICACIÓN Y DESARROLLO INTEGRAL",
+   "tipo": "DIR",
+   "padre": "SP",
+   "sigla": "DPD",
+   "clase": "",
+   "orden": 69
+  },
+  {
+   "codigo": "SP-DPD-17",
+   "nombre": "DISEÑO DE PROYECTOS DE PREINVERSION",
+   "tipo": "UNI",
+   "padre": "SP-DPD",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 70
+  },
+  {
+   "codigo": "SP-DPD-17-1",
+   "nombre": "PROYECTOS ESTRATÉGICOS",
+   "tipo": "ARE",
+   "padre": "SP-DPD-17",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 71
+  },
+  {
+   "codigo": "SP-DPD-18",
+   "nombre": "PLANIFICACIÓN ESTRATÉGICA",
+   "tipo": "UNI",
+   "padre": "SP-DPD",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 72
+  },
+  {
+   "codigo": "SP-DPD-19",
+   "nombre": "PROGRAMACIÓN DE OPERACIONES Y SEGUIMIENTO POA",
+   "tipo": "UNI",
+   "padre": "SP-DPD",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 73
+  },
+  {
+   "codigo": "SP-DGU",
+   "nombre": "DIRECCIÓN DE GESTIÓN URBANA Y TERRITORIAL",
+   "tipo": "DIR",
+   "padre": "SP",
+   "sigla": "DGU",
+   "clase": "",
+   "orden": 74
+  },
+  {
+   "codigo": "SP-DGU-20",
+   "nombre": "GESTIÓN URBANA MUNICIPAL",
+   "tipo": "UNI",
+   "padre": "SP-DGU",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 75
+  },
+  {
+   "codigo": "SP-DGU-20-1",
+   "nombre": "SANEAMIENTO TÉCNICO URBANO",
+   "tipo": "ARE",
+   "padre": "SP-DGU-20",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 76
+  },
+  {
+   "codigo": "SP-DGU-20-2",
+   "nombre": "URBANISMO",
+   "tipo": "ARE",
+   "padre": "SP-DGU-20",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 77
+  },
+  {
+   "codigo": "SP-DGU-20-3",
+   "nombre": "ARCHIVOS DE URBANISMO",
+   "tipo": "ARE",
+   "padre": "SP-DGU-20",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 78
+  },
+  {
+   "codigo": "SP-DGU-21",
+   "nombre": "ORDENAMIENTO TERRITORIAL",
+   "tipo": "UNI",
+   "padre": "SP-DGU",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 79
+  },
+  {
+   "codigo": "SP-DGU-21-1",
+   "nombre": "INFORMACIÓN GEOGRÁFICA Y TOPOGRÁFICA",
+   "tipo": "ARE",
+   "padre": "SP-DGU-21",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 80
+  },
+  {
+   "codigo": "SP-DGU-21-2",
+   "nombre": "SANEAMIENTO DE BIENES INMUEBLES MUNICIPALES",
+   "tipo": "ARE",
+   "padre": "SP-DGU-21",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 81
+  },
+  {
+   "codigo": "SP-DCM",
+   "nombre": "DIRECCION DE CATASTRO MULTIFINALITARIO Y ADMINISTRACION DE TIERRAS",
+   "tipo": "DIR",
+   "padre": "SP",
+   "sigla": "DCM",
+   "clase": "",
+   "orden": 82
+  },
+  {
+   "codigo": "SP-DCM-22",
+   "nombre": "CATASTRO MULTIFINALITARIO",
+   "tipo": "UNI",
+   "padre": "SP-DCM",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 83
+  },
+  {
+   "codigo": "SP-DCM-22-1",
+   "nombre": "OBSERVATORIO GEO INFORMACIÓN Y ADMINISTRACIÓN DE TIERRAS",
+   "tipo": "ARE",
+   "padre": "SP-DCM-22",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 84
+  },
+  {
+   "codigo": "SF",
+   "nombre": "SECRETARIA MUNICIPAL DE FINANZAS Y ADMINISTRACIÓN",
+   "tipo": "SEC",
+   "padre": null,
+   "sigla": "",
+   "clase": "",
+   "orden": 85
+  },
+  {
+   "codigo": "SF-DIF",
+   "nombre": "DIRECCIÓN DE FINANZAS",
+   "tipo": "DIR",
+   "padre": "SF",
+   "sigla": "DIF",
+   "clase": "ADMINISTRATIVA",
+   "orden": 86
+  },
+  {
+   "codigo": "SF-DIF-23",
+   "nombre": "PRESUPUESTOS",
+   "tipo": "UNI",
+   "padre": "SF-DIF",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 87
+  },
+  {
+   "codigo": "SF-DIF-24",
+   "nombre": "CONTABILIDAD",
+   "tipo": "UNI",
+   "padre": "SF-DIF",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 88
+  },
+  {
+   "codigo": "SF-DIF-24-1",
+   "nombre": "CONTABLE",
+   "tipo": "ARE",
+   "padre": "SF-DIF-24",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 89
+  },
+  {
+   "codigo": "SF-DIF-24-2",
+   "nombre": "ARCHIVOS DE CONTABILIDAD",
+   "tipo": "ARE",
+   "padre": "SF-DIF-24",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 90
+  },
+  {
+   "codigo": "SF-DIF-25",
+   "nombre": "TESORERÍA Y CRÉDITO PÚBLICO",
+   "tipo": "UNI",
+   "padre": "SF-DIF",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 91
+  },
+  {
+   "codigo": "SF-DRH",
+   "nombre": "DIRECCIÓN DE ORGANIZACIÓN ADMINISTRATIVA Y RECURSOS HUMANOS",
+   "tipo": "DIR",
+   "padre": "SF",
+   "sigla": "DRH",
+   "clase": "ADMINISTRATIVA",
+   "orden": 92
+  },
+  {
+   "codigo": "SF-DRH-26",
+   "nombre": "ADMINISTRACIÓN Y DESARROLLO DE PERSONAL",
+   "tipo": "UNI",
+   "padre": "SF-DRH",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 93
+  },
+  {
+   "codigo": "SF-DRH-26-1",
+   "nombre": "ORGANIZACIÓN Y ADMINISTRATIVA",
+   "tipo": "ARE",
+   "padre": "SF-DRH-26",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 94
+  },
+  {
+   "codigo": "SF-DRH-26-2",
+   "nombre": "REMUNERACIONES Y BENEFICIOS SOCIALES",
+   "tipo": "ARE",
+   "padre": "SF-DRH-26",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 95
+  },
+  {
+   "codigo": "SF-DRH-26-3",
+   "nombre": "ADMINISTRACIÓN DE PERSONAL",
+   "tipo": "ARE",
+   "padre": "SF-DRH-26",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 96
+  },
+  {
+   "codigo": "SF-DAD",
+   "nombre": "DIRECCIÓN ADMINISTRATIVA",
+   "tipo": "DIR",
+   "padre": "SF",
+   "sigla": "DAD",
+   "clase": "ADMINISTRATIVA",
+   "orden": 97
+  },
+  {
+   "codigo": "SF-DAD-27",
+   "nombre": "ACTIVOS FIJOS",
+   "tipo": "UNI",
+   "padre": "SF-DAD",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 98
+  },
+  {
+   "codigo": "SF-DAD-28",
+   "nombre": "CONTRATACIONES",
+   "tipo": "UNI",
+   "padre": "SF-DAD",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 99
+  },
+  {
+   "codigo": "SF-DAD-29",
+   "nombre": "ALMACENES",
+   "tipo": "UNI",
+   "padre": "SF-DAD",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 100
+  },
+  {
+   "codigo": "SF-DAD-30",
+   "nombre": "SERVICIOS GENERALES",
+   "tipo": "UNI",
+   "padre": "SF-DAD",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 101
+  },
+  {
+   "codigo": "SF-DAD-31",
+   "nombre": "ADMINISTRACIÓN DE COMBUSTIBLE Y LUBRICANTES",
+   "tipo": "UNI",
+   "padre": "SF-DAD",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 102
+  },
+  {
+   "codigo": "SF-DAD-32",
+   "nombre": "ARCHIVOS INSTITUCIONALES",
+   "tipo": "UNI",
+   "padre": "SF-DAD",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 103
+  },
+  {
+   "codigo": "SF-DRT",
+   "nombre": "DIRECCIÓN DE RECAUDACIONES DE TRIBUTOS MUNICIPALES",
+   "tipo": "DIR",
+   "padre": "SF",
+   "sigla": "DRT",
+   "clase": "ADMINISTRATIVA",
+   "orden": 104
+  },
+  {
+   "codigo": "SF-DRT-1",
+   "nombre": "CAJA RECAUDADORA",
+   "tipo": "ARE",
+   "padre": "SF-DRT",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 105
+  },
+  {
+   "codigo": "SF-DRT-33",
+   "nombre": "GESTION DE IMPUESTOS BIENES INMUEBLES",
+   "tipo": "UNI",
+   "padre": "SF-DRT",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 106
+  },
+  {
+   "codigo": "SF-DRT-34",
+   "nombre": "GESTION DE IMPUESTOS VEHÍCULARES",
+   "tipo": "UNI",
+   "padre": "SF-DRT",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 107
+  },
+  {
+   "codigo": "SF-DRT-35",
+   "nombre": "FISCALIZACIÓN",
+   "tipo": "UNI",
+   "padre": "SF-DRT",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 108
+  },
+  {
+   "codigo": "SF-DRT-36",
+   "nombre": "GESTION DE IMPUESTOS ACTIVIDADES ECONÓMICAS",
+   "tipo": "UNI",
+   "padre": "SF-DRT",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 109
+  },
+  {
+   "codigo": "SF-DRT-37",
+   "nombre": "ADMINISTRACIÓN DE SERVICIOS MUNICIPALES",
+   "tipo": "UNI",
+   "padre": "SF-DRT",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 110
+  },
+  {
+   "codigo": "SF-DRT-37-1",
+   "nombre": "CEMENTERIO",
+   "tipo": "ARE",
+   "padre": "SF-DRT-37",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 111
+  },
+  {
+   "codigo": "SF-DRT-37-2",
+   "nombre": "TERMINAL",
+   "tipo": "ARE",
+   "padre": "SF-DRT-37",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 112
+  },
+  {
+   "codigo": "SF-DRT-38",
+   "nombre": "COBRANZA COACTIVA",
+   "tipo": "UNI",
+   "padre": "SF-DRT",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 113
+  },
+  {
+   "codigo": "SF-000-39",
+   "nombre": "GOBIERNO ELECTRÓNICO",
+   "tipo": "UNI",
+   "padre": "SF",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 114
+  },
+  {
+   "codigo": "SF-000-39-1",
+   "nombre": "MANTENIMIENTO DE SISTEMA",
+   "tipo": "ARE",
+   "padre": "SF-000-39",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 115
+  },
+  {
+   "codigo": "SF-000-39-2",
+   "nombre": "REDES Y TELECOMUNICACIONES",
+   "tipo": "ARE",
+   "padre": "SF-000-39",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 116
+  },
+  {
+   "codigo": "SI",
+   "nombre": "SECRETARIA MUNICIPAL DE INFRAESTRUCTURA Y SERVICIOS",
+   "tipo": "SEC",
+   "padre": null,
+   "sigla": "",
+   "clase": "",
+   "orden": 117
+  },
+  {
+   "codigo": "SI-DOP",
+   "nombre": "DIRECCIÓN DE OBRAS PÚBLICAS Y SUPERVISIÓN",
+   "tipo": "DIR",
+   "padre": "SI",
+   "sigla": "DOP",
+   "clase": "",
+   "orden": 118
+  },
+  {
+   "codigo": "SI-DOP-40",
+   "nombre": "OBRAS PÚBLICAS",
+   "tipo": "UNI",
+   "padre": "SI-DOP",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 119
+  },
+  {
+   "codigo": "SI-DOP-41",
+   "nombre": "INFRAESTRUCTURA VIAL Y SEÑALIZACIÓN",
+   "tipo": "UNI",
+   "padre": "SI-DOP",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 120
+  },
+  {
+   "codigo": "SI-DOP-41-1",
+   "nombre": "PLANTA DE ASFALTO",
+   "tipo": "ARE",
+   "padre": "SI-DOP-41",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 121
+  },
+  {
+   "codigo": "SI-DOP-41-2",
+   "nombre": "LABORATORIO",
+   "tipo": "ARE",
+   "padre": "SI-DOP-41",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 122
+  },
+  {
+   "codigo": "SI-DTS",
+   "nombre": "DIRECCIÓN DE TRANSPORTES Y SERVICIOS ELÉCTRICOS",
+   "tipo": "DIR",
+   "padre": "SI",
+   "sigla": "DTS",
+   "clase": "",
+   "orden": 123
+  },
+  {
+   "codigo": "SI-DTS-42",
+   "nombre": "MANTENIMIENTO DE INFRAESTRUCTURA ELÉCTRICA Y SEMAFORIZACIÓN",
+   "tipo": "UNI",
+   "padre": "SI-DTS",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 124
+  },
+  {
+   "codigo": "SI-DTS-43",
+   "nombre": "TRANSPORTES Y MAQUINARIA",
+   "tipo": "UNI",
+   "padre": "SI-DTS",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 125
+  },
+  {
+   "codigo": "SM",
+   "nombre": "SECRETARIA MUNICIPAL DE LA MADRE TIERRA Y DESARROLLO PRODUCTIVO",
+   "tipo": "SEC",
+   "padre": null,
+   "sigla": "",
+   "clase": "",
+   "orden": 126
+  },
+  {
+   "codigo": "SM-DMA",
+   "nombre": "DIRECCIÓN DE MEDIO AMBIENTE Y MADRE TIERRA",
+   "tipo": "DIR",
+   "padre": "SM",
+   "sigla": "DMA",
+   "clase": "",
+   "orden": 127
+  },
+  {
+   "codigo": "SM-DMA-44",
+   "nombre": "CONTROL AMBIENTAL",
+   "tipo": "UNI",
+   "padre": "SM-DMA",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 128
+  },
+  {
+   "codigo": "SM-DMA-45",
+   "nombre": "LICENCIAS AMBIENTALES",
+   "tipo": "UNI",
+   "padre": "SM-DMA",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 129
+  },
+  {
+   "codigo": "SM-DMA-46",
+   "nombre": "AREAS PROTEGIDAS Y BIODIVERSIDAD",
+   "tipo": "UNI",
+   "padre": "SM-DMA",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 130
+  },
+  {
+   "codigo": "SM-000-47",
+   "nombre": "GESTIÓN DE RIESGOS",
+   "tipo": "UNI",
+   "padre": "SM",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 131
+  },
+  {
+   "codigo": "SM-000-48",
+   "nombre": "PARQUES JARDINES Y SERVICIOS AGROFORESTALES",
+   "tipo": "UNI",
+   "padre": "SM",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 132
+  },
+  {
+   "codigo": "SM-000-48-1",
+   "nombre": "SERVICIOS AGROFORESTAL",
+   "tipo": "ARE",
+   "padre": "SM-000-48",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 133
+  },
+  {
+   "codigo": "SM-DDP",
+   "nombre": "DIRECCIÓN DE DESARROLLO PRODUCTIVO Y ECONOMÍA PLURAL",
+   "tipo": "DIR",
+   "padre": "SM",
+   "sigla": "DDP",
+   "clase": "",
+   "orden": 134
+  },
+  {
+   "codigo": "SM-DDP-49",
+   "nombre": "FORTALECIMIENTO Y DESARROLLO PRODUCTIVO",
+   "tipo": "UNI",
+   "padre": "SM-DDP",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 135
+  },
+  {
+   "codigo": "SM-DDP-49-1",
+   "nombre": "DESARROLLO AGROPECUARIO",
+   "tipo": "ARE",
+   "padre": "SM-DDP-49",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 136
+  },
+  {
+   "codigo": "SM-DDP-49-2",
+   "nombre": "INICIATIVAS PRODUCTIVAS Y MYPES",
+   "tipo": "ARE",
+   "padre": "SM-DDP-49",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 137
+  },
+  {
+   "codigo": "SM-DDP-49-3",
+   "nombre": "CENTRO MUNICIPAL DE SEMILLAS Y BIOINSUMOS",
+   "tipo": "ARE",
+   "padre": "SM-DDP-49",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 138
+  },
+  {
+   "codigo": "SM-DDP-49-4",
+   "nombre": "CEMUSMA",
+   "tipo": "ARE",
+   "padre": "SM-DDP-49",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 139
+  },
+  {
+   "codigo": "SM-DDP-49-5",
+   "nombre": "LOGÍSTICA DE FERIAS PRODUCTIVAS",
+   "tipo": "ARE",
+   "padre": "SM-DDP-49",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 140
+  },
+  {
+   "codigo": "SM-DDP-50",
+   "nombre": "TURISMO",
+   "tipo": "UNI",
+   "padre": "SM-DDP",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 141
+  },
+  {
+   "codigo": "SM-DDP-51",
+   "nombre": "MATADERO",
+   "tipo": "UNI",
+   "padre": "SM-DDP",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 142
+  },
+  {
+   "codigo": "SD",
+   "nombre": "SECRETARIA MUNICIPAL DE DESARROLLO HUMANO INTEGRAL",
+   "tipo": "SEC",
+   "padre": null,
+   "sigla": "",
+   "clase": "",
+   "orden": 143
+  },
+  {
+   "codigo": "SD-DDH",
+   "nombre": "DIRECCIÓN DE DESARROLLO HUMANO",
+   "tipo": "DIR",
+   "padre": "SD",
+   "sigla": "DDH",
+   "clase": "",
+   "orden": 144
+  },
+  {
+   "codigo": "SD-DDH-52",
+   "nombre": "GENERO GENERACIONAL Y FAMILIA",
+   "tipo": "UNI",
+   "padre": "SD-DDH",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 145
+  },
+  {
+   "codigo": "SD-DDH-52-1",
+   "nombre": "ADULTO MAYOR",
+   "tipo": "ARE",
+   "padre": "SD-DDH-52",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 146
+  },
+  {
+   "codigo": "SD-DDH-52-2",
+   "nombre": "UMADIS",
+   "tipo": "ARE",
+   "padre": "SD-DDH-52",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 147
+  },
+  {
+   "codigo": "SD-DDH-52-3",
+   "nombre": "SERVICIO LEGAL INTEGRAL MUNICIPAL (SLIM)",
+   "tipo": "ARE",
+   "padre": "SD-DDH-52",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 148
+  },
+  {
+   "codigo": "SD-DDH-52-4",
+   "nombre": "DEFENSORÍA DE LA NIÑEZ Y ADOLESCENCIA (DNA)",
+   "tipo": "ARE",
+   "padre": "SD-DDH-52",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 149
+  },
+  {
+   "codigo": "SD-DDH-52-5",
+   "nombre": "ASUNTOS DE GÉNERO",
+   "tipo": "ARE",
+   "padre": "SD-DDH-52",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 150
+  },
+  {
+   "codigo": "SD-DDH-52-6",
+   "nombre": "ATENCIÓN A LA INFANCIA Y JUVENTUDES",
+   "tipo": "ARE",
+   "padre": "SD-DDH-52",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 151
+  },
+  {
+   "codigo": "SD-DDH-52-7",
+   "nombre": "SLIM-DNA D02",
+   "tipo": "ARE",
+   "padre": "SD-DDH-52",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 152
+  },
+  {
+   "codigo": "SD-DDH-52-8",
+   "nombre": "SLIM-DNA D03",
+   "tipo": "ARE",
+   "padre": "SD-DDH-52",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 153
+  },
+  {
+   "codigo": "SD-DDH-52-9",
+   "nombre": "SLIM-DNA D04",
+   "tipo": "ARE",
+   "padre": "SD-DDH-52",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 154
+  },
+  {
+   "codigo": "SD-DDH-52-10",
+   "nombre": "SLIM-DNA D06",
+   "tipo": "ARE",
+   "padre": "SD-DDH-52",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 155
+  },
+  {
+   "codigo": "SD-DDH-52-11",
+   "nombre": "SLIM-DNA D07",
+   "tipo": "ARE",
+   "padre": "SD-DDH-52",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 156
+  },
+  {
+   "codigo": "SD-DDH-52-12",
+   "nombre": "SLIM-DNA DLL",
+   "tipo": "ARE",
+   "padre": "SD-DDH-52",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 157
+  },
+  {
+   "codigo": "SD-DDH-52-13",
+   "nombre": "PREVENCIÓN CONTRA LA VIOLENCIA SLIM-DNA",
+   "tipo": "ARE",
+   "padre": "SD-DDH-52",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 158
+  },
+  {
+   "codigo": "SD-DDH-53",
+   "nombre": "JEFATURA DE EDUCACIÓN",
+   "tipo": "UNI",
+   "padre": "SD-DDH",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 159
+  },
+  {
+   "codigo": "SD-DDH-53-1",
+   "nombre": "ALIMENTO COMPLEMENTARIO",
+   "tipo": "ARE",
+   "padre": "SD-DDH-53",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 160
+  },
+  {
+   "codigo": "SD-DDH-53-2",
+   "nombre": "MANTENIMIENTO DE SISTEMAS DE EDUCACIÓN",
+   "tipo": "ARE",
+   "padre": "SD-DDH-53",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 161
+  },
+  {
+   "codigo": "SD-DDH-53-3",
+   "nombre": "PROGRAMAS EDUCACIÓN",
+   "tipo": "ARE",
+   "padre": "SD-DDH-53",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 162
+  },
+  {
+   "codigo": "SD-DDH-53-4",
+   "nombre": "EQUIPAMIENTO U.E.",
+   "tipo": "ARE",
+   "padre": "SD-DDH-53",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 163
+  },
+  {
+   "codigo": "SD-DDH-53-5",
+   "nombre": "MANTENIMIENTO U.E.",
+   "tipo": "ARE",
+   "padre": "SD-DDH-53",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 164
+  },
+  {
+   "codigo": "SD-DDH-53-6",
+   "nombre": "SERVICIOS DE EDUCACIÓN",
+   "tipo": "ARE",
+   "padre": "SD-DDH-53",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 165
+  },
+  {
+   "codigo": "SD-DDH-53-7",
+   "nombre": "UAIN@",
+   "tipo": "ARE",
+   "padre": "SD-DDH-53",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 166
+  },
+  {
+   "codigo": "SD-000-54",
+   "nombre": "ADMINISTRACIÓN SEGURIDAD CIUDADANA Y MOVILIDAD MUNICIPAL",
+   "tipo": "UNI",
+   "padre": "SD",
+   "sigla": "",
+   "clase": "",
+   "orden": 167
+  },
+  {
+   "codigo": "SD-000-54-1",
+   "nombre": "REGULACIÓN Y ORDENAMIENTO DE LA MOVILIDAD",
+   "tipo": "ARE",
+   "padre": "SD-000-54",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 168
+  },
+  {
+   "codigo": "SD-000-55",
+   "nombre": "INTENDENCIA MUNICIPAL",
+   "tipo": "UNI",
+   "padre": "SD",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 169
+  },
+  {
+   "codigo": "SD-DDH-56",
+   "nombre": "DEPORTES Y PROMOCIÓN",
+   "tipo": "UNI",
+   "padre": "SD-DDH",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 170
+  },
+  {
+   "codigo": "SD-DDH-57",
+   "nombre": "CULTURA",
+   "tipo": "UNI",
+   "padre": "SD-DDH",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 171
+  },
+  {
+   "codigo": "SS",
+   "nombre": "SECRETARIA MUNICIPAL DE SALUD",
+   "tipo": "SEC",
+   "padre": null,
+   "sigla": "",
+   "clase": "",
+   "orden": 172
+  },
+  {
+   "codigo": "SS-DAS",
+   "nombre": "DIRECCIÓN DE ADMINISTRACIÓN DE SALUD",
+   "tipo": "DIR",
+   "padre": "SS",
+   "sigla": "DAS",
+   "clase": "SUSTANTIVA",
+   "orden": 173
+  },
+  {
+   "codigo": "SS-DAS-58",
+   "nombre": "ADMINISTRATIVO HOSPITAL SOLOMON KLEIN",
+   "tipo": "UNI",
+   "padre": "SS-DAS",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 174
+  },
+  {
+   "codigo": "SS-DAS-59",
+   "nombre": "ADMINISTRATIVO HOSPITAL MÉXICO",
+   "tipo": "UNI",
+   "padre": "SS-DAS",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 175
+  },
+  {
+   "codigo": "SS-DAS-60",
+   "nombre": "ADMINISTRATIVO DE PROGRAMAS Y ESTABLECIMIENTOS DE SALUD DE 1º NIVEL",
+   "tipo": "UNI",
+   "padre": "SS-DAS",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 176
+  },
+  {
+   "codigo": "SS-DAS-60-1",
+   "nombre": "ACTIVOS FIJOS SALUD",
+   "tipo": "ARE",
+   "padre": "SS-DAS-60",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 177
+  },
+  {
+   "codigo": "SS-DAS-60-2",
+   "nombre": "ALMACENES SALUD",
+   "tipo": "ARE",
+   "padre": "SS-DAS-60",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 178
+  },
+  {
+   "codigo": "SS-DAS-60-3",
+   "nombre": "PROGRAMAS DE SALUD",
+   "tipo": "ARE",
+   "padre": "SS-DAS-60",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 179
+  },
+  {
+   "codigo": "SS-DAS-60-4",
+   "nombre": "MANTENIMIENTO SISTEMAS DE SALUD",
+   "tipo": "ARE",
+   "padre": "SS-DAS-60",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 180
+  },
+  {
+   "codigo": "SS-DAS-61",
+   "nombre": "ADMINISTRACIÓN FINANCIERA DE SALUD",
+   "tipo": "UNI",
+   "padre": "SS-DAS",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 181
+  },
+  {
+   "codigo": "SS-DAS-61-1",
+   "nombre": "FARMACIA INSTITUCIONAL MUNICIPAL",
+   "tipo": "ARE",
+   "padre": "SS-DAS-61",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 182
+  },
+  {
+   "codigo": "SS-DAS-61-2",
+   "nombre": "SISTEMA DE CONTROL FINANCIERO DE SALUD",
+   "tipo": "ARE",
+   "padre": "SS-DAS-61",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 183
+  },
+  {
+   "codigo": "SS-DAS-61-3",
+   "nombre": "PRESUPUESTOS SALUD",
+   "tipo": "ARE",
+   "padre": "SS-DAS-61",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 184
+  },
+  {
+   "codigo": "SS-DAS-61-4",
+   "nombre": "TESORERÍA DE SALUD",
+   "tipo": "ARE",
+   "padre": "SS-DAS-61",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 185
+  },
+  {
+   "codigo": "SS-DAS-61-5",
+   "nombre": "CONTABILIDAD DE SALUD",
+   "tipo": "ARE",
+   "padre": "SS-DAS-61",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 186
+  },
+  {
+   "codigo": "SS-DAS-62",
+   "nombre": "CONTROL SANITARIO Y ZOONOSIS",
+   "tipo": "UNI",
+   "padre": "SS-DAS",
+   "sigla": "",
+   "clase": "SUSTANTIVA",
+   "orden": 187
+  },
+  {
+   "codigo": "SS-DAS-63",
+   "nombre": "CONTRATACIONES DE SALUD",
+   "tipo": "UNI",
+   "padre": "SS-DAS",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 188
+  },
+  {
+   "codigo": "SS-DAS-63-1",
+   "nombre": "MANTENIMIENTO DE ESTABLECIMIENTOS DE SALUD",
+   "tipo": "ARE",
+   "padre": "SS-DAS-63",
+   "sigla": "",
+   "clase": "ADMINISTRATIVA",
+   "orden": 189
+  }
+ ]
+}

@@ -40,6 +40,16 @@ class UnidadOrganizacional(TimeStampedModel, ActivableModel, VigenciaModel):
         related_name='+', verbose_name='Gestión fiscal',
     )
     orden = models.PositiveIntegerField(default=0)
+    # Clasificación funcional de la codificación oficial del GAMS.
+    clase = models.CharField(
+        max_length=20, blank=True, default='',
+        choices=[
+            ('SUSTANTIVA', 'Sustantiva'),
+            ('ADMINISTRATIVA', 'Administrativa'),
+            ('ASESORAMIENTO', 'De asesoramiento'),
+        ],
+        verbose_name='Clase funcional',
+    )
 
     class Meta:
         verbose_name = 'Unidad organizacional'

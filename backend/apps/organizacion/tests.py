@@ -57,16 +57,20 @@ def auth_client(admin_user):
 
 @pytest.fixture
 def tipo_unidad(db):
-    return TipoUnidad.objects.create(
-        codigo='SEC', nombre='Secretaría', nivel=1,
+    # organizacion.0003 siembra los cuatro niveles: get_or_create para no
+    # chocar contra el unique de `codigo`.
+    tipo, _ = TipoUnidad.objects.get_or_create(
+        codigo='SEC', defaults={'nombre': 'Secretaría', 'nivel': 1},
     )
+    return tipo
 
 
 @pytest.fixture
 def tipo_direccion(db):
-    return TipoUnidad.objects.create(
-        codigo='DIR', nombre='Dirección', nivel=2,
+    tipo, _ = TipoUnidad.objects.get_or_create(
+        codigo='DIR', defaults={'nombre': 'Dirección', 'nivel': 2},
     )
+    return tipo
 
 
 @pytest.fixture
@@ -372,7 +376,10 @@ class TestTiposUnidadAPI:
     def test_list_200(self, auth_client, tipo_unidad):
         resp = auth_client.get(reverse('tipounidad-list'))
         assert resp.status_code == status.HTTP_200_OK
-        assert resp.data['count'] == 1
+        # organizacion.0003 siembra los cuatro niveles: el conteo depende del
+        # catálogo, no de este fixture. Se ordena por nivel, así que SEC va 1º.
+        assert resp.data['count'] == TipoUnidad.objects.count()
+        assert 'SEC' in [r['codigo'] for r in resp.data['results']]
         assert resp.data['results'][0]['codigo'] == 'SEC'
 
 
