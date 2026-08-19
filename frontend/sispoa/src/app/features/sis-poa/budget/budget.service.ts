@@ -49,7 +49,7 @@ export interface DetalleUnidad {
 
 // -- Categorías programáticas (Fase 3) -------------------------------------
 
-export interface ProgrammaticCategory {
+export interface CategoriaProgramaticaTecho {
   id: number;
   gestion: number;
   codigo: string;
@@ -92,7 +92,7 @@ export interface CatalogoOpciones {
 
 // -- Distribución presupuestaria (Fase 4) -----------------------------------
 
-export interface DistributionVersion {
+export interface DistribucionVersion {
   id: number;
   gestion: string;
   gestion_anio: number;
@@ -107,7 +107,7 @@ export interface DistributionVersion {
   inmutable: boolean;
 }
 
-export interface AllocationSource {
+export interface AperturaFuente {
   id: number;
   fuente: string | null;
   fuente_detalle: DetalleCatalogo | null;
@@ -134,7 +134,7 @@ export interface DetalleCategoria {
   denominacion: string;
 }
 
-export interface Allocation {
+export interface Apertura {
   id: number;
   gestion: string;
   gestion_anio: number;
@@ -157,7 +157,7 @@ export interface Allocation {
   tipo_apertura: string;
   estado: string;
   estado_display: string;
-  fuentes: AllocationSource[];
+  fuentes: AperturaFuente[];
   total: string;
 }
 
@@ -176,7 +176,7 @@ export interface AllocationInput {
   fuentes?: AllocationSourceInput[];
 }
 
-export interface Reserve {
+export interface Reserva {
   id: number;
   gestion: string;
   gestion_anio: number;
@@ -299,7 +299,7 @@ export interface DetalleAperturaReform {
   codigo_sisin: string;
 }
 
-export interface ReformMovement {
+export interface ReformaMovimiento {
   id: number;
   tipo: string;
   tipo_display: string;
@@ -327,7 +327,7 @@ export interface ReformMovementInput {
   motivo?: string;
 }
 
-export interface Reform {
+export interface Reforma {
   id: number;
   gestion: string;
   gestion_anio: number;
@@ -346,7 +346,7 @@ export interface Reform {
   aprobada_por: string | null;
   aprobada_por_email: string | null;
   fecha_aplicacion: string | null;
-  movimientos: ReformMovement[];
+  movimientos: ReformaMovimiento[];
   created_at: string;
 }
 
@@ -436,7 +436,7 @@ export interface Composition {
   por_fuente: { fuente: string; denominacion: string; monto: string }[];
 }
 
-export interface CeilingResource {
+export interface RecursoTecho {
   id: number;
   version: number;
   origen: string;
@@ -465,7 +465,7 @@ export interface CeilingResourceInput {
   monto: string | number;
 }
 
-export interface MandatoryExpense {
+export interface GastoObligatorio {
   id: number;
   version: number;
   da: string | null;
@@ -498,7 +498,7 @@ export interface MandatoryExpenseInput {
   monto: string | number;
 }
 
-export interface DirectiveCeilingVersion {
+export interface TechoVersion {
   id: number;
   numero: number;
   estado: string;
@@ -509,18 +509,18 @@ export interface DirectiveCeilingVersion {
   fijado_por_email: string | null;
   observaciones: string;
   inmutable: boolean;
-  recursos: CeilingResource[];
-  gastos_obligatorios: MandatoryExpense[];
+  recursos: RecursoTecho[];
+  gastos_obligatorios: GastoObligatorio[];
 }
 
-export interface DirectiveCeiling {
+export interface TechoDirectivo {
   id: number;
   gestion: string;
   gestion_anio: number;
   estado: string;
   estado_display: string;
   version_actual: number;
-  version: DirectiveCeilingVersion | null;
+  version: TechoVersion | null;
   composicion: Composition | null;
   created_at: string;
   updated_at: string;
@@ -530,7 +530,7 @@ export interface DirectiveCeilingInput {
   gestion: string;
 }
 
-export interface BudgetDocument {
+export interface DocumentoPresupuestario {
   id: number;
   gestion: string;
   gestion_anio: number;
@@ -559,7 +559,7 @@ export interface ImportMapeo {
   fuentes?: Record<string, string>;
 }
 
-export interface BudgetImport {
+export interface Importacion {
   id: number;
   gestion: string;
   gestion_anio: number;
@@ -606,7 +606,7 @@ export interface ImportResultado {
 
 // -- Distribución territorial (Fase 6) --------------------------------------
 
-export interface TerritorialAllocation {  id: number;
+export interface AsignacionTerritorial {  id: number;
   distrito: string;
   distrito_detalle: DetalleDistrito;
   poblacion: number | null;
@@ -623,7 +623,7 @@ export interface TerritorialRow {
   monto?: string | number | null;
 }
 
-export interface TerritorialDistribution {
+export interface DistribucionTerritorial {
   id: number;
   gestion: string;
   gestion_anio: number;
@@ -638,7 +638,7 @@ export interface TerritorialDistribution {
   estado: string;
   estado_display: string;
   observaciones: string;
-  asignaciones: TerritorialAllocation[];
+  asignaciones: AsignacionTerritorial[];
   total_asignado: string;
 }
 
@@ -673,8 +673,43 @@ export const CAMPOS_IMPORTACION: { valor: string; etiqueta: string }[] = [
   { valor: 'total', etiqueta: 'Total presupuesto' },
 ];
 
+/** Fila del Presupuesto General de Recursos, tal como sale del reporte oficial. */
+export interface FilaRecurso {
+  id: number;
+  concepto: string;
+  origen: string;
+  fuente: string;
+  organismo: string;
+  ff_of: string;
+  monto: string;
+  /** Nulo cuando el divisor es cero: la planilla mostraba #DIV/0!. */
+  porcentaje: string | null;
+  monto_corriente: string | null;
+  porcentaje_corriente: string | null;
+  monto_inversion: string | null;
+  porcentaje_inversion: string | null;
+  orden: number;
+  componentes?: FilaRecurso[];
+}
+
+export interface PresupuestoRecursos {
+  gestion: number;
+  estado: string;
+  editable: boolean;
+  rubros: FilaRecurso[];
+  total: {
+    monto: string;
+    porcentaje: string | null;
+    monto_corriente: string;
+    porcentaje_corriente: string | null;
+    monto_inversion: string;
+    porcentaje_inversion: string | null;
+  };
+}
+
 /** Servicio tipado del ciclo presupuestario SIS-POA (ADR-002): V2 puro. */
 @Injectable({ providedIn: 'root' })
+
 export class BudgetService {
   private base = environment.apiUrlV2 + '/sis-poa/budget';
 
@@ -724,19 +759,19 @@ export class BudgetService {
 
   // -- Techo directivo (Fase 2) ----------------------------------------------
 
-  listarTechos(params?: { estado?: string }): Observable<Paginado<DirectiveCeiling>> {
-    return this.http.get<Paginado<DirectiveCeiling>>(
+  listarTechos(params?: { estado?: string }): Observable<Paginado<TechoDirectivo>> {
+    return this.http.get<Paginado<TechoDirectivo>>(
       `${this.base}/directive-ceilings/`,
       { params: this.params(params) },
     );
   }
 
-  crearTecho(data: DirectiveCeilingInput): Observable<DirectiveCeiling> {
-    return this.http.post<DirectiveCeiling>(`${this.base}/directive-ceilings/`, data);
+  crearTecho(data: DirectiveCeilingInput): Observable<TechoDirectivo> {
+    return this.http.post<TechoDirectivo>(`${this.base}/directive-ceilings/`, data);
   }
 
-  obtenerTecho(id: number): Observable<DirectiveCeiling> {
-    return this.http.get<DirectiveCeiling>(`${this.base}/directive-ceilings/${id}/`);
+  obtenerTecho(id: number): Observable<TechoDirectivo> {
+    return this.http.get<TechoDirectivo>(`${this.base}/directive-ceilings/${id}/`);
   }
 
   eliminarTecho(id: number): Observable<void> {
@@ -749,40 +784,40 @@ export class BudgetService {
     );
   }
 
-  enviarRevision(id: number): Observable<DirectiveCeiling> {
-    return this.http.post<DirectiveCeiling>(
+  enviarRevision(id: number): Observable<TechoDirectivo> {
+    return this.http.post<TechoDirectivo>(
       `${this.base}/directive-ceilings/${id}/submit/`, {},
     );
   }
 
-  observarTecho(id: number, observaciones: string): Observable<DirectiveCeiling> {
-    return this.http.post<DirectiveCeiling>(
+  observarTecho(id: number, observaciones: string): Observable<TechoDirectivo> {
+    return this.http.post<TechoDirectivo>(
       `${this.base}/directive-ceilings/${id}/observe/`, { observaciones },
     );
   }
 
-  aprobarTecho(id: number): Observable<DirectiveCeiling> {
-    return this.http.post<DirectiveCeiling>(
+  aprobarTecho(id: number): Observable<TechoDirectivo> {
+    return this.http.post<TechoDirectivo>(
       `${this.base}/directive-ceilings/${id}/approve/`, {},
     );
   }
 
-  fijarTecho(id: number, observaciones = ''): Observable<DirectiveCeiling> {
-    return this.http.post<DirectiveCeiling>(
+  fijarTecho(id: number, observaciones = ''): Observable<TechoDirectivo> {
+    return this.http.post<TechoDirectivo>(
       `${this.base}/directive-ceilings/${id}/freeze/`, { observaciones },
     );
   }
 
   // -- Recursos (Fase 2) -----------------------------------------------------
 
-  listarRecursos(params?: { version?: number; origen?: string }): Observable<Paginado<CeilingResource>> {
-    return this.http.get<Paginado<CeilingResource>>(`${this.base}/resources/`, {
+  listarRecursos(params?: { version?: number; origen?: string }): Observable<Paginado<RecursoTecho>> {
+    return this.http.get<Paginado<RecursoTecho>>(`${this.base}/resources/`, {
       params: this.params(params),
     });
   }
 
-  crearRecurso(data: CeilingResourceInput): Observable<CeilingResource> {
-    return this.http.post<CeilingResource>(`${this.base}/resources/`, data);
+  crearRecurso(data: CeilingResourceInput): Observable<RecursoTecho> {
+    return this.http.post<RecursoTecho>(`${this.base}/resources/`, data);
   }
 
   eliminarRecurso(id: number): Observable<void> {
@@ -791,15 +826,15 @@ export class BudgetService {
 
   // -- Gastos obligatorios (Fase 2) ------------------------------------------
 
-  listarGastos(params?: { version?: number }): Observable<Paginado<MandatoryExpense>> {
-    return this.http.get<Paginado<MandatoryExpense>>(
+  listarGastos(params?: { version?: number }): Observable<Paginado<GastoObligatorio>> {
+    return this.http.get<Paginado<GastoObligatorio>>(
       `${this.base}/mandatory-expenses/`,
       { params: this.params(params) },
     );
   }
 
-  crearGasto(data: MandatoryExpenseInput): Observable<MandatoryExpense> {
-    return this.http.post<MandatoryExpense>(`${this.base}/mandatory-expenses/`, data);
+  crearGasto(data: MandatoryExpenseInput): Observable<GastoObligatorio> {
+    return this.http.post<GastoObligatorio>(`${this.base}/mandatory-expenses/`, data);
   }
 
   eliminarGasto(id: number): Observable<void> {
@@ -808,27 +843,27 @@ export class BudgetService {
 
   // -- Documentos (Fase 2) ---------------------------------------------------
 
-  listarDocumentos(gestion: string): Observable<Paginado<BudgetDocument>> {
-    return this.http.get<Paginado<BudgetDocument>>(`${this.base}/documents/`, {
+  listarDocumentos(gestion: string): Observable<Paginado<DocumentoPresupuestario>> {
+    return this.http.get<Paginado<DocumentoPresupuestario>>(`${this.base}/documents/`, {
       params: this.params({ gestion }),
     });
   }
 
-  subirDocumento(formData: FormData): Observable<BudgetDocument> {
-    return this.http.post<BudgetDocument>(`${this.base}/documents/`, formData);
+  subirDocumento(formData: FormData): Observable<DocumentoPresupuestario> {
+    return this.http.post<DocumentoPresupuestario>(`${this.base}/documents/`, formData);
   }
 
   // -- Categorías programáticas y catálogos (Fase 3) -------------------------
 
-  listarCategorias(params?: { gestion?: number; nivel?: string }): Observable<Paginado<ProgrammaticCategory>> {
-    return this.http.get<Paginado<ProgrammaticCategory>>(
+  listarCategorias(params?: { gestion?: number; nivel?: string }): Observable<Paginado<CategoriaProgramaticaTecho>> {
+    return this.http.get<Paginado<CategoriaProgramaticaTecho>>(
       `${this.base}/programmatic-categories/`,
       { params: this.params(params) },
     );
   }
 
-  crearCategoria(data: ProgrammaticCategoryInput): Observable<ProgrammaticCategory> {
-    return this.http.post<ProgrammaticCategory>(`${this.base}/programmatic-categories/`, data);
+  crearCategoria(data: ProgrammaticCategoryInput): Observable<CategoriaProgramaticaTecho> {
+    return this.http.post<CategoriaProgramaticaTecho>(`${this.base}/programmatic-categories/`, data);
   }
 
   arbolCategorias(gestion: number): Observable<CategoriaNodo[]> {
@@ -858,8 +893,8 @@ export class BudgetService {
     );
   }
 
-  listarVersionesDistribucion(gestion: string): Observable<DistributionVersion[]> {
-    return this.http.get<DistributionVersion[]>(
+  listarVersionesDistribucion(gestion: string): Observable<DistribucionVersion[]> {
+    return this.http.get<DistribucionVersion[]>(
       `${this.base}/distributions/versions/`,
       { params: this.params({ gestion }) },
     );
@@ -872,40 +907,40 @@ export class BudgetService {
     categoria?: number;
     estado?: string;
     search?: string;
-  }): Observable<Paginado<Allocation>> {
-    return this.http.get<Paginado<Allocation>>(`${this.base}/allocations/`, {
+  }): Observable<Paginado<Apertura>> {
+    return this.http.get<Paginado<Apertura>>(`${this.base}/allocations/`, {
       params: this.params(params),
     });
   }
 
-  crearApertura(data: AllocationInput): Observable<Allocation> {
-    return this.http.post<Allocation>(`${this.base}/allocations/`, data);
+  crearApertura(data: AllocationInput): Observable<Apertura> {
+    return this.http.post<Apertura>(`${this.base}/allocations/`, data);
   }
 
-  actualizarApertura(id: number, data: Partial<AllocationInput>): Observable<Allocation> {
-    return this.http.patch<Allocation>(`${this.base}/allocations/${id}/`, data);
+  actualizarApertura(id: number, data: Partial<AllocationInput>): Observable<Apertura> {
+    return this.http.patch<Apertura>(`${this.base}/allocations/${id}/`, data);
   }
 
   eliminarApertura(id: number): Observable<void> {
     return this.http.delete<void>(`${this.base}/allocations/${id}/`);
   }
 
-  cerrarApertura(id: number): Observable<Allocation> {
-    return this.http.post<Allocation>(`${this.base}/allocations/${id}/cerrar/`, {});
+  cerrarApertura(id: number): Observable<Apertura> {
+    return this.http.post<Apertura>(`${this.base}/allocations/${id}/cerrar/`, {});
   }
 
-  listarReservas(params?: { gestion?: string; estado?: string }): Observable<Paginado<Reserve>> {
-    return this.http.get<Paginado<Reserve>>(`${this.base}/reserves/`, {
+  listarReservas(params?: { gestion?: string; estado?: string }): Observable<Paginado<Reserva>> {
+    return this.http.get<Paginado<Reserva>>(`${this.base}/reserves/`, {
       params: this.params(params),
     });
   }
 
-  crearReserva(data: ReserveInput): Observable<Reserve> {
-    return this.http.post<Reserve>(`${this.base}/reserves/`, data);
+  crearReserva(data: ReserveInput): Observable<Reserva> {
+    return this.http.post<Reserva>(`${this.base}/reserves/`, data);
   }
 
-  liberarReserva(id: number): Observable<Reserve> {
-    return this.http.post<Reserve>(`${this.base}/reserves/${id}/liberar/`, {});
+  liberarReserva(id: number): Observable<Reserva> {
+    return this.http.post<Reserva>(`${this.base}/reserves/${id}/liberar/`, {});
   }
 
   // -- Fijación de la distribución (Fase 7) ---------------------------------
@@ -916,62 +951,62 @@ export class BudgetService {
     );
   }
 
-  submitDistribucion(id: number): Observable<DistributionVersion> {
-    return this.http.post<DistributionVersion>(
+  submitDistribucion(id: number): Observable<DistribucionVersion> {
+    return this.http.post<DistribucionVersion>(
       `${this.base}/distributions/${id}/submit/`, {},
     );
   }
 
-  observarDistribucion(id: number, observaciones: string): Observable<DistributionVersion> {
-    return this.http.post<DistributionVersion>(
+  observarDistribucion(id: number, observaciones: string): Observable<DistribucionVersion> {
+    return this.http.post<DistribucionVersion>(
       `${this.base}/distributions/${id}/observe/`, { observaciones },
     );
   }
 
-  aprobarDistribucion(id: number): Observable<DistributionVersion> {
-    return this.http.post<DistributionVersion>(
+  aprobarDistribucion(id: number): Observable<DistribucionVersion> {
+    return this.http.post<DistribucionVersion>(
       `${this.base}/distributions/${id}/approve/`, {},
     );
   }
 
-  fijarDistribucion(id: number, observaciones = ''): Observable<DistributionVersion> {
-    return this.http.post<DistributionVersion>(
+  fijarDistribucion(id: number, observaciones = ''): Observable<DistribucionVersion> {
+    return this.http.post<DistribucionVersion>(
       `${this.base}/distributions/${id}/freeze/`, { observaciones },
     );
   }
 
-  ajusteDistribucion(id: number): Observable<DistributionVersion> {
-    return this.http.post<DistributionVersion>(
+  ajusteDistribucion(id: number): Observable<DistribucionVersion> {
+    return this.http.post<DistribucionVersion>(
       `${this.base}/distributions/${id}/ajuste/`, {},
     );
   }
 
   // -- Importaciones Excel (Fase 5) -----------------------------------------
 
-  subirImportacion(formData: FormData): Observable<BudgetImport> {
-    return this.http.post<BudgetImport>(`${this.base}/imports/`, formData);
+  subirImportacion(formData: FormData): Observable<Importacion> {
+    return this.http.post<Importacion>(`${this.base}/imports/`, formData);
   }
 
-  listarImportaciones(params?: { gestion?: string; estado?: string }): Observable<Paginado<BudgetImport>> {
-    return this.http.get<Paginado<BudgetImport>>(`${this.base}/imports/`, {
+  listarImportaciones(params?: { gestion?: string; estado?: string }): Observable<Paginado<Importacion>> {
+    return this.http.get<Paginado<Importacion>>(`${this.base}/imports/`, {
       params: this.params(params),
     });
   }
 
-  detalleImportacion(id: number): Observable<BudgetImport> {
-    return this.http.get<BudgetImport>(`${this.base}/imports/${id}/`);
+  detalleImportacion(id: number): Observable<Importacion> {
+    return this.http.get<Importacion>(`${this.base}/imports/${id}/`);
   }
 
   hojasImportacion(id: number): Observable<{ hojas: string[] }> {
     return this.http.get<{ hojas: string[] }>(`${this.base}/imports/${id}/hojas/`);
   }
 
-  mapearImportacion(id: number, body: ImportMapeoBody): Observable<BudgetImport> {
-    return this.http.post<BudgetImport>(`${this.base}/imports/${id}/map/`, body);
+  mapearImportacion(id: number, body: ImportMapeoBody): Observable<Importacion> {
+    return this.http.post<Importacion>(`${this.base}/imports/${id}/map/`, body);
   }
 
-  validarImportacion(id: number): Observable<BudgetImport> {
-    return this.http.post<BudgetImport>(`${this.base}/imports/${id}/validate/`, {});
+  validarImportacion(id: number): Observable<Importacion> {
+    return this.http.post<Importacion>(`${this.base}/imports/${id}/validate/`, {});
   }
 
   erroresImportacion(id: number, params?: { severidad?: string }): Observable<ImportErrorItem[]> {
@@ -980,42 +1015,42 @@ export class BudgetService {
     });
   }
 
-  aplicarImportacion(id: number): Observable<BudgetImport & { resultado?: ImportResultado }> {
-    return this.http.post<BudgetImport & { resultado?: ImportResultado }>(
+  aplicarImportacion(id: number): Observable<Importacion & { resultado?: ImportResultado }> {
+    return this.http.post<Importacion & { resultado?: ImportResultado }>(
       `${this.base}/imports/${id}/apply/`, {},
     );
   }
 
   // -- Distribución territorial (Fase 6) -------------------------------------
 
-  listarTerritoriales(params?: { gestion?: string; estado?: string }): Observable<Paginado<TerritorialDistribution>> {
-    return this.http.get<Paginado<TerritorialDistribution>>(
+  listarTerritoriales(params?: { gestion?: string; estado?: string }): Observable<Paginado<DistribucionTerritorial>> {
+    return this.http.get<Paginado<DistribucionTerritorial>>(
       `${this.base}/territorial-distributions/`,
       { params: this.params(params) },
     );
   }
 
-  crearTerritorial(data: TerritorialDistributionInput): Observable<TerritorialDistribution> {
-    return this.http.post<TerritorialDistribution>(
+  crearTerritorial(data: TerritorialDistributionInput): Observable<DistribucionTerritorial> {
+    return this.http.post<DistribucionTerritorial>(
       `${this.base}/territorial-distributions/`, data,
     );
   }
 
-  calcularTerritorial(id: number, distritos?: TerritorialRow[]): Observable<TerritorialDistribution> {
-    return this.http.post<TerritorialDistribution>(
+  calcularTerritorial(id: number, distritos?: TerritorialRow[]): Observable<DistribucionTerritorial> {
+    return this.http.post<DistribucionTerritorial>(
       `${this.base}/territorial-distributions/${id}/calcular/`,
       distritos ? { distritos } : {},
     );
   }
 
-  aplicarTerritorial(id: number): Observable<TerritorialDistribution> {
-    return this.http.post<TerritorialDistribution>(
+  aplicarTerritorial(id: number): Observable<DistribucionTerritorial> {
+    return this.http.post<DistribucionTerritorial>(
       `${this.base}/territorial-distributions/${id}/aplicar/`, {},
     );
   }
 
-  liberarTerritorial(id: number): Observable<TerritorialDistribution> {
-    return this.http.post<TerritorialDistribution>(
+  liberarTerritorial(id: number): Observable<DistribucionTerritorial> {
+    return this.http.post<DistribucionTerritorial>(
       `${this.base}/territorial-distributions/${id}/liberar/`, {},
     );
   }
@@ -1057,42 +1092,42 @@ export class BudgetService {
   // -- Reformulaciones (Fase 10) ---------------------------------------------
 
   listarReforms(params?: { gestion?: string; estado?: string; tipo?: string }):
-    Observable<Paginado<Reform>> {
-    return this.http.get<Paginado<Reform>>(`${this.base}/reforms/`, {
+    Observable<Paginado<Reforma>> {
+    return this.http.get<Paginado<Reforma>>(`${this.base}/reforms/`, {
       params: this.params(params),
     });
   }
 
-  crearReform(data: ReformInput): Observable<Reform> {
-    return this.http.post<Reform>(`${this.base}/reforms/`, data);
+  crearReform(data: ReformInput): Observable<Reforma> {
+    return this.http.post<Reforma>(`${this.base}/reforms/`, data);
   }
 
-  detalleReform(id: number): Observable<Reform> {
-    return this.http.get<Reform>(`${this.base}/reforms/${id}/`);
+  detalleReform(id: number): Observable<Reforma> {
+    return this.http.get<Reforma>(`${this.base}/reforms/${id}/`);
   }
 
-  submitReform(id: number): Observable<Reform> {
-    return this.http.post<Reform>(`${this.base}/reforms/${id}/submit/`, {});
+  submitReform(id: number): Observable<Reforma> {
+    return this.http.post<Reforma>(`${this.base}/reforms/${id}/submit/`, {});
   }
 
-  observarReform(id: number, motivo: string): Observable<Reform> {
-    return this.http.post<Reform>(
+  observarReform(id: number, motivo: string): Observable<Reforma> {
+    return this.http.post<Reforma>(
       `${this.base}/reforms/${id}/observe/`, { observaciones: motivo },
     );
   }
 
-  aprobarReform(id: number): Observable<Reform> {
-    return this.http.post<Reform>(`${this.base}/reforms/${id}/approve/`, {});
+  aprobarReform(id: number): Observable<Reforma> {
+    return this.http.post<Reforma>(`${this.base}/reforms/${id}/approve/`, {});
   }
 
-  rechazarReform(id: number, motivo: string): Observable<Reform> {
-    return this.http.post<Reform>(
+  rechazarReform(id: number, motivo: string): Observable<Reforma> {
+    return this.http.post<Reforma>(
       `${this.base}/reforms/${id}/reject/`, { motivo },
     );
   }
 
-  aplicarReform(id: number): Observable<Reform> {
-    return this.http.post<Reform>(`${this.base}/reforms/${id}/apply/`, {});
+  aplicarReform(id: number): Observable<Reforma> {
+    return this.http.post<Reforma>(`${this.base}/reforms/${id}/apply/`, {});
   }
 
   // -- Auditoría de trazabilidad (Fase 11) ----------------------------------
@@ -1101,5 +1136,20 @@ export class BudgetService {
     return this.http.get<Paginado<AuditEvent>>(`${this.base}/audit/`, {
       params: this.params(params as Record<string, string | number | boolean>),
     });
+  }
+
+  /** Presupuesto General de Recursos de un techo, agrupado y con totales. */
+  presupuestoRecursos(id: number) {
+    return this.http.get<PresupuestoRecursos>(
+      `${this.base}/directive-ceilings/${id}/presupuesto-recursos/`,
+    );
+  }
+
+  guardarRecurso(datos: Record<string, unknown>) {
+    return this.http.post(`${this.base}/resources/`, datos);
+  }
+
+  actualizarRecurso(id: number, datos: Record<string, unknown>) {
+    return this.http.patch(`${this.base}/resources/${id}/`, datos);
   }
 }

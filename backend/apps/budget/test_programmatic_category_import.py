@@ -10,7 +10,7 @@ from apps.budget.importer_programmatic_category import (
     WorkbookValidationError,
     parse_workbook,
 )
-from apps.budget.models import ProgrammaticCategory
+from apps.budget.models import CategoriaProgramaticaTecho
 from apps.gestion.models import GestionFiscal
 
 
@@ -87,15 +87,15 @@ def test_dry_run_has_no_writes_and_commit_is_idempotent(tmp_path):
     path = tmp_path / "master.xlsx"
     make_workbook(path, sample_rows())
     gestion, _ = GestionFiscal.objects.get_or_create(anio=2027)
-    ProgrammaticCategory.objects.filter(gestion=gestion).delete()
+    CategoriaProgramaticaTecho.objects.filter(gestion=gestion).delete()
     historical_gestion, _ = GestionFiscal.objects.get_or_create(anio=2026)
-    historical = ProgrammaticCategory.objects.create(
+    historical = CategoriaProgramaticaTecho.objects.create(
         gestion=historical_gestion,
         codigo="000 0 000",
         denominacion="Historical program",
         nivel="PROGRAMA",
     )
-    preserved = ProgrammaticCategory.objects.create(
+    preserved = CategoriaProgramaticaTecho.objects.create(
         gestion=gestion,
         codigo="999 0 000",
         denominacion="Existing outside source",
@@ -106,28 +106,28 @@ def test_dry_run_has_no_writes_and_commit_is_idempotent(tmp_path):
     management.call_command(
         "importar_catalogo_programatico_2027", file=path, dry_run=True, stdout=output,
     )
-    assert ProgrammaticCategory.objects.filter(gestion=gestion).count() == 1
-    assert ProgrammaticCategory.objects.filter(pk=preserved.pk).exists()
+    assert CategoriaProgramaticaTecho.objects.filter(gestion=gestion).count() == 1
+    assert CategoriaProgramaticaTecho.objects.filter(pk=preserved.pk).exists()
     dry_report = json.loads(output.getvalue())
     assert dry_report["status"] == "dry-run"
     assert dry_report["existing_rows_preserved"] == 1
 
     output = StringIO()
     management.call_command("importar_catalogo_programatico_2027", file=path, commit=True, stdout=output)
-    assert ProgrammaticCategory.objects.filter(gestion=gestion).count() == 6
-    first = list(ProgrammaticCategory.objects.filter(gestion=gestion).values_list("codigo", "updated_at"))
+    assert CategoriaProgramaticaTecho.objects.filter(gestion=gestion).count() == 6
+    first = list(CategoriaProgramaticaTecho.objects.filter(gestion=gestion).values_list("codigo", "updated_at"))
     assert json.loads(output.getvalue())["counts"]["created"] == 5
 
     output = StringIO()
     management.call_command("importar_catalogo_programatico_2027", file=path, commit=True, stdout=output)
-    assert ProgrammaticCategory.objects.filter(gestion=gestion).count() == 6
-    second = list(ProgrammaticCategory.objects.filter(gestion=gestion).values_list("codigo", "updated_at"))
+    assert CategoriaProgramaticaTecho.objects.filter(gestion=gestion).count() == 6
+    second = list(CategoriaProgramaticaTecho.objects.filter(gestion=gestion).values_list("codigo", "updated_at"))
     assert [code for code, _ in first] == [code for code, _ in second]
     assert json.loads(output.getvalue())["counts"]["unchanged"] == 5
-    assert ProgrammaticCategory.objects.get(gestion=gestion, codigo="000 0 001").parent.codigo == "000 0 000"
-    assert ProgrammaticCategory.objects.get(gestion=gestion, codigo="200 0 0150").observaciones.find("ACTIV.=0150") >= 0
-    assert ProgrammaticCategory.objects.filter(pk=preserved.pk).exists()
-    assert ProgrammaticCategory.objects.get(pk=historical.pk).denominacion == "Historical program"
+    assert CategoriaProgramaticaTecho.objects.get(gestion=gestion, codigo="000 0 001").parent.codigo == "000 0 000"
+    assert CategoriaProgramaticaTecho.objects.get(gestion=gestion, codigo="200 0 0150").observaciones.find("ACTIV.=0150") >= 0
+    assert CategoriaProgramaticaTecho.objects.filter(pk=preserved.pk).exists()
+    assert CategoriaProgramaticaTecho.objects.get(pk=historical.pk).denominacion == "Historical program"
 
 
 @pytest.mark.django_db

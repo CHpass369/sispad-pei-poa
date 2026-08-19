@@ -4,7 +4,7 @@ import {
   BudgetService,
   CatalogoOpciones,
   FiscalYear,
-  TerritorialDistribution,
+  DistribucionTerritorial,
   TerritorialRow,
 } from './budget.service';
 
@@ -51,8 +51,8 @@ export class TerritorialComponent implements OnInit {
   gestiones: FiscalYear[] = [];
   gestionSeleccionada: string | null = null;
   opciones: CatalogoOpciones | null = null;
-  lista: TerritorialDistribution[] = [];
-  actual: TerritorialDistribution | null = null;
+  lista: DistribucionTerritorial[] = [];
+  actual: DistribucionTerritorial | null = null;
   metodos = METODOS;
 
   formulario = {
@@ -132,7 +132,7 @@ export class TerritorialComponent implements OnInit {
     this.filas = [];
   }
 
-  seleccionar(d: TerritorialDistribution): void {
+  seleccionar(d: DistribucionTerritorial): void {
     this.actual = d;
     this.error = '';
     this.mensaje = '';

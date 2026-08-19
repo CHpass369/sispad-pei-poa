@@ -85,10 +85,10 @@ class TipoDocumento:
 # ---------------------------------------------------------------------------
 # Techo directivo
 # ---------------------------------------------------------------------------
-class DirectiveCeiling(TimeStampedModel):
+class TechoDirectivo(TimeStampedModel):
     """Techo directivo de una gestión fiscal.
 
-    El techo es el contenedor; las versiones (`DirectiveCeilingVersion`) son
+    El techo es el contenedor; las versiones (`TechoVersion`) son
     las que transitan por la máquina de estados y la versión fijada es
     inmutable (patrón `VersionInstrumento`). `version_actual` apunta al
     número de la versión vigente del techo.
@@ -117,7 +117,7 @@ class DirectiveCeiling(TimeStampedModel):
         return f'Techo directivo {self.gestion.anio} ({self.estado})'
 
 
-class DirectiveCeilingVersion(TimeStampedModel):
+class TechoVersion(TimeStampedModel):
     """Versión de un techo directivo; inmutable al fijarse.
 
     Replica el patrón de `VersionInstrumento` (apps.planificacion.models_v2):
@@ -128,7 +128,7 @@ class DirectiveCeilingVersion(TimeStampedModel):
     """
 
     ceiling = models.ForeignKey(
-        DirectiveCeiling, on_delete=models.CASCADE, related_name='versiones',
+        TechoDirectivo, on_delete=models.CASCADE, related_name='versiones',
     )
     numero = models.PositiveIntegerField()
     estado = models.CharField(
@@ -238,7 +238,7 @@ class DirectiveCeilingVersion(TimeStampedModel):
 
     def save(self, *args, **kwargs):
         if self.pk and not kwargs.get('force_insert'):
-            original = DirectiveCeilingVersion.objects.get(pk=self.pk)
+            original = TechoVersion.objects.get(pk=self.pk)
             if original.inmutable:
                 raise ValidationError(
                     'No se puede modificar una versión de techo fijada '
@@ -247,14 +247,14 @@ class DirectiveCeilingVersion(TimeStampedModel):
         super().save(*args, **kwargs)
 
 
-class CeilingResource(TimeStampedModel):
+class RecursoTecho(TimeStampedModel):
     """Recurso (ingreso) componente del techo directivo, por origen.
 
     `CheckConstraint` garantiza monto >= 0 en base de datos.
     """
 
     version = models.ForeignKey(
-        DirectiveCeilingVersion, on_delete=models.CASCADE,
+        TechoVersion, on_delete=models.CASCADE,
         related_name='recursos',
     )
     origen = models.CharField(max_length=20, choices=OrigenRecurso.CHOICES)
@@ -278,8 +278,31 @@ class CeilingResource(TimeStampedModel):
     monto = models.DecimalField(
         max_digits=18, decimal_places=2, verbose_name='Monto (Bs)'
     )
+
+    # El Presupuesto General de Recursos se presenta agrupado: "Coparticipación
+    # Tributaria" es un rubro con sus componentes debajo, y el total del grupo
+    # es la suma de los hijos.
+    padre = models.ForeignKey(
+        'self', null=True, blank=True, on_delete=models.CASCADE,
+        related_name='componentes', verbose_name='Rubro agrupador',
+    )
+    orden = models.PositiveIntegerField(
+        default=0, verbose_name='Orden de presentación',
+    )
+
+    # El corte corriente/inversión se decide SIEMPRE a nivel de rubro
+    # agrupador; los componentes solo aportan su monto. Los porcentajes no se
+    # guardan: se calculan, porque almacenarlos invita a que dejen de cuadrar.
+    monto_corriente = models.DecimalField(
+        max_digits=18, decimal_places=2, null=True, blank=True,
+        verbose_name='Gastos corrientes (Bs)',
+    )
+    monto_inversion = models.DecimalField(
+        max_digits=18, decimal_places=2, null=True, blank=True,
+        verbose_name='Gastos de inversión (Bs)',
+    )
     documento = models.ForeignKey(
-        'budget.BudgetDocument', null=True, blank=True,
+        'budget.DocumentoPresupuestario', null=True, blank=True,
         on_delete=models.SET_NULL, related_name='recursos',
     )
 
@@ -287,7 +310,7 @@ class CeilingResource(TimeStampedModel):
         db_table = 'presupuesto_recurso_techo'
         verbose_name = 'Recurso del techo'
         verbose_name_plural = 'Recursos del techo'
-        ordering = ['version', 'origen', 'concepto']
+        ordering = ['version', 'orden', 'concepto']
         constraints = [
             models.CheckConstraint(
                 condition=models.Q(monto__gte=0),
@@ -303,13 +326,44 @@ class CeilingResource(TimeStampedModel):
             raise ValidationError(
                 'No se puede modificar una versión de techo fijada (inmutable).'
             )
+        if self.padre_id and self.padre_id == self.id:
+            raise ValidationError({'padre': 'Un rubro no puede agruparse a sí mismo.'})
+        if self.padre_id and (
+            self.monto_corriente is not None or self.monto_inversion is not None
+        ):
+            raise ValidationError(
+                'El corte corriente/inversión se registra en el rubro '
+                'agrupador, no en sus componentes.'
+            )
+        corriente = self.monto_corriente
+        inversion = self.monto_inversion
+        if corriente is not None and inversion is not None:
+            if corriente + inversion != self.monto:
+                raise ValidationError(
+                    f'La distribución no cuadra: {corriente} corriente + '
+                    f'{inversion} inversión suman {corriente + inversion}, '
+                    f'y el rubro es de {self.monto}.'
+                )
+
+    @property
+    def porcentaje_corriente(self):
+        """Sin monto no hay porcentaje: la planilla mostraba #DIV/0!."""
+        if not self.monto or self.monto_corriente is None:
+            return None
+        return round(self.monto_corriente * 100 / self.monto, 2)
+
+    @property
+    def porcentaje_inversion(self):
+        if not self.monto or self.monto_inversion is None:
+            return None
+        return round(self.monto_inversion * 100 / self.monto, 2)
 
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)
 
 
-class MandatoryExpense(TimeStampedModel):
+class GastoObligatorio(TimeStampedModel):
     """Gasto obligatorio que se descuenta del techo bruto.
 
     Programas/actividades con ceros iniciales preservados (VARCHAR), como en
@@ -317,7 +371,7 @@ class MandatoryExpense(TimeStampedModel):
     """
 
     version = models.ForeignKey(
-        DirectiveCeilingVersion, on_delete=models.CASCADE,
+        TechoVersion, on_delete=models.CASCADE,
         related_name='gastos_obligatorios',
     )
     da = models.ForeignKey(
@@ -348,7 +402,7 @@ class MandatoryExpense(TimeStampedModel):
         max_digits=18, decimal_places=2, verbose_name='Monto (Bs)'
     )
     documento = models.ForeignKey(
-        'budget.BudgetDocument', null=True, blank=True,
+        'budget.DocumentoPresupuestario', null=True, blank=True,
         on_delete=models.SET_NULL, related_name='gastos_obligatorios',
     )
 
@@ -378,7 +432,7 @@ class MandatoryExpense(TimeStampedModel):
         super().save(*args, **kwargs)
 
 
-class BudgetDocument(TimeStampedModel):
+class DocumentoPresupuestario(TimeStampedModel):
     """Documento de respaldo del techo (reporte SIGEP, nota MEF, resolución…).
 
     El archivo se guarda con `FileField(upload_to='budget/')`, es decir en
@@ -480,10 +534,10 @@ class EstadoReserva:
     ]
 
 
-class DistributionVersion(TimeStampedModel):
+class DistribucionVersion(TimeStampedModel):
     """Versión de la distribución presupuestaria de una gestión.
 
-    Replica el patrón de `DirectiveCeilingVersion`/`VersionInstrumento`:
+    Replica el patrón de `TechoVersion`/`VersionInstrumento`:
     la versión transita por los estados `EstadosTecho` (BORRADOR →
     EN_REVISION → APROBADO → FIJADO, con OBSERVADO) y al fijarse queda
     inmutable con checksum SHA-256. La distribución activa es la versión
@@ -565,7 +619,7 @@ class DistributionVersion(TimeStampedModel):
 
     def save(self, *args, **kwargs):
         if self.pk and not kwargs.get('force_insert'):
-            original = DistributionVersion.objects.get(pk=self.pk)
+            original = DistribucionVersion.objects.get(pk=self.pk)
             if original.inmutable:
                 raise ValidationError(
                     'No se puede modificar una versión de distribución '
@@ -574,12 +628,12 @@ class DistributionVersion(TimeStampedModel):
         super().save(*args, **kwargs)
 
 
-class Allocation(TimeStampedModel):
+class Apertura(TimeStampedModel):
     """Apertura programática de la distribución (por gestión).
 
-    Referencia la categoría programática del ciclo (`budget.ProgrammaticCategory`)
+    Referencia la categoría programática del ciclo (`budget.CategoriaProgramaticaTecho`)
     y las dimensiones organizacionales/territoriales. Los montos viven
-    normalizados por FF/OF en `AllocationSource` — nunca columnas monto_ct/
+    normalizados por FF/OF en `AperturaFuente` — nunca columnas monto_ct/
     monto_re. Los códigos SISIN/proyecto/actividad son VARCHAR (ceros
     iniciales preservados).
     """
@@ -589,7 +643,7 @@ class Allocation(TimeStampedModel):
         related_name='aperturas_presupuestarias',
     )
     version = models.ForeignKey(
-        DistributionVersion, null=True, blank=True,
+        DistribucionVersion, null=True, blank=True,
         on_delete=models.SET_NULL, related_name='aperturas',
         help_text='Versión de distribución activa al momento de la apertura.',
     )
@@ -610,7 +664,7 @@ class Allocation(TimeStampedModel):
         on_delete=models.PROTECT, related_name='aperturas_presupuestarias',
     )
     categoria = models.ForeignKey(
-        'budget.ProgrammaticCategory', null=True, blank=True,
+        'budget.CategoriaProgramaticaTecho', null=True, blank=True,
         on_delete=models.PROTECT, related_name='aperturas',
         help_text='Categoría programática del ciclo.',
     )
@@ -652,7 +706,7 @@ class Allocation(TimeStampedModel):
         return total if total is not None else 0
 
 
-class AllocationSource(TimeStampedModel):
+class AperturaFuente(TimeStampedModel):
     """Asignación normalizada de una apertura por FF/OF (nunca columnas).
 
     `UniqueConstraint(nulls_distinct=False)` garantiza una fila por
@@ -660,7 +714,7 @@ class AllocationSource(TimeStampedModel):
     """
 
     allocation = models.ForeignKey(
-        Allocation, on_delete=models.CASCADE, related_name='fuentes',
+        Apertura, on_delete=models.CASCADE, related_name='fuentes',
     )
     fuente = models.ForeignKey(
         'catalogos.FuenteFinanciamiento', null=True, blank=True,
@@ -695,7 +749,7 @@ class AllocationSource(TimeStampedModel):
         return f'{self.fuente.codigo if self.fuente_id else "-"}: {self.monto}'
 
 
-class Reserve(TimeStampedModel):
+class Reserva(TimeStampedModel):
     """Reserva presupuestaria sobre una fuente (decrece el disponible).
 
     Las reservas ACTIVAS restan del disponible por fuente; liberarlas lo
@@ -707,7 +761,7 @@ class Reserve(TimeStampedModel):
         related_name='reservas_presupuestarias',
     )
     version = models.ForeignKey(
-        DistributionVersion, null=True, blank=True,
+        DistribucionVersion, null=True, blank=True,
         on_delete=models.SET_NULL, related_name='reservas',
     )
     fuente = models.ForeignKey(
@@ -780,7 +834,7 @@ class EstadoCategoria:
     ]
 
 
-class ProgrammaticCategory(TimeStampedModel):
+class CategoriaProgramaticaTecho(TimeStampedModel):
     """CategorAa programAtica del ciclo presupuestario (por gestiA3n).
 
     JerarquAa flexible: PROGRAMA -> SUBPROGRAMA -> PROYECTO -> ACTIVIDAD.
@@ -944,10 +998,10 @@ class AccionError:
     ]
 
 
-class BudgetImport(TimeStampedModel):
+class Importacion(TimeStampedModel):
     """Importacion de planilla presupuestaria en staging (Fase 5).
 
-    La planilla se sube, se parsea a `ImportDetalle` (datos normalizados) y
+    La planilla se sube, se parsea a `ImportacionDetalle` (datos normalizados) y
     nunca se aplica directo: primero se valida (`validar_importacion`) y solo
     con errores resueltos se aplica (`aplicar_importacion`), que crea
     aperturas BORRADOR. `mapeo_json` guarda el mapeo columna->campo y el
@@ -1009,7 +1063,7 @@ class BudgetImport(TimeStampedModel):
         super().save(*args, **kwargs)
 
 
-class ImportDetalle(TimeStampedModel):
+class ImportacionDetalle(TimeStampedModel):
     """Fila parseada de la planilla (solo candidatas: DETAIL/SUBTOTAL/TOTAL).
 
     `datos_json` guarda los campos normalizados (unidad, distrito, da, ue,
@@ -1019,7 +1073,7 @@ class ImportDetalle(TimeStampedModel):
     """
 
     importacion = models.ForeignKey(
-        BudgetImport, on_delete=models.CASCADE, related_name='detalles',
+        Importacion, on_delete=models.CASCADE, related_name='detalles',
     )
     fila = models.PositiveIntegerField(
         help_text='Número de fila real en la hoja (1-based).'
@@ -1081,11 +1135,11 @@ class EstadoDistribucionTerritorial:
     ]
 
 
-class TerritorialDistribution(TimeStampedModel):
+class DistribucionTerritorial(TimeStampedModel):
     """Reparto de una bolsa presupuestaria entre distritos (Fase 6).
 
     La distribución transita BORRADOR → CALCULADA → APLICADA. `calcular`
-    calcula los montos por distrito (`TerritorialAllocation`) con ajuste de
+    calcula los montos por distrito (`AsignacionTerritorial`) con ajuste de
     redondeo exacto (SUM(monto_final) = bolsa_total); `aplicar` materializa
     el reparto como reservas DISTRITALES sobre la fuente (decrece el
     disponible) y `liberar` las devuelve. `version` es la versión de
@@ -1099,7 +1153,7 @@ class TerritorialDistribution(TimeStampedModel):
         help_text='Gestión fiscal de la distribución territorial.',
     )
     version = models.ForeignKey(
-        DistributionVersion, null=True, blank=True,
+        DistribucionVersion, null=True, blank=True,
         on_delete=models.SET_NULL,
         related_name='distribuciones_territoriales',
         help_text='Versión de distribución activa al momento de aplicar.',
@@ -1148,7 +1202,7 @@ class TerritorialDistribution(TimeStampedModel):
         )
 
 
-class TerritorialAllocation(TimeStampedModel):
+class AsignacionTerritorial(TimeStampedModel):
     """Asignación de un distrito dentro de una distribución territorial.
 
     `poblacion` alimenta el método POBLACION y `porcentaje` el método
@@ -1160,7 +1214,7 @@ class TerritorialAllocation(TimeStampedModel):
     """
 
     distribucion = models.ForeignKey(
-        TerritorialDistribution, on_delete=models.CASCADE,
+        DistribucionTerritorial, on_delete=models.CASCADE,
         related_name='asignaciones',
     )
     distrito = models.ForeignKey(
@@ -1210,18 +1264,18 @@ class TerritorialAllocation(TimeStampedModel):
 # disponible; §90-91). Requiere versión de distribución FIJADA y monto <=
 # disponible de la apertura (BUDGET_EXCEEDED en caso contrario).
 # ---------------------------------------------------------------------------
-class ExpenseObjectAllocation(TimeStampedModel):
+class AsignacionObjetoGastoTecho(TimeStampedModel):
     """Programación de un objeto del gasto en una apertura (Fase 9).
 
     Cada fila programa un `catalogos.ObjetoGasto` (código 5 dígitos
-    jerárquico, versionado) contra el techo de la apertura (`Allocation`).
+    jerárquico, versionado) contra el techo de la apertura (`Apertura`).
     El control de disponibilidad vive en `BudgetControlService`
     (control.py) y `services.programar_objeto_gasto`. Una fila por
     (allocation, objeto_gasto) con monto >= 0 (`CheckConstraint`).
     """
 
     allocation = models.ForeignKey(
-        Allocation, on_delete=models.CASCADE, related_name='objetos_gasto',
+        Apertura, on_delete=models.CASCADE, related_name='objetos_gasto',
         help_text='Apertura programática de la programación.',
     )
     objeto_gasto = models.ForeignKey(
@@ -1253,17 +1307,17 @@ class ExpenseObjectAllocation(TimeStampedModel):
         return f'{self.objeto_gasto.codigo}: {self.monto}'
 
 
-class ImportError(TimeStampedModel):
+class ImportacionError(TimeStampedModel):
     """Hallazgo de la validación de una importación, con severidad y acción.
 
     Los CRITICAL sin resolver bloquean la aplicación de la importación.
     """
 
     importacion = models.ForeignKey(
-        BudgetImport, on_delete=models.CASCADE, related_name='errores',
+        Importacion, on_delete=models.CASCADE, related_name='errores',
     )
     detalle = models.ForeignKey(
-        ImportDetalle, null=True, blank=True,
+        ImportacionDetalle, null=True, blank=True,
         on_delete=models.CASCADE, related_name='errores',
     )
     fila = models.PositiveIntegerField(default=0)
@@ -1303,11 +1357,11 @@ class ImportError(TimeStampedModel):
 #      CÓMO se distribuye (saldos entre aperturas/fuentes); el ajuste de
 #      techo (recursos) ya existe como `ajuste_de_techo` (Fase 2).
 #   2. NUEVOS SALDOS SIN DESTRUIR EL HISTÓRICO: al aplicar, la reformulación
-#      opera DIRECTAMENTE sobre las filas `AllocationSource`/`Reserve`
+#      opera DIRECTAMENTE sobre las filas `AperturaFuente`/`Reserva`
 #      existentes (no se duplican filas): el "nuevo saldo efectivo" ES el
-#      saldo tras el movimiento y el histórico queda en `ReformMovement`
+#      saldo tras el movimiento y el histórico queda en `ReformaMovimiento`
 #      (saldo_antes/saldo_despues) + `EventoAuditoria`. La versión fijada
-#      conserva sus filas (no se crean AllocationSource nuevos de la versión
+#      conserva sus filas (no se crean AperturaFuente nuevos de la versión
 #      resultante en esta fase).
 #   3. ATOMICIDAD: una reformulación aplicada corre en UNA transacción;
 #      si un movimiento falla → rollback completo (nada se persiste).
@@ -1382,12 +1436,12 @@ class TipoMovimientoReform:
     ]
 
 
-class Reform(TimeStampedModel):
+class Reforma(TimeStampedModel):
     """Reformulación presupuestaria (cabecera del documento, §92-97).
 
     Workflow: BORRADOR → EN_REVISION → OBSERVADA → APROBADA → APLICADA
     (o RECHAZADA desde EN_REVISION). Los movimientos viven en
-    `ReformMovement`; aplicar la reformulación muta los saldos en UNA
+    `ReformaMovimiento`; aplicar la reformulación muta los saldos en UNA
     transacción (ver `services.aplicar_reform`).
     """
 
@@ -1404,21 +1458,21 @@ class Reform(TimeStampedModel):
     motivo = models.TextField(blank=True, default='')
     resolucion = models.CharField(max_length=200, blank=True, default='')
     documento = models.ForeignKey(
-        'budget.BudgetDocument', null=True, blank=True,
+        'budget.DocumentoPresupuestario', null=True, blank=True,
         on_delete=models.SET_NULL, related_name='reformulaciones',
     )
     version_origen = models.ForeignKey(
-        DistributionVersion, null=True, blank=True,
+        DistribucionVersion, null=True, blank=True,
         on_delete=models.SET_NULL, related_name='reforms_origen',
         help_text='Versión de distribución sobre la que opera (la fijada).',
     )
     version_resultante = models.ForeignKey(
-        DistributionVersion, null=True, blank=True,
+        DistribucionVersion, null=True, blank=True,
         on_delete=models.SET_NULL, related_name='reforms_resultantes',
         help_text=(
             'Versión resultante. Fase 10: se deja NULL (la reformulación '
             'opera directamente sobre las filas existentes; el histórico '
-            'queda en ReformMovement + EventoAuditoria).'
+            'queda en ReformaMovimiento + EventoAuditoria).'
         ),
     )
     solicitada_por = models.ForeignKey(
@@ -1448,28 +1502,28 @@ class Reform(TimeStampedModel):
         )
 
 
-class ReformMovement(TimeStampedModel):
+class ReformaMovimiento(TimeStampedModel):
     """Movimiento de una reformulación (línea del documento, §92-97).
 
-    `saldo_antes`/`saldo_despues` registran el saldo del AllocationSource
+    `saldo_antes`/`saldo_despues` registran el saldo del AperturaFuente
     ORIGEN antes/después del movimiento (para INCREMENTO, sin origen, los
-    del AllocationSource DESTINO): ese par ES el histórico del saldo
+    del AperturaFuente DESTINO): ese par ES el histórico del saldo
     efectivo (decisión Fase 10 — no se duplican filas de fuentes).
     """
 
     reform = models.ForeignKey(
-        Reform, on_delete=models.CASCADE, related_name='movimientos',
+        Reforma, on_delete=models.CASCADE, related_name='movimientos',
     )
     tipo = models.CharField(
         max_length=20, choices=TipoMovimientoReform.CHOICES,
     )
     apertura_origen = models.ForeignKey(
-        Allocation, null=True, blank=True,
+        Apertura, null=True, blank=True,
         on_delete=models.PROTECT, related_name='movimientos_reform_origen',
         help_text='Apertura que cede saldo (TRASPASO/DISMINUCION/CAMBIO_FUENTE).',
     )
     apertura_destino = models.ForeignKey(
-        Allocation, null=True, blank=True,
+        Apertura, null=True, blank=True,
         on_delete=models.PROTECT, related_name='movimientos_reform_destino',
         help_text='Apertura que recibe saldo (TRASPASO/INCREMENTO).',
     )
@@ -1487,11 +1541,11 @@ class ReformMovement(TimeStampedModel):
     )
     saldo_antes = models.DecimalField(
         max_digits=18, decimal_places=2, null=True, blank=True,
-        help_text='Saldo del AllocationSource de origen (destino si INCREMENTO) antes.',
+        help_text='Saldo del AperturaFuente de origen (destino si INCREMENTO) antes.',
     )
     saldo_despues = models.DecimalField(
         max_digits=18, decimal_places=2, null=True, blank=True,
-        help_text='Saldo del AllocationSource de origen (destino si INCREMENTO) después.',
+        help_text='Saldo del AperturaFuente de origen (destino si INCREMENTO) después.',
     )
     motivo = models.CharField(max_length=300, blank=True, default='')
 

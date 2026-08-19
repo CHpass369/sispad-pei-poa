@@ -6,7 +6,7 @@ import { TerritorialComponent } from './territorial.component';
 import {
   BudgetService,
   FiscalYear,
-  TerritorialDistribution,
+  DistribucionTerritorial,
 } from './budget.service';
 import { MonedaPipe } from './moneda.pipe';
 
@@ -21,7 +21,7 @@ describe('TerritorialComponent', () => {
     fecha_apertura: null, fecha_cierre: null, activa: true, gestion_anterior: null,
   };
 
-  const calculada: TerritorialDistribution = {
+  const calculada: DistribucionTerritorial = {
     id: 1, gestion: '2030', gestion_anio: 2030, version: null,
     fuente: 'fuente-1',
     fuente_detalle: { codigo: '11', denominacion: 'Tesoro General' },

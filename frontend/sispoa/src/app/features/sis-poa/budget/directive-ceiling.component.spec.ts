@@ -5,9 +5,9 @@ import { RouterTestingModule } from '@angular/router/testing';
 import { of } from 'rxjs';
 import {
   BudgetService,
-  CeilingResource,
+  RecursoTecho,
   Composition,
-  DirectiveCeiling,
+  TechoDirectivo,
 } from './budget.service';
 import { PermissionsService } from '../../../core/services/permissions.service';
 import { DirectiveCeilingComponent } from './directive-ceiling.component';
@@ -28,7 +28,7 @@ const composicionMock: Composition = {
   por_fuente: [{ fuente: '11', denominacion: 'Tesoro General', monto: '1000000.00' }],
 };
 
-const recursoMock: CeilingResource = {
+const recursoMock: RecursoTecho = {
   id: 1,
   version: 1,
   origen: 'SIGEP',
@@ -47,7 +47,7 @@ const recursoMock: CeilingResource = {
   documento_nombre: null,
 };
 
-const techoMock: DirectiveCeiling = {
+const techoMock: TechoDirectivo = {
   id: 7,
   gestion: 'g1',
   gestion_anio: 2027,
@@ -158,7 +158,7 @@ describe('DirectiveCeilingComponent', () => {
   });
 
   it('should show approve/observe in EN_REVISION and freeze in APROBADO', () => {
-    const enRevision: DirectiveCeiling = {
+    const enRevision: TechoDirectivo = {
       ...techoMock,
       estado: 'EN_REVISION',
       estado_display: 'En revisión',
@@ -172,7 +172,7 @@ describe('DirectiveCeilingComponent', () => {
     expect(botones).toContain('Aprobar');
     expect(botones).toContain('Observar');
 
-    const aprobado: DirectiveCeiling = {
+    const aprobado: TechoDirectivo = {
       ...enRevision,
       estado: 'APROBADO',
       estado_display: 'Aprobado',
@@ -188,7 +188,7 @@ describe('DirectiveCeilingComponent', () => {
   });
 
   it('should call fijarTecho and refresh on freeze', () => {
-    const aprobado: DirectiveCeiling = {
+    const aprobado: TechoDirectivo = {
       ...techoMock,
       estado: 'APROBADO',
       estado_display: 'Aprobado',

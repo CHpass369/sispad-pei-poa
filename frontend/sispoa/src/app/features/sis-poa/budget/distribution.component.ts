@@ -1,15 +1,15 @@
 import { Component, OnInit } from '@angular/core';
 import {
-  Allocation,
+  Apertura,
   ApiErrorResponse,
   BudgetService,
   CatalogoOpciones,
   DistributionSummary,
-  DistributionVersion,
+  DistribucionVersion,
   ExpenseObject,
   FiscalYear,
-  ProgrammaticCategory,
-  Reserve,
+  CategoriaProgramaticaTecho,
+  Reserva,
   ResumenApertura,
   ValidacionDistribucion,
 } from './budget.service';
@@ -61,10 +61,10 @@ export class DistributionComponent implements OnInit {
   gestiones: FiscalYear[] = [];
   gestionSeleccionada: string | null = null;
   resumen: DistributionSummary | null = null;
-  aperturas: Allocation[] = [];
-  reservas: Reserve[] = [];
-  versiones: DistributionVersion[] = [];
-  categorias: ProgrammaticCategory[] = [];
+  aperturas: Apertura[] = [];
+  reservas: Reserva[] = [];
+  versiones: DistribucionVersion[] = [];
+  categorias: CategoriaProgramaticaTecho[] = [];
   opciones: CatalogoOpciones | null = null;
 
   cargando = false;
@@ -72,7 +72,7 @@ export class DistributionComponent implements OnInit {
   error = '';
   mensaje = '';
   mostrarFormulario = false;
-  editando: Allocation | null = null;
+  editando: Apertura | null = null;
 
   nueva = {
     denominacion: '',
@@ -100,7 +100,7 @@ export class DistributionComponent implements OnInit {
   observacionTexto = '';
 
   // -- Objetos del gasto por apertura (Fase 9) ------------------------------
-  aperturaSeleccionada: Allocation | null = null;
+  aperturaSeleccionada: Apertura | null = null;
   objetosGasto: ExpenseObject[] = [];
   resumenApertura: ResumenApertura | null = null;
   formObjeto = { objeto_gasto: null as string | null, monto: null as number | null };
@@ -183,7 +183,7 @@ export class DistributionComponent implements OnInit {
     this.filasFuentes = [{ fuente: '', organismo: '', monto: null }];
   }
 
-  editar(a: Allocation): void {
+  editar(a: Apertura): void {
     this.mostrarFormulario = true;
     this.editando = a;
     this.error = '';
@@ -266,7 +266,7 @@ export class DistributionComponent implements OnInit {
     });
   }
 
-  eliminar(a: Allocation): void {
+  eliminar(a: Apertura): void {
     if (!window.confirm(`¿Eliminar la apertura "${a.denominacion}"?`)) return;
     this.service.eliminarApertura(a.id).subscribe({
       next: () => {
@@ -277,7 +277,7 @@ export class DistributionComponent implements OnInit {
     });
   }
 
-  cerrar(a: Allocation): void {
+  cerrar(a: Apertura): void {
     if (!window.confirm(`¿Cerrar la apertura "${a.denominacion}"?`)) return;
     this.service.cerrarApertura(a.id).subscribe({
       next: () => {
@@ -318,7 +318,7 @@ export class DistributionComponent implements OnInit {
     });
   }
 
-  liberar(r: Reserve): void {
+  liberar(r: Reserva): void {
     if (!window.confirm(`¿Liberar la reserva de ${r.monto}?`)) return;
     this.service.liberarReserva(r.id).subscribe({
       next: () => {
@@ -332,7 +332,7 @@ export class DistributionComponent implements OnInit {
   // -- Fijación de la distribución (Fase 7) ---------------------------------
 
   /** Versión editable de mayor número (la no fijada); null si está fijada. */
-  versionActiva(): DistributionVersion | null {
+  versionActiva(): DistribucionVersion | null {
     return this.versiones.find((v) => !v.inmutable) ?? null;
   }
 
@@ -418,7 +418,7 @@ export class DistributionComponent implements OnInit {
     });
   }
 
-  ajustar(v: DistributionVersion): void {
+  ajustar(v: DistribucionVersion): void {
     if (!window.confirm(`¿Crear la versión ${v.numero + 1} (BORRADOR) a partir de la fijada v${v.numero}?`)) return;
     this.service.ajusteDistribucion(v.id).subscribe({
       next: () => {
@@ -466,7 +466,7 @@ export class DistributionComponent implements OnInit {
   // -- Objetos del gasto por apertura (Fase 9, §90-91) ----------------------
 
   /** Selecciona/deselecciona una apertura y carga su panel de objetos. */
-  seleccionarApertura(a: Allocation): void {
+  seleccionarApertura(a: Apertura): void {
     if (this.aperturaSeleccionada?.id === a.id) {
       this.aperturaSeleccionada = null;
       this.objetosGasto = [];

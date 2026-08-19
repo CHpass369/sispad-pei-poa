@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { BudgetService, DirectiveCeiling } from '../sis-poa/budget/budget.service';
+import { BudgetService, TechoDirectivo } from '../sis-poa/budget/budget.service';
 
 interface FilaDistribucion {
   gestion: number;
@@ -17,7 +17,7 @@ interface FilaDistribucion {
     <div class="distribucion-lista">
       <div class="page-header">
         <h2>Distribución de Techos</h2>
-        <p class="text-secondary">Desglose por fuente de financiamiento (composición de DirectiveCeiling)</p>
+        <p class="text-secondary">Desglose por fuente de financiamiento (composición de TechoDirectivo)</p>
       </div>
 
       <!-- Gestión Filter -->
@@ -143,7 +143,7 @@ export class DistribucionListaComponent implements OnInit {
     });
   }
 
-  private flatMap(techos: DirectiveCeiling[]): FilaDistribucion[] {
+  private flatMap(techos: TechoDirectivo[]): FilaDistribucion[] {
     const filas: FilaDistribucion[] = [];
     for (const t of techos) {
       const porFuente = t.composicion?.por_fuente ?? [];

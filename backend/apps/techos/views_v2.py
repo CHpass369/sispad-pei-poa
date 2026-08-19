@@ -3,7 +3,7 @@
 Contrato explícito sobre el modelo legacy TechoPresupuestario (plan §13.3).
 
 DEPRECADA (TASK PIP-POA-001): la fuente canónica de techos directivos es
-`budget.DirectiveCeiling` (`/api/v2/sis-poa/budget/directive-ceilings/`,
+`budget.TechoDirectivo` (`/api/v2/sis-poa/budget/directive-ceilings/`,
 ADR-005). Esta ruta responde con headers de deprecación blanda (RFC 8594) y
 NO se retira hasta el Sunset documentado en `docs/refactor-pip/
 LEGACY_DEPRECATION.md`. No tocar V1 ni `apps.budget`.

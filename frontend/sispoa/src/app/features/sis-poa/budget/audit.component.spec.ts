@@ -34,7 +34,7 @@ describe('AuditComponent', () => {
     usuario_nombre: 'Admin Test',
     accion: 'crear',
     accion_display: 'Creación',
-    entidad: 'Allocation',
+    entidad: 'Apertura',
     entidad_display: 'Apertura programática',
     entidad_id: '42',
     version: 1,
@@ -51,7 +51,7 @@ describe('AuditComponent', () => {
     id: 'e2',
     accion: 'aprobar',
     accion_display: 'Aprobación',
-    entidad: 'DirectiveCeilingVersion',
+    entidad: 'TechoVersion',
     entidad_display: 'Techo directivo',
     resumen: 'Techo directivo fijado v1 (gestión 2026)',
   };

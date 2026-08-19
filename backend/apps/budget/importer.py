@@ -5,7 +5,7 @@ Flujo (staging, nunca aplicar directo — decisión 13 del plan de implementaci�
     1. `parsear_libro`      — lee la planilla, detecta el header (puede estar
                               desplazado: logos, títulos, filas vacías, celdas
                               combinadas), clasifica las filas (P/SP/TS/T) y
-                              construye `ImportDetalle` con datos normalizados.
+                              construye `ImportacionDetalle` con datos normalizados.
     2. `validar_importacion`— severidades INFO/WARNING/ERROR/CRITICAL por fila;
                               con ERROR/CRITICAL la importación NO pasa a
                               VALIDADO (queda en STAGING con los hallazgos).
@@ -43,14 +43,14 @@ from apps.auditoria.services import registrar_evento
 
 from .models import (
     AccionError,
-    Allocation,
-    AllocationSource,
+    Apertura,
+    AperturaFuente,
     ClasificacionFila,
     EstadoApertura,
     EstadoDetalle,
     EstadoImportacion,
-    ImportDetalle,
-    ImportError,
+    ImportacionDetalle,
+    ImportacionError,
     PerfilImportacion,
     SeveridadError,
 )
@@ -352,12 +352,12 @@ def _normalizar_campo(campo, valor, numero_formato=''):
 
 
 def parsear_libro(importacion, workbook, hoja=None, mapeo=None, usuario=None):
-    """Parsea el libro: detecta header, clasifica filas y crea ImportDetalle.
+    """Parsea el libro: detecta header, clasifica filas y crea ImportacionDetalle.
 
     Solo DETAIL/SUBTOTAL/TOTAL se conservan (los headers P/SP y las filas
     vacías se descartan; SUBTOTAL/TOTAL quedan marcados y no generan
     aperturas). Devuelve la importación actualizada (mapeo_json efectivo,
-    hoja_seleccionada). No crea ImportError: eso lo hace `validar_importacion`.
+    hoja_seleccionada). No crea ImportacionError: eso lo hace `validar_importacion`.
     Registra auditoría (importar) con el resultado del parseo (Fase 11).
     """
     columnas_efectivas, fuentes_efectivas = _mapeo_efectivo(importacion, mapeo)
@@ -468,7 +468,7 @@ def parsear_libro(importacion, workbook, hoja=None, mapeo=None, usuario=None):
             'tipos': raw_tipos,
             'formatos': raw_formatos,
         }
-        ImportDetalle.objects.create(
+        ImportacionDetalle.objects.create(
             importacion=importacion,
             fila=num_fila,
             clasificacion=clasificacion,
@@ -488,7 +488,7 @@ def parsear_libro(importacion, workbook, hoja=None, mapeo=None, usuario=None):
     registrar_auditoria(
         usuario,
         'IMPORT',
-        'BudgetImport',
+        'Importacion',
         importacion.id,
         {'hoja': None, 'detalles': 0},
         {
@@ -512,7 +512,7 @@ def parsear_libro(importacion, workbook, hoja=None, mapeo=None, usuario=None):
 
 def _crear_error(importacion, detalle, severidad, mensaje, campo='',
                  valor_original='', valor_normalizado='', accion=None):
-    return ImportError.objects.create(
+    return ImportacionError.objects.create(
         importacion=importacion,
         detalle=detalle,
         fila=detalle.fila if detalle else 0,
@@ -535,9 +535,9 @@ def _fuentes_codigos_validos(importacion):
 
 
 def _codigos_programaticos(importacion):
-    from .models import ProgrammaticCategory
+    from .models import CategoriaProgramaticaTecho
     return set(
-        ProgrammaticCategory.objects
+        CategoriaProgramaticaTecho.objects
         .filter(gestion=importacion.gestion)
         .values_list('codigo', flat=True)
     )
@@ -549,11 +549,11 @@ def _nombres_distritos():
 
 
 def validar_importacion(importacion, usuario=None):
-    """Valida los detalles DETAIL y crea ImportError por hallazgo.
+    """Valida los detalles DETAIL y crea ImportacionError por hallazgo.
 
     Severidades:
         CRITICAL — monto negativo, fuente inexistente en catálogos, programa/
-                   subprograma inexistente en ProgrammaticCategory, error de
+                   subprograma inexistente en CategoriaProgramaticaTecho, error de
                    Excel o monto no numérico.
         ERROR    — denominación vacía, duplicado (sisin+actividad+denominacion).
         WARNING  — distrito no encontrado, códigos numéricos (ceros perdidos),
@@ -741,7 +741,7 @@ def validar_importacion(importacion, usuario=None):
     registrar_auditoria(
         usuario,
         'UPDATE',
-        'BudgetImport',
+        'Importacion',
         importacion.id,
         {'estado': (
             EstadoImportacion.STAGING
@@ -785,7 +785,7 @@ def aplicar_importacion(importacion, usuario):
     Requisito: sin errores CRITICAL sin resolver (la validación los marca).
     """
     from apps.catalogos.models import FuenteFinanciamiento
-    from .models import ProgrammaticCategory
+    from .models import CategoriaProgramaticaTecho
 
     criticos = importacion.errores.filter(
         severidad=SeveridadError.CRITICAL, resuelto=False,
@@ -822,13 +822,13 @@ def aplicar_importacion(importacion, usuario):
         distrito_obj = distritos.get(distrito.lower()) if distrito else None
         programa = normalizar_codigo(datos.get('programa'))
         categoria = (
-            ProgrammaticCategory.objects
+            CategoriaProgramaticaTecho.objects
             .filter(gestion=gestion, codigo=programa)
             .first()
             if programa else None
         )
 
-        allocation = Allocation.objects.create(
+        allocation = Apertura.objects.create(
             gestion=gestion,
             version=version,
             distrito=distrito_obj,
@@ -842,7 +842,7 @@ def aplicar_importacion(importacion, usuario):
             updated_by=usuario,
         )
         # Montos por fuente (CT e IDH pueden mapear al mismo código de
-        # catálogo → se suman en una sola fila AllocationSource).
+        # catálogo → se suman en una sola fila AperturaFuente).
         por_fuente = {}
         for campo_monto in ('ct', 're', 'ore', 'idh', 'tgn'):
             monto = _decimal(datos, campo_monto)
@@ -858,7 +858,7 @@ def aplicar_importacion(importacion, usuario):
                 )
             por_fuente[fuente] = por_fuente.get(fuente, Decimal('0.00')) + monto
         for fuente, monto in por_fuente.items():
-            AllocationSource.objects.create(
+            AperturaFuente.objects.create(
                 allocation=allocation,
                 fuente=fuente,
                 monto=monto,
@@ -873,7 +873,7 @@ def aplicar_importacion(importacion, usuario):
     registrar_evento(
         usuario,
         EventoAuditoria.Accion.CREAR,
-        'BudgetImport',
+        'Importacion',
         importacion.id,
         resumen=(
             f'Importación "{importacion.filename}" aplicada: {creadas} '

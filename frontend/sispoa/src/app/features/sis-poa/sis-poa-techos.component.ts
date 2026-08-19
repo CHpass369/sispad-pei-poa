@@ -3,7 +3,7 @@ import { PermissionsService } from '../../core/services/permissions.service';
 import {
   BudgetService,
   DetalleCatalogo,
-  DirectiveCeiling,
+  TechoDirectivo,
   FiscalYear,
 } from './budget/budget.service';
 
@@ -20,7 +20,7 @@ const ORIGENES = [
   template: `
     <div class="page-header">
       <h2>Techos Presupuestarios</h2>
-      <p class="text-secondary">Límites de programación por gestión (DirectiveCeiling)</p>
+      <p class="text-secondary">Límites de programación por gestión (TechoDirectivo)</p>
     </div>
     @if (error) {
       <div class="alert alert-error">{{ error }}</div>
@@ -118,7 +118,7 @@ const ORIGENES = [
   `],
 })
 export class SisPoaTechosComponent implements OnInit {
-  techos: DirectiveCeiling[] = [];
+  techos: TechoDirectivo[] = [];
   gestiones: FiscalYear[] = [];
   fuentes: DetalleCatalogo[] = [];
   cargando = true;
@@ -202,7 +202,7 @@ export class SisPoaTechosComponent implements OnInit {
     });
   }
 
-  eliminar(techo: DirectiveCeiling): void {
+  eliminar(techo: TechoDirectivo): void {
     if (!confirm(`¿Eliminar el techo directivo de la gestión ${techo.gestion_anio}?`)) return;
     this.service.eliminarTecho(techo.id).subscribe({
       next: () => { this.mensaje = 'Techo eliminado'; this.cargar(); },
@@ -214,11 +214,11 @@ export class SisPoaTechosComponent implements OnInit {
     this.form = { gestion: null, origen: 'SIGEP', monto: null, fuente: null };
   }
 
-  montoBruto(techo: DirectiveCeiling): string {
+  montoBruto(techo: TechoDirectivo): string {
     return techo.composicion?.techo_bruto ?? '0.00';
   }
 
-  fuentesDe(techo: DirectiveCeiling): string {
+  fuentesDe(techo: TechoDirectivo): string {
     const porFuente = techo.composicion?.por_fuente ?? [];
     return porFuente.length
       ? porFuente.map(f => f.fuente).join(', ')

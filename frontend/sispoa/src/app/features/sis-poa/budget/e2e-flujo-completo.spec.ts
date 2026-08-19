@@ -8,18 +8,18 @@ import { FormsModule } from '@angular/forms';
 import { RouterTestingModule } from '@angular/router/testing';
 import { PermissionsService } from '../../../core/services/permissions.service';
 import {
-  Allocation,
+  Apertura,
   CatalogoOpciones,
-  CeilingResource,
+  RecursoTecho,
   Composition,
-  DirectiveCeiling,
-  DirectiveCeilingVersion,
+  TechoDirectivo,
+  TechoVersion,
   DistributionSummary,
-  DistributionVersion,
+  DistribucionVersion,
   FiscalYear,
-  MandatoryExpense,
-  ProgrammaticCategory,
-  Reserve,
+  GastoObligatorio,
+  CategoriaProgramaticaTecho,
+  Reserva,
   ValidacionDistribucion,
 } from './budget.service';
 import { FiscalYearComponent } from './fiscal-year.component';
@@ -90,7 +90,7 @@ describe('E2E UI: flujo completo presupuestario', () => {
     ],
   });
 
-  const recursoSIGEP: CeilingResource = {
+  const recursoSIGEP: RecursoTecho = {
     id: 1,
     version: 1,
     origen: 'SIGEP',
@@ -109,7 +109,7 @@ describe('E2E UI: flujo completo presupuestario', () => {
     documento_nombre: null,
   };
 
-  const gastoObligatorio: MandatoryExpense = {
+  const gastoObligatorio: GastoObligatorio = {
     id: 1,
     version: 1,
     da: null,
@@ -134,9 +134,9 @@ describe('E2E UI: flujo completo presupuestario', () => {
   const versionTecho = (
     estado: string,
     inmutable: boolean,
-    recursos: CeilingResource[],
-    gastos: MandatoryExpense[],
-  ): DirectiveCeilingVersion => ({
+    recursos: RecursoTecho[],
+    gastos: GastoObligatorio[],
+  ): TechoVersion => ({
     id: 1,
     numero: 1,
     estado,
@@ -153,9 +153,9 @@ describe('E2E UI: flujo completo presupuestario', () => {
 
   const techoMock = (
     estado: string,
-    version: DirectiveCeilingVersion,
+    version: TechoVersion,
     composicion: Composition,
-  ): DirectiveCeiling => ({
+  ): TechoDirectivo => ({
     id: 7,
     gestion: '2027',
     gestion_anio: 2027,
@@ -170,7 +170,7 @@ describe('E2E UI: flujo completo presupuestario', () => {
 
   // -- Fixtures: distribución presupuestaria (Fase 4 / 7) --------------------
 
-  const versionDist = (estado: string, inmutable = false): DistributionVersion => ({
+  const versionDist = (estado: string, inmutable = false): DistribucionVersion => ({
     id: 1,
     gestion: '2027',
     gestion_anio: 2027,
@@ -212,7 +212,7 @@ describe('E2E UI: flujo completo presupuestario', () => {
     ],
   });
 
-  const aperturaMock: Allocation = {
+  const aperturaMock: Apertura = {
     id: 1,
     gestion: '2027',
     gestion_anio: 2027,
@@ -248,7 +248,7 @@ describe('E2E UI: flujo completo presupuestario', () => {
     total: '1000000.00',
   };
 
-  const reservaMock: Reserve = {
+  const reservaMock: Reserva = {
     id: 1,
     gestion: '2027',
     gestion_anio: 2027,
@@ -293,7 +293,7 @@ describe('E2E UI: flujo completo presupuestario', () => {
 
   // -- Fixtures: categorías programáticas (Fase 3) ---------------------------
 
-  const catPrograma: ProgrammaticCategory = {
+  const catPrograma: CategoriaProgramaticaTecho = {
     id: 1,
     gestion: 2027,
     codigo: '09',
@@ -305,7 +305,7 @@ describe('E2E UI: flujo completo presupuestario', () => {
     codigo_compuesto: '09',
   };
 
-  const catSubprograma: ProgrammaticCategory = {
+  const catSubprograma: CategoriaProgramaticaTecho = {
     id: 2,
     gestion: 2027,
     codigo: '010',
@@ -695,9 +695,9 @@ describe('E2E UI: flujo completo presupuestario', () => {
     //    y submit → approve → freeze
     // ===================================================================
     // Estado mutable del backend simulado.
-    let versionesDist: DistributionVersion[] = [];
-    let aperturas: Allocation[] = [];
-    let reservas: Reserve[] = [];
+    let versionesDist: DistribucionVersion[] = [];
+    let aperturas: Apertura[] = [];
+    let reservas: Reserva[] = [];
     let resumenActual = resumenDist('0.00', '0.00', '238826101.00', 0, 0);
 
     function flushCargaDistribucion(): void {

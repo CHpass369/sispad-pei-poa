@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { BudgetService, DirectiveCeiling } from '../sis-poa/budget/budget.service';
+import { BudgetService, TechoDirectivo } from '../sis-poa/budget/budget.service';
 
 @Component({
   standalone: false,
@@ -8,7 +8,7 @@ import { BudgetService, DirectiveCeiling } from '../sis-poa/budget/budget.servic
     <div class="techo-lista">
       <div class="page-header">
         <h2>Techos Presupuestarios</h2>
-        <p class="text-secondary">Techos directivos por gestión (fuente canónica DirectiveCeiling)</p>
+        <p class="text-secondary">Techos directivos por gestión (fuente canónica TechoDirectivo)</p>
       </div>
 
       <!-- Gestión Filter -->
@@ -102,7 +102,7 @@ import { BudgetService, DirectiveCeiling } from '../sis-poa/budget/budget.servic
 export class TechoListaComponent implements OnInit {
   gestion = 0;
   gestiones: number[] = [];
-  items: DirectiveCeiling[] | null = null;
+  items: TechoDirectivo[] | null = null;
   error = '';
 
   constructor(private service: BudgetService) {}
@@ -140,19 +140,19 @@ export class TechoListaComponent implements OnInit {
     });
   }
 
-  montoBruto(t: DirectiveCeiling): string {
+  montoBruto(t: TechoDirectivo): string {
     return t.composicion?.techo_bruto ?? '0.00';
   }
 
-  montoObligatorio(t: DirectiveCeiling): string {
+  montoObligatorio(t: TechoDirectivo): string {
     return t.composicion?.gastos_obligatorios ?? '0.00';
   }
 
-  montoDistribuible(t: DirectiveCeiling): string {
+  montoDistribuible(t: TechoDirectivo): string {
     return t.composicion?.techo_distribuible ?? '0.00';
   }
 
-  fuentesDe(t: DirectiveCeiling): string {
+  fuentesDe(t: TechoDirectivo): string {
     const porFuente = t.composicion?.por_fuente ?? [];
     return porFuente.length
       ? porFuente.map(f => f.fuente).join(', ')

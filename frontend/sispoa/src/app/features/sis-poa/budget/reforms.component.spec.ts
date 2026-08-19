@@ -4,10 +4,10 @@ import { FormsModule } from '@angular/forms';
 import { of, throwError } from 'rxjs';
 import { ReformsComponent } from './reforms.component';
 import {
-  Allocation,
+  Apertura,
   BudgetService,
   FiscalYear,
-  Reform,
+  Reforma,
 } from './budget.service';
 import { MonedaPipe } from './moneda.pipe';
 
@@ -22,7 +22,7 @@ describe('ReformsComponent', () => {
     fecha_apertura: null, fecha_cierre: null, activa: true, gestion_anterior: null,
   };
 
-  const aperturaA: Allocation = {
+  const aperturaA: Apertura = {
     id: 1, gestion: '2030', gestion_anio: 2030, version: 1, orden: 0,
     unidad_organizacional: null, unidad_detalle: null, distrito: null,
     distrito_detalle: null, da: null, da_detalle: null, ue: null, ue_detalle: null,
@@ -37,7 +37,7 @@ describe('ReformsComponent', () => {
     total: '1000.00',
   };
 
-  const aperturaB: Allocation = {
+  const aperturaB: Apertura = {
     ...aperturaA, id: 2, denominacion: 'Apertura B', total: '300.00',
   };
 
@@ -50,7 +50,7 @@ describe('ReformsComponent', () => {
     RECHAZADA: 'Rechazada',
   };
 
-  const reform = (estado: string): Reform => ({
+  const reform = (estado: string): Reforma => ({
     id: 1, gestion: '2030', gestion_anio: 2030, tipo: 'TRASPASO',
     tipo_display: 'Traspaso entre aperturas', estado,
     estado_display: DISPLAY[estado], motivo: 'Reasignación', resolucion: '',

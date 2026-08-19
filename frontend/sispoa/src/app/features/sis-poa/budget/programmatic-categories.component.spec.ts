@@ -3,14 +3,14 @@ import { HttpClientTestingModule } from '@angular/common/http/testing';
 import { FormsModule } from '@angular/forms';
 import { of, throwError } from 'rxjs';
 import { ProgrammaticCategoriesComponent } from './programmatic-categories.component';
-import { BudgetService, ProgrammaticCategory } from './budget.service';
+import { BudgetService, CategoriaProgramaticaTecho } from './budget.service';
 
 describe('ProgrammaticCategoriesComponent', () => {
   let component: ProgrammaticCategoriesComponent;
   let fixture: ComponentFixture<ProgrammaticCategoriesComponent>;
   let serviceSpy: jasmine.SpyObj<BudgetService>;
 
-  const cat: ProgrammaticCategory = {
+  const cat: CategoriaProgramaticaTecho = {
     id: 1, gestion: 2027, codigo: '097', denominacion: 'Salud',
     nivel: 'PROGRAMA', nivel_display: 'Programa', parent: null,
     estado: 'ACTIVA', codigo_compuesto: '097',

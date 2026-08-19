@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import {
   ApiErrorResponse,
-  BudgetImport,
+  Importacion,
   BudgetService,
   CAMPOS_IMPORTACION,
   FiscalYear,
@@ -66,8 +66,8 @@ export class ImportsComponent implements OnInit {
   gestionSeleccionada: string | null = null;
   perfil = 'PIP_GASTOS_HISTORICO';
   archivo: File | null = null;
-  importacion: BudgetImport | null = null;
-  importaciones: BudgetImport[] = [];
+  importacion: Importacion | null = null;
+  importaciones: Importacion[] = [];
 
   hojas: string[] = [];
   hojaSeleccionada = '';

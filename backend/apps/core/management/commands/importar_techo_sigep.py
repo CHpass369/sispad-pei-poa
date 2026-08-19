@@ -29,11 +29,11 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from apps.budget.models import (
-    CeilingResource,
-    DirectiveCeiling,
-    DirectiveCeilingVersion,
+    RecursoTecho,
+    TechoDirectivo,
+    TechoVersion,
     EstadosTecho,
-    MandatoryExpense,
+    GastoObligatorio,
     OrigenRecurso,
 )
 from apps.budget.services import (
@@ -241,7 +241,7 @@ class Command(BaseCommand):
             )
             return None, None
 
-        ceiling = DirectiveCeiling.objects.filter(gestion=gestion).first()
+        ceiling = TechoDirectivo.objects.filter(gestion=gestion).first()
         if ceiling is None:
             if self.dry_run:
                 self.stdout.write(
@@ -249,12 +249,12 @@ class Command(BaseCommand):
                     'versión 1.'
                 )
                 return None, None
-            ceiling = DirectiveCeiling.objects.create(
+            ceiling = TechoDirectivo.objects.create(
                 gestion=gestion,
                 estado=EstadosTecho.BORRADOR,
                 version_actual=1,
             )
-            DirectiveCeilingVersion.objects.create(
+            TechoVersion.objects.create(
                 ceiling=ceiling,
                 numero=1,
                 estado=EstadosTecho.BORRADOR,
@@ -265,7 +265,7 @@ class Command(BaseCommand):
             ))
             return ceiling, ceiling.versiones.get(numero=1)
 
-        version = DirectiveCeilingVersion.objects.filter(
+        version = TechoVersion.objects.filter(
             ceiling=ceiling, numero=ceiling.version_actual
         ).first()
         if version is None:
@@ -358,7 +358,7 @@ class Command(BaseCommand):
                     f'({dato["monto"]:.2f} Bs).'
                 )
                 continue
-            _, creado = CeilingResource.objects.update_or_create(
+            _, creado = RecursoTecho.objects.update_or_create(
                 version=version,
                 origen=OrigenRecurso.SIGEP,
                 rubro=rubro,
@@ -395,7 +395,7 @@ class Command(BaseCommand):
                     f'({dato["monto"]:.2f} Bs).'
                 )
                 continue
-            _, creado = MandatoryExpense.objects.update_or_create(
+            _, creado = GastoObligatorio.objects.update_or_create(
                 version=version,
                 programa=dato['programa'],
                 denominacion=dato['denominacion'],

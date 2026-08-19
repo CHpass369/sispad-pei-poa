@@ -4,10 +4,10 @@ import { FormsModule } from '@angular/forms';
 import { of, throwError } from 'rxjs';
 import { DistributionComponent } from './distribution.component';
 import {
-  Allocation,
+  Apertura,
   BudgetService,
   DistributionSummary,
-  DistributionVersion,
+  DistribucionVersion,
   ExpenseObject,
   FiscalYear,
   ResumenApertura,
@@ -41,7 +41,7 @@ describe('DistributionComponent', () => {
     }],
   };
 
-  const apertura: Allocation = {
+  const apertura: Apertura = {
     id: 1, gestion: '2030', gestion_anio: 2030, version: 1, orden: 0,
     unidad_organizacional: null, unidad_detalle: null, distrito: null,
     distrito_detalle: null, da: null, da_detalle: null, ue: null, ue_detalle: null,
@@ -52,7 +52,7 @@ describe('DistributionComponent', () => {
     total: '1000.00',
   };
 
-  const version = (estado: string, inmutable = false): DistributionVersion => ({
+  const version = (estado: string, inmutable = false): DistribucionVersion => ({
     id: 1, gestion: '2030', gestion_anio: 2030, numero: 1,
     estado, estado_display: estado, hash: inmutable ? 'a'.repeat(64) : '',
     fecha_fijacion: null, fijado_por: null, fijado_por_email: null,

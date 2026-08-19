@@ -12,10 +12,10 @@ from django.db import transaction
 
 try:
     import openpyxl
-except ImportError:  # pragma: no cover - reported as a command error
+except ImportacionError:  # pragma: no cover - reported as a command error
     openpyxl = None
 
-from .models import EstadoCategoria, NivelCategoria, ProgrammaticCategory
+from .models import EstadoCategoria, NivelCategoria, CategoriaProgramaticaTecho
 
 
 EXPECTED_HEADERS = (
@@ -226,7 +226,7 @@ def _defaults(row, parent, path, sheet_name):
 def _existing_state(gestion, rows):
     existing = {
         category.codigo: category
-        for category in ProgrammaticCategory.objects.filter(gestion=gestion)
+        for category in CategoriaProgramaticaTecho.objects.filter(gestion=gestion)
     }
     source_codes = {row.codigo for row in rows}
     return existing, len(set(existing) - source_codes)
@@ -280,7 +280,7 @@ def load_programmatic_categories(gestion, rows, path, sheet_name, commit):
     for row in rows:
         if row.nivel != NivelCategoria.PROGRAMA:
             continue
-        category, _ = ProgrammaticCategory.objects.update_or_create(
+        category, _ = CategoriaProgramaticaTecho.objects.update_or_create(
             gestion=gestion,
             codigo=row.codigo,
             defaults=_defaults(row, None, path, sheet_name),
@@ -290,7 +290,7 @@ def load_programmatic_categories(gestion, rows, path, sheet_name, commit):
         if row.nivel != NivelCategoria.ACTIVIDAD:
             continue
         parent = by_code[row.parent_codigo]
-        ProgrammaticCategory.objects.update_or_create(
+        CategoriaProgramaticaTecho.objects.update_or_create(
             gestion=gestion,
             codigo=row.codigo,
             defaults=_defaults(row, parent, path, sheet_name),

@@ -6,57 +6,57 @@ from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from .views import (
-    AllocationViewSet,
+    AperturaViewSet,
     AuditLogView,
     BudgetControlView,
-    BudgetDocumentViewSet,
-    BudgetImportViewSet,
+    DocumentoPresupuestarioViewSet,
+    ImportacionViewSet,
     CatalogOptionsView,
-    CeilingResourceViewSet,
+    RecursoTechoViewSet,
     CompositionView,
-    DirectiveCeilingViewSet,
+    TechoDirectivoViewSet,
     DistributionDashboardView,
-    DistributionVersionViewSet,
+    DistribucionVersionViewSet,
     ExpenseObjectViewSet,
-    FiscalYearViewSet,
-    MandatoryExpenseViewSet,
-    ProgrammaticCategoryViewSet,
-    ReformViewSet,
-    ReserveViewSet,
-    TerritorialDistributionViewSet,
+    GestionFiscalPresupuestoViewSet,
+    GastoObligatorioViewSet,
+    CategoriaProgramaticaTechoViewSet,
+    ReformaViewSet,
+    ReservaViewSet,
+    DistribucionTerritorialViewSet,
 )
 
 budget_router = DefaultRouter()
-budget_router.register('fiscal-years', FiscalYearViewSet, basename='v2-fiscal-years')
+budget_router.register('fiscal-years', GestionFiscalPresupuestoViewSet, basename='v2-fiscal-years')
 budget_router.register(
-    'directive-ceilings', DirectiveCeilingViewSet,
+    'directive-ceilings', TechoDirectivoViewSet,
     basename='v2-directive-ceilings',
 )
-budget_router.register('resources', CeilingResourceViewSet, basename='v2-budget-resources')
+budget_router.register('resources', RecursoTechoViewSet, basename='v2-budget-resources')
 budget_router.register(
-    'mandatory-expenses', MandatoryExpenseViewSet,
+    'mandatory-expenses', GastoObligatorioViewSet,
     basename='v2-mandatory-expenses',
 )
-budget_router.register('documents', BudgetDocumentViewSet, basename='v2-budget-documents')
+budget_router.register('documents', DocumentoPresupuestarioViewSet, basename='v2-budget-documents')
 budget_router.register(
-    'programmatic-categories', ProgrammaticCategoryViewSet,
+    'programmatic-categories', CategoriaProgramaticaTechoViewSet,
     basename='v2-programmatic-categories',
 )
 budget_router.register(
-    'distributions', DistributionVersionViewSet,
+    'distributions', DistribucionVersionViewSet,
     basename='v2-budget-distributions',
 )
-budget_router.register('allocations', AllocationViewSet, basename='v2-budget-allocations')
+budget_router.register('allocations', AperturaViewSet, basename='v2-budget-allocations')
 budget_router.register(
     'expense-objects', ExpenseObjectViewSet, basename='v2-expense-objects',
 )
-budget_router.register('reserves', ReserveViewSet, basename='v2-budget-reserves')
-budget_router.register('imports', BudgetImportViewSet, basename='v2-budget-imports')
+budget_router.register('reserves', ReservaViewSet, basename='v2-budget-reserves')
+budget_router.register('imports', ImportacionViewSet, basename='v2-budget-imports')
 budget_router.register(
-    'territorial-distributions', TerritorialDistributionViewSet,
+    'territorial-distributions', DistribucionTerritorialViewSet,
     basename='v2-territorial-distributions',
 )
-budget_router.register('reforms', ReformViewSet, basename='v2-budget-reforms')
+budget_router.register('reforms', ReformaViewSet, basename='v2-budget-reforms')
 
 urlpatterns = [
     path(

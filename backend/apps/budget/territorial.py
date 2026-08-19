@@ -48,9 +48,9 @@ from .models import (
     EstadoDistribucionTerritorial,
     EstadoReserva,
     MetodoDistribucion,
-    Reserve,
-    TerritorialAllocation,
-    TerritorialDistribution,
+    Reserva,
+    AsignacionTerritorial,
+    DistribucionTerritorial,
     TipoReserva,
 )
 from .services import (
@@ -201,7 +201,7 @@ def calcular_reparto(distribucion, usuario=None):
     registrar_auditoria(
         usuario,
         'UPDATE',
-        'TerritorialDistribution',
+        'DistribucionTerritorial',
         distribucion.id,
         {'estado': estado_previo, 'distritos': montos_previos},
         {
@@ -265,7 +265,7 @@ def aplicar_reparto(distribucion, usuario):
         raise ErrorDisponibilidad(distribucion.fuente_id, total, saldo)
 
     for a in asignaciones:
-        Reserve.objects.create(
+        Reserva.objects.create(
             gestion=distribucion.gestion,
             version=distribucion.version,
             fuente_id=distribucion.fuente_id,
@@ -284,7 +284,7 @@ def aplicar_reparto(distribucion, usuario):
     registrar_evento(
         usuario,
         EventoAuditoria.Accion.CREAR,
-        'TerritorialDistribution',
+        'DistribucionTerritorial',
         distribucion.id,
         resumen=(
             f'Distribución territorial aplicada: {total} Bs en '
@@ -326,7 +326,7 @@ def liberar_reparto(distribucion, usuario):
         for a in distribucion.asignaciones.select_related('distrito')
     }
     reservas = list(
-        Reserve.objects.filter(
+        Reserva.objects.filter(
             gestion=distribucion.gestion,
             version=distribucion.version,
             tipo=TipoReserva.DISTRITAL,
@@ -349,7 +349,7 @@ def liberar_reparto(distribucion, usuario):
     registrar_evento(
         usuario,
         EventoAuditoria.Accion.MODIFICAR,
-        'TerritorialDistribution',
+        'DistribucionTerritorial',
         distribucion.id,
         resumen=(
             f'Distribución territorial liberada: {total} Bs en '
@@ -425,7 +425,7 @@ def recalcular_reparto(distribucion, datos_distritos, usuario=None):
         if 'monto' in fila:
             campos['monto_calculado'] = fila['monto']
         if asignacion is None:
-            TerritorialAllocation.objects.create(
+            AsignacionTerritorial.objects.create(
                 distribucion=distribucion,
                 distrito_id=distrito_id,
                 poblacion=fila.get('poblacion'),

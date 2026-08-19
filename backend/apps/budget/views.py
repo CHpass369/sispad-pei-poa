@@ -27,6 +27,8 @@ Permisos (ADR-003):
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import OpenApiTypes, extend_schema
+from decimal import Decimal
+
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
@@ -41,34 +43,34 @@ from apps.core.pagination import AuditoriaDualPagination, ImportacionDualPaginat
 from apps.gestion.models import GestionFiscal
 
 from .models import (
-    Allocation,
-    BudgetDocument,
-    CeilingResource,
-    DirectiveCeiling,
-    DirectiveCeilingVersion,
-    DistributionVersion,
-    ExpenseObjectAllocation,
-    MandatoryExpense,
-    ProgrammaticCategory,
-    Reform,
-    Reserve,
-    TerritorialAllocation,
-    TerritorialDistribution,
+    Apertura,
+    DocumentoPresupuestario,
+    RecursoTecho,
+    TechoDirectivo,
+    TechoVersion,
+    DistribucionVersion,
+    AsignacionObjetoGastoTecho,
+    GastoObligatorio,
+    CategoriaProgramaticaTecho,
+    Reforma,
+    Reserva,
+    AsignacionTerritorial,
+    DistribucionTerritorial,
 )
 from .serializers import (
-    AllocationSerializer,
+    AperturaSerializer,
     AuditEventSerializer,
-    BudgetDocumentSerializer,
-    CeilingResourceSerializer,
-    DirectiveCeilingSerializer,
-    DistributionVersionSerializer,
-    ExpenseObjectAllocationSerializer,
-    FiscalYearSerializer,
-    MandatoryExpenseSerializer,
-    ProgrammaticCategorySerializer,
-    ReformSerializer,
-    ReserveSerializer,
-    TerritorialDistributionSerializer,
+    DocumentoPresupuestarioSerializer,
+    RecursoTechoSerializer,
+    TechoDirectivoSerializer,
+    DistribucionVersionSerializer,
+    AsignacionObjetoGastoTechoSerializer,
+    GestionFiscalPresupuestoSerializer,
+    GastoObligatorioSerializer,
+    CategoriaProgramaticaTechoSerializer,
+    ReformaSerializer,
+    ReservaSerializer,
+    DistribucionTerritorialSerializer,
     _serializar_montos,
 )
 from .services import (
@@ -125,14 +127,14 @@ def _respuesta_error(exception):
 
 
 def _version_actual_de(ceiling):
-    return DirectiveCeilingVersion.objects.get(
+    return TechoVersion.objects.get(
         ceiling=ceiling, numero=ceiling.version_actual,
     )
 
 
-class FiscalYearViewSet(viewsets.ModelViewSet):
+class GestionFiscalPresupuestoViewSet(viewsets.ModelViewSet):
     queryset = GestionFiscal.objects.all()
-    serializer_class = FiscalYearSerializer
+    serializer_class = GestionFiscalPresupuestoSerializer
     parser_classes = [MultiPartParser, FormParser, JSONParser]
     filterset_fields = ['anio', 'estado', 'activa']
     search_fields = ['anio', 'descripcion']
@@ -164,9 +166,9 @@ class FiscalYearViewSet(viewsets.ModelViewSet):
 # ---------------------------------------------------------------------------
 # Techo directivo
 # ---------------------------------------------------------------------------
-class DirectiveCeilingViewSet(viewsets.ModelViewSet):
-    queryset = DirectiveCeiling.objects.select_related('gestion').all()
-    serializer_class = DirectiveCeilingSerializer
+class TechoDirectivoViewSet(viewsets.ModelViewSet):
+    queryset = TechoDirectivo.objects.select_related('gestion').all()
+    serializer_class = TechoDirectivoSerializer
     filterset_fields = ['gestion', 'estado']
     search_fields = ['gestion__anio']
 
@@ -184,6 +186,81 @@ class DirectiveCeilingViewSet(viewsets.ModelViewSet):
         except DjangoValidationError as exc:
             return _respuesta_error(exc)
         return Response(self.get_serializer(ceiling).data)
+
+    @action(detail=True, methods=['get'], url_path='presupuesto-recursos')
+    def presupuesto_recursos(self, request, pk=None):
+        """Presupuesto General de Recursos, en la forma del reporte oficial.
+
+        Devuelve los rubros agrupadores con sus componentes anidados y el
+        total general. Los porcentajes se calculan aqui y nunca se guardan:
+        la planilla de origen mostraba #DIV/0! cuando el divisor era cero, y
+        aqui esos casos viajan como null para que la pantalla los muestre
+        como un guion.
+        """
+        techo = self.get_object()
+        version = _version_actual_de(techo)
+
+        def porcentaje(parte, total):
+            if not total:
+                return None
+            return round(parte * Decimal(100) / total, 2)
+
+        def fila(recurso, total_padre=None):
+            return {
+                'id': recurso.id,
+                'concepto': recurso.concepto,
+                'origen': recurso.origen,
+                'fuente': recurso.fuente.codigo if recurso.fuente else '',
+                'organismo': recurso.organismo.codigo if recurso.organismo else '',
+                'ff_of': (
+                    f'{recurso.fuente.codigo}/{recurso.organismo.codigo}'
+                    if recurso.fuente and recurso.organismo else ''
+                ),
+                'monto': recurso.monto,
+                # Un componente se mide contra su grupo; un grupo, contra si mismo.
+                'porcentaje': porcentaje(recurso.monto, total_padre)
+                if total_padre is not None else Decimal('100.00'),
+                'monto_corriente': recurso.monto_corriente,
+                'porcentaje_corriente': recurso.porcentaje_corriente,
+                'monto_inversion': recurso.monto_inversion,
+                'porcentaje_inversion': recurso.porcentaje_inversion,
+                'orden': recurso.orden,
+            }
+
+        rubros = (
+            version.recursos.filter(padre__isnull=True)
+            .select_related('fuente', 'organismo')
+            .prefetch_related('componentes__fuente', 'componentes__organismo')
+            .order_by('orden', 'concepto')
+        )
+
+        filas, total, total_corriente, total_inversion = [], Decimal('0'), Decimal('0'), Decimal('0')
+        for rubro in rubros:
+            datos = fila(rubro)
+            datos['componentes'] = [
+                fila(c, rubro.monto)
+                for c in sorted(rubro.componentes.all(), key=lambda c: (c.orden, c.concepto))
+            ]
+            filas.append(datos)
+            total += rubro.monto
+            total_corriente += rubro.monto_corriente or Decimal('0')
+            total_inversion += rubro.monto_inversion or Decimal('0')
+
+        return Response({
+            'gestion': techo.gestion.anio,
+            'estado': techo.estado,
+            'version': version.numero if hasattr(version, 'numero') else None,
+            'editable': techo.estado in (EstadosTecho.BORRADOR, EstadosTecho.OBSERVADO),
+            'rubros': filas,
+            'total': {
+                'monto': total,
+                'porcentaje': Decimal('100.00') if total else None,
+                'monto_corriente': total_corriente,
+                'porcentaje_corriente': porcentaje(total_corriente, total),
+                'monto_inversion': total_inversion,
+                'porcentaje_inversion': porcentaje(total_inversion, total),
+            },
+        })
 
     @action(detail=True, methods=['post'], url_path='submit')
     def submit(self, request, pk=None):
@@ -226,7 +303,7 @@ class CompositionView(APIView):
     """GET /directive-ceilings/{id}/composition/ → composición del techo."""
 
     def get(self, request, pk):
-        ceiling = get_object_or_404(DirectiveCeiling, pk=pk)
+        ceiling = get_object_or_404(TechoDirectivo, pk=pk)
         return Response(_serializar_montos(composicion_techo(ceiling)))
 
 
@@ -242,7 +319,7 @@ class _VersionMutableMixin:
         version_id = request.data.get('version')
         if not version_id:
             return None
-        return DirectiveCeilingVersion.objects.filter(pk=version_id).first()
+        return TechoVersion.objects.filter(pk=version_id).first()
 
     def create(self, request, *args, **kwargs):
         rechazo = self._rechazo_inmutable(self._version_desde_datos(request))
@@ -263,12 +340,12 @@ class _VersionMutableMixin:
         return super().destroy(request, *args, **kwargs)
 
 
-class CeilingResourceViewSet(_VersionMutableMixin, viewsets.ModelViewSet):
-    queryset = CeilingResource.objects.select_related(
+class RecursoTechoViewSet(_VersionMutableMixin, viewsets.ModelViewSet):
+    queryset = RecursoTecho.objects.select_related(
         'version', 'rubro', 'fuente', 'organismo', 'entidad_otorgante',
         'documento',
     ).all()
-    serializer_class = CeilingResourceSerializer
+    serializer_class = RecursoTechoSerializer
     filterset_fields = ['version', 'origen', 'fuente']
 
     def get_permissions(self):
@@ -277,12 +354,12 @@ class CeilingResourceViewSet(_VersionMutableMixin, viewsets.ModelViewSet):
         return super().get_permissions()
 
 
-class MandatoryExpenseViewSet(_VersionMutableMixin, viewsets.ModelViewSet):
-    queryset = MandatoryExpense.objects.select_related(
+class GastoObligatorioViewSet(_VersionMutableMixin, viewsets.ModelViewSet):
+    queryset = GastoObligatorio.objects.select_related(
         'version', 'da', 'ue', 'fuente', 'organismo', 'objeto_gasto',
         'documento',
     ).all()
-    serializer_class = MandatoryExpenseSerializer
+    serializer_class = GastoObligatorioSerializer
     filterset_fields = ['version', 'fuente', 'programa']
 
     def get_permissions(self):
@@ -291,9 +368,9 @@ class MandatoryExpenseViewSet(_VersionMutableMixin, viewsets.ModelViewSet):
         return super().get_permissions()
 
 
-class BudgetDocumentViewSet(viewsets.ModelViewSet):
-    queryset = BudgetDocument.objects.select_related('gestion').all()
-    serializer_class = BudgetDocumentSerializer
+class DocumentoPresupuestarioViewSet(viewsets.ModelViewSet):
+    queryset = DocumentoPresupuestario.objects.select_related('gestion').all()
+    serializer_class = DocumentoPresupuestarioSerializer
     filterset_fields = ['gestion', 'tipo']
     search_fields = ['nombre']
 
@@ -309,11 +386,11 @@ class BudgetDocumentViewSet(viewsets.ModelViewSet):
 # ---------------------------------------------------------------------------
 # Fase 3 - CategorAas programAticas + catAAlogos para formularios
 # ---------------------------------------------------------------------------
-class ProgrammaticCategoryViewSet(viewsets.ModelViewSet):
+class CategoriaProgramaticaTechoViewSet(viewsets.ModelViewSet):
     """CRUD de categorAas programAticas del ciclo (por gestiA3n)."""
 
-    queryset = ProgrammaticCategory.objects.select_related('parent').all()
-    serializer_class = ProgrammaticCategorySerializer
+    queryset = CategoriaProgramaticaTecho.objects.select_related('parent').all()
+    serializer_class = CategoriaProgramaticaTechoSerializer
     http_method_names = ['get', 'post', 'patch', 'delete']
 
     def get_queryset(self):
@@ -343,7 +420,7 @@ class ProgrammaticCategoryViewSet(viewsets.ModelViewSet):
                 {'error': 'El parAametro ?gestion= es obligatorio.'},
                 status=400,
             )
-        categorias = ProgrammaticCategory.objects.filter(
+        categorias = CategoriaProgramaticaTecho.objects.filter(
             gestion_id=gestion, parent__isnull=True,
         ).order_by('nivel', 'codigo')
 
@@ -373,7 +450,7 @@ class ProgrammaticCategoryViewSet(viewsets.ModelViewSet):
         origen = self.get_object()
         copias = {}
         for cat in [origen, *origen.hijos.order_by('nivel', 'codigo')]:
-            nuevo = ProgrammaticCategory.objects.create(
+            nuevo = CategoriaProgramaticaTecho.objects.create(
                 gestion=destino_obj,
                 codigo=cat.codigo,
                 denominacion=cat.denominacion,
@@ -462,7 +539,7 @@ def _respuesta_exceso_409(exc):
     )
 
 
-class DistributionVersionViewSet(viewsets.ModelViewSet):
+class DistribucionVersionViewSet(viewsets.ModelViewSet):
     """Versiones de distribución: CRUD liviano + ciclo de fijación (Fase 7).
 
     Acciones del ciclo (§51):
@@ -478,10 +555,10 @@ class DistributionVersionViewSet(viewsets.ModelViewSet):
     validate → IsAuthenticated (default global).
     """
 
-    queryset = DistributionVersion.objects.select_related(
+    queryset = DistribucionVersion.objects.select_related(
         'gestion', 'fijado_por',
     ).all()
-    serializer_class = DistributionVersionSerializer
+    serializer_class = DistribucionVersionSerializer
     filterset_fields = ['gestion', 'estado', 'inmutable']
     search_fields = ['gestion__anio']
 
@@ -574,7 +651,7 @@ class DistributionVersionViewSet(viewsets.ModelViewSet):
         return self._ejecutar(request, pk, ajuste_distribucion)
 
 
-class AllocationViewSet(viewsets.ModelViewSet):
+class AperturaViewSet(viewsets.ModelViewSet):
     """Aperturas programáticas: CRUD con fuentes anidadas + cerrar.
 
     create/update aceptan `fuentes`: [{fuente, organismo, monto}]. Errores
@@ -582,11 +659,11 @@ class AllocationViewSet(viewsets.ModelViewSet):
     details: {requested, available, difference}}.
     """
 
-    queryset = Allocation.objects.select_related(
+    queryset = Apertura.objects.select_related(
         'gestion', 'version', 'unidad_organizacional', 'distrito',
         'da', 'ue', 'categoria',
     ).prefetch_related('fuentes__fuente', 'fuentes__organismo').all()
-    serializer_class = AllocationSerializer
+    serializer_class = AperturaSerializer
     filterset_fields = ['gestion', 'version', 'distrito', 'categoria', 'estado']
     search_fields = ['denominacion', 'codigo_sisin', 'proyecto_codigo',
                      'actividad_codigo']
@@ -662,13 +739,13 @@ class AllocationViewSet(viewsets.ModelViewSet):
         return Response(self.get_serializer(allocation).data)
 
 
-class ReserveViewSet(viewsets.ModelViewSet):
+class ReservaViewSet(viewsets.ModelViewSet):
     """Reservas presupuestarias: CRUD + acción liberar."""
 
-    queryset = Reserve.objects.select_related(
+    queryset = Reserva.objects.select_related(
         'gestion', 'version', 'fuente', 'organismo',
     ).all()
-    serializer_class = ReserveSerializer
+    serializer_class = ReservaSerializer
     filterset_fields = ['gestion', 'version', 'estado', 'tipo', 'fuente']
     search_fields = ['motivo']
 
@@ -694,7 +771,7 @@ class ReserveViewSet(viewsets.ModelViewSet):
         registrar_evento(
             request.user,
             EventoAuditoria.Accion.ANULAR,
-            'Reserve',
+            'Reserva',
             reserva.id,
             resumen=(
                 f'Reserva {reserva.get_tipo_display()} de {monto} eliminada '
@@ -759,10 +836,10 @@ class ExpenseObjectViewSet(viewsets.ModelViewSet):
     ?allocation=.
     """
 
-    queryset = ExpenseObjectAllocation.objects.select_related(
+    queryset = AsignacionObjetoGastoTecho.objects.select_related(
         'allocation', 'objeto_gasto',
     ).all()
-    serializer_class = ExpenseObjectAllocationSerializer
+    serializer_class = AsignacionObjetoGastoTechoSerializer
     filterset_fields = ['allocation']
     search_fields = ['objeto_gasto__codigo', 'objeto_gasto__denominacion']
 
@@ -879,7 +956,7 @@ class BudgetControlView(APIView):
             raise DjangoValidationError(
                 'Debe indicar la apertura (allocation).'
             )
-        return Allocation.objects.filter(pk=allocation).first()
+        return Apertura.objects.filter(pk=allocation).first()
 
     def get(self, request):
         gestion, error = self._gestion_obligatoria(request)
@@ -957,24 +1034,24 @@ from .importer import (  # noqa: E402
     parsear_libro,
     validar_importacion,
 )
-from .models import BudgetImport, ImportError  # noqa: E402
+from .models import Importacion, ImportacionError  # noqa: E402
 from .serializers import (  # noqa: E402
-    BudgetImportSerializer,
+    ImportacionSerializer,
     ImportErrorSerializer,
 )
 
 CAPACIDAD_IMPORTACION = 'sis_poa.budget.import'
 
 
-class BudgetImportViewSet(viewsets.ModelViewSet):
+class ImportacionViewSet(viewsets.ModelViewSet):
     """Importaciones de planillas GASTOS (wizard: upload → map → validate → apply).
 
     Permisos: create/apply/map/validate → `sis_poa.budget.import`; el resto
     (listar/ver/hojas/errores) usa IsAuthenticated (default global).
     """
 
-    queryset = BudgetImport.objects.select_related('gestion').all()
-    serializer_class = BudgetImportSerializer
+    queryset = Importacion.objects.select_related('gestion').all()
+    serializer_class = ImportacionSerializer
     pagination_class = ImportacionDualPagination
     http_method_names = ['get', 'post']
     filterset_fields = ['gestion', 'estado', 'perfil']
@@ -1013,7 +1090,7 @@ class BudgetImportViewSet(viewsets.ModelViewSet):
 
     @staticmethod
     def _parsear(importacion, usuario=None):
-        """Carga el libro con openpyxl y construye los ImportDetalle."""
+        """Carga el libro con openpyxl y construye los ImportacionDetalle."""
         import openpyxl
         ruta = importacion.archivo.path
         wb = openpyxl.load_workbook(ruta, read_only=True, data_only=True)
@@ -1096,7 +1173,7 @@ class BudgetImportViewSet(viewsets.ModelViewSet):
         """Lista los errores/hallazgos de la validación (con severidad)."""
         importacion = self.get_object()
         qs = (
-            ImportError.objects
+            ImportacionError.objects
             .filter(importacion=importacion)
             .select_related('detalle')
             .order_by('severidad', 'fila')
@@ -1119,7 +1196,7 @@ from .territorial import (  # noqa: E402
 from .services import validar_gestion_para_distribucion  # noqa: E402
 
 
-class TerritorialDistributionViewSet(viewsets.ModelViewSet):
+class DistribucionTerritorialViewSet(viewsets.ModelViewSet):
     """Distribuciones territoriales: CRUD + calcular/aplicar/liberar.
 
     create acepta `distritos`: [{distrito, poblacion?, porcentaje?, monto?}].
@@ -1132,10 +1209,10 @@ class TerritorialDistributionViewSet(viewsets.ModelViewSet):
     Escritura (incluidas las acciones) → capacidad `sis_poa.budget.manage`.
     """
 
-    queryset = TerritorialDistribution.objects.select_related(
+    queryset = DistribucionTerritorial.objects.select_related(
         'gestion', 'version', 'fuente', 'organismo',
     ).prefetch_related('asignaciones__distrito').all()
-    serializer_class = TerritorialDistributionSerializer
+    serializer_class = DistribucionTerritorialSerializer
     filterset_fields = ['gestion', 'estado', 'metodo', 'fuente']
     search_fields = ['observaciones', 'gestion__anio']
 
@@ -1181,7 +1258,7 @@ class TerritorialDistributionViewSet(viewsets.ModelViewSet):
             return _respuesta_error(exc)
 
         usuario = request.user
-        distribucion = TerritorialDistribution.objects.create(
+        distribucion = DistribucionTerritorial.objects.create(
             gestion=gestion,
             version=validos.get('version'),
             fuente=validos.get('fuente'),
@@ -1195,7 +1272,7 @@ class TerritorialDistributionViewSet(viewsets.ModelViewSet):
         distritos = validos.get('distritos')
         if distritos:
             for fila in distritos:
-                TerritorialAllocation.objects.create(
+                AsignacionTerritorial.objects.create(
                     distribucion=distribucion,
                     distrito_id=fila['distrito'],
                     poblacion=fila.get('poblacion'),
@@ -1207,7 +1284,7 @@ class TerritorialDistributionViewSet(viewsets.ModelViewSet):
         registrar_evento(
             usuario,
             EventoAuditoria.Accion.CREAR,
-            'TerritorialDistribution',
+            'DistribucionTerritorial',
             distribucion.id,
             resumen=(
                 f'Distribución territorial creada '
@@ -1271,7 +1348,7 @@ class TerritorialDistributionViewSet(viewsets.ModelViewSet):
 CAPACIDAD_REFORM = 'sis_poa.budget.reform'
 
 
-class ReformViewSet(viewsets.ModelViewSet):
+class ReformaViewSet(viewsets.ModelViewSet):
     """Reformulaciones presupuestarias (Fase 10, §92-97).
 
     CRUD: create acepta `movimientos_input`: [{tipo, apertura_origen?,
@@ -1292,14 +1369,14 @@ class ReformViewSet(viewsets.ModelViewSet):
     reform`; observe/approve/reject/apply → `sis_poa.budget.approve`.
     """
 
-    queryset = Reform.objects.select_related(
+    queryset = Reforma.objects.select_related(
         'gestion', 'documento', 'version_origen', 'version_resultante',
         'solicitada_por', 'aprobada_por',
     ).prefetch_related(
         'movimientos__apertura_origen', 'movimientos__apertura_destino',
         'movimientos__fuente', 'movimientos__organismo',
     ).all()
-    serializer_class = ReformSerializer
+    serializer_class = ReformaSerializer
     filterset_fields = ['gestion', 'estado', 'tipo']
     search_fields = ['motivo', 'resolucion']
 
@@ -1354,7 +1431,7 @@ class ReformViewSet(viewsets.ModelViewSet):
             registrar_evento(
                 request.user,
                 EventoAuditoria.Accion.MODIFICAR,
-                'Reform',
+                'Reforma',
                 reform.id,
                 resumen=(
                     f'Reformulación {reform.get_tipo_display()} modificada '
@@ -1386,7 +1463,7 @@ class ReformViewSet(viewsets.ModelViewSet):
         registrar_evento(
             request.user,
             EventoAuditoria.Accion.ANULAR,
-            'Reform',
+            'Reforma',
             reform_id,
             resumen=(
                 f'Reformulación {tipo} eliminada (gestión {gestion_anio})'
@@ -1460,14 +1537,14 @@ class ReformViewSet(viewsets.ModelViewSet):
 # Entidades del ciclo auditables por slug de la API (`?entidad=`) → nombre de
 # modelo con el que `EventoAuditoria.entidad` identifica los registros.
 ENTIDADES_AUDITORIA = {
-    'allocation': 'Allocation',
-    'reserve': 'Reserve',
-    'directive-ceiling': 'DirectiveCeilingVersion',
-    'distribution': 'DistributionVersion',
-    'expense-object': 'ExpenseObjectAllocation',
-    'reform': 'Reform',
-    'import': 'BudgetImport',
-    'territorial': 'TerritorialDistribution',
+    'allocation': 'Apertura',
+    'reserve': 'Reserva',
+    'directive-ceiling': 'TechoVersion',
+    'distribution': 'DistribucionVersion',
+    'expense-object': 'AsignacionObjetoGastoTecho',
+    'reform': 'Reforma',
+    'import': 'Importacion',
+    'territorial': 'DistribucionTerritorial',
     'fiscal-year': 'GestionFiscal',
 }
 

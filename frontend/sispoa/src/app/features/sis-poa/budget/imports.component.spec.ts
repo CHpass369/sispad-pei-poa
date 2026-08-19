@@ -3,7 +3,7 @@ import { HttpClientTestingModule } from '@angular/common/http/testing';
 import { FormsModule } from '@angular/forms';
 import { of, throwError } from 'rxjs';
 import { ImportsComponent } from './imports.component';
-import { BudgetImport, BudgetService, FiscalYear } from './budget.service';
+import { Importacion, BudgetService, FiscalYear } from './budget.service';
 
 describe('ImportsComponent', () => {
   let component: ImportsComponent;
@@ -28,7 +28,7 @@ describe('ImportsComponent', () => {
     },
     estado: 'STAGING', estado_display: 'En staging', tipo_importacion: 'GASTOS',
     storage_path: 'budget/imports/gastos.xlsx', conteos: {}, created_at: '',
-  } as BudgetImport;
+  } as Importacion;
 
   beforeEach(async () => {
     serviceSpy = jasmine.createSpyObj('BudgetService', [
@@ -84,7 +84,7 @@ describe('ImportsComponent', () => {
   });
 
   it('should validate and show no critical errors', () => {
-    component.importacion = { ...importacionBase } as BudgetImport;
+    component.importacion = { ...importacionBase } as Importacion;
     component.validar();
     expect(serviceSpy.validarImportacion).toHaveBeenCalledWith(1);
     expect(component.importacion?.estado).toBe('VALIDADO');
@@ -96,7 +96,7 @@ describe('ImportsComponent', () => {
     component.importacion = {
       ...importacionBase, estado: 'VALIDADO',
       conteos: { INFO: 0, WARNING: 0, ERROR: 0, CRITICAL: 0 },
-    } as BudgetImport;
+    } as Importacion;
     component.aplicar();
     expect(serviceSpy.aplicarImportacion).toHaveBeenCalledWith(1);
     expect(component.importacion?.estado).toBe('APLICADO');
@@ -110,7 +110,7 @@ describe('ImportsComponent', () => {
     component.importacion = {
       ...importacionBase,
       conteos: { INFO: 0, WARNING: 0, ERROR: 1, CRITICAL: 1 },
-    } as BudgetImport;
+    } as Importacion;
     component.aplicar();
     expect(component.error).toContain('crítico');
     expect(component.importacion?.estado).toBe('STAGING');

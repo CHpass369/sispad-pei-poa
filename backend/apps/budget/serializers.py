@@ -1,7 +1,7 @@
 ﻿"""Serializers de la API V2 del ciclo presupuestario SIS-POA.
 
-Fase 1: gestión fiscal (FiscalYearSerializer).
-Fase 2: techo directivo (DirectiveCeiling, versiones, recursos, gastos
+Fase 1: gestión fiscal (GestionFiscalPresupuestoSerializer).
+Fase 2: techo directivo (TechoDirectivo, versiones, recursos, gastos
 obligatorios y documentos).
 
 Los montos (DecimalField) se serializan como string por convención de DRF
@@ -18,24 +18,24 @@ from apps.auditoria.models import EventoAuditoria
 from apps.gestion.models import GestionFiscal
 
 from .models import (
-    Allocation,
-    AllocationSource,
-    BudgetDocument,
-    BudgetImport,
-    CeilingResource,
-    DirectiveCeiling,
-    DirectiveCeilingVersion,
-    DistributionVersion,
+    Apertura,
+    AperturaFuente,
+    DocumentoPresupuestario,
+    Importacion,
+    RecursoTecho,
+    TechoDirectivo,
+    TechoVersion,
+    DistribucionVersion,
     EstadosTecho,
-    ExpenseObjectAllocation,
-    ImportError,
-    MandatoryExpense,
-    ProgrammaticCategory,
-    Reform,
-    ReformMovement,
-    Reserve,
-    TerritorialAllocation,
-    TerritorialDistribution,
+    AsignacionObjetoGastoTecho,
+    ImportacionError,
+    GastoObligatorio,
+    CategoriaProgramaticaTecho,
+    Reforma,
+    ReformaMovimiento,
+    Reserva,
+    AsignacionTerritorial,
+    DistribucionTerritorial,
     TipoMovimientoReform,
 )
 from .services import (
@@ -46,7 +46,7 @@ from .services import (
 )
 
 
-class FiscalYearSerializer(serializers.ModelSerializer):
+class GestionFiscalPresupuestoSerializer(serializers.ModelSerializer):
     """Gestión fiscal del ciclo presupuestario (`apps.gestion.GestionFiscal`)."""
 
     estado_display = serializers.CharField(source='get_estado_display', read_only=True)
@@ -151,7 +151,7 @@ def _serializar_montos(valor):
     return valor
 
 
-class CeilingResourceSerializer(serializers.ModelSerializer):
+class RecursoTechoSerializer(serializers.ModelSerializer):
     origen_display = serializers.CharField(source='get_origen_display', read_only=True)
     rubro_detalle = serializers.SerializerMethodField()
     fuente_detalle = serializers.SerializerMethodField()
@@ -162,7 +162,7 @@ class CeilingResourceSerializer(serializers.ModelSerializer):
     )
 
     class Meta:
-        model = CeilingResource
+        model = RecursoTecho
         fields = [
             'id', 'version', 'origen', 'origen_display', 'rubro', 'rubro_detalle',
             'fuente', 'fuente_detalle', 'organismo', 'organismo_detalle',
@@ -184,7 +184,7 @@ class CeilingResourceSerializer(serializers.ModelSerializer):
         return _detalle_catalogo(obj.entidad_otorgante)
 
 
-class MandatoryExpenseSerializer(serializers.ModelSerializer):
+class GastoObligatorioSerializer(serializers.ModelSerializer):
     da_detalle = serializers.SerializerMethodField()
     ue_detalle = serializers.SerializerMethodField()
     fuente_detalle = serializers.SerializerMethodField()
@@ -195,7 +195,7 @@ class MandatoryExpenseSerializer(serializers.ModelSerializer):
     )
 
     class Meta:
-        model = MandatoryExpense
+        model = GastoObligatorio
         fields = [
             'id', 'version', 'da', 'da_detalle', 'ue', 'ue_detalle',
             'programa', 'actividad', 'denominacion', 'fuente', 'fuente_detalle',
@@ -221,16 +221,16 @@ class MandatoryExpenseSerializer(serializers.ModelSerializer):
         return _detalle_catalogo(obj.objeto_gasto)
 
 
-class DirectiveCeilingVersionSerializer(serializers.ModelSerializer):
+class TechoVersionSerializer(serializers.ModelSerializer):
     """Versión del techo con sus recursos y gastos obligatorios anidados."""
 
     estado_display = serializers.CharField(source='get_estado_display', read_only=True)
     fijado_por_email = serializers.SerializerMethodField()
-    recursos = CeilingResourceSerializer(many=True, read_only=True)
-    gastos_obligatorios = MandatoryExpenseSerializer(many=True, read_only=True)
+    recursos = RecursoTechoSerializer(many=True, read_only=True)
+    gastos_obligatorios = GastoObligatorioSerializer(many=True, read_only=True)
 
     class Meta:
-        model = DirectiveCeilingVersion
+        model = TechoVersion
         fields = [
             'id', 'numero', 'estado', 'estado_display', 'hash',
             'fecha_fijacion', 'fijado_por', 'fijado_por_email',
@@ -243,7 +243,7 @@ class DirectiveCeilingVersionSerializer(serializers.ModelSerializer):
         return obj.fijado_por.email if obj.fijado_por else None
 
 
-class DirectiveCeilingSerializer(serializers.ModelSerializer):
+class TechoDirectivoSerializer(serializers.ModelSerializer):
     """Techo directivo: gestión, estado, versión actual y composición anidada."""
 
     gestion_anio = serializers.IntegerField(source='gestion.anio', read_only=True)
@@ -252,7 +252,7 @@ class DirectiveCeilingSerializer(serializers.ModelSerializer):
     composicion = serializers.SerializerMethodField()
 
     class Meta:
-        model = DirectiveCeiling
+        model = TechoDirectivo
         fields = [
             'id', 'gestion', 'gestion_anio', 'estado', 'estado_display',
             'version_actual', 'version', 'composicion',
@@ -263,11 +263,11 @@ class DirectiveCeilingSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at',
         ]
 
-    def _version(self, obj) -> DirectiveCeilingVersion | None:
+    def _version(self, obj) -> TechoVersion | None:
         if obj.version_actual is None:
             return None
         return (
-            DirectiveCeilingVersion.objects
+            TechoVersion.objects
             .filter(ceiling=obj, numero=obj.version_actual)
             .select_related('fijado_por')
             .prefetch_related(
@@ -279,7 +279,7 @@ class DirectiveCeilingSerializer(serializers.ModelSerializer):
 
     def get_version(self, obj) -> dict | None:
         version = self._version(obj)
-        return DirectiveCeilingVersionSerializer(
+        return TechoVersionSerializer(
             version, context=self.context
         ).data if version else None
 
@@ -293,14 +293,14 @@ class DirectiveCeilingSerializer(serializers.ModelSerializer):
         except Exception as exc:
             raise serializers.ValidationError({'gestion': exc.messages})
 
-        if DirectiveCeiling.objects.filter(gestion=gestion).exists():
+        if TechoDirectivo.objects.filter(gestion=gestion).exists():
             raise serializers.ValidationError({
                 'gestion': f'Ya existe un techo directivo para la gestión {gestion.anio}.',
             })
 
         request = self.context.get('request')
         usuario = request.user if request and request.user.is_authenticated else None
-        ceiling = DirectiveCeiling.objects.create(
+        ceiling = TechoDirectivo.objects.create(
             gestion=gestion,
             estado=EstadosTecho.BORRADOR,
             version_actual=1,
@@ -311,7 +311,7 @@ class DirectiveCeilingSerializer(serializers.ModelSerializer):
         return ceiling
 
 
-class BudgetDocumentSerializer(serializers.ModelSerializer):
+class DocumentoPresupuestarioSerializer(serializers.ModelSerializer):
     """Documento de respaldo del techo; el upload valida mime y tamaño."""
 
     TAMANO_MAXIMO_BYTES = 20 * 1024 * 1024  # 20 MB
@@ -333,7 +333,7 @@ class BudgetDocumentSerializer(serializers.ModelSerializer):
     archivo = serializers.FileField(write_only=True, allow_empty_file=False)
 
     class Meta:
-        model = BudgetDocument
+        model = DocumentoPresupuestario
         fields = [
             'id', 'gestion', 'gestion_anio', 'tipo', 'tipo_display',
             'nombre', 'mime_type', 'size', 'sha256', 'fecha_documento',
@@ -373,7 +373,7 @@ class BudgetDocumentSerializer(serializers.ModelSerializer):
         nombre = validated_data.pop('nombre', '') or archivo.name
         request = self.context.get('request')
         usuario = request.user if request and request.user.is_authenticated else None
-        documento = BudgetDocument.objects.create(
+        documento = DocumentoPresupuestario.objects.create(
             **validated_data,
             nombre=nombre,
             archivo=archivo,
@@ -387,13 +387,13 @@ class BudgetDocumentSerializer(serializers.ModelSerializer):
 # ---------------------------------------------------------------------------
 # Fase 3 - CategorAas programAticas del ciclo
 # ---------------------------------------------------------------------------
-class ProgrammaticCategorySerializer(serializers.ModelSerializer):
+class CategoriaProgramaticaTechoSerializer(serializers.ModelSerializer):
     nivel_display = serializers.CharField(source='get_nivel_display', read_only=True)
     estado_display = serializers.CharField(source='get_estado_display', read_only=True)
     codigo_compuesto = serializers.SerializerMethodField()
 
     class Meta:
-        model = ProgrammaticCategory
+        model = CategoriaProgramaticaTecho
         fields = [
             'id', 'gestion', 'codigo', 'denominacion', 'nivel', 'nivel_display',
             'parent', 'vigencia_desde', 'vigencia_hasta', 'estado',
@@ -427,7 +427,7 @@ class ProgrammaticCategorySerializer(serializers.ModelSerializer):
 # ---------------------------------------------------------------------------
 # Fase 4 - Distribución presupuestaria (versiones, aperturas y reservas)
 # ---------------------------------------------------------------------------
-class DistributionVersionSerializer(serializers.ModelSerializer):
+class DistribucionVersionSerializer(serializers.ModelSerializer):
     """Versión de distribución; estados reutilizan `EstadosTecho`."""
 
     gestion_anio = serializers.IntegerField(source='gestion.anio', read_only=True)
@@ -435,7 +435,7 @@ class DistributionVersionSerializer(serializers.ModelSerializer):
     fijado_por_email = serializers.SerializerMethodField()
 
     class Meta:
-        model = DistributionVersion
+        model = DistribucionVersion
         fields = [
             'id', 'gestion', 'gestion_anio', 'numero', 'estado',
             'estado_display', 'hash', 'fecha_fijacion', 'fijado_por',
@@ -454,7 +454,7 @@ class DistributionVersionSerializer(serializers.ModelSerializer):
         gestion = attrs.get('gestion')
         numero = attrs.get('numero')
         if gestion is not None and numero is not None:
-            if DistributionVersion.objects.filter(
+            if DistribucionVersion.objects.filter(
                 gestion=gestion, numero=numero,
             ).exists():
                 raise serializers.ValidationError({
@@ -463,14 +463,14 @@ class DistributionVersionSerializer(serializers.ModelSerializer):
         return attrs
 
 
-class AllocationSourceSerializer(serializers.ModelSerializer):
+class AperturaFuenteSerializer(serializers.ModelSerializer):
     """Asignación por FF/OF (lectura, anidada en la apertura)."""
 
     fuente_detalle = serializers.SerializerMethodField()
     organismo_detalle = serializers.SerializerMethodField()
 
     class Meta:
-        model = AllocationSource
+        model = AperturaFuente
         fields = [
             'id', 'fuente', 'fuente_detalle', 'organismo',
             'organismo_detalle', 'monto', 'created_at', 'updated_at',
@@ -494,7 +494,7 @@ class AllocationFuenteInput(serializers.Serializer):
     )
 
 
-class AllocationSerializer(serializers.ModelSerializer):
+class AperturaSerializer(serializers.ModelSerializer):
     """Apertura programática con sus fuentes anidadas.
 
     Escritura: `fuentes` acepta [{fuente, organismo, monto}]; el viewset
@@ -502,7 +502,7 @@ class AllocationSerializer(serializers.ModelSerializer):
     disponibilidad y transacción). El estado lo gestionan los servicios.
     """
 
-    fuentes = AllocationSourceSerializer(many=True, read_only=True)
+    fuentes = AperturaFuenteSerializer(many=True, read_only=True)
     estado_display = serializers.CharField(source='get_estado_display', read_only=True)
     tipo_apertura_display = serializers.CharField(
         source='get_tipo_apertura_display', read_only=True,
@@ -516,7 +516,7 @@ class AllocationSerializer(serializers.ModelSerializer):
     unidad_detalle = serializers.SerializerMethodField()
 
     class Meta:
-        model = Allocation
+        model = Apertura
         fields = [
             'id', 'gestion', 'gestion_anio', 'version', 'orden',
             'unidad_organizacional', 'unidad_detalle', 'distrito',
@@ -592,7 +592,7 @@ class AllocationSerializer(serializers.ModelSerializer):
 # ---------------------------------------------------------------------------
 # Fase 9 - Objetos del gasto (programación por apertura)
 # ---------------------------------------------------------------------------
-class ExpenseObjectAllocationSerializer(serializers.ModelSerializer):
+class AsignacionObjetoGastoTechoSerializer(serializers.ModelSerializer):
     """Programación de un objeto del gasto en una apertura (Fase 9).
 
     Escritura: `allocation` + `objeto_gasto` + `monto`; el viewset delega
@@ -603,7 +603,7 @@ class ExpenseObjectAllocationSerializer(serializers.ModelSerializer):
     objeto_gasto_detalle = serializers.SerializerMethodField()
 
     class Meta:
-        model = ExpenseObjectAllocation
+        model = AsignacionObjetoGastoTecho
         fields = [
             'id', 'allocation', 'objeto_gasto', 'objeto_gasto_detalle',
             'monto', 'created_at', 'updated_at',
@@ -620,7 +620,7 @@ class ExpenseObjectAllocationSerializer(serializers.ModelSerializer):
         return _detalle_catalogo(obj.objeto_gasto)
 
 
-class ReserveSerializer(serializers.ModelSerializer):
+class ReservaSerializer(serializers.ModelSerializer):
     """Reserva presupuestaria sobre una fuente."""
 
     gestion_anio = serializers.IntegerField(source='gestion.anio', read_only=True)
@@ -630,7 +630,7 @@ class ReserveSerializer(serializers.ModelSerializer):
     organismo_detalle = serializers.SerializerMethodField()
 
     class Meta:
-        model = Reserve
+        model = Reserva
         fields = [
             'id', 'gestion', 'gestion_anio', 'version', 'fuente',
             'fuente_detalle', 'organismo', 'organismo_detalle', 'tipo',
@@ -652,7 +652,7 @@ class ReserveSerializer(serializers.ModelSerializer):
 # ---------------------------------------------------------------------------
 # Fase 5 - Importador Excel (staging)
 # ---------------------------------------------------------------------------
-class BudgetImportSerializer(serializers.ModelSerializer):
+class ImportacionSerializer(serializers.ModelSerializer):
     """Importación de planilla; el upload valida mime/tamaño y parsea."""
 
     TAMANO_MAXIMO_BYTES = 20 * 1024 * 1024  # 20 MB
@@ -674,7 +674,7 @@ class BudgetImportSerializer(serializers.ModelSerializer):
     conteos = serializers.SerializerMethodField()
 
     class Meta:
-        model = BudgetImport
+        model = Importacion
         fields = [
             'id', 'gestion', 'gestion_anio', 'perfil', 'perfil_display',
             'filename', 'mime_type', 'size', 'sha256', 'hoja_seleccionada',
@@ -711,7 +711,7 @@ class BudgetImportSerializer(serializers.ModelSerializer):
         archivo = validated_data.pop('archivo')
         request = self.context.get('request')
         usuario = request.user if request and request.user.is_authenticated else None
-        importacion = BudgetImport.objects.create(
+        importacion = Importacion.objects.create(
             **validated_data,
             filename=archivo.name,
             archivo=archivo,
@@ -742,7 +742,7 @@ class ImportErrorSerializer(serializers.ModelSerializer):
     )
 
     class Meta:
-        model = ImportError
+        model = ImportacionError
         fields = [
             'id', 'detalle', 'fila', 'campo', 'valor_original',
             'valor_normalizado', 'severidad', 'severidad_display',
@@ -774,13 +774,13 @@ class TerritorialAllocationInput(serializers.Serializer):
     )
 
 
-class TerritorialAllocationSerializer(serializers.ModelSerializer):
+class AsignacionTerritorialSerializer(serializers.ModelSerializer):
     """Asignación territorial; los montos los calcula el servicio de reparto."""
 
     distrito_detalle = serializers.SerializerMethodField()
 
     class Meta:
-        model = TerritorialAllocation
+        model = AsignacionTerritorial
         fields = [
             'id', 'distrito', 'distrito_detalle', 'poblacion', 'porcentaje',
             'monto_calculado', 'ajuste', 'monto_final',
@@ -798,7 +798,7 @@ class TerritorialAllocationSerializer(serializers.ModelSerializer):
         return {'codigo': d.codigo, 'nombre': d.nombre}
 
 
-class TerritorialDistributionSerializer(serializers.ModelSerializer):
+class DistribucionTerritorialSerializer(serializers.ModelSerializer):
     """Distribución territorial con sus asignaciones anidadas.
 
     Escritura: `distritos` acepta [{distrito, poblacion?, porcentaje?,
@@ -815,14 +815,14 @@ class TerritorialDistributionSerializer(serializers.ModelSerializer):
     )
     fuente_detalle = serializers.SerializerMethodField()
     organismo_detalle = serializers.SerializerMethodField()
-    asignaciones = TerritorialAllocationSerializer(many=True, read_only=True)
+    asignaciones = AsignacionTerritorialSerializer(many=True, read_only=True)
     distritos = TerritorialAllocationInput(
         many=True, write_only=True, required=False,
     )
     total_asignado = serializers.SerializerMethodField()
 
     class Meta:
-        model = TerritorialDistribution
+        model = DistribucionTerritorial
         fields = [
             'id', 'gestion', 'gestion_anio', 'version', 'fuente',
             'fuente_detalle', 'organismo', 'organismo_detalle', 'metodo',
@@ -892,7 +892,7 @@ def _detalle_apertura(apertura) -> dict | None:
     }
 
 
-class ReformMovementSerializer(serializers.ModelSerializer):
+class ReformaMovimientoSerializer(serializers.ModelSerializer):
     """Movimiento de reformulación: lectura con detalles y saldos."""
 
     tipo_display = serializers.CharField(
@@ -904,7 +904,7 @@ class ReformMovementSerializer(serializers.ModelSerializer):
     organismo_detalle = serializers.SerializerMethodField()
 
     class Meta:
-        model = ReformMovement
+        model = ReformaMovimiento
         fields = [
             'id', 'tipo', 'tipo_display', 'apertura_origen',
             'apertura_origen_detalle', 'apertura_destino',
@@ -927,7 +927,7 @@ class ReformMovementSerializer(serializers.ModelSerializer):
         return _detalle_catalogo(obj.organismo)
 
 
-class ReformSerializer(serializers.ModelSerializer):
+class ReformaSerializer(serializers.ModelSerializer):
     """Reformulación: cabecera + movimientos anidados.
 
     Escritura: `movimientos_input` acepta [{tipo, apertura_origen?,
@@ -945,10 +945,10 @@ class ReformSerializer(serializers.ModelSerializer):
     solicitada_por_email = serializers.SerializerMethodField()
     aprobada_por_email = serializers.SerializerMethodField()
     version_origen_numero = serializers.SerializerMethodField()
-    movimientos = ReformMovementSerializer(many=True, read_only=True)
+    movimientos = ReformaMovimientoSerializer(many=True, read_only=True)
 
     class Meta:
-        model = Reform
+        model = Reforma
         fields = [
             'id', 'gestion', 'gestion_anio', 'tipo', 'tipo_display',
             'estado', 'estado_display', 'motivo', 'resolucion',
@@ -982,7 +982,7 @@ class ReformSerializer(serializers.ModelSerializer):
 
     def to_internal_value(self, data):
         """Extrae `movimientos` del payload y valida cada fila (patrón
-        `AllocationSerializer.fuentes`): la lectura `movimientos` sigue
+        `AperturaSerializer.fuentes`): la lectura `movimientos` sigue
         siendo read-only y la escritura viaja por el mismo nombre."""
         data = dict(data)
         movimientos_raw = data.pop('movimientos', None)
@@ -1029,14 +1029,14 @@ class AuditEventSerializer(serializers.ModelSerializer):
     gestion_id = serializers.UUIDField(read_only=True, allow_null=True)
 
     ENTIDADES_DISPLAY = {
-        'Allocation': 'Apertura programática',
-        'Reserve': 'Reserva',
-        'DirectiveCeilingVersion': 'Techo directivo',
-        'DistributionVersion': 'Distribución',
-        'ExpenseObjectAllocation': 'Objeto del gasto',
-        'Reform': 'Reformulación',
-        'BudgetImport': 'Importación',
-        'TerritorialDistribution': 'Distribución territorial',
+        'Apertura': 'Apertura programática',
+        'Reserva': 'Reserva',
+        'TechoVersion': 'Techo directivo',
+        'DistribucionVersion': 'Distribución',
+        'AsignacionObjetoGastoTecho': 'Objeto del gasto',
+        'Reforma': 'Reformulación',
+        'Importacion': 'Importación',
+        'DistribucionTerritorial': 'Distribución territorial',
         'GestionFiscal': 'Gestión fiscal',
     }
 

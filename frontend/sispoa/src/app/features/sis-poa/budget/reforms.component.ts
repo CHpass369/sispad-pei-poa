@@ -1,12 +1,12 @@
 import { Component, OnInit } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
-  Allocation,
+  Apertura,
   ApiErrorResponse,
   BudgetService,
   CatalogoOpciones,
   FiscalYear,
-  Reform,
+  Reforma,
   ReformInput,
   ReformMovementInput,
 } from './budget.service';
@@ -66,8 +66,8 @@ interface FilaMovimiento {
 export class ReformsComponent implements OnInit {
   gestiones: FiscalYear[] = [];
   gestionSeleccionada: string | null = null;
-  reforms: Reform[] = [];
-  aperturas: Allocation[] = [];
+  reforms: Reforma[] = [];
+  aperturas: Apertura[] = [];
   opciones: CatalogoOpciones | null = null;
 
   cargando = false;
@@ -75,7 +75,7 @@ export class ReformsComponent implements OnInit {
   error = '';
   mensaje = '';
   mostrarFormulario = false;
-  seleccionada: Reform | null = null;
+  seleccionada: Reforma | null = null;
 
   tiposReform = [
     'TRASPASO', 'INCREMENTO', 'DISMINUCION', 'NUEVA_APERTURA',
@@ -257,7 +257,7 @@ export class ReformsComponent implements OnInit {
     });
   }
 
-  private _ejecutar(accion: (id: number) => Observable<Reform>,
+  private _ejecutar(accion: (id: number) => Observable<Reforma>,
                     ok: string): void {
     if (!this.seleccionada) { return; }
     const id = this.seleccionada.id;
@@ -327,7 +327,7 @@ export class ReformsComponent implements OnInit {
     );
   }
 
-  verDetalle(reform: Reform): void {
+  verDetalle(reform: Reforma): void {
     this.seleccionada = reform;
     this.error = '';
   }

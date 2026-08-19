@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { BudgetService, ProgrammaticCategory, CategoriaNodo } from './budget.service';
+import { BudgetService, CategoriaProgramaticaTecho, CategoriaNodo } from './budget.service';
 
 @Component({
   standalone: false,
@@ -102,7 +102,7 @@ import { BudgetService, ProgrammaticCategory, CategoriaNodo } from './budget.ser
 export class ProgrammaticCategoriesComponent implements OnInit {
   gestiones: { id: number; anio: number }[] = [];
   gestionSeleccionada: number | null = null;
-  categorias: ProgrammaticCategory[] = [];
+  categorias: CategoriaProgramaticaTecho[] = [];
   cargando = false;
   guardando = false;
   mostrarFormulario = false;
@@ -166,7 +166,7 @@ export class ProgrammaticCategoriesComponent implements OnInit {
     });
   }
 
-  duplicar(c: ProgrammaticCategory): void {
+  duplicar(c: CategoriaProgramaticaTecho): void {
     const destino = prompt('Gestión destino (año):', '');
     if (!destino) return;
     const gestionDestino = this.gestiones.find((g) => String(g.anio) === destino)?.id;

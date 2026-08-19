@@ -27,11 +27,11 @@ from apps.catalogos.models import (
 from apps.gestion.models import CicloFormulacion, EtapaFormulacion, GestionFiscal
 
 from .models import (
-    CeilingResource,
-    DirectiveCeiling,
-    DirectiveCeilingVersion,
-    MandatoryExpense,
-    ProgrammaticCategory,
+    RecursoTecho,
+    TechoDirectivo,
+    TechoVersion,
+    GastoObligatorio,
+    CategoriaProgramaticaTecho,
 )
 from .services import (
     ajuste_de_techo,
@@ -86,14 +86,14 @@ class TechoDirectivoBase(TestCase):
             format='json',
         )
         self.assertEqual(resp.status_code, 201, resp.data)
-        self.ceiling = DirectiveCeiling.objects.get(gestion=self.gestion)
-        self.version = DirectiveCeilingVersion.objects.get(
+        self.ceiling = TechoDirectivo.objects.get(gestion=self.gestion)
+        self.version = TechoVersion.objects.get(
             ceiling=self.ceiling, numero=1
         )
 
     def crear_recurso(self, origen='SIGEP', monto='1000.00', concepto='Recurso',
                       fuente=None, organismo=None, rubro=None):
-        return CeilingResource.objects.create(
+        return RecursoTecho.objects.create(
             version=self.version, origen=origen, monto=monto,
             concepto=concepto, fuente=fuente, organismo=organismo, rubro=rubro,
             created_by=self.admin, updated_by=self.admin,
@@ -101,7 +101,7 @@ class TechoDirectivoBase(TestCase):
 
     def crear_gasto(self, monto='200.00', denominacion='Gasto obligatorio',
                     fuente=None, organismo=None):
-        return MandatoryExpense.objects.create(
+        return GastoObligatorio.objects.create(
             version=self.version, monto=monto, denominacion=denominacion,
             fuente=fuente, organismo=organismo,
             created_by=self.admin, updated_by=self.admin,
@@ -178,7 +178,7 @@ class TechoDirectivoFlujoTests(TechoDirectivoBase):
         )
         self.assertEqual(resp.status_code, 400, resp.data)
         self.assertFalse(
-            DirectiveCeiling.objects.filter(gestion=gestion_cerrada).exists()
+            TechoDirectivo.objects.filter(gestion=gestion_cerrada).exists()
         )
 
     def test_no_se_puede_crear_segundo_ceiling_para_misma_gestion(self):
@@ -207,7 +207,7 @@ class TechoDirectivoFlujoTests(TechoDirectivoBase):
         self.assertEqual(self.ceiling.estado, 'FIJADO')
         self.assertEqual(self.ceiling.version_actual, 1)
         evento = EventoAuditoria.objects.filter(
-            entidad='DirectiveCeilingVersion', entidad_id=str(version.id),
+            entidad='TechoVersion', entidad_id=str(version.id),
         ).order_by('-creado_en').first()
         self.assertIsNotNone(evento)
         self.assertEqual(evento.accion, 'aprobar')
@@ -244,7 +244,7 @@ class TechoDirectivoFlujoTests(TechoDirectivoBase):
         self.assertEqual(v.estado, 'APROBADO')
         acciones = list(
             EventoAuditoria.objects.filter(
-                entidad='DirectiveCeilingVersion', entidad_id=str(v.id),
+                entidad='TechoVersion', entidad_id=str(v.id),
             ).values_list('accion', flat=True)
         )
         self.assertIn('enviar', acciones)
@@ -295,7 +295,7 @@ class TechoDirectivoInmutabilidadTests(TechoDirectivoBase):
             f'{BUDGET_URL}mandatory-expenses/{gasto.id}/',
         )
         self.assertEqual(resp.status_code, 409, resp.data)
-        self.assertTrue(MandatoryExpense.objects.filter(pk=gasto.pk).exists())
+        self.assertTrue(GastoObligatorio.objects.filter(pk=gasto.pk).exists())
 
     def test_modelo_bloquea_modificacion_de_version_fijada(self):
         self.crear_recurso(origen='SIGEP', monto='1000.00', concepto='CT')
@@ -311,7 +311,7 @@ class TechoDirectivoInmutabilidadTests(TechoDirectivoBase):
                            fuente=self.fuente)
         self.crear_gasto(monto='200.00', denominacion='Deuda')
         self.fijar_version()
-        v1 = DirectiveCeilingVersion.objects.get(ceiling=self.ceiling, numero=1)
+        v1 = TechoVersion.objects.get(ceiling=self.ceiling, numero=1)
 
         nueva = ajuste_de_techo(self.ceiling, self.admin)
 
@@ -794,7 +794,7 @@ class ProgrammaticCategoryTests(TestCase):
             f'{self.url}{prog}/duplicar_a_gestion/',
             {'gestion_destino': destino.id}, format='json')
         self.assertEqual(resp.status_code, 201)
-        copias = ProgrammaticCategory.objects.filter(gestion=destino)
+        copias = CategoriaProgramaticaTecho.objects.filter(gestion=destino)
         self.assertEqual(copias.count(), 2)
         self.assertEqual(copias.get(nivel='SUBPROGRAMA').codigo, '010')
 
@@ -820,10 +820,10 @@ class CatalogOptionsTests(TestCase):
 # Fase 4 - Distribución presupuestaria
 # ===========================================================================
 from .models import (  # noqa: E402
-    Allocation,
-    AllocationSource,
-    DistributionVersion,
-    Reserve,
+    Apertura,
+    AperturaFuente,
+    DistribucionVersion,
+    Reserva,
 )
 from .services import (  # noqa: E402
     disponible_por_fuente,
@@ -884,10 +884,10 @@ class DistribucionAperturaTests(DistribucionBase):
         disponible = disponible_por_fuente(self.gestion)
         self.assertEqual(disponible[self.fuente.id], Decimal('500.00'))
 
-        version = DistributionVersion.objects.get(gestion=self.gestion)
+        version = DistribucionVersion.objects.get(gestion=self.gestion)
         self.assertEqual(version.numero, 1)
         evento = EventoAuditoria.objects.filter(
-            entidad='Allocation', gestion__anio=2030,
+            entidad='Apertura', gestion__anio=2030,
         )
         self.assertTrue(evento.exists())
 
@@ -899,7 +899,7 @@ class DistribucionAperturaTests(DistribucionBase):
         self.assertEqual(resp.data['details']['available'], '1500.00')
         self.assertEqual(resp.data['details']['difference'], '100.00')
         self.assertEqual(
-            Allocation.objects.filter(gestion=self.gestion).count(), 0
+            Apertura.objects.filter(gestion=self.gestion).count(), 0
         )
 
     def test_distribucion_bloqueada_sin_techo_fijado(self):
@@ -908,7 +908,7 @@ class DistribucionAperturaTests(DistribucionBase):
         resp = self.crear_apertura(gestion=gestion)
         self.assertEqual(resp.status_code, 400, resp.data)
         self.assertFalse(
-            Allocation.objects.filter(gestion=gestion).exists()
+            Apertura.objects.filter(gestion=gestion).exists()
         )
 
     def test_concurrencia_secuencial_dos_requests_exceden(self):
@@ -918,19 +918,19 @@ class DistribucionAperturaTests(DistribucionBase):
         self.assertEqual(resp2.status_code, 400, resp2.data)
         self.assertEqual(resp2.data['code'], 'BUDGET_EXCEEDED')
         self.assertEqual(
-            Allocation.objects.filter(gestion=self.gestion).count(), 1
+            Apertura.objects.filter(gestion=self.gestion).count(), 1
         )
 
     def test_eliminar_apertura_borrador_ok(self):
         from .services import version_distribucion_activa
-        allocation = Allocation.objects.create(
+        allocation = Apertura.objects.create(
             gestion=self.gestion,
             version=version_distribucion_activa(self.gestion),
             denominacion='Borrador importado (Fase 5)',
             estado='BORRADOR',
             created_by=self.admin, updated_by=self.admin,
         )
-        AllocationSource.objects.create(
+        AperturaFuente.objects.create(
             allocation=allocation, fuente=self.fuente, monto=Decimal('50.00'),
             created_by=self.admin, updated_by=self.admin,
         )
@@ -938,7 +938,7 @@ class DistribucionAperturaTests(DistribucionBase):
             f'{BUDGET_URL}allocations/{allocation.id}/'
         )
         self.assertEqual(resp.status_code, 204, resp.data)
-        self.assertFalse(Allocation.objects.filter(pk=allocation.pk).exists())
+        self.assertFalse(Apertura.objects.filter(pk=allocation.pk).exists())
 
     def test_cerrar_apertura_y_no_puede_editarse(self):
         resp = self.crear_apertura(monto='500.00', denominacion='A cerrar')
@@ -958,12 +958,12 @@ class DistribucionAperturaTests(DistribucionBase):
         )
         self.assertEqual(resp.status_code, 400, resp.data)
         self.assertEqual(
-            Allocation.objects.get(pk=allocation_id).denominacion, 'A cerrar'
+            Apertura.objects.get(pk=allocation_id).denominacion, 'A cerrar'
         )
 
         resp = self.client.delete(f'{BUDGET_URL}allocations/{allocation_id}/')
         self.assertEqual(resp.status_code, 400, resp.data)
-        self.assertTrue(Allocation.objects.filter(pk=allocation_id).exists())
+        self.assertTrue(Apertura.objects.filter(pk=allocation_id).exists())
 
     def test_actualizar_apertura_reemplaza_fuentes(self):
         resp = self.crear_apertura(monto='500.00', denominacion='Original')
@@ -980,7 +980,7 @@ class DistribucionAperturaTests(DistribucionBase):
         self.assertEqual(resp.status_code, 200, resp.data)
         self.assertEqual(resp.data['total'], '700.00')
         self.assertEqual(resp.data['denominacion'], 'Modificada')
-        allocation = Allocation.objects.get(pk=allocation_id)
+        allocation = Apertura.objects.get(pk=allocation_id)
         self.assertEqual(allocation.fuentes.count(), 1)
         self.assertEqual(allocation.fuentes.first().monto, Decimal('700.00'))
 
@@ -1034,7 +1034,7 @@ class DistribucionReservaTests(DistribucionBase):
         self.assertEqual(resp.data['code'], 'BUDGET_EXCEEDED')
         self.assertEqual(resp.data['details']['available'], '300.00')
         self.assertEqual(
-            Reserve.objects.filter(gestion=self.gestion).count(), 0
+            Reserva.objects.filter(gestion=self.gestion).count(), 0
         )
 
 
@@ -1115,9 +1115,9 @@ from .importer import (  # noqa: E402
     validar_importacion,
 )
 from .models import (  # noqa: E402
-    BudgetImport,
-    ImportDetalle,
-    ImportError,
+    Importacion,
+    ImportacionDetalle,
+    ImportacionError,
 )
 
 HEADER_GASTOS = [
@@ -1172,11 +1172,11 @@ class ImportadorBase(TestCase):
                 codigo=codigo, denominacion=nombre, gestion=self.gestion,
                 fecha_vigencia_desde=timezone.now().date(),
             )
-        prog = ProgrammaticCategory.objects.create(
+        prog = CategoriaProgramaticaTecho.objects.create(
             gestion=self.gestion, codigo='097', denominacion='Programa 097',
             nivel='PROGRAMA',
         )
-        ProgrammaticCategory.objects.create(
+        CategoriaProgramaticaTecho.objects.create(
             gestion=self.gestion, codigo='010',
             denominacion='Subprograma 010', nivel='SUBPROGRAMA', parent=prog,
         )
@@ -1196,7 +1196,7 @@ class ImportadorBase(TestCase):
     def subir_y_validar(self, filas):
         resp = self.subir(construir_xlsx(filas))
         self.assertEqual(resp.status_code, 201, resp.content[:500])
-        importacion = BudgetImport.objects.get(pk=resp.data['id'])
+        importacion = Importacion.objects.get(pk=resp.data['id'])
         resp_val = self.client.post(
             f"{BUDGET_URL}imports/{importacion.id}/validate/", {}, format='json',
         )
@@ -1291,7 +1291,7 @@ class ImportadorUploadTests(ImportadorBase):
         self.assertEqual(data['gestion_anio'], 2030)
         self.assertEqual(len(data['sha256']), 64)
 
-        importacion = BudgetImport.objects.get(pk=data['id'])
+        importacion = Importacion.objects.get(pk=data['id'])
         detalles = importacion.detalles.all()
         self.assertEqual(detalles.count(), 1)
         detalle = detalles.first()
@@ -1331,7 +1331,7 @@ class ImportadorUploadTests(ImportadorBase):
         wb.save(buf)
         resp = self.subir(buf.getvalue())
         self.assertEqual(resp.status_code, 201, resp.content[:500])
-        importacion = BudgetImport.objects.get(pk=resp.data['id'])
+        importacion = Importacion.objects.get(pk=resp.data['id'])
         # Re-mapeo: CT ahora se interpreta como IDH (otra fuente).
         resp_map = self.client.post(
             f"{BUDGET_URL}imports/{importacion.id}/map/",
@@ -1383,7 +1383,7 @@ class ImportadorValidacionTests(ImportadorBase):
             fila_detalle(ct='#REF!'),
         ])
         self.assertEqual(importacion.estado, 'STAGING')
-        criticos = ImportError.objects.filter(
+        criticos = ImportacionError.objects.filter(
             importacion=importacion, severidad='CRITICAL',
         )
         self.assertTrue(criticos.exists())
@@ -1398,7 +1398,7 @@ class ImportadorValidacionTests(ImportadorBase):
             fila_detalle(ct='-100.00'),
         ])
         self.assertEqual(importacion.estado, 'STAGING')
-        self.assertTrue(ImportError.objects.filter(
+        self.assertTrue(ImportacionError.objects.filter(
             importacion=importacion, severidad='CRITICAL',
             mensaje__contains='negativo',
         ).exists())
@@ -1414,7 +1414,7 @@ class ImportadorValidacionTests(ImportadorBase):
         validar_importacion(importacion)
         importacion.refresh_from_db()
         self.assertEqual(importacion.estado, 'STAGING')
-        criticos = ImportError.objects.filter(
+        criticos = ImportacionError.objects.filter(
             importacion=importacion, severidad='CRITICAL',
         )
         self.assertTrue(criticos.exists())
@@ -1426,7 +1426,7 @@ class ImportadorValidacionTests(ImportadorBase):
             fila_detalle(prog='999'),
         ])
         self.assertEqual(importacion.estado, 'STAGING')
-        self.assertTrue(ImportError.objects.filter(
+        self.assertTrue(ImportacionError.objects.filter(
             importacion=importacion, severidad='CRITICAL',
             mensaje__contains='999',
         ).exists())
@@ -1437,7 +1437,7 @@ class ImportadorValidacionTests(ImportadorBase):
             fila_detalle(denom=''),
         ])
         self.assertEqual(importacion.estado, 'STAGING')
-        self.assertTrue(ImportError.objects.filter(
+        self.assertTrue(ImportacionError.objects.filter(
             importacion=importacion, severidad='ERROR',
             campo='denominacion',
         ).exists())
@@ -1449,7 +1449,7 @@ class ImportadorValidacionTests(ImportadorBase):
             fila_detalle(),
         ])
         self.assertEqual(importacion.estado, 'STAGING')
-        self.assertTrue(ImportError.objects.filter(
+        self.assertTrue(ImportacionError.objects.filter(
             importacion=importacion, severidad='ERROR',
             mensaje__contains='duplicada',
         ).exists())
@@ -1463,7 +1463,7 @@ class ImportadorValidacionTests(ImportadorBase):
                          total='100.00'),
         ])
         self.assertEqual(importacion.estado, 'VALIDADO')
-        self.assertFalse(ImportError.objects.filter(
+        self.assertFalse(ImportacionError.objects.filter(
             importacion=importacion, severidad__in=('ERROR', 'CRITICAL'),
         ).exists())
         for detalle in importacion.detalles.all():
@@ -1475,7 +1475,7 @@ class ImportadorValidacionTests(ImportadorBase):
             fila_detalle(distrito='ZONA INEXISTENTE'),
         ])
         self.assertEqual(importacion.estado, 'VALIDADO')
-        self.assertTrue(ImportError.objects.filter(
+        self.assertTrue(ImportacionError.objects.filter(
             importacion=importacion, severidad='WARNING',
             campo='distrito',
         ).exists())
@@ -1521,8 +1521,8 @@ class ImportadorAplicacionTests(ImportadorBase):
         )
         self.assertEqual(resp.status_code, 200, resp.data)
         self.assertEqual(resp.data['resultado']['aperturas_creadas'], 2)
-        from .models import Allocation
-        aperturas = Allocation.objects.filter(gestion=self.gestion)
+        from .models import Apertura
+        aperturas = Apertura.objects.filter(gestion=self.gestion)
         self.assertEqual(aperturas.count(), 2)
 
     def test_apply_con_critical_devuelve_400(self):
@@ -1535,8 +1535,8 @@ class ImportadorAplicacionTests(ImportadorBase):
         )
         self.assertEqual(resp.status_code, 400, resp.data)
         self.assertIn('crítico', str(resp.data))
-        from .models import Allocation
-        self.assertFalse(Allocation.objects.filter(gestion=self.gestion).exists())
+        from .models import Apertura
+        self.assertFalse(Apertura.objects.filter(gestion=self.gestion).exists())
         importacion.refresh_from_db()
         self.assertEqual(importacion.estado, 'STAGING')
 
@@ -1549,8 +1549,8 @@ class ImportadorAplicacionTests(ImportadorBase):
         importacion.refresh_from_db()
         self.assertEqual(importacion.estado, 'APLICADO')
 
-        from .models import Allocation, AllocationSource
-        aperturas = Allocation.objects.filter(gestion=self.gestion)
+        from .models import Apertura, AperturaFuente
+        aperturas = Apertura.objects.filter(gestion=self.gestion)
         self.assertEqual(aperturas.count(), 2)
         self.assertEqual(
             set(aperturas.values_list('codigo_sisin', flat=True)),
@@ -1561,7 +1561,7 @@ class ImportadorAplicacionTests(ImportadorBase):
             self.assertEqual(apertura.tipo_apertura, 'DETAIL')
             self.assertEqual(apertura.categoria.codigo, '097')
             self.assertIsNotNone(apertura.distrito)
-        fuentes = AllocationSource.objects.filter(
+        fuentes = AperturaFuente.objects.filter(
             allocation__in=aperturas,
         ).select_related('fuente')
         por_codigo = {}
@@ -1574,7 +1574,7 @@ class ImportadorAplicacionTests(ImportadorBase):
         self.assertEqual(por_codigo['11'], Decimal('200.00'))   # TGN x2
 
         evento = EventoAuditoria.objects.filter(
-            entidad='BudgetImport', entidad_id=str(importacion.id),
+            entidad='Importacion', entidad_id=str(importacion.id),
         ).order_by('-creado_en').first()
         self.assertIsNotNone(evento)
         self.assertEqual(evento.accion, 'crear')
@@ -1596,8 +1596,8 @@ class ImportadorAplicacionTests(ImportadorBase):
 from apps.territorio.models import Distrito  # noqa: E402
 
 from .models import (  # noqa: E402
-    TerritorialAllocation,
-    TerritorialDistribution,
+    AsignacionTerritorial,
+    DistribucionTerritorial,
 )
 
 TERRITORIAL_URL = BUDGET_URL + 'territorial-distributions/'
@@ -1729,7 +1729,7 @@ class TerritorialRepartoTests(TerritorialBase):
         pk = resp.data['id']
         resp = self.calcular(pk)
         self.assertEqual(resp.status_code, 400, resp.data)
-        distribucion = TerritorialDistribution.objects.get(pk=pk)
+        distribucion = DistribucionTerritorial.objects.get(pk=pk)
         self.assertEqual(distribucion.estado, 'BORRADOR')
 
     def test_manual_requiere_suma_exacta(self):
@@ -1788,14 +1788,14 @@ class TerritorialAplicarLiberarTests(TerritorialBase):
         self.assertEqual(resp.status_code, 200, resp.data)
         self.assertEqual(resp.data['estado'], 'APLICADA')
 
-        reservas = Reserve.objects.filter(
+        reservas = Reserva.objects.filter(
             gestion=self.gestion, tipo='DISTRITAL', estado='ACTIVA',
         )
         self.assertEqual(reservas.count(), 3)
         self.assertEqual(
             sum(r.monto for r in reservas), Decimal('600.00')
         )
-        for asignacion in TerritorialAllocation.objects.filter(
+        for asignacion in AsignacionTerritorial.objects.filter(
             distribucion_id=pk,
         ):
             self.assertTrue(reservas.filter(
@@ -1818,9 +1818,9 @@ class TerritorialAplicarLiberarTests(TerritorialBase):
         self.assertEqual(resp.data['details']['available'], '1500.00')
         self.assertEqual(resp.data['details']['difference'], '100.00')
         self.assertEqual(
-            Reserve.objects.filter(gestion=self.gestion).count(), 0
+            Reserva.objects.filter(gestion=self.gestion).count(), 0
         )
-        distribucion = TerritorialDistribution.objects.get(pk=pk)
+        distribucion = DistribucionTerritorial.objects.get(pk=pk)
         self.assertEqual(distribucion.estado, 'CALCULADA')
 
     def test_liberar_devuelve_reservas_y_estado_calculada(self):
@@ -1832,12 +1832,12 @@ class TerritorialAplicarLiberarTests(TerritorialBase):
         self.assertEqual(resp.status_code, 200, resp.data)
         self.assertEqual(resp.data['estado'], 'CALCULADA')
         self.assertEqual(
-            Reserve.objects.filter(
+            Reserva.objects.filter(
                 gestion=self.gestion, estado='ACTIVA',
             ).count(), 0
         )
         self.assertEqual(
-            Reserve.objects.filter(
+            Reserva.objects.filter(
                 gestion=self.gestion, estado='LIBERADA',
             ).count(), 3
         )
@@ -1911,11 +1911,11 @@ class FijacionDistribucionBase(DistribucionBase):
             format='json',
         )
         self.assertEqual(resp.status_code, 201, resp.data)
-        ceiling = DirectiveCeiling.objects.get(gestion=gestion)
-        version = DirectiveCeilingVersion.objects.get(
+        ceiling = TechoDirectivo.objects.get(gestion=gestion)
+        version = TechoVersion.objects.get(
             ceiling=ceiling, numero=1
         )
-        CeilingResource.objects.create(
+        RecursoTecho.objects.create(
             version=version, origen='SIGEP', monto=monto, concepto='CT',
             fuente=fuente, organismo=organismo,
             created_by=self.admin, updated_by=self.admin,
@@ -2140,7 +2140,7 @@ class FijacionFlujoTests(FijacionDistribucionBase):
         self.assertEqual(version.fijado_por, self.admin)
         self.assertEqual(version.observaciones, '')
         evento = EventoAuditoria.objects.filter(
-            entidad='DistributionVersion', entidad_id=str(version.id),
+            entidad='DistribucionVersion', entidad_id=str(version.id),
         ).order_by('-creado_en').first()
         self.assertIsNotNone(evento)
         self.assertEqual(evento.accion, 'aprobar')
@@ -2151,7 +2151,7 @@ class FijacionFlujoTests(FijacionDistribucionBase):
 class FijacionInmutabilidadTests(FijacionDistribucionBase):
     def test_patch_apertura_de_version_fijada_rechazado(self):
         self.fijar_v1_api()
-        allocation = Allocation.objects.get(gestion=self.gestion)
+        allocation = Apertura.objects.get(gestion=self.gestion)
         resp = self.client.patch(
             f'{BUDGET_URL}allocations/{allocation.id}/',
             {'denominacion': 'Intento'}, format='json',
@@ -2166,18 +2166,18 @@ class FijacionInmutabilidadTests(FijacionDistribucionBase):
         self.assertEqual(resp.status_code, 400, resp.data)
         self.assertIn('fijada', json.dumps(resp.data))
         self.assertEqual(
-            Allocation.objects.filter(denominacion='Post fijación').count(), 0
+            Apertura.objects.filter(denominacion='Post fijación').count(), 0
         )
 
     def test_crear_reserva_tras_fijar_rechazado(self):
         self.fijar_v1_api()
         resp = self.crear_reserva_api(monto='50.00')
         self.assertEqual(resp.status_code, 400, resp.data)
-        self.assertEqual(Reserve.objects.filter(motivo='Contingencia').count(), 1)
+        self.assertEqual(Reserva.objects.filter(motivo='Contingencia').count(), 1)
 
     def test_liberar_reserva_de_version_fijada_rechazado(self):
         self.fijar_v1_api()
-        reserva = Reserve.objects.get(gestion=self.gestion, estado='ACTIVA')
+        reserva = Reserva.objects.get(gestion=self.gestion, estado='ACTIVA')
         resp = self.client.post(
             f'{BUDGET_URL}reserves/{reserva.id}/liberar/', {}, format='json',
         )
@@ -2187,7 +2187,7 @@ class FijacionInmutabilidadTests(FijacionDistribucionBase):
 
     def test_patch_reserva_de_version_fijada_rechazado(self):
         self.fijar_v1_api()
-        reserva = Reserve.objects.get(gestion=self.gestion, estado='ACTIVA')
+        reserva = Reserva.objects.get(gestion=self.gestion, estado='ACTIVA')
         resp = self.client.patch(
             f'{BUDGET_URL}reserves/{reserva.id}/',
             {'monto': '1.00'}, format='json',
@@ -2198,10 +2198,10 @@ class FijacionInmutabilidadTests(FijacionDistribucionBase):
 
     def test_eliminar_apertura_de_version_fijada_rechazado(self):
         self.fijar_v1_api()
-        allocation = Allocation.objects.get(gestion=self.gestion)
+        allocation = Apertura.objects.get(gestion=self.gestion)
         resp = self.client.delete(f'{BUDGET_URL}allocations/{allocation.id}/')
         self.assertEqual(resp.status_code, 400, resp.data)
-        self.assertTrue(Allocation.objects.filter(pk=allocation.pk).exists())
+        self.assertTrue(Apertura.objects.filter(pk=allocation.pk).exists())
 
     def test_patch_sobre_version_fijada_rechazado(self):
         version = self.fijar_v1_api()
@@ -2225,7 +2225,7 @@ class FijacionAjusteTests(FijacionDistribucionBase):
         self.assertEqual(resp.data['estado'], 'BORRADOR')
         self.assertFalse(resp.data['inmutable'])
 
-        v2 = DistributionVersion.objects.get(gestion=self.gestion, numero=2)
+        v2 = DistribucionVersion.objects.get(gestion=self.gestion, numero=2)
         self.assertEqual(v2.observaciones, 'Ajuste de la versión 1 (fijada).')
         v1.refresh_from_db()
         self.assertEqual(v1.estado, 'FIJADO')
@@ -2242,7 +2242,7 @@ class FijacionAjusteTests(FijacionDistribucionBase):
         )
         self.assertEqual(resp.status_code, 400, resp.data)
         self.assertEqual(
-            DistributionVersion.objects.filter(gestion=self.gestion).count(), 1
+            DistribucionVersion.objects.filter(gestion=self.gestion).count(), 1
         )
 
     def test_version_distribucion_activa_devuelve_la_ajustada(self):
@@ -2267,8 +2267,8 @@ class FijacionChecksumTests(FijacionDistribucionBase):
 
         # Reorden: intercambiar montos entre aperturas (mismo set de tuplas
         # (fuente, organismo, monto)) → hash idéntico.
-        a = Allocation.objects.get(gestion=self.gestion, denominacion='A')
-        b = Allocation.objects.get(gestion=self.gestion, denominacion='B')
+        a = Apertura.objects.get(gestion=self.gestion, denominacion='A')
+        b = Apertura.objects.get(gestion=self.gestion, denominacion='B')
         actualizar_allocation(a, self.admin, {'fuentes': [{
             'fuente': self.fuente.id, 'organismo': self.organismo.id,
             'monto': Decimal('200.00'),
@@ -2428,7 +2428,7 @@ class ControlSummaryTests(DistribucionBase):
 
     def test_getters_de_apertura(self):
         resp = self.crear_apertura(monto='1000.00', denominacion='Apertura A')
-        allocation = Allocation.objects.get(pk=resp.data['id'])
+        allocation = Apertura.objects.get(pk=resp.data['id'])
         self.assertEqual(
             BudgetControlService.get_allocation_ceiling(allocation),
             Decimal('1000.00'),
@@ -2456,7 +2456,7 @@ class ControlSummaryTests(DistribucionBase):
 
     def test_validate_expense_object_valida_apertura_activa(self):
         resp = self.crear_apertura(monto='100.00', denominacion='Apertura A')
-        allocation = Allocation.objects.get(pk=resp.data['id'])
+        allocation = Apertura.objects.get(pk=resp.data['id'])
         # Fase 9: requiere versión de distribución FIJADA → completar y
         # congelar la distribución (apertura 100 + reserva 1400 = techo 1500).
         self.crear_reserva_api(monto='1400.00')
@@ -2503,7 +2503,7 @@ class ControlReservaTests(DistribucionBase):
         )
         self.assertEqual(disponible[self.fuente.id], Decimal('1300.00'))
         evento = EventoAuditoria.objects.filter(
-            entidad='Reserve', entidad_id=str(reserva.id),
+            entidad='Reserva', entidad_id=str(reserva.id),
         ).first()
         self.assertIsNotNone(evento)
         self.assertEqual(evento.accion, 'crear')
@@ -2517,7 +2517,7 @@ class ControlReservaTests(DistribucionBase):
         self.assertEqual(ctx.exception.code, 'BUDGET_EXCEEDED')
         self.assertEqual(ctx.exception.details['available'], '1500.00')
         self.assertEqual(
-            Reserve.objects.filter(gestion=self.gestion).count(), 0,
+            Reserva.objects.filter(gestion=self.gestion).count(), 0,
         )
 
     def test_release_devuelve_el_disponible(self):
@@ -2550,8 +2550,8 @@ class ControlMovimientoTests(DistribucionBase):
 
     def _escenario(self):
         resp = self.crear_apertura(monto='100.00', denominacion='Origen')
-        origen = Allocation.objects.get(pk=resp.data['id'])
-        destino = Allocation.objects.create(
+        origen = Apertura.objects.get(pk=resp.data['id'])
+        destino = Apertura.objects.create(
             gestion=self.gestion,
             version=origen.version,
             denominacion='Destino',
@@ -2570,13 +2570,13 @@ class ControlMovimientoTests(DistribucionBase):
         )
         self.assertTrue(resultado['valido'])
         self.assertTrue(resultado['movido'])
-        # Saldos del AllocationSource de ORIGEN antes/después.
+        # Saldos del AperturaFuente de ORIGEN antes/después.
         self.assertEqual(resultado['saldo_antes'], Decimal('100.00'))
         self.assertEqual(resultado['saldo_despues'], Decimal('20.00'))
-        origen_src = AllocationSource.objects.get(allocation=origen)
+        origen_src = AperturaFuente.objects.get(allocation=origen)
         self.assertEqual(origen_src.monto, Decimal('20.00'))
         # El destino gana la fuente (se crea la fila si no existía).
-        destino_src = AllocationSource.objects.get(allocation=destino)
+        destino_src = AperturaFuente.objects.get(allocation=destino)
         self.assertEqual(destino_src.monto, Decimal('80.00'))
 
     def test_apply_movement_con_exceso_lanza_budget_exceeded(self):
@@ -2589,11 +2589,11 @@ class ControlMovimientoTests(DistribucionBase):
         self.assertEqual(ctx.exception.code, 'BUDGET_EXCEEDED')
         self.assertEqual(ctx.exception.details['available'], '100.00')
         self.assertEqual(
-            Allocation.objects.get(pk=origen.pk).fuentes.count(), 1,
+            Apertura.objects.get(pk=origen.pk).fuentes.count(), 1,
         )
         # Nada movido: el destino sigue sin fuentes (rollback del intento).
         self.assertEqual(
-            Allocation.objects.get(pk=destino.pk).fuentes.count(), 0,
+            Apertura.objects.get(pk=destino.pk).fuentes.count(), 0,
         )
 
     def test_apply_movement_con_origen_inexistente_rechazado(self):
@@ -2645,11 +2645,11 @@ class ControlConcurrenciaTests(TransactionTestCase):
             codigo='111', denominacion='Tesoro General de la Nación',
             gestion=self.gestion, fecha_vigencia_desde=timezone.now().date(),
         )
-        ceiling = DirectiveCeiling.objects.create(gestion=self.gestion)
-        version = DirectiveCeilingVersion.objects.create(
+        ceiling = TechoDirectivo.objects.create(gestion=self.gestion)
+        version = TechoVersion.objects.create(
             ceiling=ceiling, numero=1,
         )
-        CeilingResource.objects.create(
+        RecursoTecho.objects.create(
             version=version, origen='SIGEP', monto='100.00', concepto='CT',
             fuente=self.fuente, organismo=self.organismo,
             created_by=self.admin, updated_by=self.admin,
@@ -2721,7 +2721,7 @@ class ControlConcurrenciaTests(TransactionTestCase):
 
         reservada = exitos[0][1].monto
         self.assertIn(reservada, {Decimal('80.00'), Decimal('50.00')})
-        activas = Reserve.objects.filter(
+        activas = Reserva.objects.filter(
             gestion=self.gestion, estado='ACTIVA',
         )
         self.assertEqual(activas.count(), 1)
@@ -2773,7 +2773,7 @@ class ControlConcurrenciaTests(TransactionTestCase):
         self.assertEqual(resultado_b[1].code, 'BUDGET_EXCEEDED')
         self.assertEqual(resultado_b[1].details['available'], '20.00')
         self.assertEqual(
-            Reserve.objects.filter(gestion=self.gestion, estado='ACTIVA')
+            Reserva.objects.filter(gestion=self.gestion, estado='ACTIVA')
             .count(), 1,
         )
         self.assertEqual(self._disponible(), Decimal('20.00'))
@@ -2787,7 +2787,7 @@ class ControlConcurrenciaTests(TransactionTestCase):
         self.assertEqual(r_2[1].code, 'BUDGET_EXCEEDED')
         self.assertEqual(r_2[1].details['available'], '20.00')
         self.assertEqual(
-            Reserve.objects.filter(gestion=self.gestion, estado='ACTIVA')
+            Reserva.objects.filter(gestion=self.gestion, estado='ACTIVA')
             .count(), 1,
         )
         self.assertEqual(self._disponible(), Decimal('20.00'))
@@ -2912,7 +2912,7 @@ class ControlApiTests(DistribucionBase):
 # ===========================================================================
 # Fase 9 - Objetos del gasto: programación por apertura (§90-91)
 # ===========================================================================
-from .models import ExpenseObjectAllocation  # noqa: E402
+from .models import AsignacionObjetoGastoTecho  # noqa: E402
 from .services import (  # noqa: E402
     ErrorObjetoGastoExcedido,
     programar_objeto_gasto,
@@ -2961,11 +2961,11 @@ class ObjetosGastoBase(TestCase):
             fecha_vigencia_desde=timezone.now().date(),
         )
 
-        ceiling = DirectiveCeiling.objects.create(gestion=self.gestion)
-        version = DirectiveCeilingVersion.objects.create(
+        ceiling = TechoDirectivo.objects.create(gestion=self.gestion)
+        version = TechoVersion.objects.create(
             ceiling=ceiling, numero=1,
         )
-        CeilingResource.objects.create(
+        RecursoTecho.objects.create(
             version=version, origen='SIGEP', monto='500000.00', concepto='CT',
             fuente=self.fuente, organismo=self.organismo,
             created_by=self.admin, updated_by=self.admin,
@@ -2984,7 +2984,7 @@ class ObjetosGastoBase(TestCase):
             format='json',
         )
         self.assertEqual(resp.status_code, 201, resp.data)
-        self.allocation = Allocation.objects.get(pk=resp.data['id'])
+        self.allocation = Apertura.objects.get(pk=resp.data['id'])
 
         version_distribucion = version_distribucion_activa(self.gestion)
         enviar_distribucion_a_revision(version_distribucion, self.admin)
@@ -3023,14 +3023,14 @@ class ProgramacionObjetosGastoTests(ObjetosGastoBase):
             Decimal('100000.00'),
         )
         self.assertEqual(
-            ExpenseObjectAllocation.objects.filter(
+            AsignacionObjetoGastoTecho.objects.filter(
                 allocation=self.allocation
             ).count(),
             3,
         )
         self.assertEqual(
             EventoAuditoria.objects.filter(
-                entidad='ExpenseObjectAllocation', accion='crear',
+                entidad='AsignacionObjetoGastoTecho', accion='crear',
             ).count(),
             3,
         )
@@ -3051,7 +3051,7 @@ class ProgramacionObjetosGastoTests(ObjetosGastoBase):
             resp.data['error']['detail'][0],
         )
         self.assertFalse(
-            ExpenseObjectAllocation.objects.filter(
+            AsignacionObjetoGastoTecho.objects.filter(
                 objeto_gasto=self.objeto_42310,
             ).exists()
         )
@@ -3060,7 +3060,7 @@ class ProgramacionObjetosGastoTests(ObjetosGastoBase):
         self.programar_api(self.objeto_25220, '100000.00')
         self.programar_api(self.objeto_34200, '180000.00')
         self.programar_api(self.objeto_43110, '120000.00')
-        fila = ExpenseObjectAllocation.objects.get(
+        fila = AsignacionObjetoGastoTecho.objects.get(
             allocation=self.allocation, objeto_gasto=self.objeto_25220,
         )
         # Subir 25220 de 100.000 a 150.000: los demás suman 300.000 →
@@ -3093,11 +3093,11 @@ class ProgramacionObjetosGastoTests(ObjetosGastoBase):
             codigo='461', denominacion='Origen 2046', gestion=gestion,
             fecha_vigencia_desde=timezone.now().date(),
         )
-        ceiling = DirectiveCeiling.objects.create(gestion=gestion)
-        version = DirectiveCeilingVersion.objects.create(
+        ceiling = TechoDirectivo.objects.create(gestion=gestion)
+        version = TechoVersion.objects.create(
             ceiling=ceiling, numero=1,
         )
-        CeilingResource.objects.create(
+        RecursoTecho.objects.create(
             version=version, origen='SIGEP', monto='500000.00', concepto='CT',
             fuente=fuente, organismo=organismo,
             created_by=self.admin, updated_by=self.admin,
@@ -3115,7 +3115,7 @@ class ProgramacionObjetosGastoTests(ObjetosGastoBase):
             format='json',
         )
         self.assertEqual(resp.status_code, 201, resp.data)
-        allocation = Allocation.objects.get(pk=resp.data['id'])
+        allocation = Apertura.objects.get(pk=resp.data['id'])
         objeto = ObjetoGasto.objects.create(
             codigo='25220', denominacion='Papelería', gestion=gestion,
             fecha_vigencia_desde=timezone.now().date(),
@@ -3129,14 +3129,14 @@ class ProgramacionObjetosGastoTests(ObjetosGastoBase):
         self.assertEqual(resp.status_code, 400, resp.data)
         self.assertIn('fijada', resp.data['error']['detail'][0])
         self.assertFalse(
-            ExpenseObjectAllocation.objects.filter(allocation=allocation).exists()
+            AsignacionObjetoGastoTecho.objects.filter(allocation=allocation).exists()
         )
 
     def test_eliminar_objeto_libera_disponible(self):
         self.programar_api(self.objeto_25220, '100000.00')
         self.programar_api(self.objeto_34200, '180000.00')
         self.programar_api(self.objeto_43110, '120000.00')
-        fila = ExpenseObjectAllocation.objects.get(
+        fila = AsignacionObjetoGastoTecho.objects.get(
             allocation=self.allocation, objeto_gasto=self.objeto_25220,
         )
         resp = self.client.delete(f'{EXPENSE_URL}{fila.id}/')
@@ -3153,7 +3153,7 @@ class ProgramacionObjetosGastoTests(ObjetosGastoBase):
         )
         self.assertEqual(
             EventoAuditoria.objects.filter(
-                entidad='ExpenseObjectAllocation', accion='anular',
+                entidad='AsignacionObjetoGastoTecho', accion='anular',
             ).count(),
             1,
         )
@@ -3184,13 +3184,13 @@ class ProgramacionObjetosGastoTests(ObjetosGastoBase):
         resp = self.programar_api(self.objeto_25220, '200000.00')
         self.assertEqual(resp.status_code, 201, resp.data)
         self.assertEqual(
-            ExpenseObjectAllocation.objects.filter(
+            AsignacionObjetoGastoTecho.objects.filter(
                 allocation=self.allocation, objeto_gasto=self.objeto_25220,
             ).count(),
             1,
         )
         self.assertEqual(
-            ExpenseObjectAllocation.objects.get(
+            AsignacionObjetoGastoTecho.objects.get(
                 allocation=self.allocation, objeto_gasto=self.objeto_25220,
             ).monto,
             Decimal('200000.00'),
@@ -3213,7 +3213,7 @@ class ProgramacionObjetosGastoTests(ObjetosGastoBase):
 # ===========================================================================
 # Fase 10 - Reformulaciones (tipos + workflow + movimientos atómicos, §92-97)
 # ===========================================================================
-from .models import Reform, ReformMovement  # noqa: E402
+from .models import Reforma, ReformaMovimiento  # noqa: E402
 from .services import (  # noqa: E402
     EstadosReform,
     aprobar_reform,
@@ -3250,11 +3250,11 @@ class ReformulacionBase(FijacionDistribucionBase):
         return version
 
     def apertura(self, denominacion):
-        return Allocation.objects.get(gestion=self.gestion,
+        return Apertura.objects.get(gestion=self.gestion,
                                       denominacion=denominacion)
 
     def source(self, allocation, fuente=None):
-        return AllocationSource.objects.get(
+        return AperturaFuente.objects.get(
             allocation=allocation, fuente=fuente or self.fuente,
         )
 
@@ -3318,7 +3318,7 @@ class ReformulacionCreacionTests(ReformulacionBase):
         # Solo BORRADOR: los saldos NO se movieron.
         self.assertEqual(self.source(a).monto, Decimal('1000.00'))
         self.assertEqual(self.source(b).monto, Decimal('300.00'))
-        reform = Reform.objects.get(pk=resp.data['id'])
+        reform = Reforma.objects.get(pk=resp.data['id'])
         self.assertEqual(reform.version_origen.estado, 'FIJADO')
         self.assertIsNone(reform.version_resultante)
 
@@ -3326,7 +3326,7 @@ class ReformulacionCreacionTests(ReformulacionBase):
         # Gestión sin fijar la distribución → 400.
         resp = self.crear_api(movimientos=[self.movimiento('DISMINUCION')])
         self.assertEqual(resp.status_code, 400, resp.data)
-        self.assertEqual(Reform.objects.count(), 0)
+        self.assertEqual(Reforma.objects.count(), 0)
 
     def test_crear_reform_valida_estructura_de_movimientos(self):
         self.preparar_distribucion_fijada()
@@ -3345,7 +3345,7 @@ class ReformulacionCreacionTests(ReformulacionBase):
         # Sin movimientos → 400.
         resp = self.crear_api(movimientos=[])
         self.assertEqual(resp.status_code, 400, resp.data)
-        self.assertEqual(Reform.objects.count(), 0)
+        self.assertEqual(Reforma.objects.count(), 0)
 
     def test_crear_reform_permisos_requieren_capacidad_reform(self):
         self.preparar_distribucion_fijada()
@@ -3400,7 +3400,7 @@ class ReformulacionFlujoTests(ReformulacionBase):
         # Saldos movidos: origen baja, destino sube (500 A→B).
         self.assertEqual(self.source(a).monto, Decimal('500.00'))
         self.assertEqual(self.source(b).monto, Decimal('800.00'))
-        reform = Reform.objects.get(pk=reform_id)
+        reform = Reforma.objects.get(pk=reform_id)
         self.assertEqual(reform.fecha_aplicacion is not None, True)
         self.assertEqual(reform.aprobada_por, self.admin)
 
@@ -3457,7 +3457,7 @@ class ReformulacionFlujoTests(ReformulacionBase):
             f'{REFORM_URL}{reform_id}/apply/', {}, format='json',
         )
         self.assertEqual(resp.status_code, 400, resp.data)
-        reform = Reform.objects.get(pk=reform_id)
+        reform = Reforma.objects.get(pk=reform_id)
         self.assertEqual(reform.estado, 'EN_REVISION')
         # Nada aplicado.
         self.assertEqual(self.source(a).monto, Decimal('1000.00'))
@@ -3504,7 +3504,7 @@ class ReformulacionFlujoTests(ReformulacionBase):
             f'{REFORM_URL}{reform_id}/apply/', {}, format='json',
         )
         self.assertEqual(resp.status_code, 200, resp.data)
-        mov = ReformMovement.objects.get(reform_id=reform_id)
+        mov = ReformaMovimiento.objects.get(reform_id=reform_id)
         self.assertEqual(mov.saldo_antes, Decimal('1000.00'))
         self.assertEqual(mov.saldo_despues, Decimal('750.00'))
         # El detalle de la API expone los saldos.
@@ -3533,14 +3533,14 @@ class ReformulacionAtomicidadTests(ReformulacionBase):
         self.assertEqual(resp.data['code'], 'BUDGET_EXCEEDED')
         self.assertEqual(resp.data['details']['available'], '1000.00')
         # ROLLBACK COMPLETO: reform sigue APROBADA y saldos intactos.
-        reform = Reform.objects.get(pk=reform_id)
+        reform = Reforma.objects.get(pk=reform_id)
         self.assertEqual(reform.estado, 'APROBADA')
         self.assertIsNone(reform.fecha_aplicacion)
         self.assertEqual(self.source(a).monto, Decimal('1000.00'))
         self.assertEqual(self.source(b).monto, Decimal('300.00'))
         # La versión activa abierta por el ajuste también se revirtió.
         self.assertEqual(
-            DistributionVersion.objects.filter(
+            DistribucionVersion.objects.filter(
                 gestion=self.gestion, inmutable=False,
             ).count(), 0,
         )
@@ -3590,7 +3590,7 @@ class ReformulacionTiposTests(ReformulacionBase):
         self.assertEqual(resp.status_code, 200, resp.data)
         self.assertEqual(self.source(b).monto, Decimal('450.00'))
         # saldo_antes/despues del DESTINO (sin origen).
-        mov = ReformMovement.objects.get(reform_id=reform_id)
+        mov = ReformaMovimiento.objects.get(reform_id=reform_id)
         self.assertEqual(mov.saldo_antes, Decimal('300.00'))
         self.assertEqual(mov.saldo_despues, Decimal('450.00'))
 
@@ -3630,7 +3630,7 @@ class ReformulacionTiposTests(ReformulacionBase):
         )
         self.assertEqual(resp.status_code, 200, resp.data)
         self.assertEqual(self.source(a).monto, Decimal('600.00'))
-        mov = ReformMovement.objects.get(reform_id=reform_id)
+        mov = ReformaMovimiento.objects.get(reform_id=reform_id)
         self.assertEqual(mov.saldo_antes, Decimal('1000.00'))
         self.assertEqual(mov.saldo_despues, Decimal('600.00'))
 
@@ -3654,14 +3654,14 @@ class ReformulacionTiposTests(ReformulacionBase):
             {'gestion': str(gestion.id)}, format='json',
         )
         self.assertEqual(resp.status_code, 201, resp.data)
-        ceiling = DirectiveCeiling.objects.get(gestion=gestion)
-        version = DirectiveCeilingVersion.objects.get(ceiling=ceiling, numero=1)
-        CeilingResource.objects.create(
+        ceiling = TechoDirectivo.objects.get(gestion=gestion)
+        version = TechoVersion.objects.get(ceiling=ceiling, numero=1)
+        RecursoTecho.objects.create(
             version=version, origen='SIGEP', monto='1000.00', concepto='A',
             fuente=fuente_a, organismo=organismo,
             created_by=self.admin, updated_by=self.admin,
         )
-        CeilingResource.objects.create(
+        RecursoTecho.objects.create(
             version=version, origen='SIGEP', monto='1000.00', concepto='B',
             fuente=fuente_b, organismo=organismo,
             created_by=self.admin, updated_by=self.admin,
@@ -3701,7 +3701,7 @@ class ReformulacionTiposTests(ReformulacionBase):
             format='json',
         )
         self.assertEqual(resp.status_code, 201, resp.data)
-        version_dist = DistributionVersion.objects.get(
+        version_dist = DistribucionVersion.objects.get(
             gestion=gestion, numero=1,
         )
         enviar_distribucion_a_revision(version_dist, self.admin)
@@ -3709,7 +3709,7 @@ class ReformulacionTiposTests(ReformulacionBase):
         fijar_distribucion(version_dist, self.admin)
 
         # CAMBIO_FUENTE en X: 300 de la fuente a → fuente b (misma apertura).
-        x = Allocation.objects.get(gestion=gestion, denominacion='Apertura X')
+        x = Apertura.objects.get(gestion=gestion, denominacion='Apertura X')
         resp = self.client.post(
             f'{REFORM_URL}',
             {'gestion': str(gestion.id), 'tipo': 'CAMBIO_FUENTE',
@@ -3733,16 +3733,16 @@ class ReformulacionTiposTests(ReformulacionBase):
 
         # X: fuente a baja 500 → 200; fuente b nace con 300.
         self.assertEqual(
-            AllocationSource.objects.get(
+            AperturaFuente.objects.get(
                 allocation=x, fuente=fuente_a, organismo=organismo,
             ).monto, Decimal('200.00'),
         )
         self.assertEqual(
-            AllocationSource.objects.get(
+            AperturaFuente.objects.get(
                 allocation=x, fuente=fuente_b, organismo=organismo,
             ).monto, Decimal('300.00'),
         )
-        mov = ReformMovement.objects.get(reform_id=reform_id)
+        mov = ReformaMovimiento.objects.get(reform_id=reform_id)
         self.assertEqual(mov.saldo_antes, Decimal('500.00'))
         self.assertEqual(mov.saldo_despues, Decimal('200.00'))
 
@@ -3787,7 +3787,7 @@ class ReformulacionAuditoriaTests(ReformulacionBase):
         self.flujo_hasta(reform_id, 'approve')
         self.client.post(f'{REFORM_URL}{reform_id}/apply/', {}, format='json')
         evento = EventoAuditoria.objects.filter(
-            entidad='Reform', entidad_id=str(reform_id),
+            entidad='Reforma', entidad_id=str(reform_id),
         ).order_by('-creado_en').first()
         self.assertIsNotNone(evento)
         self.assertIn('aplicada', evento.resumen.lower())
@@ -3796,7 +3796,7 @@ class ReformulacionAuditoriaTests(ReformulacionBase):
         self.assertEqual(evento.gestion.anio, 2030)
         # El flujo completo dejó su rastro (crear → enviar → aprobar → aplicar).
         self.assertGreaterEqual(
-            EventoAuditoria.objects.filter(entidad='Reform',
+            EventoAuditoria.objects.filter(entidad='Reforma',
                                            entidad_id=str(reform_id)).count(),
             4,
         )
@@ -3856,9 +3856,9 @@ class AuditoriaFase11Tests(ReformulacionBase):
     def test_crear_apertura_registra_evento_allocation_create(self):
         resp = self.crear_apertura(monto='1000.00', denominacion='Apertura F11')
         self.assertEqual(resp.status_code, 201, resp.data)
-        allocation = Allocation.objects.get(denominacion='Apertura F11')
+        allocation = Apertura.objects.get(denominacion='Apertura F11')
         evento = EventoAuditoria.objects.filter(
-            entidad='Allocation', entidad_id=str(allocation.id),
+            entidad='Apertura', entidad_id=str(allocation.id),
         ).order_by('-creado_en').first()
         self.assertIsNotNone(evento)
         self.assertEqual(evento.accion, 'crear')
@@ -3869,7 +3869,7 @@ class AuditoriaFase11Tests(ReformulacionBase):
     def test_fijar_techo_registra_evento_freeze(self):
         # La base fija el techo en setUp (submit → approve → freeze).
         evento = EventoAuditoria.objects.filter(
-            entidad='DirectiveCeilingVersion',
+            entidad='TechoVersion',
             entidad_id=str(self.version.id),
             accion='aprobar',
         ).order_by('-creado_en').first()
@@ -3893,7 +3893,7 @@ class AuditoriaFase11Tests(ReformulacionBase):
         )
         self.assertEqual(resp.status_code, 200, resp.data)
         evento = EventoAuditoria.objects.filter(
-            entidad='Reform', entidad_id=str(reform_id),
+            entidad='Reforma', entidad_id=str(reform_id),
         ).order_by('-creado_en').first()
         self.assertIsNotNone(evento)
         self.assertEqual(evento.accion, 'aprobar')
@@ -3917,21 +3917,21 @@ class AuditoriaFase11Tests(ReformulacionBase):
         for fila in resp.data['results']:
             self.assertEqual(fila['gestion'], 2030)
         entidades = {fila['entidad'] for fila in resp.data['results']}
-        self.assertIn('Allocation', entidades)
+        self.assertIn('Apertura', entidades)
 
         # Filtro por slug de entidad del ciclo.
         resp = client.get(f'{AUDIT_URL}', {'gestion': '2030',
                                            'entidad': 'allocation'})
         self.assertEqual(resp.status_code, 200, resp.data)
         self.assertTrue(
-            all(f['entidad'] == 'Allocation' for f in resp.data['results'])
+            all(f['entidad'] == 'Apertura' for f in resp.data['results'])
         )
-        # El slug de techo directivo resuelve a DirectiveCeilingVersion.
+        # El slug de techo directivo resuelve a TechoVersion.
         resp = client.get(f'{AUDIT_URL}', {'gestion': '2030',
                                            'entidad': 'directive-ceiling'})
         self.assertEqual(resp.status_code, 200, resp.data)
         self.assertTrue(
-            all(f['entidad'] == 'DirectiveCeilingVersion'
+            all(f['entidad'] == 'TechoVersion'
                 for f in resp.data['results'])
         )
         # Acción semántica CREATE → código del catálogo 'crear'.
@@ -3951,14 +3951,14 @@ class AuditoriaFase11Tests(ReformulacionBase):
         from .services import ACCIONES_AUDITORIA, registrar_auditoria
 
         evento = registrar_auditoria(
-            self.admin, 'FREEZE', 'DirectiveCeilingVersion', 'f11-v1',
+            self.admin, 'FREEZE', 'TechoVersion', 'f11-v1',
             {'estado': 'APROBADO'}, {'estado': 'FIJADO'},
             gestion=2030, version=1, motivo='Techo fijado (F11)',
         )
         self.assertEqual(evento.accion, 'aprobar')
         self.assertIn('fijado', evento.resumen.lower())
         evento = registrar_auditoria(
-            self.admin, 'RELEASE', 'Reserve', 'f11-r1',
+            self.admin, 'RELEASE', 'Reserva', 'f11-r1',
             {'estado': 'ACTIVA'}, {'estado': 'LIBERADA'},
             gestion=2030, motivo='Reserva liberada (F11)',
         )
@@ -3966,7 +3966,7 @@ class AuditoriaFase11Tests(ReformulacionBase):
         self.assertEqual(evento.gestion.anio, 2030)
         with self.assertRaises(ValidationError):
             registrar_auditoria(
-                self.admin, 'NO_EXISTE', 'Reserve', 'x',
+                self.admin, 'NO_EXISTE', 'Reserva', 'x',
                 None, None, gestion=2030,
             )
         # El mapeo cubre todas las acciones semánticas del ciclo.
@@ -4001,7 +4001,7 @@ class FlujoCompletoE2ETests(TestCase):
         11. Objetos del gasto (400.000 programado / 100.000 disponible;
             exceso → 409 BUDGET_EXCEEDED y sistema intacto).
         12. Reformulación TRASPASO (50.000 entre aperturas; saldos movidos
-            y ReformMovement con saldo_antes/saldo_despues).
+            y ReformaMovimiento con saldo_antes/saldo_despues).
         13. Auditoría: evento por cada operación clave.
 
     Montos Decimal exactos (sin float). Un solo `test_*` para preservar el
@@ -4042,7 +4042,7 @@ class FlujoCompletoE2ETests(TestCase):
         self.assertEqual(resp.status_code, 201, resp.data)
         self.assertEqual(resp.data['estado'], 'ACTIVA', resp.data)
         self.assertEqual(resp.data['total'], monto, resp.data)
-        return Allocation.objects.get(pk=resp.data['id'])
+        return Apertura.objects.get(pk=resp.data['id'])
 
     def _flujo_techo(self, ceiling_id, prefijo):
         for paso in ('submit', 'approve', 'freeze'):
@@ -4091,8 +4091,8 @@ class FlujoCompletoE2ETests(TestCase):
         resp = self._post('directive-ceilings/', {'gestion': str(gestion.id)})
         self.assertEqual(resp.status_code, 201, resp.data)
         self.assertEqual(resp.data['estado'], 'BORRADOR', resp.data)
-        ceiling = DirectiveCeiling.objects.get(gestion=gestion)
-        version = DirectiveCeilingVersion.objects.get(
+        ceiling = TechoDirectivo.objects.get(gestion=gestion)
+        version = TechoVersion.objects.get(
             ceiling=ceiling, numero=1,
         )
         self.assertEqual(version.estado, 'BORRADOR',
@@ -4303,13 +4303,13 @@ class FlujoCompletoE2ETests(TestCase):
         self.assertEqual(resp.data['details']['available'], '100000.00')
         self.assertEqual(resp.data['details']['difference'], '50000.00')
         self.assertFalse(
-            ExpenseObjectAllocation.objects.filter(
+            AsignacionObjetoGastoTecho.objects.filter(
                 allocation=apertura_b, objeto_gasto=objetos['42310'],
             ).exists(),
             'la programación con exceso no se persiste',
         )
         self.assertEqual(
-            ExpenseObjectAllocation.objects.filter(allocation=apertura_b)
+            AsignacionObjetoGastoTecho.objects.filter(allocation=apertura_b)
             .count(), 3,
             'el sistema queda intacto tras el rechazo (siguen 3 objetos)',
         )
@@ -4341,20 +4341,20 @@ class FlujoCompletoE2ETests(TestCase):
 
         # Saldos movidos: origen −50.000, destino +50.000.
         self.assertEqual(
-            AllocationSource.objects.get(
+            AperturaFuente.objects.get(
                 allocation=apertura_a, fuente=fuente,
             ).monto,
             Decimal('199950000.00'),
             'origen: 200.000.000 − 50.000 = 199.950.000',
         )
         self.assertEqual(
-            AllocationSource.objects.get(
+            AperturaFuente.objects.get(
                 allocation=apertura_b, fuente=fuente,
             ).monto,
             Decimal('550000.00'),
             'destino: 500.000 + 50.000 = 550.000',
         )
-        mov = ReformMovement.objects.get(reform_id=reform_id)
+        mov = ReformaMovimiento.objects.get(reform_id=reform_id)
         self.assertEqual(mov.saldo_antes, Decimal('200000000.00'),
                          'saldo_antes del origen antes del movimiento')
         self.assertEqual(mov.saldo_despues, Decimal('199950000.00'),
@@ -4371,9 +4371,9 @@ class FlujoCompletoE2ETests(TestCase):
         entidades = {fila['entidad'] for fila in resp.data['results']}
         for entidad, operacion in (
             ('GestionFiscal', 'enable de la gestión'),
-            ('DirectiveCeilingVersion', 'freeze del techo directivo'),
-            ('DistributionVersion', 'freeze de la distribución'),
-            ('Reform', 'reformulación aplicada'),
+            ('TechoVersion', 'freeze del techo directivo'),
+            ('DistribucionVersion', 'freeze de la distribución'),
+            ('Reforma', 'reformulación aplicada'),
         ):
             self.assertIn(
                 entidad, entidades,

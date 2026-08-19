@@ -34,21 +34,21 @@ from apps.auditoria.services import registrar_evento
 from apps.gestion.models import CicloFormulacion, EtapaFormulacion, GestionFiscal
 
 from .models import (
-    Allocation,
-    AllocationSource,
-    CeilingResource,
-    DirectiveCeiling,
-    DirectiveCeilingVersion,
-    DistributionVersion,
+    Apertura,
+    AperturaFuente,
+    RecursoTecho,
+    TechoDirectivo,
+    TechoVersion,
+    DistribucionVersion,
     EstadoApertura,
     EstadoReserva,
     EstadosReform,
     EstadosTecho,
-    ExpenseObjectAllocation,
-    MandatoryExpense,
-    Reform,
-    ReformMovement,
-    Reserve,
+    AsignacionObjetoGastoTecho,
+    GastoObligatorio,
+    Reforma,
+    ReformaMovimiento,
+    Reserva,
     TipoMovimientoReform,
     TipoReform,
     TipoReserva,
@@ -271,7 +271,7 @@ def obtener_version_actual(ceiling):
     if ceiling.version_actual is None:
         return None
     return (
-        DirectiveCeilingVersion.objects
+        TechoVersion.objects
         .filter(ceiling=ceiling, numero=ceiling.version_actual)
         .first()
     )
@@ -295,10 +295,10 @@ def composicion_techo(ceiling):
     gasto obligatorio no tiene fuente, se resta del total general).
     """
     version = obtener_version_actual(ceiling)
-    recursos = version.recursos if version else CeilingResource.objects.none()
+    recursos = version.recursos if version else RecursoTecho.objects.none()
     gastos = (
         version.gastos_obligatorios
-        if version else MandatoryExpense.objects.none()
+        if version else GastoObligatorio.objects.none()
     )
 
     sigep = _suma_montos(recursos.filter(origen='SIGEP'))
@@ -344,14 +344,14 @@ def composicion_techo(ceiling):
 @transaction.atomic
 def crear_version_inicial(ceiling, usuario):
     """Crea la versión 1 (BORRADOR) del techo directivo."""
-    if DirectiveCeilingVersion.objects.filter(
+    if TechoVersion.objects.filter(
         ceiling=ceiling, numero=1
     ).exists():
         raise ValidationError(
             f'El techo de la gestión {ceiling.gestion.anio} ya tiene la '
             'versión 1.'
         )
-    version = DirectiveCeilingVersion.objects.create(
+    version = TechoVersion.objects.create(
         ceiling=ceiling,
         numero=1,
         estado=EstadosTecho.BORRADOR,
@@ -361,7 +361,7 @@ def crear_version_inicial(ceiling, usuario):
     registrar_evento(
         usuario,
         EventoAuditoria.Accion.CREAR,
-        'DirectiveCeilingVersion',
+        'TechoVersion',
         version.id,
         version=version.numero,
         resumen=(
@@ -393,7 +393,7 @@ def _transicionar(version, destino, usuario, accion, resumen):
     registrar_evento(
         usuario,
         accion,
-        'DirectiveCeilingVersion',
+        'TechoVersion',
         version.id,
         version=version.numero,
         resumen=resumen,
@@ -518,7 +518,7 @@ def fijar_techo(version, usuario, observaciones=''):
     registrar_evento(
         usuario,
         EventoAuditoria.Accion.APROBAR,
-        'DirectiveCeilingVersion',
+        'TechoVersion',
         version.id,
         version=version.numero,
         resumen=(
@@ -553,7 +553,7 @@ def ajuste_de_techo(ceiling, usuario):
         )
 
     nuevo_numero = ceiling.version_actual + 1
-    nueva = DirectiveCeilingVersion.objects.create(
+    nueva = TechoVersion.objects.create(
         ceiling=ceiling,
         numero=nuevo_numero,
         estado=EstadosTecho.BORRADOR,
@@ -562,14 +562,14 @@ def ajuste_de_techo(ceiling, usuario):
         updated_by=usuario,
     )
     for r in anterior.recursos.all():
-        CeilingResource.objects.create(
+        RecursoTecho.objects.create(
             version=nueva, origen=r.origen, rubro=r.rubro, fuente=r.fuente,
             organismo=r.organismo, entidad_otorgante=r.entidad_otorgante,
             concepto=r.concepto, monto=r.monto, documento=r.documento,
             created_by=usuario, updated_by=usuario,
         )
     for g in anterior.gastos_obligatorios.all():
-        MandatoryExpense.objects.create(
+        GastoObligatorio.objects.create(
             version=nueva, da=g.da, ue=g.ue, programa=g.programa,
             actividad=g.actividad, denominacion=g.denominacion, fuente=g.fuente,
             organismo=g.organismo, objeto_gasto=g.objeto_gasto,
@@ -582,7 +582,7 @@ def ajuste_de_techo(ceiling, usuario):
     registrar_evento(
         usuario,
         EventoAuditoria.Accion.CREAR,
-        'DirectiveCeilingVersion',
+        'TechoVersion',
         nueva.id,
         version=nuevo_numero,
         resumen=(
@@ -654,11 +654,11 @@ def validar_gestion_para_distribucion(gestion):
 
 def _version_techo_fijada(gestion):
     """Última versión FIJADA del techo directivo de la gestión; None si no hay."""
-    ceiling = DirectiveCeiling.objects.filter(gestion=gestion).first()
+    ceiling = TechoDirectivo.objects.filter(gestion=gestion).first()
     if ceiling is None:
         return None
     return (
-        DirectiveCeilingVersion.objects
+        TechoVersion.objects
         .filter(ceiling=ceiling, estado=EstadosTecho.FIJADO)
         .order_by('-numero')
         .first()
@@ -686,9 +686,9 @@ def techo_distribuible_por_fuente(gestion):
 
 
 def _distribuido_por_fuente(gestion, excluir_allocation_id=None):
-    """Σ AllocationSource por fuente (excluye aperturas CERRADAS)."""
+    """Σ AperturaFuente por fuente (excluye aperturas CERRADAS)."""
     qs = (
-        AllocationSource.objects
+        AperturaFuente.objects
         .filter(allocation__gestion=gestion)
         .exclude(allocation__estado=EstadoApertura.CERRADA)
         .exclude(fuente_id__isnull=True)
@@ -709,7 +709,7 @@ def distribuido_por_fuente(gestion):
 def reservado_por_fuente(gestion):
     """{fuente_id: monto} reservado (reservas ACTIVAS)."""
     qs = (
-        Reserve.objects
+        Reserva.objects
         .filter(gestion=gestion, estado=EstadoReserva.ACTIVA)
         .exclude(fuente_id__isnull=True)
     )
@@ -754,7 +754,7 @@ def version_distribucion_activa(gestion):
     siguiente (Fase 7, §51: ajuste posterior = versión nueva).
     """
     activa = (
-        DistributionVersion.objects
+        DistribucionVersion.objects
         .filter(gestion=gestion, inmutable=False)
         .order_by('-numero')
         .first()
@@ -762,7 +762,7 @@ def version_distribucion_activa(gestion):
     if activa is not None:
         return activa
     fijada = (
-        DistributionVersion.objects
+        DistribucionVersion.objects
         .filter(gestion=gestion, inmutable=True)
         .order_by('-numero')
         .first()
@@ -772,7 +772,7 @@ def version_distribucion_activa(gestion):
             'La distribución está fijada (inmutable); use un ajuste para '
             'crear la versión siguiente.'
         )
-    return DistributionVersion.objects.create(gestion=gestion, numero=1)
+    return DistribucionVersion.objects.create(gestion=gestion, numero=1)
 
 
 def _bloquear_fuentes(gestion, fuente_ids):
@@ -866,7 +866,7 @@ def crear_allocation(gestion, usuario, datos):
         if monto > saldo:
             raise ErrorDisponibilidad(fuente_id, monto, saldo)
 
-    allocation = Allocation.objects.create(
+    allocation = Apertura.objects.create(
         gestion=gestion,
         version=version,
         estado=EstadoApertura.ACTIVA,
@@ -875,7 +875,7 @@ def crear_allocation(gestion, usuario, datos):
         **datos,
     )
     for fuente_id, organismo_id, monto in validas:
-        AllocationSource.objects.create(
+        AperturaFuente.objects.create(
             allocation=allocation,
             fuente_id=fuente_id,
             organismo_id=organismo_id,
@@ -886,7 +886,7 @@ def crear_allocation(gestion, usuario, datos):
     registrar_evento(
         usuario,
         EventoAuditoria.Accion.CREAR,
-        'Allocation',
+        'Apertura',
         allocation.id,
         resumen=(
             f'Apertura "{allocation.denominacion}" creada '
@@ -961,7 +961,7 @@ def actualizar_allocation(allocation, usuario, datos):
     if validas is not None:
         allocation.fuentes.all().delete()
         for fuente_id, organismo_id, monto in validas:
-            AllocationSource.objects.create(
+            AperturaFuente.objects.create(
                 allocation=allocation,
                 fuente_id=fuente_id,
                 organismo_id=organismo_id,
@@ -973,7 +973,7 @@ def actualizar_allocation(allocation, usuario, datos):
     registrar_evento(
         usuario,
         EventoAuditoria.Accion.MODIFICAR,
-        'Allocation',
+        'Apertura',
         allocation.id,
         resumen=f'Apertura "{allocation.denominacion}" modificada '
                 f'(gestión {allocation.gestion.anio})',
@@ -1010,7 +1010,7 @@ def eliminar_allocation(allocation, usuario):
     registrar_evento(
         usuario,
         EventoAuditoria.Accion.ANULAR,
-        'Allocation',
+        'Apertura',
         allocation.id,
         resumen=f'Apertura "{denominacion}" eliminada (gestión {gestion_anio})',
         gestion=gestion_anio,
@@ -1048,7 +1048,7 @@ def cerrar_allocation(allocation, usuario):
     registrar_evento(
         usuario,
         EventoAuditoria.Accion.CERRAR,
-        'Allocation',
+        'Apertura',
         allocation.id,
         resumen=f'Apertura "{allocation.denominacion}" cerrada '
                 f'(gestión {allocation.gestion.anio})',
@@ -1148,7 +1148,7 @@ def resumen_distribucion(gestion):
         'disponible': total_disponible,
         'porcentaje': porcentaje,
         'aperturas_count': (
-            Allocation.objects
+            Apertura.objects
             .filter(gestion=gestion)
             .exclude(estado=EstadoApertura.CERRADA)
             .count()
@@ -1228,7 +1228,7 @@ def checksum_distribucion(version):
     ACTIVAS de la versión y las reservas de la versión. El payload se ordena
     por CONTENIDO semántico (no por ids de fila): el hash es estable ante
     reordenaciones de filas con el mismo conjunto de datos (patrón
-    `DirectiveCeilingVersion`/Fase 2). Es la ÚNICA implementación del
+    `TechoVersion`/Fase 2). Es la ÚNICA implementación del
     checksum (el modelo delega en esta función).
     """
     asignaciones = sorted(
@@ -1238,7 +1238,7 @@ def checksum_distribucion(version):
                 str(s.organismo_id or ''),
                 str(s.monto),
             )
-            for s in AllocationSource.objects.filter(
+            for s in AperturaFuente.objects.filter(
                 allocation__version=version,
                 allocation__estado=EstadoApertura.ACTIVA,
             )
@@ -1288,7 +1288,7 @@ def _transicionar_distribucion(version, destino, usuario, accion, resumen):
     registrar_evento(
         usuario,
         accion,
-        'DistributionVersion',
+        'DistribucionVersion',
         version.id,
         version=version.numero,
         resumen=resumen,
@@ -1375,7 +1375,7 @@ def fijar_distribucion(version, usuario, observaciones=''):
     registrar_evento(
         usuario,
         EventoAuditoria.Accion.APROBAR,
-        'DistributionVersion',
+        'DistribucionVersion',
         version.id,
         version=version.numero,
         resumen=(
@@ -1408,7 +1408,7 @@ def ajuste_distribucion(version, usuario):
             f'(estado actual: {version.estado or "sin versión"}).'
         )
 
-    nueva = DistributionVersion.objects.create(
+    nueva = DistribucionVersion.objects.create(
         gestion=version.gestion,
         numero=version.numero + 1,
         estado=EstadosTecho.BORRADOR,
@@ -1419,7 +1419,7 @@ def ajuste_distribucion(version, usuario):
     registrar_evento(
         usuario,
         EventoAuditoria.Accion.CREAR,
-        'DistributionVersion',
+        'DistribucionVersion',
         nueva.id,
         version=nueva.numero,
         resumen=(
@@ -1441,8 +1441,8 @@ def ajuste_distribucion(version, usuario):
 def _validar_allocation_programable(allocation):
     """Valida que la apertura exista, esté ACTIVA y su versión de
     distribución esté FIJADA; devuelve la instancia. Lanza ValidationError."""
-    if not isinstance(allocation, Allocation):
-        allocation = Allocation.objects.filter(pk=allocation).first()
+    if not isinstance(allocation, Apertura):
+        allocation = Apertura.objects.filter(pk=allocation).first()
     if allocation is None:
         raise ValidationError('La apertura no existe.')
     if allocation.estado != EstadoApertura.ACTIVA:
@@ -1469,7 +1469,7 @@ def _disponible_objeto_gasto(allocation, excluir_id=None):
     from .control import BudgetControlService
     techo = BudgetControlService.get_allocation_ceiling(allocation)
     programado = (
-        ExpenseObjectAllocation.objects
+        AsignacionObjetoGastoTecho.objects
         .filter(allocation=allocation)
         .exclude(pk=excluir_id)
         .aggregate(total=models.Sum('monto'))['total']
@@ -1504,7 +1504,7 @@ def programar_objeto_gasto(allocation, objeto_gasto_id, monto, usuario):
     if monto is None or monto < 0:
         raise ValidationError('El monto debe ser mayor o igual a 0.')
 
-    fila = ExpenseObjectAllocation.objects.filter(
+    fila = AsignacionObjetoGastoTecho.objects.filter(
         allocation=allocation, objeto_gasto=objeto_gasto,
     ).first()
     disponible = _disponible_objeto_gasto(
@@ -1514,7 +1514,7 @@ def programar_objeto_gasto(allocation, objeto_gasto_id, monto, usuario):
         raise ErrorObjetoGastoExcedido(monto, disponible)
 
     if fila is None:
-        fila = ExpenseObjectAllocation.objects.create(
+        fila = AsignacionObjetoGastoTecho.objects.create(
             allocation=allocation, objeto_gasto=objeto_gasto, monto=monto,
             created_by=usuario, updated_by=usuario,
         )
@@ -1527,7 +1527,7 @@ def programar_objeto_gasto(allocation, objeto_gasto_id, monto, usuario):
     registrar_evento(
         usuario,
         accion,
-        'ExpenseObjectAllocation',
+        'AsignacionObjetoGastoTecho',
         fila.id,
         resumen=(
             f'Objeto del gasto {objeto_gasto.codigo} programado por {monto} '
@@ -1553,8 +1553,8 @@ def actualizar_objeto_gasto(fila, monto, usuario):
     `ErrorObjetoGastoExcedido` (→ 409). Requiere apertura ACTIVA y versión
     de distribución FIJADA. Registra auditoría (modificar).
     """
-    if not isinstance(fila, ExpenseObjectAllocation):
-        fila = ExpenseObjectAllocation.objects.filter(pk=fila).first()
+    if not isinstance(fila, AsignacionObjetoGastoTecho):
+        fila = AsignacionObjetoGastoTecho.objects.filter(pk=fila).first()
     if fila is None:
         raise ValidationError('La programación no existe.')
     _validar_allocation_programable(fila.allocation)
@@ -1572,7 +1572,7 @@ def actualizar_objeto_gasto(fila, monto, usuario):
     registrar_evento(
         usuario,
         EventoAuditoria.Accion.MODIFICAR,
-        'ExpenseObjectAllocation',
+        'AsignacionObjetoGastoTecho',
         fila.id,
         resumen=(
             f'Objeto del gasto {fila.objeto_gasto.codigo} actualizado de '
@@ -1593,8 +1593,8 @@ def eliminar_objeto_gasto(fila, usuario):
     excedentes), siempre que la apertura esté ACTIVA y la versión de
     distribución FIJADA. Registra auditoría (anular).
     """
-    if not isinstance(fila, ExpenseObjectAllocation):
-        fila = ExpenseObjectAllocation.objects.filter(pk=fila).first()
+    if not isinstance(fila, AsignacionObjetoGastoTecho):
+        fila = AsignacionObjetoGastoTecho.objects.filter(pk=fila).first()
     if fila is None:
         raise ValidationError('La programación no existe.')
     _validar_allocation_programable(fila.allocation)
@@ -1605,7 +1605,7 @@ def eliminar_objeto_gasto(fila, usuario):
     registrar_evento(
         usuario,
         EventoAuditoria.Accion.ANULAR,
-        'ExpenseObjectAllocation',
+        'AsignacionObjetoGastoTecho',
         fila.id,
         resumen=(
             f'Objeto del gasto {codigo} ({monto}) eliminado de la apertura '
@@ -1625,10 +1625,10 @@ def eliminar_objeto_gasto(fila, usuario):
 # ATÓMICA: si un movimiento falla, la transacción completa hace rollback.
 #
 # DECISIÓN DE ARQUITECTURA (Fase 10, documentada):
-#   La reformulación opera DIRECTAMENTE sobre las filas `AllocationSource`
+#   La reformulación opera DIRECTAMENTE sobre las filas `AperturaFuente`
 #   existentes (no se duplican filas ni se re-apunta la versión de las
 #   aperturas): el "nuevo saldo efectivo" ES el saldo tras el movimiento y
-#   el histórico queda en `ReformMovement` + `EventoAuditoria`. La versión
+#   el histórico queda en `ReformaMovimiento` + `EventoAuditoria`. La versión
 #   fijada conserva sus filas (checksum de v1 queda obsoleto por diseño:
 #   el congelamiento protege la EDICIÓN del documento, no los saldos que la
 #   reformulación modifica legítimamente con trazabilidad). Si la
@@ -1643,7 +1643,7 @@ def eliminar_objeto_gasto(fila, usuario):
 def _resolver_allocation_de_gestion(gestion, allocation_id, campo):
     """Resuelve una apertura por id validando que pertenezca a la gestión."""
     allocation = (
-        Allocation.objects.filter(pk=allocation_id, gestion=gestion).first()
+        Apertura.objects.filter(pk=allocation_id, gestion=gestion).first()
         if allocation_id else None
     )
     if allocation_id and allocation is None:
@@ -1799,7 +1799,7 @@ def crear_reform(gestion, tipo, motivo, usuario, movimientos):
             f'{sorted(tipos_validos)}.'
         )
     fijada = (
-        DistributionVersion.objects
+        DistribucionVersion.objects
         .filter(gestion=gestion, inmutable=True)
         .order_by('-numero')
         .first()
@@ -1811,7 +1811,7 @@ def crear_reform(gestion, tipo, motivo, usuario, movimientos):
         )
     validos = _validar_movimientos_reform(gestion, movimientos)
 
-    reform = Reform.objects.create(
+    reform = Reforma.objects.create(
         gestion=gestion,
         tipo=tipo,
         estado=EstadosReform.BORRADOR,
@@ -1822,7 +1822,7 @@ def crear_reform(gestion, tipo, motivo, usuario, movimientos):
         updated_by=usuario,
     )
     for m in validos:
-        ReformMovement.objects.create(
+        ReformaMovimiento.objects.create(
             reform=reform,
             tipo=m['tipo'],
             apertura_origen=m['apertura_origen'],
@@ -1837,7 +1837,7 @@ def crear_reform(gestion, tipo, motivo, usuario, movimientos):
     registrar_evento(
         usuario,
         EventoAuditoria.Accion.CREAR,
-        'Reform',
+        'Reforma',
         reform.id,
         resumen=(
             f'Reformulación {reform.get_tipo_display()} creada '
@@ -1880,7 +1880,7 @@ def _transicionar_reform(reform, destino, usuario, accion, resumen,
     registrar_evento(
         usuario,
         accion,
-        'Reform',
+        'Reforma',
         reform.id,
         resumen=resumen,
         datos_previos={'estado': estado_previo},
@@ -1949,14 +1949,14 @@ def rechazar_reform(reform, usuario, motivo):
 
 def _lock_y_obtener_source(allocation, fuente_id, organismo_id, crear=False,
                            usuario=None):
-    """AllocationSource (allocation, fuente, organismo) con lock de fila.
+    """AperturaFuente (allocation, fuente, organismo) con lock de fila.
 
     Si `crear` y no existe, lo crea con monto 0.00 (el saldo inicial de un
     destino es 0; el monto del movimiento se SUMA después por el llamador —
     nunca se crea con el monto final). Devuelve (source|None, saldo_actual).
     """
     source = (
-        AllocationSource.objects
+        AperturaFuente.objects
         .select_for_update()
         .filter(
             allocation=allocation, fuente_id=fuente_id,
@@ -1965,7 +1965,7 @@ def _lock_y_obtener_source(allocation, fuente_id, organismo_id, crear=False,
         .first()
     )
     if source is None and crear:
-        source = AllocationSource.objects.create(
+        source = AperturaFuente.objects.create(
             allocation=allocation, fuente_id=fuente_id,
             organismo_id=organismo_id, monto=Decimal('0.00'),
             created_by=usuario, updated_by=usuario,
@@ -1978,7 +1978,7 @@ def _incrementar_movimiento(reform, mov, usuario):
     """INCREMENTO: amplía el saldo del destino dentro de su techo de fuente.
 
     Regla §96 "el destino no excede el techo": el saldo RESULTANTE del
-    AllocationSource destino no supera el techo distribuible de su fuente
+    AperturaFuente destino no supera el techo distribuible de su fuente
     (`techo_distribuible_por_fuente`) → BUDGET_EXCEEDED si no. DECISIÓN
     documentada (Fase 10): la validación es por DESTINO contra el techo
     distribuible de la fuente, no contra el pool — tras una fijación el
@@ -1986,7 +1986,7 @@ def _incrementar_movimiento(reform, mov, usuario):
     el pool solo crece con DISMINUCIONES/liberaciones; un incremento que
     cabe en el techo de la fuente es válido. Lock de la fuente
     (`_bloquear_fuentes`) + lock de la fila destino. Devuelve
-    (saldo_antes, saldo_despues) del AllocationSource DESTINO.
+    (saldo_antes, saldo_despues) del AperturaFuente DESTINO.
     """
     from .control import BudgetControlService
     fuente_id = mov.fuente_id
@@ -2013,7 +2013,7 @@ def _disminuir_movimiento(reform, mov, usuario):
 
     Valida saldo_origen >= monto (BUDGET_EXCEEDED si no); lock de la fuente
     + lock de la fila origen. Devuelve (saldo_antes, saldo_despues) del
-    AllocationSource ORIGEN.
+    AperturaFuente ORIGEN.
     """
     from .control import BudgetControlService
     fuente_id = mov.fuente_id
@@ -2036,7 +2036,7 @@ def _cambio_fuente_movimiento(reform, mov, usuario):
 
     La fuente VIEJA (a reducir) no se persiste en el modelo (una sola FK de
     fuente por movimiento): se infiere de forma determinista y documentada —
-    el AllocationSource de la apertura distinto de (fuente nueva, organismo
+    el AperturaFuente de la apertura distinto de (fuente nueva, organismo
     nuevo) con saldo suficiente para el monto; si hay varios, el de MAYOR
     saldo (empate → menor id). La fuente NUEVA crece validando la misma
     regla §96 del incremento: el saldo resultante del destino no supera el
@@ -2052,7 +2052,7 @@ def _cambio_fuente_movimiento(reform, mov, usuario):
     )
 
     candidatas = list(
-        AllocationSource.objects
+        AperturaFuente.objects
         .select_for_update()
         .filter(allocation=apertura)
         .exclude(
@@ -2140,16 +2140,16 @@ def aplicar_reform(reform, usuario):
     2. Versión activa: si la distribución está FIJADA y no hay versión
        activa, abre la versión siguiente vía `ajuste_distribucion`
        (contenedor BORRADOR). DECISIÓN Fase 10 (documentada arriba): la
-       reformulación opera DIRECTAMENTE sobre los AllocationSource/Reserve
+       reformulación opera DIRECTAMENTE sobre los AperturaFuente/Reserva
        existentes — no se duplican filas; el "nuevo saldo efectivo" ES el
-       saldo tras el movimiento y el histórico queda en `ReformMovement`
+       saldo tras el movimiento y el histórico queda en `ReformaMovimiento`
        + `EventoAuditoria`; `version_resultante` se deja NULL.
     3. Aplica cada movimiento en orden estable (orden de creación): TRASPASO
        (apply_movement, saldo_origen >= monto → BUDGET_EXCEEDED),
        INCREMENTO y CAMBIO_FUENTE (el destino no excede el techo
        distribuible de su fuente, §96) y DISMINUCION (saldo_origen >=
        monto), registrando saldo_antes/saldo_despues de cada
-       AllocationSource afectado.
+       AperturaFuente afectado.
     4. Si CUALQUIER movimiento falla → ValidationError y ROLLBACK COMPLETO
        (nada se persiste: ni saldos, ni la versión abierta, ni el estado).
     5. Estado → APLICADA, fecha_aplicacion y auditoría.
@@ -2162,14 +2162,14 @@ def aplicar_reform(reform, usuario):
     validar_gestion_para_distribucion(reform.gestion)
 
     version_activa = (
-        DistributionVersion.objects
+        DistribucionVersion.objects
         .filter(gestion=reform.gestion, inmutable=False)
         .order_by('-numero')
         .first()
     )
     if version_activa is None:
         fijada = (
-            DistributionVersion.objects
+            DistribucionVersion.objects
             .filter(gestion=reform.gestion, inmutable=True)
             .order_by('-numero')
             .first()
@@ -2194,7 +2194,7 @@ def aplicar_reform(reform, usuario):
     registrar_evento(
         usuario,
         EventoAuditoria.Accion.APROBAR,
-        'Reform',
+        'Reforma',
         reform.id,
         resumen=(
             f'Reformulación {reform.get_tipo_display()} aplicada '

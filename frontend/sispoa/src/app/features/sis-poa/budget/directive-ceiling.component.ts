@@ -1,13 +1,13 @@
 import { Component, OnInit } from '@angular/core';
 import { PermissionsService } from '../../../core/services/permissions.service';
 import {
-  BudgetDocument,
+  DocumentoPresupuestario,
   BudgetService,
-  CeilingResource,
+  RecursoTecho,
   Composition,
-  DirectiveCeiling,
+  TechoDirectivo,
   FiscalYear,
-  MandatoryExpense,
+  GastoObligatorio,
 } from './budget.service';
 
 const ORIGENES = [
@@ -59,14 +59,14 @@ const TIPOS_DOCUMENTO = [
   `],
 })
 export class DirectiveCeilingComponent implements OnInit {
-  techos: DirectiveCeiling[] = [];
+  techos: TechoDirectivo[] = [];
   gestiones: FiscalYear[] = [];
   seleccionadoId: number | null = null;
-  seleccion: DirectiveCeiling | null = null;
+  seleccion: TechoDirectivo | null = null;
   composicion: Composition | null = null;
-  recursos: CeilingResource[] = [];
-  gastos: MandatoryExpense[] = [];
-  documentos: BudgetDocument[] = [];
+  recursos: RecursoTecho[] = [];
+  gastos: GastoObligatorio[] = [];
+  documentos: DocumentoPresupuestario[] = [];
   cargando = true;
   error = '';
   mensaje = '';
@@ -138,7 +138,7 @@ export class DirectiveCeilingComponent implements OnInit {
     });
   }
 
-  seleccionar(techo: DirectiveCeiling): void {
+  seleccionar(techo: TechoDirectivo): void {
     this.seleccionadoId = techo.id;
     this.refrescar();
   }
@@ -260,7 +260,7 @@ export class DirectiveCeilingComponent implements OnInit {
     });
   }
 
-  eliminarRecurso(recurso: CeilingResource): void {
+  eliminarRecurso(recurso: RecursoTecho): void {
     if (!window.confirm(`¿Eliminar el recurso "${recurso.concepto}"?`)) return;
     this.service.eliminarRecurso(recurso.id).subscribe({
       next: () => {
@@ -296,7 +296,7 @@ export class DirectiveCeilingComponent implements OnInit {
     });
   }
 
-  eliminarGasto(gasto: MandatoryExpense): void {
+  eliminarGasto(gasto: GastoObligatorio): void {
     if (!window.confirm(`¿Eliminar el gasto "${gasto.denominacion}"?`)) return;
     this.service.eliminarGasto(gasto.id).subscribe({
       next: () => {
