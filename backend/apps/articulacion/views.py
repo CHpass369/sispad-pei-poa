@@ -29,6 +29,10 @@ from .services import (
     materializar_borrador_matriz,
     registrar_auditoria,
 )
+from .services.materializacion_matriz_pei import (
+    construir_filas_pei,
+    materializar_borrador_pei,
+)
 
 
 # Mixin concreto para heredar las actions
