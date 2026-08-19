@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import (
-    CodigoNivel, AcuerdoInternacional, Normativa, LineamientoPAD,
+    CodigoNivel, AcuerdoInternacional, CompatibilidadAcuerdoInternacional,
+    Normativa, LineamientoPAD,
     ResultadoPAD, ProductoPAD, ResultadoPEI, ProductoPEI, BorradorMatrizPEI,
     ArticulacionPADPEI, IndicadorCadena, AccionPOA, OperacionPOAU,
     ActividadPOAU, ActividadNormativa, TareaPOAU, TareaNormativa,
@@ -41,6 +42,29 @@ class AcuerdoInternacionalSerializer(serializers.ModelSerializer):
         model = AcuerdoInternacional
         fields = '__all__'
         read_only_fields = ['id']
+
+
+class CompatibilidadAcuerdoInternacionalSerializer(serializers.ModelSerializer):
+    origen = AcuerdoInternacionalSerializer(read_only=True)
+    destino = AcuerdoInternacionalSerializer(read_only=True)
+    tipo_relacion_display = serializers.CharField(
+        source='get_tipo_relacion_display', read_only=True,
+    )
+    estado_display = serializers.CharField(source='get_estado_display', read_only=True)
+    confianza_display = serializers.CharField(
+        source='get_confianza_display', read_only=True,
+    )
+
+    class Meta:
+        model = CompatibilidadAcuerdoInternacional
+        fields = [
+            'id', 'origen', 'destino', 'tipo_relacion', 'tipo_relacion_display',
+            'estado', 'estado_display', 'confianza', 'confianza_display',
+            'fuente_url', 'fuente_titulo', 'fuente_version', 'localizador',
+            'evidencia', 'justificacion', 'activo', 'created_at', 'updated_at',
+            'revisado_por', 'revisado_en',
+        ]
+        read_only_fields = fields
 
 
 class NormativaSerializer(serializers.ModelSerializer):

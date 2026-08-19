@@ -4,6 +4,13 @@ import { concatMap, from, of, switchMap, toArray } from 'rxjs';
 import { ApiService } from '../../../core/services/api.service';
 import { MatricesPadService } from '../matrices-pad.service';
 import {
+  AcuerdoInternacionalOption,
+  CompatibilidadAcuerdo,
+  CompatibilidadesAcuerdosService,
+  TipoAcuerdo,
+  TipoRelacion,
+} from './compatibilidades-acuerdos.service';
+import {
   ACCIONES_DE_CAMBIO_PAD,
   CATALOGO_ODS,
   ComponentePdesa,
@@ -31,6 +38,13 @@ import {
   tieneErrores,
   validarMatrices,
 } from './pad-matriz.model';
+
+type CodigoAcuerdo = string | string[];
+
+interface OpcionAcuerdoFiltrada extends AcuerdoInternacionalOption {
+  compatibilidad?: CompatibilidadAcuerdo;
+  seleccionGuardada?: boolean;
+}
 
 /**
  * Asistente de construcción de las Matrices de Planificación PAD 2026-2030.
@@ -117,7 +131,7 @@ import {
         </p>
         <div class="form-2col">
           <div class="field"><label>Código ODS</label>
-            <select [(ngModel)]="cabecera.codOds" class="form-control">
+           <select [(ngModel)]="cabecera.codOds" (ngModelChange)="onOdsChange()" class="form-control">
               <option value="">Sin vinculación</option>
               <option *ngFor="let o of catalogoOds" [value]="o.codigo">
                 {{ o.codigo }} — {{ o.denominacion | slice:0:90 }}
@@ -125,33 +139,42 @@ import {
             </select>
           </div>
           <div class="field"><label>Código meta NDC</label>
-            <select [(ngModel)]="cabecera.codNdc" class="form-control">
-              <option value="N/A">N/A — no aplica</option>
-              <option *ngFor="let n of catalogoNdc" [value]="n.codigo">
-                {{ n.codigo }} — {{ n.denominacion | slice:0:90 }}
-              </option>
+           <select [(ngModel)]="cabecera.codNdc" (ngModelChange)="onNdcChange()" class="form-control">
+             <option value="N/A">N/A — no aplica</option>
+             <option *ngFor="let n of catalogoNdc" [value]="n.codigo">
+                 {{ n.codigo }} — {{ n.denominacion | slice:0:90 }} · {{ etiquetaCompatibilidad(n) }}
+             </option>
             </select>
           </div>
         </div>
         <div class="form-2col">
           <div class="field"><label>Código principio NDT</label>
-            <select [(ngModel)]="cabecera.codNdt" class="form-control">
-              <option value="N/A">N/A — no aplica</option>
-              <option *ngFor="let n of catalogoNdt" [value]="n.codigo">
-                {{ n.codigo }} — {{ n.denominacion | slice:0:90 }}
-              </option>
+           <select [(ngModel)]="cabecera.codNdt" (ngModelChange)="onNdtChange()" class="form-control">
+             <option value="N/A">N/A — no aplica</option>
+             <option *ngFor="let n of catalogoNdt" [value]="n.codigo">
+                 {{ n.codigo }} — {{ n.denominacion | slice:0:90 }} · {{ etiquetaCompatibilidad(n) }}
+             </option>
             </select>
           </div>
-          <div class="field"><label>Compromisos 30/30</label>
-            <select [(ngModel)]="cabecera.compromiso3030" class="form-control">
-              <option value="N/A">N/A — no aplica</option>
-              <option *ngFor="let c of catalogo3030" [value]="c.codigo">
-                {{ c.codigo }} — {{ c.denominacion | slice:0:90 }}
-              </option>
-            </select>
-          </div>
-        </div>
-        <div class="nota" *ngIf="!acuerdos.length">
+           <div class="field"><label>KMGBF/30x30 (según target)</label>
+             <select [(ngModel)]="cabecera.compromiso3030" (ngModelChange)="onKmgbfChange()" class="form-control">
+               <option value="N/A">N/A — no aplica</option>
+               <option *ngFor="let c of catalogo3030" [value]="c.codigo">
+                 {{ c.codigo }} — {{ c.denominacion | slice:0:90 }} · {{ etiquetaCompatibilidad(c) }}
+               </option>
+             </select>
+           </div>
+         </div>
+         <div class="nota cascada-aviso" *ngIf="mensajeCascada('NDC')">
+           {{ mensajeCascada('NDC') }}
+         </div>
+         <div class="nota cascada-aviso" *ngIf="mensajeCascada('NDT')">
+           {{ mensajeCascada('NDT') }}
+         </div>
+         <div class="nota cascada-aviso" *ngIf="mensajeCascada('COMPROMISO_3030')">
+           {{ mensajeCascada('COMPROMISO_3030') }}
+         </div>
+         <div class="nota" *ngIf="!acuerdos.length">
           El catálogo de acuerdos internacionales no está disponible; los códigos quedarán
           sin validar contra el maestro.
         </div>
@@ -518,7 +541,8 @@ import {
     .hallazgos li.error { background: #FFEBEE; color: var(--warn); }
     .hallazgos li.aviso { background: #FFF8E1; color: #8A6100; }
 
-    .nota { margin-top: 0.75rem; padding: 0.6rem 0.75rem; background: #FFF8E1; color: #8A6100; border-radius: 6px; font-size: 0.75rem; }
+     .nota { margin-top: 0.75rem; padding: 0.6rem 0.75rem; background: #FFF8E1; color: #8A6100; border-radius: 6px; font-size: 0.75rem; }
+     .cascada-aviso { border-left: 3px solid var(--primary); }
     .msg-box { margin-top: 0.75rem; padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.8125rem; }
     .msg-box.error { background: #FFEBEE; color: var(--warn); }
     .msg-box.exito { background: #E8F5E9; color: var(--success); }
@@ -546,7 +570,17 @@ export class PadWizardComponent implements OnInit {
   lineamientos: any[] = [];
   /** Correlativo calculado para un lineamiento nuevo. */
   codigoAsignado = '1';
-  acuerdos: any[] = [];
+  acuerdos: AcuerdoInternacionalOption[] = [];
+  opcionesNdc: OpcionAcuerdoFiltrada[] = [];
+  opcionesNdt: OpcionAcuerdoFiltrada[] = [];
+  opcionesKmgbf: OpcionAcuerdoFiltrada[] = [];
+  cargandoCompatibilidades: Record<TipoAcuerdo, boolean> = {
+    ODS: false,
+    NDC: false,
+    NDT: false,
+    COMPROMISO_3030: false,
+  };
+  private preservarSeleccionesGuardadas = false;
 
   guardando = false;
   msg = '';
@@ -561,6 +595,7 @@ export class PadWizardComponent implements OnInit {
     private matrices: MatricesPadService,
     private ruta: ActivatedRoute,
     private cdr: ChangeDetectorRef,
+    private compatibilidades: CompatibilidadesAcuerdosService,
   ) {}
 
   ngOnInit(): void {
@@ -621,6 +656,7 @@ export class PadWizardComponent implements OnInit {
         }
 
         this.cargandoBorrador = false;
+        if (this.acuerdos.length) this.inicializarCascada();
         this.cdr.markForCheck();
       },
       error: () => {
@@ -754,6 +790,186 @@ export class PadWizardComponent implements OnInit {
     }
     this.cabecera.codLineamiento = elegido.codigo || this.cabecera.codLineamiento;
     this.cabecera.lineamiento = elegido.denominacion || this.cabecera.lineamiento;
+  }
+
+  /** Reloads the first downstream level and clears selections made invalid. */
+  onOdsChange(): void {
+    this.preservarSeleccionesGuardadas = false;
+    this.cabecera.codNdc = 'N/A';
+    this.cabecera.codNdt = 'N/A';
+    this.cabecera.compromiso3030 = 'N/A';
+    this.opcionesNdc = [];
+    this.opcionesNdt = [];
+    this.opcionesKmgbf = [];
+    this.cargarCompatibilidades('ODS', 'NDC');
+  }
+
+  /** Reloads NDT options for the selected ODS/NDC path. */
+  onNdcChange(): void {
+    this.cabecera.codNdt = 'N/A';
+    this.cabecera.compromiso3030 = 'N/A';
+    this.opcionesNdt = [];
+    this.opcionesKmgbf = [];
+    this.cargarCompatibilidades(['ODS', 'NDC'], 'NDT');
+  }
+
+  /** Reloads KMGBF/30x30 options for the selected ODS/NDC/NDT path. */
+  onNdtChange(): void {
+    this.cabecera.compromiso3030 = 'N/A';
+    this.opcionesKmgbf = [];
+    // NDT options were already intersected with ODS + NDC; only the selected
+    // NDT is needed for the terminal lookup.
+    this.cargarCompatibilidades('NDT', 'COMPROMISO_3030');
+  }
+
+  onKmgbfChange(): void {
+    // The terminal selection does not have a downstream level.
+  }
+
+  private cargarCompatibilidades(
+    origenTipos: TipoAcuerdo | TipoAcuerdo[],
+    destinoTipo: TipoAcuerdo,
+  ): void {
+    const tipos = Array.isArray(origenTipos) ? origenTipos : [origenTipos];
+    const origenIds = this.idsPorTipos(tipos);
+    const origenClave = origenIds.join(',');
+    if (!origenIds.length) {
+      this.asignarOpciones(destinoTipo, []);
+      return;
+    }
+
+    this.cargandoCompatibilidades[destinoTipo] = true;
+    this.compatibilidades.listar({
+      origenIds,
+      destinoTipo,
+      incluirSugerencias: true,
+    }).subscribe({
+      next: response => {
+        if (this.idsPorTipos(tipos).join(',') !== origenClave) return;
+        this.asignarOpciones(destinoTipo, response.results || []);
+        this.cargandoCompatibilidades[destinoTipo] = false;
+        if (destinoTipo === 'NDC' && this.codigoSeleccionado(this.cabecera.codNdc)) {
+          this.cargarCompatibilidades(['ODS', 'NDC'], 'NDT');
+        } else if (destinoTipo === 'NDT' && this.codigoSeleccionado(this.cabecera.codNdt)) {
+          this.cargarCompatibilidades('NDT', 'COMPROMISO_3030');
+        }
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.asignarOpciones(destinoTipo, []);
+        this.cargandoCompatibilidades[destinoTipo] = false;
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  private asignarOpciones(
+    destinoTipo: TipoAcuerdo,
+    relaciones: CompatibilidadAcuerdo[],
+  ): void {
+    const mejores = new Map<string, CompatibilidadAcuerdo>();
+    for (const relacion of relaciones) {
+      if (relacion.estado === 'RECHAZADA' || !relacion.activo) continue;
+      const anterior = mejores.get(relacion.destino.id);
+      if (!anterior || this.rangoRelacion(relacion) < this.rangoRelacion(anterior)) {
+        mejores.set(relacion.destino.id, relacion);
+      }
+    }
+    const opciones: OpcionAcuerdoFiltrada[] = Array.from(mejores.values())
+      .sort((a, b) => this.compararOpciones(a, b))
+      .map(relacion => ({ ...relacion.destino, compatibilidad: relacion }));
+
+    const codigoActual = this.codigosDeValor(this.codigoDeTipo(destinoTipo))[0] || '';
+    if (
+      this.preservarSeleccionesGuardadas
+      && this.codigoSeleccionado(codigoActual)
+      && !opciones.some(opcion => opcion.codigo === codigoActual)
+    ) {
+      const guardada = this.acuerdos.find(
+        acuerdo => acuerdo.tipo_acuerdo === destinoTipo && acuerdo.codigo === codigoActual,
+      );
+      if (guardada) opciones.push({ ...guardada, seleccionGuardada: true });
+    }
+    this.asignarOpcionesDirectamente(destinoTipo, opciones);
+  }
+
+  private asignarOpcionesDirectamente(
+    destinoTipo: TipoAcuerdo,
+    opciones: OpcionAcuerdoFiltrada[],
+  ): void {
+    if (destinoTipo === 'NDC') this.opcionesNdc = opciones;
+    if (destinoTipo === 'NDT') this.opcionesNdt = opciones;
+    if (destinoTipo === 'COMPROMISO_3030') this.opcionesKmgbf = opciones;
+  }
+
+  private compararOpciones(a: CompatibilidadAcuerdo, b: CompatibilidadAcuerdo): number {
+    return this.rangoRelacion(a) - this.rangoRelacion(b)
+      || String(a.destino.codigo).localeCompare(String(b.destino.codigo), 'es', { numeric: true });
+  }
+
+  private rangoRelacion(relacion: CompatibilidadAcuerdo): number {
+    const confianza = { ALTA: 0, MEDIA: 10, BAJA: 20 }[relacion.confianza] ?? 30;
+    const tipo = {
+      OFICIAL_EXPLICITA: 0,
+      DERIVADA_DOCUMENTAL: 1,
+      SUGERENCIA_SEMANTICA: 2,
+    }[relacion.tipo_relacion] ?? 3;
+    return confianza + tipo;
+  }
+
+  private idsPorTipo(tipo: TipoAcuerdo): string[] {
+    const codigos = this.codigosDeValor(this.codigoDeTipo(tipo));
+    return this.acuerdos
+      .filter(acuerdo => acuerdo.tipo_acuerdo === tipo && codigos.includes(acuerdo.codigo))
+      .map(acuerdo => acuerdo.id);
+  }
+
+  private idsPorTipos(tipos: TipoAcuerdo[]): string[] {
+    return tipos.reduce<string[]>(
+      (ids, tipo) => [...ids, ...this.idsPorTipo(tipo)],
+      [],
+    );
+  }
+
+  private codigosDeValor(valor: CodigoAcuerdo): string[] {
+    return (Array.isArray(valor) ? valor : [valor])
+      .map(codigo => String(codigo || '').trim())
+      .filter(codigo => codigo && codigo.toUpperCase() !== 'N/A');
+  }
+
+  private codigoSeleccionado(valor: CodigoAcuerdo): boolean {
+    return this.codigosDeValor(valor).length > 0;
+  }
+
+  private codigoDeTipo(tipo: TipoAcuerdo): CodigoAcuerdo {
+    if (tipo === 'ODS') return this.cabecera.codOds;
+    if (tipo === 'NDC') return this.cabecera.codNdc;
+    if (tipo === 'NDT') return this.cabecera.codNdt;
+    return this.cabecera.compromiso3030;
+  }
+
+  etiquetaCompatibilidad(opcion: OpcionAcuerdoFiltrada): string {
+    if (opcion.seleccionGuardada) return 'Guardada · sin relación clasificada';
+    if (!opcion.compatibilidad) return 'Sin clasificar';
+    const etiquetas: Record<TipoRelacion, string> = {
+      OFICIAL_EXPLICITA: 'Oficial',
+      DERIVADA_DOCUMENTAL: 'Derivada',
+      SUGERENCIA_SEMANTICA: 'Sugerencia IA',
+    };
+    return `${etiquetas[opcion.compatibilidad.tipo_relacion]} · ${opcion.compatibilidad.confianza_display}`;
+  }
+
+  mensajeCascada(tipo: TipoAcuerdo): string {
+    if (!this.codigoSeleccionado(this.codigoDeTipo(tipo === 'NDC' ? 'ODS' : tipo === 'NDT' ? 'NDC' : 'NDT'))) {
+      return '';
+    }
+    const opciones = tipo === 'NDC' ? this.opcionesNdc : tipo === 'NDT' ? this.opcionesNdt : this.opcionesKmgbf;
+    if (this.cargandoCompatibilidades[tipo]) return 'Cargando compatibilidades clasificadas…';
+    if (!opciones.length) return 'No hay relaciones clasificadas para esta selección; no se muestra todo el catálogo.';
+    if (opciones.every(opcion => opcion.compatibilidad?.tipo_relacion === 'SUGERENCIA_SEMANTICA')) {
+      return 'Solo hay Sugerencias IA: son referencias semánticas candidatas y no constituyen compatibilidad normativa.';
+    }
+    return '';
   }
 
   /**
@@ -1013,22 +1229,28 @@ export class PadWizardComponent implements OnInit {
         } else {
           this.acuerdos = total;
           this.cdr.markForCheck();
+          this.inicializarCascada();
         }
       },
       error: () => { this.acuerdos = acumulado; this.cdr.markForCheck(); },
     });
   }
 
-  private porTipo(tipo: string): any[] {
+  private porTipo(tipo: TipoAcuerdo): AcuerdoInternacionalOption[] {
     return this.acuerdos
       .filter(a => a.tipo_acuerdo === tipo)
       .sort((a, b) => String(a.codigo).localeCompare(String(b.codigo), 'es', { numeric: true }));
   }
 
-  get catalogoOds(): any[] { return this.porTipo('ODS'); }
-  get catalogoNdc(): any[] { return this.porTipo('NDC'); }
-  get catalogoNdt(): any[] { return this.porTipo('NDT'); }
-  get catalogo3030(): any[] { return this.porTipo('COMPROMISO_3030'); }
+  get catalogoOds(): AcuerdoInternacionalOption[] { return this.porTipo('ODS'); }
+  get catalogoNdc(): OpcionAcuerdoFiltrada[] { return this.opcionesNdc; }
+  get catalogoNdt(): OpcionAcuerdoFiltrada[] { return this.opcionesNdt; }
+  get catalogo3030(): OpcionAcuerdoFiltrada[] { return this.opcionesKmgbf; }
+
+  private inicializarCascada(): void {
+    this.preservarSeleccionesGuardadas = true;
+    this.cargarCompatibilidades('ODS', 'NDC');
+  }
 
   private cargarAcuerdos(): void {
     this.cargarAcuerdosPagina();

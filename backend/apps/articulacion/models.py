@@ -1,6 +1,7 @@
 import uuid
 from django.db import models
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from apps.core.models import TimeStampedModel
 from apps.codificacion.models import CodigoSegmentadoModel
 
@@ -55,6 +56,116 @@ class AcuerdoInternacional(models.Model):
 
     def __str__(self):
         return f'[{self.get_tipo_acuerdo_display()}] {self.codigo} - {self.denominacion[:80]}'
+
+
+class CompatibilidadAcuerdoInternacional(TimeStampedModel):
+    """Classified compatibility between two international agreements."""
+
+    class TiposRelacion(models.TextChoices):
+        OFICIAL_EXPLICITA = 'OFICIAL_EXPLICITA', 'Oficial explícita'
+        DERIVADA_DOCUMENTAL = 'DERIVADA_DOCUMENTAL', 'Derivada documental'
+        SUGERENCIA_SEMANTICA = 'SUGERENCIA_SEMANTICA', 'Sugerencia IA'
+
+    class Estados(models.TextChoices):
+        VALIDADA = 'VALIDADA', 'Validada'
+        CANDIDATA = 'CANDIDATA', 'Candidata'
+        RECHAZADA = 'RECHAZADA', 'Rechazada'
+
+    class Confianzas(models.TextChoices):
+        ALTA = 'ALTA', 'Alta'
+        MEDIA = 'MEDIA', 'Media'
+        BAJA = 'BAJA', 'Baja'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    origen = models.ForeignKey(
+        AcuerdoInternacional,
+        on_delete=models.CASCADE,
+        related_name='compatibilidades_origen',
+        verbose_name='Acuerdo origen',
+    )
+    destino = models.ForeignKey(
+        AcuerdoInternacional,
+        on_delete=models.CASCADE,
+        related_name='compatibilidades_destino',
+        verbose_name='Acuerdo destino',
+    )
+    tipo_relacion = models.CharField(
+        max_length=30,
+        choices=TiposRelacion.choices,
+        verbose_name='Tipo de relación',
+    )
+    estado = models.CharField(
+        max_length=20,
+        choices=Estados.choices,
+        default=Estados.CANDIDATA,
+        verbose_name='Estado',
+    )
+    confianza = models.CharField(
+        max_length=10,
+        choices=Confianzas.choices,
+        default=Confianzas.BAJA,
+        verbose_name='Confianza',
+    )
+    fuente_url = models.URLField(max_length=500, blank=True, default='', verbose_name='URL fuente')
+    fuente_titulo = models.CharField(max_length=300, blank=True, default='', verbose_name='Título fuente')
+    fuente_version = models.CharField(max_length=150, blank=True, default='', verbose_name='Versión fuente')
+    localizador = models.CharField(max_length=200, blank=True, default='', verbose_name='Localizador')
+    evidencia = models.TextField(blank=True, default='', verbose_name='Evidencia')
+    justificacion = models.TextField(blank=True, default='', verbose_name='Justificación')
+    activo = models.BooleanField(default=True, verbose_name='Activo')
+    revisado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='compatibilidades_acuerdos_revisadas',
+        verbose_name='Usuario revisor',
+    )
+    revisado_en = models.DateTimeField(null=True, blank=True, verbose_name='Fecha de revisión')
+
+    class Meta:
+        verbose_name = 'Compatibilidad de acuerdo internacional'
+        verbose_name_plural = 'Compatibilidades de acuerdos internacionales'
+        ordering = ['origen__codigo', 'destino__codigo', 'tipo_relacion', 'fuente_url']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['origen', 'destino', 'tipo_relacion', 'fuente_url'],
+                name='uniq_compat_acuerdo_origen_destino_tipo_fuente',
+            ),
+            models.CheckConstraint(
+                condition=~models.Q(origen=models.F('destino')),
+                name='compat_acuerdo_origen_destino_distintos',
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=['origen', 'destino', 'activo'],
+                name='articulacio_origen_1c85f8_idx',
+            ),
+            models.Index(
+                fields=['destino', 'estado', 'tipo_relacion'],
+                name='articulacio_destino_1d4388_idx',
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+        errores = {}
+        if self.origen_id and self.destino_id and self.origen_id == self.destino_id:
+            errores['destino'] = 'El origen y el destino deben ser acuerdos distintos.'
+        if (
+            self.origen_id
+            and self.destino_id
+            and self.origen_id != self.destino_id
+            and self.origen.tipo_acuerdo == self.destino.tipo_acuerdo
+        ):
+            errores['destino'] = 'La cascada no permite relaciones entre tipos iguales.'
+        if errores:
+            raise ValidationError(errores)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
 
 
 class Normativa(TimeStampedModel):

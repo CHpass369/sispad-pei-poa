@@ -1,12 +1,16 @@
-from rest_framework import viewsets, status
+from uuid import UUID
+
+from rest_framework import viewsets, status, serializers
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db import transaction
+from django.db.models import Case, Count, IntegerField, Subquery, Value, When
 from django.utils import timezone
 from .models import (
     BorradorMatrizPEI, BorradorMatrizPOA,
-    CodigoNivel, AcuerdoInternacional, Normativa, LineamientoPAD,
+    CodigoNivel, AcuerdoInternacional, CompatibilidadAcuerdoInternacional,
+    Normativa, LineamientoPAD,
     ResultadoPAD, ProductoPAD, ResultadoPEI, ProductoPEI,
     ArticulacionPADPEI, IndicadorCadena, AccionPOA, OperacionPOAU,
     ActividadPOAU, ActividadNormativa, TareaPOAU, TareaNormativa,
@@ -14,7 +18,8 @@ from .models import (
 )
 from .serializers import (
     BorradorMatrizPEISerializer, BorradorMatrizPOASerializer,
-    CodigoNivelSerializer, AcuerdoInternacionalSerializer, NormativaSerializer,
+    CodigoNivelSerializer, AcuerdoInternacionalSerializer,
+    CompatibilidadAcuerdoInternacionalSerializer, NormativaSerializer,
     LineamientoPADSerializer, ResultadoPADSerializer, ProductoPADSerializer,
     ResultadoPEISerializer, ProductoPEISerializer, ArticulacionPADPEISerializer,
     IndicadorCadenaSerializer, AccionPOASerializer, OperacionPOAUSerializer,
@@ -108,6 +113,80 @@ class AcuerdoInternacionalViewSet(viewsets.ModelViewSet):
     filterset_fields = ['tipo_acuerdo', 'activo', 'es_codigo_oficial']
     search_fields = ['codigo', 'denominacion']
     ordering_fields = ['tipo_acuerdo', 'codigo']
+
+
+class CompatibilidadAcuerdoInternacionalViewSet(viewsets.ReadOnlyModelViewSet):
+    """Read-only V2 contract used by the PAD cascading selectors."""
+
+    queryset = CompatibilidadAcuerdoInternacional.objects.all()
+    serializer_class = CompatibilidadAcuerdoInternacionalSerializer
+    permission_classes = [ArticulacionPermisos]
+
+    def get_queryset(self):
+        queryset = CompatibilidadAcuerdoInternacional.objects.select_related(
+            'origen', 'destino',
+        ).filter(activo=True).exclude(
+            estado=CompatibilidadAcuerdoInternacional.Estados.RECHAZADA,
+        )
+
+        origen_ids = self._origen_ids()
+        if origen_ids:
+            queryset = queryset.filter(origen_id__in=origen_ids)
+
+        destino_tipo = self.request.query_params.get('destino_tipo')
+        if destino_tipo:
+            queryset = queryset.filter(destino__tipo_acuerdo=destino_tipo)
+
+        estado = self.request.query_params.get('estado')
+        if estado:
+            queryset = queryset.filter(estado=estado)
+
+        if self._parametro_falso('incluir_sugerencias'):
+            queryset = queryset.exclude(
+                tipo_relacion=CompatibilidadAcuerdoInternacional.TiposRelacion.SUGERENCIA_SEMANTICA,
+            )
+
+        if origen_ids:
+            destinos_comunes = queryset.values('destino_id').annotate(
+                cantidad_origenes=Count('origen_id', distinct=True),
+            ).filter(
+                cantidad_origenes=len(origen_ids),
+            ).values('destino_id')
+            queryset = queryset.filter(destino_id__in=Subquery(destinos_comunes))
+
+        return queryset.order_by(
+            Case(
+                When(confianza='ALTA', then=Value(0)),
+                When(confianza='MEDIA', then=Value(1)),
+                default=Value(2),
+                output_field=IntegerField(),
+            ),
+            Case(
+                When(tipo_relacion='OFICIAL_EXPLICITA', then=Value(0)),
+                When(tipo_relacion='DERIVADA_DOCUMENTAL', then=Value(1)),
+                default=Value(2),
+                output_field=IntegerField(),
+            ),
+            'destino__codigo', 'origen__codigo', 'id',
+        )
+
+    def _origen_ids(self):
+        raw_ids = self.request.query_params.get('origen_ids')
+        if raw_ids is None:
+            raw_ids = self.request.query_params.get('origen_id')
+        if not raw_ids:
+            return []
+        values = [value.strip() for value in raw_ids.split(',') if value.strip()]
+        try:
+            return list(dict.fromkeys(str(UUID(value)) for value in values))
+        except ValueError as exc:
+            raise serializers.ValidationError(
+                {'origen_ids': 'Debe contener UUID separados por coma.'}
+            ) from exc
+
+    def _parametro_falso(self, nombre):
+        valor = self.request.query_params.get(nombre)
+        return valor is not None and valor.strip().lower() in {'0', 'false', 'no'}
 
 
 class NormativaViewSet(viewsets.ModelViewSet):

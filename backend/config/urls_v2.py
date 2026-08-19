@@ -19,6 +19,7 @@ from rest_framework.routers import DefaultRouter
 from apps.accounts.views_v2 import MeViewSet
 from apps.articulacion.views import (
     AcuerdoInternacionalViewSet as ArticulacionAcuerdoInternacionalViewSet,
+    CompatibilidadAcuerdoInternacionalViewSet as ArticulacionCompatibilidadAcuerdoInternacionalViewSet,
     CodigoNivelViewSet as ArticulacionCodigoNivelViewSet,
     IndicadorCadenaViewSet as ArticulacionIndicadorCadenaViewSet,
     LineamientoPADViewSet as ArticulacionLineamientoPADViewSet,
@@ -196,6 +197,7 @@ integracion_router.register('articulaciones-pad-pei', ArticulacionPADPEIViewSet,
 integracion_router.register('indicadores', ArticulacionIndicadorCadenaViewSet, basename='v2-integracion-indicadores')
 integracion_router.register('lineamientos-pad', ArticulacionLineamientoPADViewSet, basename='v2-integracion-lineamientos-pad')
 integracion_router.register('acuerdos', ArticulacionAcuerdoInternacionalViewSet, basename='v2-integracion-acuerdos')
+integracion_router.register('compatibilidades', ArticulacionCompatibilidadAcuerdoInternacionalViewSet, basename='v2-integracion-compatibilidades')
 integracion_router.register('normativas', ArticulacionNormativaViewSet, basename='v2-integracion-normativas')
 integracion_router.register('codigos-nivel', ArticulacionCodigoNivelViewSet, basename='v2-integracion-codigos-nivel')
 integracion_router.register('matrices', ArticulacionMatrizViewSet, basename='v2-integracion-matrices')
