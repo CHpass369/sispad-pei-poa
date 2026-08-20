@@ -13,6 +13,7 @@ from apps.articulacion.permissions import es_aprobador
 from .models import (
     ActaPriorizacion, EstadosActa, PlantillaActa, ProyectoCatalogo, normalizar,
 )
+from apps.budget.categoria import partes_categoria
 from apps.documentos.almacen import guardar as guardar_documento
 from apps.documentos.models import DocumentoAdjunto
 from apps.gestion.models import GestionFiscal
@@ -476,12 +477,19 @@ class CategoriaProgramaticaViewSet(viewsets.ViewSet):
             por_anio = qs.filter(gestion__anio=int(gestion))
             # Una gestión sin catálogo propio usa el vigente.
             qs = por_anio if por_anio.exists() else qs
-        nivel = request.query_params.get('nivel', 'ACTIVIDAD')
-        if nivel:
-            qs = qs.filter(nivel=nivel)
+        # Se ofrecen las de funcionamiento Y las de proyecto: lo que una OTB
+        # prioriza es casi siempre inversión, y si el desplegable solo trae
+        # ACTIVIDAD el técnico termina cargando una obra bajo
+        # `000 0 001 FUNCIONAMIENTO ALCALDIA MUNICIPAL` porque es lo único que
+        # hay.
+        nivel = request.query_params.get('nivel')
+        qs = qs.filter(nivel=nivel) if nivel else qs.filter(
+            nivel__in=['ACTIVIDAD', 'PROYECTO'])
         return Response([
-            {'codigo': c.codigo, 'denominacion': c.denominacion, 'nivel': c.nivel}
-            for c in qs.order_by('codigo')
+            {'codigo': c.codigo, 'denominacion': c.denominacion,
+             'nivel': c.nivel, 'es_proyecto': c.nivel == 'PROYECTO',
+             'sisin': partes_categoria(c.codigo).sisin}
+            for c in qs.order_by('nivel', 'codigo')
         ])
 
 

@@ -579,6 +579,36 @@ class PresupuestoGastosViewSet(viewsets.ViewSet):
     calculan aqui; en la planilla son formulas que hay que mantener a mano.
     """
 
+    @staticmethod
+    def _aportes_de_priorizacion(anio):
+        """Qué actas aportaron a cada fila de gasto, por apertura.
+
+        Import local a propósito: `priorizacion` importa `budget`, y hacerlo al
+        revés a nivel de módulo cierra el círculo.
+        """
+        from apps.priorizacion.models import ProyectoPriorizado
+
+        proyectos = (
+            ProyectoPriorizado.objects
+            .filter(acta__gestion=int(anio))
+            .exclude(apertura_fuente__isnull=True)
+            .select_related('acta__distrito', 'apertura_fuente',
+                            'fuente', 'organismo')
+        )
+        por_apertura: dict = {}
+        for p in proyectos:
+            por_apertura.setdefault(
+                p.apertura_fuente.allocation_id, []).append({
+                    'acta': str(p.acta_id),
+                    'otb': p.acta.otb,
+                    'distrito': p.acta.distrito.nombre if p.acta.distrito else '',
+                    'estado_acta': p.acta.estado,
+                    'proyecto': p.nombre,
+                    'par': p.par_financiamiento,
+                    'monto': float(p.monto_materializado or 0),
+                })
+        return por_apertura
+
     def list(self, request):
         anio = request.query_params.get('gestion')
         if not anio:
@@ -592,6 +622,11 @@ class PresupuestoGastosViewSet(viewsets.ViewSet):
             .prefetch_related('fuentes__fuente', 'fuentes__organismo')
             .order_by('categoria__codigo', 'actividad_codigo')
         )
+
+        # De dónde salió cada monto: sin esto, lo que aporta un acta de
+        # priorización se funde dentro de una fila que ya existía y no hay
+        # forma de ver que se adjuntó.
+        aportes = self._aportes_de_priorizacion(anio)
 
         # Las fuentes viven como filas; la planilla las lee como columnas.
         pares: dict[str, str] = {}
@@ -640,6 +675,9 @@ class PresupuestoGastosViewSet(viewsets.ViewSet):
                 'estado_revision': apertura.estado_revision,
                 'observacion': apertura.observacion,
                 'montos': montos_por_fuente(apertura),
+                'priorizaciones': aportes.get(apertura.id, []),
+                'monto_priorizado': sum(
+                    a['monto'] for a in aportes.get(apertura.id, [])),
             })
 
         def sumar(filas):

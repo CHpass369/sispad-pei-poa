@@ -42,10 +42,15 @@ class MaterializacionTests(TestCase):
         self.of = OrganismoFinanciador.objects.create(
             codigo='113', denominacion='TGN - Coparticipación', **catalogo)
 
-        # Categoría de proyecto: programa 180, SISIN, actividad 000.
+        # Categoría de proyecto: programa 180, SISIN, actividad 000. El nivel
+        # es PROYECTO justamente porque el segmento del medio es un SISIN.
         self.categoria = CategoriaProgramaticaTecho.objects.create(
             gestion=self.gestion, codigo='180 08620281200000 000',
-            nivel='ACTIVIDAD', denominacion='IMPLEM. PAVIMENTO FLEXIBLE')
+            nivel='PROYECTO', denominacion='IMPLEM. PAVIMENTO FLEXIBLE')
+        # Una de funcionamiento, para distinguir los dos niveles.
+        CategoriaProgramaticaTecho.objects.create(
+            gestion=self.gestion, codigo='000 0 001', nivel='ACTIVIDAD',
+            denominacion='FUNCIONAMIENTO ALCALDIA MUNICIPAL')
 
         techo = TechoDirectivo.objects.create(gestion=self.gestion,
                                               version_actual=1)
@@ -464,3 +469,69 @@ class SinClaveDeCifradoTests(MaterializacionTests):
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertEqual(r['Content-Type'], 'application/pdf')
         self.assertEqual(DocumentoAdjunto.objects.count(), 0)
+
+
+class VisibilidadEnGastosTests(MaterializacionTests):
+    """Lo adjuntado por un acta tiene que verse en el presupuesto de gastos."""
+
+    GASTOS = '/api/v2/sis-poa/budget/presupuesto-gastos/?gestion=2027'
+
+    def actividades(self):
+        d = self.client.get(self.GASTOS).json()
+        return [a for p in d['programas'] for s in p['subprogramas']
+                for a in s['actividades']]
+
+    def test_la_fila_declara_cuanto_vino_de_priorizacion(self):
+        self.validar(self.crear_acta()['id'])
+        con = [a for a in self.actividades() if a['priorizaciones']]
+        self.assertEqual(len(con), 1)
+        self.assertEqual(con[0]['categoria'], '180 08620281200000 000')
+        self.assertEqual(con[0]['monto_priorizado'], 220000.0)
+
+    def test_dice_que_acta_lo_aporto(self):
+        self.validar(self.crear_acta()['id'])
+        aporte = [a for a in self.actividades() if a['priorizaciones']][0]
+        detalle = aporte['priorizaciones'][0]
+        self.assertEqual(detalle['otb'], 'OTB SAN JOSE')
+        self.assertEqual(detalle['distrito'], 'DISTRITO 2')
+        self.assertEqual(detalle['par'], '41/113')
+        self.assertEqual(detalle['estado_acta'], 'VALIDADO')
+
+    def test_dos_actas_sobre_la_misma_fila_se_listan_por_separado(self):
+        # El monto se funde en una sola fila; el origen no puede fundirse.
+        self.validar(self.crear_acta()['id'])
+        self.validar(self.crear_acta(otb='OTB LOS PINOS')['id'])
+        aporte = [a for a in self.actividades() if a['priorizaciones']][0]
+        self.assertEqual(len(aporte['priorizaciones']), 2)
+        self.assertEqual(aporte['monto_priorizado'], 440000.0)
+
+    def test_desvalidar_saca_la_fila_del_listado_de_aportes(self):
+        acta_id = self.crear_acta()['id']
+        self.validar(acta_id)
+        self.client.post(f'{API}/actas/{acta_id}/desvalidar/')
+        self.assertEqual([a for a in self.actividades() if a['priorizaciones']], [])
+
+    def test_una_fila_sin_priorizacion_no_muestra_nada(self):
+        self.validar(self.crear_acta()['id'])
+        sin = [a for a in self.actividades() if not a['priorizaciones']]
+        for a in sin:
+            self.assertEqual(a['monto_priorizado'], 0)
+
+
+class CategoriasOfrecidasTests(MaterializacionTests):
+    def test_el_formulario_ofrece_las_categorias_de_proyecto(self):
+        # Si solo se ofrecen las de ACTIVIDAD, una obra termina cargada bajo
+        # `000 0 001 FUNCIONAMIENTO ALCALDIA MUNICIPAL` porque es lo único que hay.
+        d = self.client.get(
+            f'{API}/categorias-programaticas/?gestion=2027').json()
+        niveles = {c['nivel'] for c in d}
+        self.assertIn('PROYECTO', niveles)
+        proyecto = next(c for c in d if c['nivel'] == 'PROYECTO')
+        self.assertTrue(proyecto['es_proyecto'])
+        self.assertEqual(proyecto['sisin'], '08620281200000')
+
+    def test_se_puede_pedir_un_solo_nivel(self):
+        d = self.client.get(
+            f'{API}/categorias-programaticas/?gestion=2027&nivel=ACTIVIDAD').json()
+        self.assertEqual({c['nivel'] for c in d}, {'ACTIVIDAD'})
+        self.assertEqual(d[0]['codigo'], '000 0 001')

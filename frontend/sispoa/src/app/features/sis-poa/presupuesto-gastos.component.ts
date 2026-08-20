@@ -16,6 +16,19 @@ interface Actividad {
   actividad: string;
   montos: Record<string, string>;
   estado_revision?: string;
+  /** Lo que aportaron las actas de priorización a esta fila. */
+  priorizaciones?: Priorizacion[];
+  monto_priorizado?: number;
+}
+
+interface Priorizacion {
+  acta: string;
+  otb: string;
+  distrito: string;
+  estado_acta: string;
+  proyecto: string;
+  par: string;
+  monto: number;
 }
 
 interface Subprograma {
@@ -176,7 +189,26 @@ interface ArbolGastos {
                   <tr class="fila-actividad" *ngFor="let a of s.actividades"
                       [class.oculta]="!abierto(p.codigo + s.codigo)">
                     <td class="cod sangria-2">{{ a.categoria }}</td>
-                    <td class="col-den">{{ a.denominacion }}</td>
+                    <td class="col-den">
+                      {{ a.denominacion }}
+                      <button class="marca-prior" *ngIf="a.monto_priorizado"
+                              (click)="alternarPriorizacion(a)"
+                              [title]="'Incluye Bs ' + moneda(a.monto_priorizado)
+                                       + ' priorizados en actas'">
+                        {{ verPriorizacion(a) ? '▾' : '▸' }}
+                        priorizado Bs {{ moneda(a.monto_priorizado) }}
+                      </button>
+                      <ul class="detalle-prior" *ngIf="verPriorizacion(a)">
+                        <li *ngFor="let x of a.priorizaciones">
+                          <span class="otb">{{ x.otb }}</span>
+                          <span class="dist">{{ x.distrito }}</span>
+                          <span class="par">{{ x.par }}</span>
+                          <span class="monto">Bs {{ moneda(x.monto) }}</span>
+                          <span class="pastilla" [ngClass]="'e-' + x.estado_acta">
+                            {{ x.estado_acta }}</span>
+                        </li>
+                      </ul>
+                    </td>
                     <td class="cod">{{ a.unidad_ejecutora || '—' }}</td>
                     <td *ngFor="let c of arbol.columnas" class="num">
                       <span *ngIf="!editando || a.estado_revision === 'APROBADO'">
@@ -322,6 +354,24 @@ interface ArbolGastos {
       background: var(--error-fondo); color: var(--error-tinta);
       padding: 0.7rem 0.9rem; border-radius: var(--radius); margin-bottom: var(--e-2);
     }
+    .marca-prior {
+      display: inline-block; margin-left: 0.4rem; border: none; cursor: pointer;
+      background: #BBDEFB; color: #0D47A1; border-radius: 999px;
+      padding: 0.05rem 0.45rem; font-size: 0.5625rem; font-weight: 700;
+    }
+    .marca-prior:hover { background: #90CAF9; }
+    .detalle-prior { list-style: none; margin: 0.3rem 0 0; padding: 0; }
+    .detalle-prior li {
+      display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;
+      font-size: 0.625rem; padding: 0.15rem 0; border-top: 1px dashed rgba(0,0,0,.12);
+    }
+    .detalle-prior .otb { font-weight: 700; }
+    .detalle-prior .dist, .detalle-prior .par { color: var(--text-secondary); }
+    .detalle-prior .monto { margin-left: auto; font-variant-numeric: tabular-nums; }
+    .e-BORRADOR { background: #E0E0E0; color: #37474F; }
+    .e-VALIDADO { background: #BBDEFB; color: #0D47A1; }
+    .e-OBSERVADO { background: #FFE0B2; color: #E65100; }
+    .e-APROBADO { background: #C8E6C9; color: #1B5E20; }
   `],
 })
 export class PresupuestoGastosComponent implements OnInit {
@@ -529,6 +579,21 @@ export class PresupuestoGastosComponent implements OnInit {
   }
 
   // --- Presentación ---------------------------------------------------------
+
+  /** Filas cuyo aporte de priorización está desplegado. */
+  private prioresAbiertas = new Set<number>();
+
+  alternarPriorizacion(a: Actividad): void {
+    if (this.prioresAbiertas.has(a.id)) {
+      this.prioresAbiertas.delete(a.id);
+    } else {
+      this.prioresAbiertas.add(a.id);
+    }
+  }
+
+  verPriorizacion(a: Actividad): boolean {
+    return this.prioresAbiertas.has(a.id);
+  }
 
   moneda(valor: string | undefined): string {
     if (valor === undefined || valor === null || valor === '') { return '—'; }
