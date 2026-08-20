@@ -1,6 +1,7 @@
 """API del módulo Priorización POA."""
 from django.db.models import Count, F, Q, Sum
 from django.http import HttpResponse
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -11,6 +12,10 @@ from apps.articulacion.permissions import es_aprobador
 from .models import (
     ActaPriorizacion, EstadosActa, PlantillaActa, ProyectoCatalogo, normalizar,
 )
+from apps.documentos.almacen import guardar as guardar_documento
+from apps.documentos.models import DocumentoAdjunto
+from apps.gestion.models import GestionFiscal
+
 from .materializacion import (
     desmaterializar_acta, materializar_acta, revisar_acta,
 )
@@ -280,6 +285,87 @@ class ActaPriorizacionViewSet(viewsets.ModelViewSet):
             return datos
         return Response({**datos, 'huella': hash_acta(datos)})
 
+    # --- Documentos ---------------------------------------------------------
+
+    ENTIDAD = 'priorizacion.ActaPriorizacion'
+    LIMITE_ADJUNTO = 20 * 1024 * 1024
+
+    @action(detail=True, methods=['post'], url_path='adjuntar',
+            parser_classes=[MultiPartParser, FormParser])
+    def adjuntar(self, request, pk=None):
+        """Sube el acta escaneada y firmada. Se guarda cifrada."""
+        acta = self.get_object()
+        archivo = request.FILES.get('archivo')
+        if archivo is None:
+            return Response({'error': 'No se recibió ningún archivo.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if archivo.size > self.LIMITE_ADJUNTO:
+            return Response(
+                {'error': 'El archivo supera los 20 MB.'},
+                status=status.HTTP_400_BAD_REQUEST)
+
+        gestion = GestionFiscal.objects.filter(anio=acta.gestion).first()
+        if gestion is None:
+            return Response(
+                {'error': f'La gestión {acta.gestion} no está habilitada.'},
+                status=status.HTTP_400_BAD_REQUEST)
+
+        documento = guardar_documento(
+            archivo.read(), entidad=self.ENTIDAD, entidad_id=acta.id,
+            nombre=archivo.name, gestion=gestion, usuario=request.user,
+            tipo_documento='ACTA_ESCANEADA',
+            content_type=archivo.content_type or 'application/octet-stream',
+            descripcion=f'Acta firmada de {acta.otb}',
+        )
+        return Response(self._documento(documento),
+                        status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['get'], url_path='documentos')
+    def documentos(self, request, pk=None):
+        """Los documentos del acta: el PDF archivado y los escaneados."""
+        acta = self.get_object()
+        return Response([self._documento(d) for d in DocumentoAdjunto.objects
+                         .filter(entidad=self.ENTIDAD, entidad_id=str(acta.id),
+                                 activo=True)
+                         .order_by('created_at')])
+
+    def _documento(self, documento):
+        return {
+            'id': str(documento.id),
+            'nombre': documento.nombre,
+            'tipo_documento': documento.tipo_documento,
+            'content_type': documento.content_type,
+            'tamanio_bytes': documento.tamanio_bytes,
+            'hash_sha256': documento.hash_sha256,
+            'subido_en': documento.created_at.isoformat(),
+        }
+
+    def _archivar_pdf(self, acta, contenido, huella):
+        """Deja UNA copia cifrada del PDF del acta aprobada.
+
+        Solo se archiva lo aprobado, que es la versión definitiva: antes de eso
+        el acta todavía se corrige. Y una sola copia, porque los bytes del PDF
+        cambian en cada emisión —el QR lleva la hora de generación— y guardar
+        cada descarga llenaría la base de copias equivalentes.
+        """
+        if acta.estado != EstadosActa.APROBADO:
+            return None
+        gestion = GestionFiscal.objects.filter(anio=acta.gestion).first()
+        if gestion is None:
+            return None
+        ya = DocumentoAdjunto.objects.filter(
+            entidad=self.ENTIDAD, entidad_id=str(acta.id),
+            tipo_documento='ACTA_GENERADA').first()
+        if ya:
+            return ya
+        return guardar_documento(
+            contenido, entidad=self.ENTIDAD, entidad_id=acta.id,
+            nombre=f'acta-{acta.otb[:40]}-{acta.gestion}.pdf'.replace(' ', '-'),
+            gestion=gestion, usuario=self.request.user,
+            tipo_documento='ACTA_GENERADA',
+            descripcion='PDF emitido por la plataforma',
+        )
+
     @action(detail=True, methods=['get'], url_path='pdf')
     def pdf(self, request, pk=None):
         """El acta en PDF tamaño oficio, armada en el servidor.
@@ -292,6 +378,9 @@ class ActaPriorizacionViewSet(viewsets.ModelViewSet):
         if isinstance(datos, Response):
             return datos
         contenido, huella = generar_acta_pdf(datos)
+        # Queda copia cifrada de lo emitido: el acta que se firma tiene que
+        # poder recuperarse aunque el archivo descargado se pierda.
+        self._archivar_pdf(acta, contenido, huella)
         nombre = f'acta-{acta.distrito.codigo}-{acta.otb[:40]}-{acta.gestion}.pdf'
         respuesta = HttpResponse(contenido, content_type='application/pdf')
         respuesta['Content-Disposition'] = (

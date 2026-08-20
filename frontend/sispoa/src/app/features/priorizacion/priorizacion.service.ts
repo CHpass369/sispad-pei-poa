@@ -97,6 +97,22 @@ export class PriorizacionService {
     });
   }
 
+  /** Sube el acta escaneada. El servidor la guarda cifrada. */
+  adjuntar(id: string, archivo: File): Observable<any> {
+    const cuerpo = new FormData();
+    cuerpo.append('archivo', archivo);
+    return this.http.post(`${this.base}/actas/${id}/adjuntar/`, cuerpo);
+  }
+
+  documentosDelActa(id: string): Observable<any> {
+    return this.http.get(`${this.base}/actas/${id}/documentos/`);
+  }
+
+  descargarDocumento(documentoId: string): Observable<Blob> {
+    return this.http.get(`${environment.apiUrl}/documentos/${documentoId}/descargar/`,
+                         { responseType: 'blob' });
+  }
+
   matrices(gestion: number): Observable<any> {
     return this.http.get(`${this.base}/matrices/`, {
       params: new HttpParams().set('gestion', gestion),

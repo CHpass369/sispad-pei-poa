@@ -11,7 +11,20 @@ class DocumentoAdjunto(TimeStampedModel):
     entidad_id = models.CharField(max_length=100, help_text='ID del registro')
     nombre = models.CharField(max_length=300)
     descripcion = models.TextField(blank=True)
-    archivo = models.FileField(upload_to='documentos/')
+    # El documento vive cifrado EN LA BASE, no en el disco. Un archivo en
+    # MEDIA_ROOT queda a un `location /media/` mal puesto de ser público, y esa
+    # configuración no la revisa nadie hasta que el documento ya se filtró.
+    # Guardado acá, la única forma de leerlo es pasando por la vista de
+    # descarga, donde el permiso ya se verifica.
+    contenido_cifrado = models.BinaryField(
+        null=True, blank=True, editable=False, verbose_name='Contenido cifrado')
+    nonce = models.BinaryField(
+        null=True, blank=True, editable=False, verbose_name='Nonce')
+    content_type = models.CharField(
+        max_length=120, blank=True, default='application/pdf',
+        verbose_name='Tipo de contenido')
+    # Se conserva para los documentos que ya estuvieran en disco.
+    archivo = models.FileField(upload_to='documentos/', blank=True, null=True)
     tipo_documento = models.CharField(max_length=100, blank=True)
     hash_sha256 = models.CharField(max_length=64, blank=True, editable=False)
     tamanio_bytes = models.PositiveBigIntegerField(null=True, blank=True, editable=False)

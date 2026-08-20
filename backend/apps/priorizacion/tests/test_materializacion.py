@@ -313,3 +313,127 @@ class CircuitoActaTests(MaterializacionTests):
         proyecto.save()
         self.validar(acta_id)
         self.assertEqual(AperturaFuente.objects.get().monto, Decimal('75000'))
+
+
+class DocumentosDelActaTests(MaterializacionTests):
+    """El acta emitida y la escaneada, cifradas en la base."""
+
+    CLAVE = 'Zm9vYmFyYmF6cXV1eHF1dXhmb29iYXJiYXpxdXV4cXU='  # 32 bytes en base64
+
+    def setUp(self):
+        super().setUp()
+        self.override = self.settings(DOCUMENTOS_CLAVE=self.CLAVE)
+        self.override.enable()
+        self.addCleanup(self.override.disable)
+
+    def test_emitir_el_pdf_de_un_acta_aprobada_deja_copia_cifrada(self):
+        from apps.documentos.models import DocumentoAdjunto
+        acta_id = self.crear_acta()['id']
+        self.aprobar(acta_id)
+        r = self.client.get(f'{API}/actas/{acta_id}/pdf/')
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+
+        doc = DocumentoAdjunto.objects.get(tipo_documento='ACTA_GENERADA')
+        self.assertTrue(doc.contenido_cifrado)
+        # Lo guardado no se puede leer sin la clave.
+        self.assertNotIn(b'%PDF', bytes(doc.contenido_cifrado))
+        self.assertEqual(len(doc.hash_sha256), 64)
+
+    def test_emitir_dos_veces_no_duplica_la_copia(self):
+        from apps.documentos.models import DocumentoAdjunto
+        acta_id = self.crear_acta()['id']
+        self.aprobar(acta_id)
+        self.client.get(f'{API}/actas/{acta_id}/pdf/')
+        self.client.get(f'{API}/actas/{acta_id}/pdf/')
+        # Los bytes cambian en cada emisión por la hora del QR: guardar cada
+        # descarga llenaría la base de copias equivalentes.
+        self.assertEqual(
+            DocumentoAdjunto.objects.filter(tipo_documento='ACTA_GENERADA').count(), 1)
+
+    def test_un_acta_sin_aprobar_no_se_archiva(self):
+        from apps.documentos.models import DocumentoAdjunto
+        acta_id = self.crear_acta()['id']
+        self.client.get(f'{API}/actas/{acta_id}/pdf/')
+        # Antes de aprobarse el acta todavía se corrige.
+        self.assertEqual(
+            DocumentoAdjunto.objects.filter(tipo_documento='ACTA_GENERADA').count(), 0)
+
+    def test_adjuntar_el_escaneado_lo_guarda_cifrado(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        from apps.documentos.models import DocumentoAdjunto
+        acta_id = self.crear_acta()['id']
+        archivo = SimpleUploadedFile('acta-firmada.pdf', b'%PDF-1.4 firmada',
+                                     content_type='application/pdf')
+        r = self.client.post(f'{API}/actas/{acta_id}/adjuntar/',
+                             {'archivo': archivo}, format='multipart')
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(r.json()['nombre'], 'acta-firmada.pdf')
+
+        doc = DocumentoAdjunto.objects.get(tipo_documento='ACTA_ESCANEADA')
+        self.assertNotIn(b'firmada', bytes(doc.contenido_cifrado))
+        self.assertEqual(doc.tamanio_bytes, len(b'%PDF-1.4 firmada'))
+
+    def test_adjuntar_sin_archivo_lo_dice(self):
+        acta_id = self.crear_acta()['id']
+        r = self.client.post(f'{API}/actas/{acta_id}/adjuntar/', {},
+                             format='multipart')
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_descargar_devuelve_el_documento_original(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        acta_id = self.crear_acta()['id']
+        archivo = SimpleUploadedFile('firmada.pdf', b'%PDF-1.4 firmada',
+                                     content_type='application/pdf')
+        doc_id = self.client.post(f'{API}/actas/{acta_id}/adjuntar/',
+                                  {'archivo': archivo},
+                                  format='multipart').json()['id']
+        r = self.client.get(f'/api/v1/documentos/{doc_id}/descargar/')
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual(r.content, b'%PDF-1.4 firmada')
+        self.assertEqual(len(r['X-Documento-Huella']), 64)
+
+    def test_un_documento_alterado_no_se_entrega(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        from apps.documentos.models import DocumentoAdjunto
+        acta_id = self.crear_acta()['id']
+        archivo = SimpleUploadedFile('firmada.pdf', b'%PDF-1.4 firmada',
+                                     content_type='application/pdf')
+        doc_id = self.client.post(f'{API}/actas/{acta_id}/adjuntar/',
+                                  {'archivo': archivo},
+                                  format='multipart').json()['id']
+        doc = DocumentoAdjunto.objects.get(id=doc_id)
+        tocado = bytearray(doc.contenido_cifrado)
+        tocado[0] ^= 1
+        doc.contenido_cifrado = bytes(tocado)
+        doc.save(update_fields=['contenido_cifrado'])
+
+        r = self.client.get(f'/api/v1/documentos/{doc_id}/descargar/')
+        # Se avisa, no se devuelve un documento dudoso.
+        self.assertEqual(r.status_code, status.HTTP_409_CONFLICT)
+
+    def test_la_descarga_exige_sesion(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        acta_id = self.crear_acta()['id']
+        archivo = SimpleUploadedFile('f.pdf', b'x', content_type='application/pdf')
+        doc_id = self.client.post(f'{API}/actas/{acta_id}/adjuntar/',
+                                  {'archivo': archivo},
+                                  format='multipart').json()['id']
+        self.client.force_authenticate(user=None)
+        r = self.client.get(f'/api/v1/documentos/{doc_id}/descargar/')
+        self.assertIn(r.status_code, (status.HTTP_401_UNAUTHORIZED,
+                                      status.HTTP_403_FORBIDDEN))
+
+    def test_el_acta_lista_sus_documentos(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        acta_id = self.crear_acta()['id']
+        self.aprobar(acta_id)
+        self.client.get(f'{API}/actas/{acta_id}/pdf/')
+        archivo = SimpleUploadedFile('firmada.pdf', b'%PDF firmada',
+                                     content_type='application/pdf')
+        self.client.post(f'{API}/actas/{acta_id}/adjuntar/',
+                         {'archivo': archivo}, format='multipart')
+        d = self.client.get(f'{API}/actas/{acta_id}/documentos/').json()
+        self.assertEqual([x['tipo_documento'] for x in d],
+                         ['ACTA_GENERADA', 'ACTA_ESCANEADA'])

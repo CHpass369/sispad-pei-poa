@@ -27,6 +27,34 @@ import { PriorizacionService } from './priorizacion.service';
 
       <div class="msg-box error no-imprimir" *ngIf="error">{{ error }}</div>
 
+      <div class="documentos no-imprimir" *ngIf="acta">
+        <div class="cabecera">
+          <div>
+            <strong>Documentos del acta</strong>
+            <small>Se guardan cifrados. Solo se descargan desde acá.</small>
+          </div>
+          <label class="btn btn-sm btn-secondary">
+            📎 Adjuntar escaneado
+            <input type="file" hidden (change)="adjuntar($event)"
+                   accept="application/pdf,image/*">
+          </label>
+        </div>
+        <ul>
+          <li *ngFor="let d of documentos">
+            <span class="tipo" [class.generado]="d.tipo_documento === 'ACTA_GENERADA'">
+              {{ d.tipo_documento === 'ACTA_GENERADA' ? 'emitido' : 'escaneado' }}
+            </span>
+            <span class="nombre">{{ d.nombre }}</span>
+            <small>{{ (d.tamanio_bytes / 1024) | number:'1.0-0' }} kB</small>
+            <button class="btn btn-sm btn-secondary"
+                    (click)="bajarDocumento(d)">Descargar</button>
+          </li>
+          <li class="vacio" *ngIf="!documentos.length">
+            Todavía no hay documentos adjuntos.
+          </li>
+        </ul>
+      </div>
+
       <div class="hoja" *ngIf="acta">
         <h1>{{ acta.titulo }}</h1>
         <h2 class="gestion">{{ acta.subtitulo }}</h2>
@@ -128,6 +156,28 @@ import { PriorizacionService } from './priorizacion.service';
       background: var(--error-fondo); color: var(--error-tinta);
       padding: 0.7rem 0.9rem; border-radius: var(--radius); margin-bottom: var(--e-2);
     }
+    .documentos {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 0.8rem 1rem;
+      margin-bottom: var(--e-2); max-width: 820px; margin-inline: auto;
+    }
+    .documentos .cabecera {
+      display: flex; justify-content: space-between; align-items: center; gap: 1rem;
+    }
+    .documentos small { display: block; font-size: 0.6875rem; color: var(--text-secondary); }
+    .documentos ul { list-style: none; margin: 0.6rem 0 0; padding: 0; }
+    .documentos li {
+      display: flex; align-items: center; gap: 0.6rem; padding: 0.35rem 0;
+      border-top: 1px solid var(--border); font-size: 0.8125rem;
+    }
+    .documentos li.vacio { color: var(--text-secondary); }
+    .documentos .nombre { flex: 1 1 auto; }
+    .tipo {
+      font-size: 0.5625rem; font-weight: 700; text-transform: uppercase;
+      padding: 0.1rem 0.4rem; border-radius: 999px; background: #E0E0E0; color: #37474F;
+    }
+    .tipo.generado { background: #C8E6C9; color: #1B5E20; }
+    .documentos label.btn { cursor: pointer; }
     /* Oficio: 21,6 x 33 cm. No es el Legal norteamericano (21,6 x 35,6), así
        que la medida va explícita y no como palabra clave. */
     @page { size: 216mm 330mm; margin: 20mm 18mm; }
@@ -149,6 +199,7 @@ import { PriorizacionService } from './priorizacion.service';
 })
 export class ActaOficialComponent implements OnInit {
   acta: any = null;
+  documentos: any[] = [];
   error = '';
   bajando = false;
 
@@ -158,7 +209,7 @@ export class ActaOficialComponent implements OnInit {
   ngOnInit(): void {
     const id = this.ruta.snapshot.paramMap.get('id') || '';
     this.api.actaOficial(id).subscribe({
-      next: a => { this.acta = a; this.cdr.markForCheck(); },
+      next: a => { this.acta = a; this.cargarDocumentos(); this.cdr.markForCheck(); },
       error: e => {
         // El backend explica por qué no se puede emitir: sin fecha, sin
         // proyectos o sin plantilla cargada.
@@ -166,6 +217,65 @@ export class ActaOficialComponent implements OnInit {
         this.cdr.markForCheck();
       },
     });
+  }
+
+  private cargarDocumentos(): void {
+    const id = this.ruta.snapshot.paramMap.get('id') || '';
+    this.api.documentosDelActa(id).subscribe({
+      next: d => { this.documentos = d ?? []; this.cdr.markForCheck(); },
+      error: () => { this.documentos = []; },
+    });
+  }
+
+  adjuntar(evento: Event): void {
+    const entrada = evento.target as HTMLInputElement;
+    const archivo = entrada.files?.[0];
+    if (!archivo) { return; }
+    const id = this.ruta.snapshot.paramMap.get('id') || '';
+    this.error = '';
+    this.api.adjuntar(id, archivo).subscribe({
+      next: () => { entrada.value = ''; this.cargarDocumentos(); },
+      error: e => {
+        this.error = e?.error?.error || 'No se pudo adjuntar el documento.';
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  /** Distinto de `descargar()`, que emite el PDF del acta. */
+  bajarDocumento(documento: any): void {
+    this.api.descargarDocumento(documento.id).subscribe({
+      next: blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = documento.nombre; a.click();
+        URL.revokeObjectURL(url);
+      },
+      error: e => this.explicarFalloDeBlob(
+        e, 'No se pudo descargar el documento.'),
+    });
+  }
+
+  /**
+   * Con `responseType: 'blob'` el cuerpo del error también vuelve como Blob,
+   * así que el motivo del backend —por ejemplo que el documento fue
+   * alterado— se perdería y saldría un mensaje genérico.
+   */
+  private explicarFalloDeBlob(e: any, porDefecto: string): void {
+    const cuerpo = e?.error;
+    const mostrar = (mensaje: string) => {
+      this.error = mensaje || porDefecto;
+      this.cdr.markForCheck();
+    };
+    if (cuerpo instanceof Blob) {
+      cuerpo.text()
+        .then(texto => {
+          try { mostrar(JSON.parse(texto)?.error); } catch { mostrar(''); }
+        })
+        .catch(() => mostrar(''));
+      return;
+    }
+    mostrar(cuerpo?.error);
   }
 
   /**

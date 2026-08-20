@@ -160,6 +160,12 @@ STORAGES = {
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# Clave de cifrado de los documentos (32 bytes en base64). Vive fuera del
+# repositorio y fuera de la base: si estuviera al lado del dato, cifrar no
+# protegería de nada. Generar con:
+#   python -c "import base64,os;print(base64.b64encode(os.urandom(32)).decode())"
+DOCUMENTOS_CLAVE = os.environ.get('DOCUMENTOS_CLAVE', '')
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL = 'accounts.Usuario'

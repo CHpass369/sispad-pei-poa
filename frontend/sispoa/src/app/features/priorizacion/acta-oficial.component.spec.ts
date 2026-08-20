@@ -36,9 +36,10 @@ describe('ActaOficialComponent', () => {
 
   afterEach(() => http.verify());
 
-  const cargar = (respuesta: any = ACTA) => {
+  const cargar = (respuesta: any = ACTA, documentos: any[] = []) => {
     fixture.detectChanges();
     http.expectOne(r => r.url.includes('acta-oficial')).flush(respuesta);
+    http.expectOne(r => r.url.includes('/documentos/')).flush(documentos);
     fixture.detectChanges();
   };
 
@@ -125,5 +126,81 @@ describe('ActaOficialComponent', () => {
     fixture.detectChanges();
     expect(componente.error).toContain('no tiene fecha');
     expect(fixture.nativeElement.querySelector('.hoja')).toBeNull();
+  });
+});
+
+describe('ActaOficialComponent · documentos cifrados', () => {
+  let fixture: ComponentFixture<ActaOficialComponent>;
+  let componente: ActaOficialComponent;
+  let http: HttpTestingController;
+
+  const DOCS = [
+    { id: 'd1', nombre: 'acta.pdf', tipo_documento: 'ACTA_GENERADA',
+      tamanio_bytes: 8192, hash_sha256: 'a'.repeat(64) },
+    { id: 'd2', nombre: 'firmada.pdf', tipo_documento: 'ACTA_ESCANEADA',
+      tamanio_bytes: 4096, hash_sha256: 'b'.repeat(64) },
+  ];
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [HttpClientTestingModule, RouterTestingModule],
+      declarations: [ActaOficialComponent],
+    });
+    fixture = TestBed.createComponent(ActaOficialComponent);
+    componente = fixture.componentInstance;
+    http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    http.expectOne(r => r.url.includes('acta-oficial')).flush(ACTA);
+    http.expectOne(r => r.url.includes('/documentos/')).flush(DOCS);
+    fixture.detectChanges();
+  });
+
+  afterEach(() => http.verify());
+
+  it('lista el emitido y el escaneado', () => {
+    expect(componente.documentos.length).toBe(2);
+    const texto = (fixture.nativeElement as HTMLElement).textContent || '';
+    expect(texto).toContain('acta.pdf');
+    expect(texto).toContain('firmada.pdf');
+    expect(texto).toContain('emitido');
+    expect(texto).toContain('escaneado');
+  });
+
+  it('adjuntar manda el archivo y recarga la lista', () => {
+    const archivo = new File([new Blob(['x'])], 'escaneada.pdf',
+                             { type: 'application/pdf' });
+    const entrada = { files: [archivo], value: 'c:\\escaneada.pdf' } as any;
+    componente.adjuntar({ target: entrada } as any);
+
+    const subida = http.expectOne(r => r.url.endsWith('/adjuntar/'));
+    expect(subida.request.method).toBe('POST');
+    expect(subida.request.body instanceof FormData).toBe(true);
+    subida.flush({ id: 'd3', nombre: 'escaneada.pdf' });
+
+    http.expectOne(r => r.url.includes('/documentos/')).flush(DOCS);
+    expect(entrada.value).toBe('');
+  });
+
+  it('sin archivo elegido no pega en el backend', () => {
+    componente.adjuntar({ target: { files: [] } } as any);
+    http.expectNone(() => true);
+  });
+
+  it('descarga el documento por el endpoint que descifra', () => {
+    componente.bajarDocumento(DOCS[1]);
+    const pedido = http.expectOne(r => r.url.endsWith('/documentos/d2/descargar/'));
+    expect(pedido.request.responseType).toBe('blob');
+    pedido.flush(new Blob(['%PDF'], { type: 'application/pdf' }));
+  });
+
+  it('un documento alterado se avisa, no se baja en silencio', async () => {
+    componente.bajarDocumento(DOCS[1]);
+    // El error de una descarga blob vuelve como Blob, no como JSON.
+    http.expectOne(r => r.url.endsWith('/descargar/')).flush(
+      new Blob([JSON.stringify({ error: 'El documento no se pudo descifrar.' })],
+               { type: 'application/json' }),
+      { status: 409, statusText: 'Conflict' });
+    await new Promise(r => setTimeout(r, 50));
+    expect(componente.error).toContain('no se pudo descifrar');
   });
 });
