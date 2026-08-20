@@ -68,7 +68,12 @@ import { ActaPriorizacion, PriorizacionService } from './priorizacion.service';
                      title="Editar">✎</a>
                   <a class="acc" [routerLink]="['/priorizacion/actas', a.id, 'acta']"
                      title="Ver acta oficial" [class.inhabilitada]="!a.esta_completa">📄</a>
-                  <button class="acc" (click)="revisar(a, 'validar')" title="Validar">✓</button>
+                  <button class="acc" *ngIf="a.estado !== 'VALIDADO'"
+                          (click)="revisar(a, 'validar')"
+                          title="Validar y adjuntar al presupuesto de gastos">✓</button>
+                  <button class="acc" *ngIf="a.estado === 'VALIDADO'"
+                          (click)="revisar(a, 'desvalidar')"
+                          title="Desvalidar y liberar el techo">↩</button>
                   <button class="acc" (click)="revisar(a, 'aprobar')" title="Aprobar">✓✓</button>
                   <button class="acc" (click)="revisar(a, 'observar')" title="Observar">!</button>
                   <button class="acc peligro" (click)="eliminar(a)" title="Eliminar">✕</button>
@@ -190,7 +195,7 @@ export class ActasListadoComponent implements OnInit {
     this.api.revisar(acta.id!, accion, cuerpo).subscribe({
       next: r => {
         acta.estado = r.estado;
-        this.aviso = `Acta ${r.estado.toLowerCase()}.`;
+        this.aviso = this.resumen(r);
         this.cdr.markForCheck();
       },
       error: e => {
@@ -198,6 +203,24 @@ export class ActasListadoComponent implements OnInit {
         this.cdr.markForCheck();
       },
     });
+  }
+
+  /** Lo que se volcó al gasto —o se liberó— hay que decirlo, no esconderlo. */
+  private resumen(r: any): string {
+    const partes = [`Acta ${String(r.estado).toLowerCase()}.`];
+    const puestos = r.materializacion?.materializados?.length ?? 0;
+    const afuera = r.materializacion?.omitidos ?? [];
+    const revertidos = r.revertidos?.length ?? 0;
+    if (puestos) {
+      partes.push(`${puestos} proyecto(s) adjuntados al presupuesto de gastos.`);
+    }
+    if (revertidos) {
+      partes.push(`${revertidos} proyecto(s) liberados del techo.`);
+    }
+    for (const o of afuera) {
+      partes.push(`Sin adjuntar «${o.nombre}»: ${o.motivo}.`);
+    }
+    return partes.join(' ');
   }
 
   eliminar(acta: ActaPriorizacion): void {

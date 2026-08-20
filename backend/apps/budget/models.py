@@ -893,7 +893,10 @@ class CategoriaProgramaticaTecho(TimeStampedModel):
         'gestion.GestionFiscal', on_delete=models.CASCADE,
         related_name='categorias_programaticas',
     )
-    codigo = models.CharField(max_length=20)
+    # 22 caracteres: programa + SISIN de 14 + actividad, que es el formato
+    # de las categorías de proyecto (`180 08620281200000 000`). Con 20 no
+    # entraban y el catálogo se quedaba sin una sola categoría de inversión.
+    codigo = models.CharField(max_length=40)
     denominacion = models.CharField(max_length=300)
     nivel = models.CharField(
         max_length=20, choices=NivelCategoria.CHOICES,

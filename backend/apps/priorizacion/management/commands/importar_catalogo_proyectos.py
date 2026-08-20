@@ -58,7 +58,7 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING(f'Sin .xls en {ruta}'))
             return
 
-        leidas = 0
+        leidas = repetidas = 0
         for archivo in archivos:
             hoja = xlrd.open_workbook(archivo).sheet_by_index(0)
             cabecera = [str(hoja.cell_value(1, c)).strip()
@@ -71,10 +71,15 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.WARNING(
                     f'{os.path.basename(archivo)}: cabecera inesperada, se omite.'))
                 continue
+            # El SIGEP repite la cabecera cada 63 filas por los saltos de
+            # página: sin esto se cuela como un proyecto llamado
+            # "Descripcion SISIN".
+            rotulos = {cabecera[i_sisin], cabecera[i_desc]}
             for f in range(2, hoja.nrows):
                 sisin = str(hoja.cell_value(f, i_sisin)).strip()
                 nombre = ' '.join(str(hoja.cell_value(f, i_desc)).split())
-                if not sisin or not nombre:
+                if not sisin or not nombre or sisin in rotulos or nombre in rotulos:
+                    repetidas += 1
                     continue
                 leidas += 1
                 clave = (normalizar(nombre), sisin)
@@ -83,7 +88,10 @@ class Command(BaseCommand):
                     'categoria': ' '.join(str(hoja.cell_value(f, i_cat)).split()),
                     'origen': OrigenProyecto.SIGEP, 'veces': 0,
                 })
-        self.stdout.write(f'SIGEP: {leidas} filas en {len(archivos)} archivo(s).')
+        self.stdout.write(
+            f'SIGEP: {leidas} filas en {len(archivos)} archivo(s)'
+            + (f', {repetidas} cabeceras repetidas omitidas.' if repetidas
+               else '.'))
 
     def _leer_actas(self, archivo, hoja, registros):
         """Los nombres históricos: lo que las OTB realmente priorizan."""

@@ -11,7 +11,11 @@ from apps.articulacion.permissions import es_aprobador
 from .models import (
     ActaPriorizacion, EstadosActa, PlantillaActa, ProyectoCatalogo, normalizar,
 )
+from .materializacion import (
+    desmaterializar_acta, materializar_acta, revisar_acta,
+)
 from .pdf import generar_acta_pdf, hash_acta
+from .saldos import saldos
 from .serializers import ActaPriorizacionSerializer, ProyectoCatalogoSerializer
 
 MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio',
@@ -92,7 +96,15 @@ class ActaPriorizacionViewSet(viewsets.ModelViewSet):
                            Q(presidente__icontains=buscar))
         return qs
 
+    def perform_create(self, serializer):
+        # Quien crea el acta es quien después puede validarla y desvalidarla.
+        serializer.save(created_by=self.request.user)
+
     # --- Circuito de revisión ----------------------------------------------
+
+    def _es_autor(self, acta):
+        usuario = self.request.user
+        return bool(usuario.is_superuser or acta.created_by_id == usuario.id)
 
     def _transicion(self, acta, estado, observacion=''):
         acta.estado = estado
@@ -102,7 +114,12 @@ class ActaPriorizacionViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def validar(self, request, pk=None):
+        """Validar adjunta lo priorizado al Presupuesto General de Gastos."""
         acta = self.get_object()
+        if not self._es_autor(acta):
+            return Response(
+                {'error': 'Solo quien registró el acta puede validarla.'},
+                status=status.HTTP_403_FORBIDDEN)
         if acta.estado == EstadosActa.APROBADO:
             return Response({'error': 'Un acta aprobada ya no admite cambios.'},
                             status=status.HTTP_400_BAD_REQUEST)
@@ -111,10 +128,38 @@ class ActaPriorizacionViewSet(viewsets.ModelViewSet):
                 {'error': 'El acta necesita fecha y al menos un proyecto '
                           'priorizado para validarse.'},
                 status=status.HTTP_400_BAD_REQUEST)
-        return self._transicion(acta, EstadosActa.VALIDADO)
+        resultado = materializar_acta(acta)
+        respuesta = self._transicion(acta, EstadosActa.VALIDADO)
+        # Se informa proyecto por proyecto: si algo quedó afuera por falta de
+        # categoría o de par FF/OF, el acta igual queda validada y hay que
+        # verlo, no descubrirlo en el reporte al Ministerio.
+        respuesta.data['materializacion'] = resultado
+        return respuesta
+
+    @action(detail=True, methods=['post'])
+    def desvalidar(self, request, pk=None):
+        """Vuelve el acta a borrador y la saca del presupuesto de gastos."""
+        acta = self.get_object()
+        if not self._es_autor(acta):
+            return Response(
+                {'error': 'Solo quien registró el acta puede desvalidarla.'},
+                status=status.HTTP_403_FORBIDDEN)
+        if acta.estado == EstadosActa.APROBADO:
+            return Response(
+                {'error': 'Un acta aprobada ya no admite cambios. Pida a la '
+                          'jefatura que la observe primero.'},
+                status=status.HTTP_400_BAD_REQUEST)
+        if acta.estado != EstadosActa.VALIDADO:
+            return Response({'error': 'El acta no está validada.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        revertidos = desmaterializar_acta(acta)
+        respuesta = self._transicion(acta, EstadosActa.BORRADOR)
+        respuesta.data['revertidos'] = revertidos
+        return respuesta
 
     @action(detail=True, methods=['post'])
     def aprobar(self, request, pk=None):
+        """Aprobar vuelca lo priorizado al Presupuesto General de Gastos."""
         if not es_aprobador(request.user):
             return Response({'error': 'Solo la jefatura puede aprobar actas.'},
                             status=status.HTTP_403_FORBIDDEN)
@@ -122,7 +167,23 @@ class ActaPriorizacionViewSet(viewsets.ModelViewSet):
         if acta.estado != EstadosActa.VALIDADO:
             return Response({'error': 'Solo se aprueba un acta validada.'},
                             status=status.HTTP_400_BAD_REQUEST)
-        return self._transicion(acta, EstadosActa.APROBADO)
+        # Ya se volcó al validar; se rehace por si se corrigieron montos.
+        resultado = materializar_acta(acta)
+        respuesta = self._transicion(acta, EstadosActa.APROBADO)
+        respuesta.data['materializacion'] = resultado
+        return respuesta
+
+    @action(detail=True, methods=['get'], url_path='revision-previa')
+    def revision_previa(self, request, pk=None):
+        """Qué se volcaría al gasto si se aprobara, sin escribir nada."""
+        listos, omitidos = revisar_acta(self.get_object())
+        return Response({
+            'listos': [{'orden': p.orden, 'nombre': p.nombre,
+                        'categoria': p.categoria_programatica,
+                        'par': p.par_financiamiento,
+                        'monto': float(p.monto or 0)} for p in listos],
+            'omitidos': omitidos,
+        })
 
     @action(detail=True, methods=['post'])
     def observar(self, request, pk=None):
@@ -137,13 +198,19 @@ class ActaPriorizacionViewSet(viewsets.ModelViewSet):
         if acta.estado == EstadosActa.APROBADO:
             return Response({'error': 'Un acta aprobada ya no admite cambios.'},
                             status=status.HTTP_400_BAD_REQUEST)
-        return self._transicion(acta, EstadosActa.OBSERVADO, comentario)
+        # Un acta devuelta para corrección no puede seguir ocupando techo.
+        revertidos = desmaterializar_acta(acta)
+        respuesta = self._transicion(acta, EstadosActa.OBSERVADO, comentario)
+        respuesta.data['revertidos'] = revertidos
+        return respuesta
 
     def destroy(self, request, *args, **kwargs):
         acta = self.get_object()
         if acta.estado == EstadosActa.APROBADO:
             return Response({'error': 'Un acta aprobada no se puede eliminar.'},
                             status=status.HTTP_400_BAD_REQUEST)
+        # Si ya se había volcado al gasto, se descuenta antes de borrarla.
+        desmaterializar_acta(acta)
         return super().destroy(request, *args, **kwargs)
 
     # --- Acta oficial -------------------------------------------------------
@@ -310,3 +377,21 @@ class CategoriaProgramaticaViewSet(viewsets.ViewSet):
             {'codigo': c.codigo, 'denominacion': c.denominacion, 'nivel': c.nivel}
             for c in qs.order_by('codigo')
         ])
+
+
+class SaldoFinanciamientoViewSet(viewsets.ViewSet):
+    """Saldo disponible por par FF/OF, para elegir contra qué techo se prioriza."""
+    permission_classes = [IsAuthenticated]
+
+    def list(self, request):
+        gestion = request.query_params.get('gestion')
+        if not gestion:
+            return Response({'error': 'Indique la gestión.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        filas = saldos(gestion, request.query_params.get('excluir_acta') or None)
+        return Response({
+            'gestion': int(gestion),
+            'total_techo': sum(f['techo'] for f in filas),
+            'total_disponible': sum(f['disponible'] for f in filas),
+            'pares': filas,
+        })

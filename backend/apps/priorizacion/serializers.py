@@ -11,10 +11,18 @@ class ProyectoCatalogoSerializer(serializers.ModelSerializer):
 
 
 class ProyectoPriorizadoSerializer(serializers.ModelSerializer):
+    par_financiamiento = serializers.CharField(read_only=True)
+    fuente_codigo = serializers.CharField(source='fuente.codigo', read_only=True)
+    organismo_codigo = serializers.CharField(source='organismo.codigo',
+                                             read_only=True)
+
     class Meta:
         model = ProyectoPriorizado
         fields = ['id', 'orden', 'nombre', 'catalogo', 'sisin',
-                  'categoria_programatica', 'denominacion_categoria', 'monto']
+                  'categoria_programatica', 'denominacion_categoria', 'monto',
+                  'fuente', 'organismo', 'fuente_codigo', 'organismo_codigo',
+                  'par_financiamiento', 'monto_materializado']
+        read_only_fields = ['monto_materializado']
 
 
 class ActaPriorizacionSerializer(serializers.ModelSerializer):

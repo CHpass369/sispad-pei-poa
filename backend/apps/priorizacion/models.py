@@ -9,6 +9,7 @@ import uuid
 
 from django.db import models
 
+from apps.catalogos.models import FuenteFinanciamiento, OrganismoFinanciador
 from apps.core.models import TimeStampedModel
 from apps.territorio.models import Distrito, UnidadTerritorial
 
@@ -149,11 +150,37 @@ class ProyectoPriorizado(TimeStampedModel):
         blank=True, verbose_name='Denominación de la categoría')
     monto = models.DecimalField(max_digits=18, decimal_places=2, null=True,
                                 blank=True, verbose_name='Monto Bs.')
+    # El par FF/OF decide contra qué techo se descuenta el monto priorizado.
+    fuente = models.ForeignKey(
+        FuenteFinanciamiento, on_delete=models.PROTECT, null=True, blank=True,
+        related_name='proyectos_priorizados',
+        verbose_name='Fuente de financiamiento')
+    organismo = models.ForeignKey(
+        OrganismoFinanciador, on_delete=models.PROTECT, null=True, blank=True,
+        related_name='proyectos_priorizados',
+        verbose_name='Organismo financiador')
 
     class Meta:
         verbose_name = 'Proyecto priorizado'
         verbose_name_plural = 'Proyectos priorizados'
         ordering = ['acta', 'orden']
+
+    # Rastro de la materializacion: sin esto, volver a aprobar un acta sumaria
+    # el monto por segunda vez sobre la misma fila de gasto.
+    apertura_fuente = models.ForeignKey(
+        'budget.AperturaFuente', on_delete=models.SET_NULL, null=True,
+        blank=True, related_name='priorizaciones',
+        verbose_name='Fila de gasto donde se cargó')
+    monto_materializado = models.DecimalField(
+        max_digits=18, decimal_places=2, null=True, blank=True,
+        verbose_name='Monto ya volcado al gasto')
+
+    @property
+    def par_financiamiento(self):
+        """`41/113`, que es como se lee el par en el clasificador."""
+        if not (self.fuente_id and self.organismo_id):
+            return ''
+        return f'{self.fuente.codigo}/{self.organismo.codigo}'
 
     def __str__(self):
         return f'{self.orden}. {self.nombre[:60]}'

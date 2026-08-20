@@ -36,6 +36,17 @@ describe('ActaFormComponent · buscador y carga de proyectos', () => {
     componente.ngOnInit();
     http.expectOne(r => r.url.includes('/distritos/')).flush({ results: [] });
     http.expectOne(r => r.url.includes('categorias-programaticas')).flush([]);
+    http.expectOne(r => r.url.includes('/saldos/')).flush({
+      gestion: 2027, total_techo: 1000000, total_disponible: 800000,
+      pares: [
+        { par: '41/113', fuente: '41', organismo: '113', fuente_id: 'f1',
+          organismo_id: 'o1', techo: 1000000, asignado: 200000,
+          comprometido: 0, disponible: 800000 },
+        { par: '20/210', fuente: '20', organismo: '210', fuente_id: 'f2',
+          organismo_id: 'o2', techo: 50000, asignado: 50000,
+          comprometido: 0, disponible: 0 },
+      ],
+    });
   });
 
   afterEach(() => http.verify());
@@ -125,5 +136,101 @@ describe('ActaFormComponent · buscador y carga de proyectos', () => {
     ];
     componente.quitar(0);
     expect(componente.acta.proyectos.map(p => p.nombre)).toEqual(['b']);
+  });
+});
+
+describe('ActaFormComponent · techos por FF/OF', () => {
+  let componente: ActaFormComponent;
+  let http: HttpTestingController;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [HttpClientTestingModule, RouterTestingModule, FormsModule],
+      declarations: [ActaFormComponent],
+    });
+    componente = TestBed.createComponent(ActaFormComponent).componentInstance;
+    http = TestBed.inject(HttpTestingController);
+    componente.ngOnInit();
+    http.expectOne(r => r.url.includes('/distritos/')).flush({ results: [] });
+    http.expectOne(r => r.url.includes('categorias-programaticas')).flush([]);
+    http.expectOne(r => r.url.includes('/saldos/')).flush({
+      gestion: 2027, total_techo: 1000000, total_disponible: 800000,
+      pares: [
+        { par: '41/113', fuente: '41', organismo: '113', fuente_id: 'f1',
+          organismo_id: 'o1', techo: 1000000, asignado: 200000,
+          comprometido: 0, disponible: 800000 },
+        { par: '20/210', fuente: '20', organismo: '210', fuente_id: 'f2',
+          organismo_id: 'o2', techo: 50000, asignado: 50000,
+          comprometido: 0, disponible: 0 },
+      ],
+    });
+  });
+
+  afterEach(() => http.verify());
+
+  const proyecto = (par = '', monto: number | null = null) => ({
+    nombre: 'X', sisin: '', categoria_programatica: '', monto,
+    par_elegido: par, fuente: null, organismo: null,
+  } as any);
+
+  it('pide el saldo de la gestión del acta y sin excluir nada al crear', () => {
+    // Al editar sí se excluye el acta: si no, sus propios montos se
+    // descontarían del techo que se le muestra al técnico.
+    const otro = TestBed.createComponent(ActaFormComponent).componentInstance;
+    otro.ngOnInit();
+    http.expectOne(r => r.url.includes('/distritos/')).flush({ results: [] });
+    http.expectOne(r => r.url.includes('categorias-programaticas')).flush([]);
+    const pedido = http.expectOne(r => r.url.includes('/saldos/'));
+    expect(pedido.request.params.get('gestion')).toBe('2027');
+    expect(pedido.request.params.get('excluir_acta')).toBeNull();
+    pedido.flush({ gestion: 2027, total_techo: 0, total_disponible: 0, pares: [] });
+    expect(componente.pares.length).toBe(2);
+  });
+
+  it('elegir el par completa los dos identificadores que guarda el acta', () => {
+    const p = proyecto('41/113');
+    componente.elegirPar(p);
+    expect(p.fuente).toBe('f1');
+    expect(p.organismo).toBe('o1');
+  });
+
+  it('deseleccionar el par limpia los identificadores', () => {
+    const p = proyecto('41/113');
+    componente.elegirPar(p);
+    p.par_elegido = '';
+    componente.elegirPar(p);
+    expect(p.fuente).toBeNull();
+    expect(p.organismo).toBeNull();
+  });
+
+  it('el saldo baja con lo que se va cargando en el acta', () => {
+    componente.acta.proyectos = [proyecto('41/113', 300000)];
+    const par = componente.pares[0];
+    expect(componente.cargadoEn('41/113')).toBe(300000);
+    expect(componente.saldoTrasCargar(par)).toBe(500000);
+  });
+
+  it('varios proyectos contra el mismo par se acumulan', () => {
+    componente.acta.proyectos = [proyecto('41/113', 300000),
+                                 proyecto('41/113', 200000)];
+    expect(componente.saldoTrasCargar(componente.pares[0])).toBe(300000);
+  });
+
+  it('cada par descuenta solo lo suyo', () => {
+    componente.acta.proyectos = [proyecto('41/113', 300000),
+                                 proyecto('20/210', 10000)];
+    expect(componente.saldoTrasCargar(componente.pares[0])).toBe(500000);
+    expect(componente.saldoTrasCargar(componente.pares[1])).toBe(-10000);
+  });
+
+  it('el sobregiro se muestra en negativo, no se recorta a cero', () => {
+    componente.acta.proyectos = [proyecto('41/113', 1500000)];
+    expect(componente.saldoTrasCargar(componente.pares[0])).toBe(-700000);
+    expect(componente.saldoDelProyecto(componente.acta.proyectos[0]))
+      .toBe(-700000);
+  });
+
+  it('un proyecto sin par no reporta saldo', () => {
+    expect(componente.saldoDelProyecto(proyecto())).toBeNull();
   });
 });

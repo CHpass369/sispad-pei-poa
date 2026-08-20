@@ -22,6 +22,9 @@ export interface ProyectoPriorizado {
   categoria_programatica: string;
   denominacion_categoria?: string;
   monto: number | null;
+  fuente?: string | null;
+  organismo?: string | null;
+  par_financiamiento?: string;
 }
 
 export interface ActaPriorizacion {
@@ -105,6 +108,13 @@ export class PriorizacionService {
     return this.http.get(`${this.base}/categorias-programaticas/`, {
       params: new HttpParams().set('gestion', gestion),
     });
+  }
+
+  /** Techo, lo usado y lo que queda por par FF/OF. */
+  saldos(gestion: number, excluirActa = ''): Observable<any> {
+    let params = new HttpParams().set('gestion', gestion);
+    if (excluirActa) { params = params.set('excluir_acta', excluirActa); }
+    return this.http.get(`${this.base}/saldos/`, { params });
   }
 
   distritos(): Observable<any> {
