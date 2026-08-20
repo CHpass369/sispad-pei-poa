@@ -1,4 +1,5 @@
 """API del módulo Priorización POA."""
+from django.core.exceptions import ImproperlyConfigured
 from django.db.models import Count, F, Q, Sum
 from django.http import HttpResponse
 from rest_framework.parsers import FormParser, MultiPartParser
@@ -310,13 +311,19 @@ class ActaPriorizacionViewSet(viewsets.ModelViewSet):
                 {'error': f'La gestión {acta.gestion} no está habilitada.'},
                 status=status.HTTP_400_BAD_REQUEST)
 
-        documento = guardar_documento(
-            archivo.read(), entidad=self.ENTIDAD, entidad_id=acta.id,
-            nombre=archivo.name, gestion=gestion, usuario=request.user,
-            tipo_documento='ACTA_ESCANEADA',
-            content_type=archivo.content_type or 'application/octet-stream',
-            descripcion=f'Acta firmada de {acta.otb}',
-        )
+        try:
+            documento = guardar_documento(
+                archivo.read(), entidad=self.ENTIDAD, entidad_id=acta.id,
+                nombre=archivo.name, gestion=gestion, usuario=request.user,
+                tipo_documento='ACTA_ESCANEADA',
+                content_type=archivo.content_type or 'application/octet-stream',
+                descripcion=f'Acta firmada de {acta.otb}',
+            )
+        except ImproperlyConfigured as error:
+            # Sin clave de cifrado no se guarda nada, y hay que decir por qué:
+            # un 500 opaco manda a revisar el archivo, no la configuración.
+            return Response({'error': str(error)},
+                            status=status.HTTP_503_SERVICE_UNAVAILABLE)
         return Response(self._documento(documento),
                         status=status.HTTP_201_CREATED)
 
@@ -358,13 +365,23 @@ class ActaPriorizacionViewSet(viewsets.ModelViewSet):
             tipo_documento='ACTA_GENERADA').first()
         if ya:
             return ya
-        return guardar_documento(
-            contenido, entidad=self.ENTIDAD, entidad_id=acta.id,
-            nombre=f'acta-{acta.otb[:40]}-{acta.gestion}.pdf'.replace(' ', '-'),
-            gestion=gestion, usuario=self.request.user,
-            tipo_documento='ACTA_GENERADA',
-            descripcion='PDF emitido por la plataforma',
-        )
+        return self._guardar_copia(acta, contenido)
+
+    def _guardar_copia(self, acta, contenido):
+        gestion = GestionFiscal.objects.filter(anio=acta.gestion).first()
+        try:
+            return guardar_documento(
+                contenido, entidad=self.ENTIDAD, entidad_id=acta.id,
+                nombre=f'acta-{acta.otb[:40]}-{acta.gestion}.pdf'.replace(' ', '-'),
+                gestion=gestion, usuario=self.request.user,
+                tipo_documento='ACTA_GENERADA',
+                descripcion='PDF emitido por la plataforma',
+            )
+        except ImproperlyConfigured:
+            # Sin clave no se archiva, pero el acta se emite igual: quedarse sin
+            # copia es un problema de configuración, no motivo para no poder
+            # imprimir el acta.
+            return None
 
     @action(detail=True, methods=['get'], url_path='pdf')
     def pdf(self, request, pk=None):

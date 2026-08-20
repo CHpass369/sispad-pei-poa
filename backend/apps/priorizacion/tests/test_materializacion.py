@@ -437,3 +437,30 @@ class DocumentosDelActaTests(MaterializacionTests):
         d = self.client.get(f'{API}/actas/{acta_id}/documentos/').json()
         self.assertEqual([x['tipo_documento'] for x in d],
                          ['ACTA_GENERADA', 'ACTA_ESCANEADA'])
+
+
+class SinClaveDeCifradoTests(MaterializacionTests):
+    """Qué pasa cuando falta DOCUMENTOS_CLAVE en la configuración."""
+
+    def test_adjuntar_explica_que_falta_la_clave(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        acta_id = self.crear_acta()['id']
+        archivo = SimpleUploadedFile('f.pdf', b'%PDF', content_type='application/pdf')
+        with self.settings(DOCUMENTOS_CLAVE=''):
+            r = self.client.post(f'{API}/actas/{acta_id}/adjuntar/',
+                                 {'archivo': archivo}, format='multipart')
+        # Un 500 opaco manda a revisar el archivo, no la configuración.
+        self.assertEqual(r.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+        self.assertIn('DOCUMENTOS_CLAVE', r.json()['error'])
+
+    def test_el_acta_se_emite_igual_aunque_no_se_pueda_archivar(self):
+        from apps.documentos.models import DocumentoAdjunto
+        acta_id = self.crear_acta()['id']
+        self.aprobar(acta_id)
+        with self.settings(DOCUMENTOS_CLAVE=''):
+            r = self.client.get(f'{API}/actas/{acta_id}/pdf/')
+        # Quedarse sin copia es un problema de configuración, no motivo para
+        # no poder imprimir el acta.
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual(r['Content-Type'], 'application/pdf')
+        self.assertEqual(DocumentoAdjunto.objects.count(), 0)

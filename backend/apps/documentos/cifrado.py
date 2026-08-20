@@ -27,14 +27,19 @@ class DocumentoAlterado(Exception):
 
 
 def clave():
-    """La clave de cifrado, validada."""
-    crudo = getattr(settings, 'DOCUMENTOS_CLAVE', '') or os.environ.get(
-        'DOCUMENTOS_CLAVE', '')
+    """La clave de cifrado, validada.
+
+    Se lee solo de `settings`, que ya la toma del entorno. Consultar además
+    `os.environ` acá dejaría a la configuración sin la última palabra: la
+    variable de entorno ganaría por encima de cualquier override.
+    """
+    crudo = getattr(settings, 'DOCUMENTOS_CLAVE', '')
     if not crudo:
         raise ImproperlyConfigured(
-            'Falta DOCUMENTOS_CLAVE. Genere una con: '
-            'python -c "import base64,os;print(base64.b64decode and '
-            'base64.b64encode(os.urandom(32)).decode())"'
+            'Falta DOCUMENTOS_CLAVE en la configuración. Genérela con: '
+            'python -c "import base64,os; '
+            'print(base64.b64encode(os.urandom(32)).decode())" '
+            'y agréguela al archivo .env.'
         )
     try:
         material = base64.b64decode(crudo, validate=True)
