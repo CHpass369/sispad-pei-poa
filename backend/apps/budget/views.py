@@ -730,6 +730,10 @@ class PresupuestoGastosViewSet(viewsets.ViewSet):
                 'denominacion': apertura.denominacion,
                 'unidad_ejecutora': apertura.ue.codigo if apertura.ue else '',
                 'direccion_administrativa': apertura.da.codigo if apertura.da else '',
+                # Los identificadores, que es lo que necesita el desplegable
+                # para guardar la eleccion.
+                'da_id': str(apertura.da_id) if apertura.da_id else '',
+                'ue_id': str(apertura.ue_id) if apertura.ue_id else '',
                 'distrito': apertura.distrito.codigo if apertura.distrito else '',
                 'codigo_sisin': apertura.codigo_sisin,
                 'actividad': apertura.actividad_codigo,

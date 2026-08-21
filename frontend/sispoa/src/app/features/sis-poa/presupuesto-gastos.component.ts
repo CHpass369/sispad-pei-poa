@@ -14,6 +14,8 @@ interface Actividad {
   distrito: string;
   codigo_sisin: string;
   actividad: string;
+  da_id: string;
+  ue_id: string;
   montos: Record<string, string>;
   estado_revision?: string;
   /** Lo que aportaron las actas de priorización a esta fila. */
@@ -155,7 +157,8 @@ interface ArbolGastos {
             <tr>
               <th class="col-cat">Categoría</th>
               <th class="col-den">Denominación</th>
-              <th>UE</th>
+              <th class="col-org">DA</th>
+              <th class="col-org">UE</th>
               <th *ngFor="let c of arbol.columnas" class="num" [title]="c.denominacion">
                 {{ c.ff_of }}
               </th>
@@ -177,6 +180,7 @@ interface ArbolGastos {
                   </small>
                 </td>
                 <td></td>
+                <td></td>
                 <td *ngFor="let c of arbol.columnas" class="num">
                   {{ moneda(p.total[c.ff_of]) }}
                 </td>
@@ -195,6 +199,7 @@ interface ArbolGastos {
                       {{ abierto(p.codigo + s.codigo) ? '▾' : '▸' }} {{ s.codigo }}
                     </td>
                     <td class="col-den">{{ s.denominacion }}</td>
+                    <td></td>
                     <td></td>
                     <td *ngFor="let c of arbol.columnas" class="num">
                       {{ moneda(s.total[c.ff_of]) }}
@@ -230,7 +235,28 @@ interface ArbolGastos {
                         </li>
                       </ul>
                     </td>
-                    <td class="cod">{{ a.unidad_ejecutora || '—' }}</td>
+                    <td class="col-org">
+                      <select class="celda-org" [value]="a.da_id"
+                              (change)="elegirOrg(a, 'da', $event)"
+                              [title]="nombreDe(direcciones, a.da_id)">
+                        <option value="">—</option>
+                        <option *ngFor="let d of direcciones" [value]="d.id">
+                          {{ d.codigo }} · {{ d.nombre }}
+                        </option>
+                      </select>
+                    </td>
+                    <td class="col-org">
+                      <select class="celda-org" [value]="a.ue_id"
+                              (change)="elegirOrg(a, 'ue', $event)"
+                              [title]="nombreDe(ejecutoras, a.ue_id)">
+                        <option value="">—</option>
+                        <!-- Solo las de la DA elegida: una UE pertenece a una
+                             direccion y ofrecerlas todas invita al error. -->
+                        <option *ngFor="let u of ejecutorasDe(a.da_id)" [value]="u.id">
+                          {{ u.codigo }} · {{ u.nombre }}
+                        </option>
+                      </select>
+                    </td>
                     <td *ngFor="let c of arbol.columnas" class="num">
                       <span *ngIf="!editando || a.estado_revision === 'APROBADO'">
                         {{ moneda(a.montos[c.ff_of]) }}
@@ -265,7 +291,7 @@ interface ArbolGastos {
             </ng-container>
 
             <tr *ngIf="!arbol.programas.length">
-              <td [attr.colspan]="arbol.columnas.length + 5">
+              <td [attr.colspan]="arbol.columnas.length + 6">
                 <div class="sin-datos">
                   <span class="sin-datos-icono">▤</span>
                   <strong>No hay gasto distribuido en esta gestión</strong>
@@ -276,7 +302,7 @@ interface ArbolGastos {
           </tbody>
           <tfoot *ngIf="arbol.programas.length">
             <tr class="fila-total">
-              <td colspan="3">TOTAL GASTOS</td>
+              <td colspan="4">TOTAL GASTOS</td>
               <td *ngFor="let c of arbol.columnas" class="num">
                 {{ moneda(arbol.total[c.ff_of]) }}
               </td>
@@ -284,7 +310,7 @@ interface ArbolGastos {
               <td colspan="2"></td>
             </tr>
             <tr class="fila-techo">
-              <td colspan="3">TECHO POR FUENTE</td>
+              <td colspan="4">TECHO POR FUENTE</td>
               <td *ngFor="let c of arbol.columnas" class="num">
                 {{ moneda(arbol.techos[c.ff_of]) }}
               </td>
@@ -292,7 +318,7 @@ interface ArbolGastos {
               <td colspan="2"></td>
             </tr>
             <tr class="fila-diferencia">
-              <td colspan="3">DIFERENCIA POR ASIGNAR</td>
+              <td colspan="4">DIFERENCIA POR ASIGNAR</td>
               <td *ngFor="let c of arbol.columnas" class="num"
                   [class.negativa]="negativa(arbol.diferencia[c.ff_of])"
                   [class.en-cero]="enCero(arbol.diferencia[c.ff_of])">
@@ -363,6 +389,12 @@ interface ArbolGastos {
     .icono-fila:hover { border-color: var(--primary); color: var(--primary); }
     .icono-fila.aprobar:hover { border-color: var(--ok-tinta); color: var(--ok-tinta); }
     .icono-fila.observar:hover { border-color: var(--aviso-tinta); color: var(--aviso-tinta); }
+    .col-org { width: 86px; }
+    .celda-org {
+      width: 100%; border: none; background: transparent; font-size: 0.6875rem;
+      padding: 0.15rem; color: var(--text);
+    }
+    .celda-org:hover { background: var(--realce); }
     .celda-num {
       width: 100%; max-width: 108px; text-align: right; padding: 0.1rem 0.3rem;
       border: 1px solid var(--border); border-radius: 4px; background: var(--surface);
@@ -423,13 +455,83 @@ export class PresupuestoGastosComponent implements OnInit {
     padreCodigo: string | null; padreDenominacion: string;
   } | null = null;
 
+  /** Catálogos de dirección administrativa y unidad ejecutora. */
+  direcciones: { id: string; codigo: string; nombre: string }[] = [];
+  ejecutoras: { id: string; codigo: string; nombre: string; da: string }[] = [];
+
   private base = environment.apiUrlV2 + '/sis-poa/budget';
   /** Gestión fiscal activa; la necesita el alta de categorías y aperturas. */
   private gestionId: number | null = null;
 
   constructor(private http: HttpClient, private cdr: ChangeDetectorRef) {}
 
-  ngOnInit(): void { this.cargar(); }
+  ngOnInit(): void {
+    this.cargar();
+    this.cargarOrganizacion();
+  }
+
+  /** DA y UE salen del catálogo maestro de organización, no del gasto. */
+  private cargarOrganizacion(): void {
+    const v1 = environment.apiUrl;
+    this.http.get<any>(`${v1}/direcciones-administrativas/?page_size=200`)
+      .subscribe({
+        next: d => { this.direcciones = d.results ?? d; this.cdr.markForCheck(); },
+        error: () => { this.direcciones = []; },
+      });
+    this.http.get<any>(`${v1}/unidades-ejecutoras/?page_size=500`)
+      .subscribe({
+        next: d => { this.ejecutoras = d.results ?? d; this.cdr.markForCheck(); },
+        error: () => { this.ejecutoras = []; },
+      });
+  }
+
+  ejecutorasDe(daId: string) {
+    // Sin DA elegida se ofrecen todas: obligar a elegir primero la dirección
+    // trabaría la carga de lo que ya viene con UE conocida.
+    return daId ? this.ejecutoras.filter(u => u.da === daId) : this.ejecutoras;
+  }
+
+  nombreDe(catalogo: { id: string; nombre: string }[], id: string): string {
+    return catalogo.find(x => x.id === id)?.nombre ?? '';
+  }
+
+  /**
+   * Guarda la dirección o la unidad en el acto. No se acumula con los montos:
+   * son datos de identificación, no cifras que se cuadran de a varias.
+   */
+  elegirOrg(a: Actividad, campo: 'da' | 'ue', evento: Event): void {
+    const valor = (evento.target as HTMLSelectElement).value;
+    const previo = campo === 'da' ? a.da_id : a.ue_id;
+    if (campo === 'da') {
+      a.da_id = valor;
+      // La UE pertenece a una DA: si cambia la dirección, la unidad que ya
+      // estaba puede no corresponder.
+      if (valor && !this.ejecutorasDe(valor).some(u => u.id === a.ue_id)) {
+        a.ue_id = '';
+      }
+    } else {
+      a.ue_id = valor;
+    }
+
+    const cuerpo: Record<string, string | null> = { [campo]: valor || null };
+    if (campo === 'da' && !a.ue_id) { cuerpo['ue'] = null; }
+
+    this.http.patch(`${this.base}/allocations/${a.id}/`, cuerpo).subscribe({
+      next: () => {
+        a.direccion_administrativa =
+          this.direcciones.find(d => d.id === a.da_id)?.codigo ?? '';
+        a.unidad_ejecutora =
+          this.ejecutoras.find(u => u.id === a.ue_id)?.codigo ?? '';
+        this.cdr.markForCheck();
+      },
+      error: e => {
+        // Se devuelve la celda a lo que estaba: dejarla mostrando algo que no
+        // se guardó es peor que no haber editado.
+        if (campo === 'da') { a.da_id = previo; } else { a.ue_id = previo; }
+        this.fallo(e, `guardar la ${campo === 'da' ? 'dirección' : 'unidad'}`);
+      },
+    });
+  }
 
   cargar(gestion = 2027): void {
     this.cargando = true;
