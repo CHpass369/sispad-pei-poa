@@ -44,6 +44,8 @@ from apps.auditoria.services import registrar_evento
 from apps.core.pagination import AuditoriaDualPagination, ImportacionDualPagination
 from apps.gestion.models import GestionFiscal
 
+from apps.budget.categoria import partes_categoria
+
 from .models import (
     Apertura,
     EstadosTecho,
@@ -435,12 +437,61 @@ class CategoriaProgramaticaTechoViewSet(viewsets.ModelViewSet):
         return qs
 
     def perform_create(self, serializer):
+        """Toda categoría nueva se contrasta contra la directriz.
+
+        Es el único lugar por donde se dan de alta desde la pantalla de
+        Presupuesto General de Gastos: si la validación no vive acá, se puede
+        estructurar el presupuesto con códigos que el SIGEP después rechaza.
+        """
         gestion = serializer.validated_data.get('gestion')
         if gestion and not gestion_habilitada(gestion):
             raise ValidationError(
                 'No se pueden crear categorAas para una gestiA3n no habilitada.'
             )
-        serializer.save()
+        serializer.save(**self._segun_directriz(serializer.validated_data,
+                                                gestion))
+
+    @staticmethod
+    def _segun_directriz(datos, gestion):
+        """Valida el código y devuelve el rango que le corresponde.
+
+        El programa se verifica siempre; el rango solo se guarda en el nivel
+        PROGRAMA, que es donde la directriz lo define. Un subprograma o una
+        actividad lo heredan por su cadena.
+        """
+        from apps.budget.directriz import (
+            hay_directriz as _hay_directriz, programa_prohibido, rango_de,
+            PROHIBIDO_DESDE, PROHIBIDO_HASTA,
+        )
+
+        anio = getattr(gestion, 'anio', None)
+        if not _hay_directriz(anio):
+            # Sin directriz cargada no hay contra qué contrastar. Todas sus
+            # reglas se aplican juntas o no se aplica ninguna: media validación
+            # rechaza códigos por un motivo y deja pasar otros por el contrario.
+            return {}
+
+        codigo = partes_categoria(datos.get('codigo', '')).codigo
+        nivel = datos.get('nivel')
+        programa = codigo.split(' ')[0] if codigo else ''
+        if not programa.isdigit():
+            raise ValidationError(
+                f'El programa de «{codigo}» debe ser numérico: la directriz '
+                'define la categoría como programa, proyecto (código SISIN) y '
+                'actividad.')
+        if programa_prohibido(programa):
+            raise ValidationError(
+                f'El programa {int(programa)} no se puede usar: la directriz '
+                f'reserva del {PROHIBIDO_DESDE} al {PROHIBIDO_HASTA} y dispone '
+                'que no sean apropiados ni utilizados.')
+        rango = rango_de(programa, anio)
+        if rango is None:
+            raise ValidationError(
+                f'El programa {int(programa)} no corresponde a ningún rango de '
+                f'la directriz {anio}. Verifique el código o cargue la '
+                'directriz con «sembrar_directriz_programas».')
+        return {'rango_directriz': rango} if nivel == NivelCategoria.PROGRAMA \
+            else {}
 
     @action(detail=False, methods=['get'])
     def tree(self, request):

@@ -29,6 +29,18 @@ def rango_de(programa, gestion,
     return min(candidatos, key=lambda r: r.hasta - r.desde)
 
 
+def hay_directriz(gestion, nivel=RangoProgramaDirectriz.NIVEL_MUNICIPAL):
+    """¿Está cargada la directriz de esa gestión?
+
+    Distingue «el programa está mal» de «todavía no cargamos la norma», que son
+    dos problemas distintos y se resuelven de formas distintas.
+    """
+    if not gestion:
+        return False
+    return RangoProgramaDirectriz.objects.filter(
+        gestion=int(gestion), nivel_entidad=nivel).exists()
+
+
 def programa_prohibido(programa):
     """¿Cae en la franja que la directriz reserva y prohíbe usar?"""
     try:
@@ -60,6 +72,10 @@ def validar_categoria(codigo, gestion,
             f'directriz reserva del {PROHIBIDO_DESDE} al {PROHIBIDO_HASTA} y '
             'dispone que no sean apropiados ni utilizados.')
     rango = rango_de(partes.programa, gestion, nivel)
+    if rango is None and not hay_directriz(gestion, nivel):
+        raise ValidationError(
+            f'No está cargada la directriz de la gestión {gestion}. '
+            'Cárguela con «sembrar_directriz_programas».')
     if rango is None:
         raise ValidationError(
             f'El programa {int(partes.programa)} no corresponde a ningún rango '

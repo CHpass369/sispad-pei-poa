@@ -813,3 +813,122 @@ class ArbolPorRangosTests(TestCase):
         rango = self.arbol()['rangos'][0]
         self.assertIn('total', rango)
         self.assertEqual(len(rango['programas']), 2)
+
+
+class AltaDesdeGastosTests(TestCase):
+    """Estructurar desde la pantalla de Presupuesto General de Gastos."""
+
+    API = '/api/v2/sis-poa/budget/programmatic-categories/'
+
+    def setUp(self):
+        self.client = APIClient()
+        self.client.force_authenticate(
+            user=User.objects.create_superuser(email='a@t.com',
+                                               password='x12345678'))
+        self.gestion = GestionFiscal.objects.create(anio=2027,
+                                                    estado='HABILITADA')
+        for desde, hasta, den in [
+            (170, 179, 'INFRAESTRUCTURA URBANA Y RURAL'),
+            (250, 259, 'GRUPOS VULNERABLES Y DE LA MUJER'),
+            (251, 251, 'PREVENCIÓN CONTRA LA VIOLENCIA HACIA LA MUJER'),
+            (360, 890, 'OTROS PROGRAMAS ESPECÍFICOS'),
+        ]:
+            RangoProgramaDirectriz.objects.create(
+                gestion=2027, desde=desde, hasta=hasta, denominacion=den,
+                finalidad_funcion='4.4.3', sector_economico='11')
+
+    def crear(self, codigo, nivel='PROGRAMA'):
+        return self.client.post(self.API, {
+            'gestion': str(self.gestion.id), 'codigo': codigo,
+            'denominacion': 'X', 'nivel': nivel, 'estado': 'ACTIVA',
+        }, format='json')
+
+    def test_el_programa_nuevo_queda_atado_a_su_rango(self):
+        r = self.crear('175')
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+        creado = CategoriaProgramaticaTecho.objects.get(codigo='175')
+        self.assertEqual(creado.rango_directriz.codigo, '170-179')
+
+    def test_gana_el_rango_mas_especifico(self):
+        self.crear('251')
+        self.assertEqual(
+            CategoriaProgramaticaTecho.objects.get(codigo='251')
+            .rango_directriz.codigo, '251')
+
+    def test_rechaza_el_programa_de_la_franja_reservada(self):
+        r = self.crear('050')
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('10 al 96', str(r.data))
+        self.assertFalse(
+            CategoriaProgramaticaTecho.objects.filter(codigo='050').exists())
+
+    def test_rechaza_el_programa_sin_rango_en_la_directriz(self):
+        r = self.crear('999')
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('no corresponde a ningún rango', str(r.data))
+
+    def test_rechaza_un_programa_no_numerico(self):
+        r = self.crear('ABC')
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('numérico', str(r.data))
+
+    def test_el_subprograma_valida_igual_pero_no_guarda_rango(self):
+        # El rango lo define la directriz en el programa; el subprograma lo
+        # hereda por su cadena.
+        r = self.crear('175 0', nivel='SUBPROGRAMA')
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+        self.assertIsNone(
+            CategoriaProgramaticaTecho.objects.get(codigo='175 0').rango_directriz)
+
+    def test_un_subprograma_de_la_franja_reservada_tambien_se_rechaza(self):
+        self.assertEqual(self.crear('050 0', nivel='SUBPROGRAMA').status_code,
+                         status.HTTP_400_BAD_REQUEST)
+
+
+class SinDirectrizCargadaTests(TestCase):
+    """Sin la norma cargada no hay contra qué contrastar."""
+
+    API = '/api/v2/sis-poa/budget/programmatic-categories/'
+
+    def setUp(self):
+        self.client = APIClient()
+        self.client.force_authenticate(
+            user=User.objects.create_superuser(email='s@t.com',
+                                               password='x12345678'))
+        # A propósito sin RangoProgramaDirectriz.
+        self.gestion = GestionFiscal.objects.create(anio=2030,
+                                                    estado='HABILITADA')
+
+    def crear(self, codigo):
+        return self.client.post(self.API, {
+            'gestion': str(self.gestion.id), 'codigo': codigo,
+            'denominacion': 'X', 'nivel': 'PROGRAMA', 'estado': 'ACTIVA',
+        }, format='json')
+
+    def test_no_bloquea_el_alta(self):
+        # Bloquear todo haría parecer que la herramienta está rota cuando lo
+        # que falta es un catálogo.
+        self.assertEqual(self.crear('175').status_code,
+                         status.HTTP_201_CREATED)
+
+    def test_tampoco_aplica_la_franja_reservada(self):
+        # Las reglas de la directriz se aplican juntas o no se aplica ninguna:
+        # media validación rechaza por un motivo y deja pasar por el contrario.
+        self.assertEqual(self.crear('050').status_code,
+                         status.HTTP_201_CREATED)
+
+    def test_la_categoria_queda_sin_rango(self):
+        self.crear('175')
+        self.assertIsNone(
+            CategoriaProgramaticaTecho.objects.get(codigo='175').rango_directriz)
+
+    def test_con_la_directriz_cargada_vuelve_a_validar(self):
+        RangoProgramaDirectriz.objects.create(
+            gestion=2030, desde=170, hasta=179, denominacion='INFRAESTRUCTURA')
+        self.assertEqual(self.crear('050').status_code,
+                         status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(self.crear('175').status_code,
+                         status.HTTP_201_CREATED)
+        self.assertEqual(
+            CategoriaProgramaticaTecho.objects.get(codigo='175')
+            .rango_directriz.codigo, '170-179')

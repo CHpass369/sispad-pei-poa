@@ -146,6 +146,17 @@ interface ArbolGastos {
           </button>
           <button class="btn btn-outline btn-sm" (click)="alta = null">Cancelar</button>
         </div>
+        <p class="guia-directriz" *ngIf="alta.codigo.trim()"
+           [class.invalida]="!rangoDelAlta()">
+          <ng-container *ngIf="rangoDelAlta() as r">
+            Rango {{ r.codigo }} · {{ r.denominacion }}
+            <span *ngIf="r.sector_economico">— sector {{ r.sector_economico }}</span>
+            <span *ngIf="r.finalidad_funcion"> · fin/fun {{ r.finalidad_funcion }}</span>
+          </ng-container>
+          <ng-container *ngIf="!rangoDelAlta()">
+            {{ motivoDelAlta() }}
+          </ng-container>
+        </p>
       </div>
 
       <div class="tabla-caja" *ngIf="!cargando && arbol">
@@ -333,6 +344,10 @@ interface ArbolGastos {
       background: var(--pip-green-100); font-weight: 600; cursor: pointer;
       border-top: 2px solid var(--pip-green-500);
     }
+    .guia-directriz {
+      margin: 0.35rem 0 0; font-size: 0.6875rem; color: var(--pip-green-700);
+    }
+    .guia-directriz.invalida { color: #B3261E; font-weight: 600; }
     .fila-rango td {
       background: var(--pip-green-100); cursor: pointer;
       border-top: 2px solid var(--pip-green-500);
