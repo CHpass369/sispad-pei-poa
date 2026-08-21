@@ -19,16 +19,50 @@ from apps.budget.models import Apertura, AperturaFuente, CategoriaProgramaticaTe
 from apps.gestion.models import GestionFiscal
 
 
-def _categoria_de(codigo, gestion_fiscal):
+def _buscar_categoria(limpio, gestion_fiscal):
     """La categoría del catálogo maestro, si está dada de alta."""
-    limpio = partes_categoria(codigo).codigo
-    if not limpio:
-        return None
     por_gestion = CategoriaProgramaticaTecho.objects.filter(
         codigo__iexact=limpio, gestion=gestion_fiscal)
     return (por_gestion.first()
             or CategoriaProgramaticaTecho.objects.filter(
                 codigo__iexact=limpio).first())
+
+
+def _alta_de_proyecto(partes, denominacion, gestion_fiscal):
+    """Da de alta la categoría de un proyecto que todavía no existe.
+
+    El código de un proyecto es `<programa> <SISIN> <actividad>` y su
+    denominación es el nombre del proyecto. Se cuelga del subprograma
+    `<programa>.SP`, que es de donde cuelga el resto del árbol del gasto.
+
+    Solo se crean categorías de proyecto: las de funcionamiento las fija el
+    catálogo oficial y darlas de alta sobre la marcha lo ensuciaría.
+    """
+    padre = CategoriaProgramaticaTecho.objects.filter(
+        gestion=gestion_fiscal, nivel='SUBPROGRAMA',
+        codigo=f'{partes.programa}.SP').first()
+    return CategoriaProgramaticaTecho.objects.create(
+        gestion=gestion_fiscal, codigo=partes.codigo, nivel='PROYECTO',
+        denominacion=(denominacion or partes.codigo)[:300], parent=padre,
+        origen='PRIORIZACION',
+    )
+
+
+def _categoria_de(proyecto, gestion_fiscal):
+    """La categoría del proyecto. Si es de inversión y no existe, se crea.
+
+    Devuelve `(categoria, creada)`; `categoria` es None cuando el código no se
+    puede leer o cuando es de funcionamiento y no está en el catálogo.
+    """
+    partes = partes_categoria(proyecto.categoria_programatica)
+    if not partes.codigo:
+        return None, False
+    existente = _buscar_categoria(partes.codigo, gestion_fiscal)
+    if existente is not None:
+        return existente, False
+    if not (partes.valida and partes.es_proyecto):
+        return None, False
+    return _alta_de_proyecto(partes, proyecto.nombre, gestion_fiscal), True
 
 
 def _apertura_de(proyecto, gestion_fiscal, categoria):
@@ -88,12 +122,13 @@ def materializar_acta(acta):
     materializados = []
 
     for proyecto in listos:
-        categoria = _categoria_de(proyecto.categoria_programatica, gestion_fiscal)
+        categoria, categoria_creada = _categoria_de(proyecto, gestion_fiscal)
         if categoria is None:
             omitidos.append({
                 'orden': proyecto.orden, 'nombre': proyecto.nombre,
                 'motivo': (f'la categoría {proyecto.categoria_programatica} no '
-                           'está en el catálogo maestro'),
+                           'está en el catálogo maestro y no tiene forma de '
+                           'proyecto para darla de alta'),
             })
             continue
 
@@ -120,6 +155,8 @@ def materializar_acta(acta):
             'par': proyecto.par_financiamiento,
             'monto': float(proyecto.monto),
             'apertura_creada': creada,
+            'categoria_creada': categoria_creada,
+            'denominacion_categoria': categoria.denominacion,
         })
 
     return {'materializados': materializados, 'omitidos': omitidos}

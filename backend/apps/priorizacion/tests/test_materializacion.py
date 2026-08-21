@@ -173,15 +173,20 @@ class MaterializacionTests(TestCase):
         omitidos = self.validar(acta['id']).json()['materializacion']['omitidos']
         self.assertIn('categoría programática', omitidos[0]['motivo'])
 
-    def test_una_categoria_que_no_esta_en_el_catalogo_se_informa(self):
+    def test_un_proyecto_que_no_esta_en_el_catalogo_se_da_de_alta(self):
+        # Antes se descartaba. Un proyecto priorizado que todavía no tiene
+        # categoría no es un error: es una categoría que hay que crear.
         acta = self.crear_acta(proyectos=[{
-            'nombre': 'X', 'monto': '5000', 'sisin': '',
+            'nombre': 'CONST. PUENTE NUEVO', 'monto': '5000', 'sisin': '',
             'categoria_programatica': '999 12345678901234 000',
             'fuente': str(self.ff.id), 'organismo': str(self.of.id),
         }])
-        omitidos = self.validar(acta['id']).json()['materializacion']['omitidos']
-        self.assertIn('no está en el catálogo maestro', omitidos[0]['motivo'])
-        self.assertEqual(Apertura.objects.count(), 0)
+        r = self.validar(acta['id'])
+        self.assertEqual(r.json()['materializacion']['omitidos'], [])
+        creada = CategoriaProgramaticaTecho.objects.get(
+            codigo='999 12345678901234 000')
+        self.assertEqual(creada.denominacion, 'CONST. PUENTE NUEVO')
+        self.assertEqual(Apertura.objects.count(), 1)
 
     def test_el_acta_queda_aprobada_aunque_algo_no_se_pueda_volcar(self):
         acta = self.crear_acta(proyectos=[
@@ -535,3 +540,82 @@ class CategoriasOfrecidasTests(MaterializacionTests):
             f'{API}/categorias-programaticas/?gestion=2027&nivel=ACTIVIDAD').json()
         self.assertEqual({c['nivel'] for c in d}, {'ACTIVIDAD'})
         self.assertEqual(d[0]['codigo'], '000 0 001')
+
+
+class AltaDeCategoriaTests(MaterializacionTests):
+    """Un proyecto priorizado que no está en el catálogo se da de alta."""
+
+    def acta_con_categoria(self, codigo, nombre='CONST. PUENTE VEHICULAR D7'):
+        return self.crear_acta(proyectos=[{
+            'nombre': nombre, 'monto': '90000', 'sisin': '',
+            'categoria_programatica': codigo,
+            'fuente': str(self.ff.id), 'organismo': str(self.of.id),
+        }])
+
+    def test_crea_la_categoria_con_el_nombre_del_proyecto(self):
+        acta = self.acta_con_categoria('171 13120104700000 000')
+        r = self.validar(acta['id'])
+
+        creada = CategoriaProgramaticaTecho.objects.get(
+            codigo='171 13120104700000 000')
+        self.assertEqual(creada.nivel, 'PROYECTO')
+        # La denominación es el nombre del proyecto priorizado.
+        self.assertEqual(creada.denominacion, 'CONST. PUENTE VEHICULAR D7')
+        self.assertEqual(creada.gestion, self.gestion)
+
+        volcado = r.json()['materializacion']['materializados'][0]
+        self.assertTrue(volcado['categoria_creada'])
+        self.assertEqual(volcado['programa'], '171')
+
+    def test_la_cuelga_del_subprograma_de_su_programa(self):
+        CategoriaProgramaticaTecho.objects.create(
+            gestion=self.gestion, codigo='171.SP', nivel='SUBPROGRAMA',
+            denominacion='VIALIDAD')
+        self.validar(self.acta_con_categoria('171 13120104700000 000')['id'])
+        creada = CategoriaProgramaticaTecho.objects.get(
+            codigo='171 13120104700000 000')
+        self.assertEqual(creada.parent.codigo, '171.SP')
+
+    def test_sin_subprograma_se_crea_igual_y_queda_sin_padre(self):
+        # Mejor la categoría suelta que perder el monto priorizado.
+        self.validar(self.acta_con_categoria('999 13120104700000 000')['id'])
+        creada = CategoriaProgramaticaTecho.objects.get(
+            codigo='999 13120104700000 000')
+        self.assertIsNone(creada.parent)
+
+    def test_dos_actas_con_el_mismo_proyecto_no_duplican_la_categoria(self):
+        self.validar(self.acta_con_categoria('171 13120104700000 000')['id'])
+        acta = self.crear_acta(otb='OTB LOS PINOS', proyectos=[{
+            'nombre': 'CONST. PUENTE VEHICULAR D7', 'monto': '10000',
+            'sisin': '', 'categoria_programatica': '171 13120104700000 000',
+            'fuente': str(self.ff.id), 'organismo': str(self.of.id)}])
+        r = self.validar(acta['id'])
+        self.assertEqual(CategoriaProgramaticaTecho.objects.filter(
+            codigo='171 13120104700000 000').count(), 1)
+        self.assertFalse(
+            r.json()['materializacion']['materializados'][0]['categoria_creada'])
+
+    def test_un_sisin_mas_largo_tambien_se_reconoce(self):
+        # El SISIN llega con 14 o 15 dígitos según la fuente.
+        self.validar(self.acta_con_categoria('171 131201047000000 000')['id'])
+        self.assertTrue(CategoriaProgramaticaTecho.objects.filter(
+            codigo='171 131201047000000 000', nivel='PROYECTO').exists())
+
+    def test_una_categoria_de_funcionamiento_que_no_existe_no_se_inventa(self):
+        # Esas las fija el catálogo oficial: crearlas al vuelo lo ensuciaría.
+        r = self.validar(self.acta_con_categoria('900 0 001')['id'])
+        self.assertFalse(
+            CategoriaProgramaticaTecho.objects.filter(codigo='900 0 001').exists())
+        omitidos = r.json()['materializacion']['omitidos']
+        self.assertIn('no tiene forma de proyecto', omitidos[0]['motivo'])
+
+    def test_la_categoria_creada_aparece_en_el_presupuesto_de_gastos(self):
+        self.validar(self.acta_con_categoria('171 13120104700000 000')['id'])
+        d = self.client.get(
+            '/api/v2/sis-poa/budget/presupuesto-gastos/?gestion=2027').json()
+        filas = [a for p in d['programas'] for s in p['subprogramas']
+                 for a in s['actividades']
+                 if a['categoria'] == '171 13120104700000 000']
+        self.assertEqual(len(filas), 1)
+        self.assertEqual(filas[0]['denominacion'], 'CONST. PUENTE VEHICULAR D7')
+        self.assertEqual(filas[0]['monto_priorizado'], 90000.0)

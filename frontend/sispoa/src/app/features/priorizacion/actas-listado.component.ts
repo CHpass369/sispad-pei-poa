@@ -213,6 +213,13 @@ export class ActasListadoComponent implements OnInit {
     const revertidos = r.revertidos?.length ?? 0;
     if (puestos) {
       partes.push(`${puestos} proyecto(s) adjuntados al presupuesto de gastos.`);
+      // Dar de alta una categoría programática no es rutina: hay que decirlo.
+      const nuevas = (r.materializacion?.materializados ?? [])
+        .filter((m: any) => m.categoria_creada);
+      for (const m of nuevas) {
+        partes.push(`Se dio de alta la categoría ${m.categoria} `
+          + `«${m.denominacion_categoria}».`);
+      }
     }
     if (revertidos) {
       partes.push(`${revertidos} proyecto(s) liberados del techo.`);

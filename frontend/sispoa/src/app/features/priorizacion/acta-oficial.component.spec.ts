@@ -200,7 +200,7 @@ describe('ActaOficialComponent · documentos cifrados', () => {
       new Blob([JSON.stringify({ error: 'El documento no se pudo descifrar.' })],
                { type: 'application/json' }),
       { status: 409, statusText: 'Conflict' });
-    await new Promise(r => setTimeout(r, 50));
+    await componente.ultimoFallo;
     expect(componente.error).toContain('no se pudo descifrar');
   });
 });

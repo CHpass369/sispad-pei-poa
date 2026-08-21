@@ -200,6 +200,8 @@ import { PriorizacionService } from './priorizacion.service';
 export class ActaOficialComponent implements OnInit {
   acta: any = null;
   documentos: any[] = [];
+  /** Última explicación de error en curso; los tests la esperan. */
+  ultimoFallo: Promise<void> = Promise.resolve();
   error = '';
   bajando = false;
 
@@ -251,8 +253,10 @@ export class ActaOficialComponent implements OnInit {
         a.href = url; a.download = documento.nombre; a.click();
         URL.revokeObjectURL(url);
       },
-      error: e => this.explicarFalloDeBlob(
-        e, 'No se pudo descargar el documento.'),
+      error: e => {
+        this.ultimoFallo = this.explicarFalloDeBlob(
+          e, 'No se pudo descargar el documento.');
+      },
     });
   }
 
@@ -261,21 +265,23 @@ export class ActaOficialComponent implements OnInit {
    * así que el motivo del backend —por ejemplo que el documento fue
    * alterado— se perdería y saldría un mensaje genérico.
    */
-  private explicarFalloDeBlob(e: any, porDefecto: string): void {
+  private explicarFalloDeBlob(e: any, porDefecto: string): Promise<void> {
     const cuerpo = e?.error;
     const mostrar = (mensaje: string) => {
       this.error = mensaje || porDefecto;
       this.cdr.markForCheck();
     };
     if (cuerpo instanceof Blob) {
-      cuerpo.text()
+      // Se devuelve la promesa para que el llamador —y los tests— puedan
+      // esperarla en vez de adivinar cuánto tarda Blob.text().
+      return cuerpo.text()
         .then(texto => {
           try { mostrar(JSON.parse(texto)?.error); } catch { mostrar(''); }
         })
         .catch(() => mostrar(''));
-      return;
     }
     mostrar(cuerpo?.error);
+    return Promise.resolve();
   }
 
   /**
