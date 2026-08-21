@@ -501,6 +501,10 @@ export class PresupuestoGastosComponent implements OnInit {
     }
   }
 
+  totalProgramas(): number {
+    return (this.arbol?.rangos ?? []).reduce((n, r) => n + r.programas.length, 0);
+  }
+
   totalActividades(): number {
     return (this.arbol?.rangos ?? []).reduce(
       (n, r) => n + r.programas.reduce(
