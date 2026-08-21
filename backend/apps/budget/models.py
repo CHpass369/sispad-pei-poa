@@ -880,6 +880,70 @@ class EstadoCategoria:
     ]
 
 
+class RangoProgramaDirectriz(TimeStampedModel):
+    """Los rangos de programa que fija la directriz de formulación.
+
+    El Anexo VI de las Directrices define, por nivel de entidad, qué rango de
+    programa corresponde a cada materia —`170-179` es infraestructura urbana y
+    rural— junto con su finalidad/función y su sector económico. Es catálogo
+    normativo: se siembra desde la directriz de la gestión y no se edita.
+
+    `gestion` es el año y no una FK a GestionFiscal a propósito: la directriz es
+    de una gestión aunque la entidad todavía no la haya habilitado en el
+    sistema, y atarla a la FK obligaría a crear la gestión para poder cargar la
+    norma.
+    """
+    NIVEL_MUNICIPAL = 'MUNICIPAL'
+    NIVEL_DEPARTAMENTAL = 'DEPARTAMENTAL'
+    NIVEL_CENTRAL = 'CENTRAL'
+    NIVEL_UNIVERSIDAD = 'UNIVERSIDAD'
+    NIVELES = [
+        (NIVEL_MUNICIPAL, 'Gobiernos Autónomos Municipales e IOC'),
+        (NIVEL_DEPARTAMENTAL, 'Gobiernos Autónomos Departamentales y Regionales'),
+        (NIVEL_CENTRAL, 'Entidades del nivel central del Estado'),
+        (NIVEL_UNIVERSIDAD, 'Universidades públicas'),
+    ]
+
+    gestion = models.PositiveIntegerField(db_index=True, verbose_name='Gestión')
+    nivel_entidad = models.CharField(
+        max_length=20, choices=NIVELES, default=NIVEL_MUNICIPAL,
+        verbose_name='Nivel de entidad')
+    desde = models.PositiveIntegerField(verbose_name='Programa desde')
+    hasta = models.PositiveIntegerField(verbose_name='Programa hasta')
+    denominacion = models.CharField(max_length=300, verbose_name='Denominación')
+    finalidad_funcion = models.CharField(
+        max_length=120, blank=True, verbose_name='Finalidad y función')
+    sector_economico = models.CharField(
+        max_length=60, blank=True, verbose_name='Sector económico')
+    normativa = models.CharField(
+        max_length=200, blank=True, verbose_name='Norma de respaldo')
+
+    class Meta:
+        verbose_name = 'Rango de programa de la directriz'
+        verbose_name_plural = 'Rangos de programa de la directriz'
+        ordering = ['gestion', 'desde']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['gestion', 'nivel_entidad', 'desde', 'hasta'],
+                name='rango_directriz_unico'),
+            models.CheckConstraint(
+                condition=models.Q(hasta__gte=models.F('desde')),
+                name='rango_directriz_bien_formado'),
+        ]
+
+    @property
+    def codigo(self):
+        """`170-179`, o `97` cuando el rango es de un solo programa."""
+        return str(self.desde) if self.desde == self.hasta \
+            else f'{self.desde}-{self.hasta}'
+
+    def contiene(self, programa):
+        return self.desde <= int(programa) <= self.hasta
+
+    def __str__(self):
+        return f'{self.codigo} - {self.denominacion}'
+
+
 class CategoriaProgramaticaTecho(TimeStampedModel):
     """CategorAa programAtica del ciclo presupuestario (por gestiA3n).
 
@@ -913,6 +977,11 @@ class CategoriaProgramaticaTecho(TimeStampedModel):
         default=EstadoCategoria.ACTIVA,
     )
     origen = models.CharField(max_length=40, blank=True, default='')
+    rango_directriz = models.ForeignKey(
+        'budget.RangoProgramaDirectriz', on_delete=models.SET_NULL, null=True,
+        blank=True, related_name='programas',
+        verbose_name='Rango de la directriz',
+        help_text='Solo en el nivel PROGRAMA: el rango del Anexo VI que aplica.')
     normativa = models.CharField(max_length=120, blank=True, default='')
     observaciones = models.TextField(blank=True, default='')
 

@@ -469,7 +469,9 @@ class CategoriaProgramaticaViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
 
     def list(self, request):
-        from apps.budget.models import CategoriaProgramaticaTecho
+        from apps.budget.models import (
+            CategoriaProgramaticaTecho, RangoProgramaDirectriz,
+        )
 
         qs = CategoriaProgramaticaTecho.objects.all()
         gestion = request.query_params.get('gestion')
@@ -485,12 +487,26 @@ class CategoriaProgramaticaViewSet(viewsets.ViewSet):
         nivel = request.query_params.get('nivel')
         qs = qs.filter(nivel=nivel) if nivel else qs.filter(
             nivel__in=['ACTIVIDAD', 'PROYECTO'])
-        return Response([
-            {'codigo': c.codigo, 'denominacion': c.denominacion,
-             'nivel': c.nivel, 'es_proyecto': c.nivel == 'PROYECTO',
-             'sisin': partes_categoria(c.codigo).sisin}
-            for c in qs.order_by('nivel', 'codigo')
-        ])
+        rangos = {r.id: r for r in RangoProgramaDirectriz.objects.filter(
+            gestion=int(gestion or 0))}
+        salida = []
+        for c in qs.order_by('codigo'):
+            partes = partes_categoria(c.codigo)
+            rango = next((r for r in rangos.values()
+                          if partes.programa.isdigit()
+                          and r.contiene(partes.programa)), None)
+            salida.append({
+                'codigo': c.codigo, 'denominacion': c.denominacion,
+                'nivel': c.nivel, 'es_proyecto': c.nivel == 'PROYECTO',
+                'sisin': partes.sisin,
+                'programa': partes.programa,
+                # Del Anexo VI: lo que el SIGEP exige junto con la categoría.
+                'rango_directriz': rango.codigo if rango else '',
+                'rango_denominacion': rango.denominacion if rango else '',
+                'finalidad_funcion': rango.finalidad_funcion if rango else '',
+                'sector_economico': rango.sector_economico if rango else '',
+            })
+        return Response(salida)
 
 
 class SaldoFinanciamientoViewSet(viewsets.ViewSet):

@@ -12,9 +12,11 @@ La operación es idempotente. `AperturaFuente` tiene un único registro por
 el mismo par suman sobre la misma fila; y cada proyecto recuerda cuánto puso,
 para que volver a aprobar recalcule en vez de duplicar.
 """
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 
 from apps.budget.categoria import partes_categoria
+from apps.budget.directriz import rango_de, validar_categoria
 from apps.budget.models import Apertura, AperturaFuente, CategoriaProgramaticaTecho
 from apps.gestion.models import GestionFiscal
 
@@ -28,7 +30,7 @@ def _buscar_categoria(limpio, gestion_fiscal):
                 codigo__iexact=limpio).first())
 
 
-def _alta_de_proyecto(partes, denominacion, gestion_fiscal):
+def _alta_de_proyecto(partes, denominacion, gestion_fiscal, rango=None):
     """Da de alta la categoría de un proyecto que todavía no existe.
 
     El código de un proyecto es `<programa> <SISIN> <actividad>` y su
@@ -44,7 +46,7 @@ def _alta_de_proyecto(partes, denominacion, gestion_fiscal):
     return CategoriaProgramaticaTecho.objects.create(
         gestion=gestion_fiscal, codigo=partes.codigo, nivel='PROYECTO',
         denominacion=(denominacion or partes.codigo)[:300], parent=padre,
-        origen='PRIORIZACION',
+        origen='PRIORIZACION', rango_directriz=rango,
     )
 
 
@@ -62,7 +64,12 @@ def _categoria_de(proyecto, gestion_fiscal):
         return existente, False
     if not (partes.valida and partes.es_proyecto):
         return None, False
-    return _alta_de_proyecto(partes, proyecto.nombre, gestion_fiscal), True
+    # La directriz manda: un programa fuera de rango o de la franja reservada
+    # no se da de alta, se rechaza con el motivo.
+    validar_categoria(partes.codigo, gestion_fiscal.anio)
+    return _alta_de_proyecto(
+        partes, proyecto.nombre, gestion_fiscal,
+        rango_de(partes.programa, gestion_fiscal.anio)), True
 
 
 def _apertura_de(proyecto, gestion_fiscal, categoria):
@@ -122,7 +129,14 @@ def materializar_acta(acta):
     materializados = []
 
     for proyecto in listos:
-        categoria, categoria_creada = _categoria_de(proyecto, gestion_fiscal)
+        try:
+            categoria, categoria_creada = _categoria_de(proyecto, gestion_fiscal)
+        except DjangoValidationError as error:
+            omitidos.append({
+                'orden': proyecto.orden, 'nombre': proyecto.nombre,
+                'motivo': error.messages[0],
+            })
+            continue
         if categoria is None:
             omitidos.append({
                 'orden': proyecto.orden, 'nombre': proyecto.nombre,

@@ -9,8 +9,8 @@ from rest_framework.test import APIClient
 
 from apps.accounts.models import Rol
 from apps.budget.models import (
-    Apertura, AperturaFuente, CategoriaProgramaticaTecho, RecursoTecho,
-    TechoDirectivo,
+    Apertura, AperturaFuente, CategoriaProgramaticaTecho, RangoProgramaDirectriz,
+    RecursoTecho, TechoDirectivo,
 )
 from apps.catalogos.models import FuenteFinanciamiento, OrganismoFinanciador
 from apps.gestion.models import GestionFiscal
@@ -32,6 +32,16 @@ class MaterializacionTests(TestCase):
         self.client.force_authenticate(user=self.tecnico)
 
         self.gestion = GestionFiscal.objects.create(anio=2027, estado='HABILITADA')
+        # La directriz del Anexo VI: sin ella no se valida ningún código.
+        for desde, hasta, den in [
+            (0, 0, 'FUNCIONAMIENTO ÓRGANO EJECUTIVO'),
+            (170, 179, 'INFRAESTRUCTURA URBANA Y RURAL'),
+            (180, 189, 'GESTIÓN DE CAMINOS VECINALES'),
+            (360, 890, 'OTROS PROGRAMAS ESPECÍFICOS'),
+        ]:
+            RangoProgramaDirectriz.objects.create(
+                gestion=2027, desde=desde, hasta=hasta, denominacion=den,
+                finalidad_funcion='1.1.1', sector_economico='14')
         self.distrito = Distrito.objects.create(codigo='D2', nombre='DISTRITO 2')
         PlantillaActa.objects.create(nombre='Acta', titulo='ACTA',
                                      encabezado='X', firmas=[])
@@ -178,13 +188,13 @@ class MaterializacionTests(TestCase):
         # categoría no es un error: es una categoría que hay que crear.
         acta = self.crear_acta(proyectos=[{
             'nombre': 'CONST. PUENTE NUEVO', 'monto': '5000', 'sisin': '',
-            'categoria_programatica': '999 12345678901234 000',
+            'categoria_programatica': '380 12345678901234 000',
             'fuente': str(self.ff.id), 'organismo': str(self.of.id),
         }])
         r = self.validar(acta['id'])
         self.assertEqual(r.json()['materializacion']['omitidos'], [])
         creada = CategoriaProgramaticaTecho.objects.get(
-            codigo='999 12345678901234 000')
+            codigo='380 12345678901234 000')
         self.assertEqual(creada.denominacion, 'CONST. PUENTE NUEVO')
         self.assertEqual(Apertura.objects.count(), 1)
 
@@ -579,9 +589,9 @@ class AltaDeCategoriaTests(MaterializacionTests):
 
     def test_sin_subprograma_se_crea_igual_y_queda_sin_padre(self):
         # Mejor la categoría suelta que perder el monto priorizado.
-        self.validar(self.acta_con_categoria('999 13120104700000 000')['id'])
+        self.validar(self.acta_con_categoria('380 13120104700000 000')['id'])
         creada = CategoriaProgramaticaTecho.objects.get(
-            codigo='999 13120104700000 000')
+            codigo='380 13120104700000 000')
         self.assertIsNone(creada.parent)
 
     def test_dos_actas_con_el_mismo_proyecto_no_duplican_la_categoria(self):
@@ -604,11 +614,29 @@ class AltaDeCategoriaTests(MaterializacionTests):
 
     def test_una_categoria_de_funcionamiento_que_no_existe_no_se_inventa(self):
         # Esas las fija el catálogo oficial: crearlas al vuelo lo ensuciaría.
-        r = self.validar(self.acta_con_categoria('900 0 001')['id'])
+        r = self.validar(self.acta_con_categoria('380 0 001')['id'])
         self.assertFalse(
-            CategoriaProgramaticaTecho.objects.filter(codigo='900 0 001').exists())
+            CategoriaProgramaticaTecho.objects.filter(codigo='380 0 001').exists())
         omitidos = r.json()['materializacion']['omitidos']
         self.assertIn('no tiene forma de proyecto', omitidos[0]['motivo'])
+
+    def test_rechaza_el_programa_que_la_directriz_prohibe(self):
+        r = self.validar(self.acta_con_categoria('050 13120104700000 000')['id'])
+        omitidos = r.json()['materializacion']['omitidos']
+        self.assertIn('10 al 96', omitidos[0]['motivo'])
+        self.assertFalse(CategoriaProgramaticaTecho.objects.filter(
+            codigo='050 13120104700000 000').exists())
+
+    def test_rechaza_el_programa_que_no_esta_en_la_directriz(self):
+        r = self.validar(self.acta_con_categoria('999 13120104700000 000')['id'])
+        omitidos = r.json()['materializacion']['omitidos']
+        self.assertIn('no corresponde a ningún rango', omitidos[0]['motivo'])
+
+    def test_la_categoria_creada_queda_atada_a_su_rango(self):
+        self.validar(self.acta_con_categoria('171 13120104700000 000')['id'])
+        creada = CategoriaProgramaticaTecho.objects.get(
+            codigo='171 13120104700000 000')
+        self.assertEqual(creada.rango_directriz.codigo, '170-179')
 
     def test_la_categoria_creada_aparece_en_el_presupuesto_de_gastos(self):
         self.validar(self.acta_con_categoria('171 13120104700000 000')['id'])
