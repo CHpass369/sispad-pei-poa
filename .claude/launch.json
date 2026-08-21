@@ -2,9 +2,15 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "pip-backend",
+      "runtimeExecutable": ".venv/bin/python",
+      "runtimeArgs": ["backend/manage.py", "runserver", "8000"],
+      "port": 8000
+    },
+    {
       "name": "sispoa-frontend",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["start", "--prefix", "frontend/sispoa"],
+      "runtimeExecutable": "frontend/sispoa/node_modules/.bin/ng",
+      "runtimeArgs": ["serve", "--project", "sispoa"],
       "port": 4200
     }
   ]
