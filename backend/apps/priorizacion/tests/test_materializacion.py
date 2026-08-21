@@ -568,13 +568,14 @@ class AltaDeCategoriaTests(MaterializacionTests):
         self.assertEqual(volcado['programa'], '171')
 
     def test_la_cuelga_del_subprograma_de_su_programa(self):
+        # El subprograma es `<programa> <segmento>`, no un `.SP` inventado.
         CategoriaProgramaticaTecho.objects.create(
-            gestion=self.gestion, codigo='171.SP', nivel='SUBPROGRAMA',
+            gestion=self.gestion, codigo='171 0', nivel='SUBPROGRAMA',
             denominacion='VIALIDAD')
         self.validar(self.acta_con_categoria('171 13120104700000 000')['id'])
         creada = CategoriaProgramaticaTecho.objects.get(
             codigo='171 13120104700000 000')
-        self.assertEqual(creada.parent.codigo, '171.SP')
+        self.assertEqual(creada.parent.codigo, '171 0')
 
     def test_sin_subprograma_se_crea_igual_y_queda_sin_padre(self):
         # Mejor la categoría suelta que perder el monto priorizado.
@@ -619,3 +620,78 @@ class AltaDeCategoriaTests(MaterializacionTests):
         self.assertEqual(len(filas), 1)
         self.assertEqual(filas[0]['denominacion'], 'CONST. PUENTE VEHICULAR D7')
         self.assertEqual(filas[0]['monto_priorizado'], 90000.0)
+
+
+class OrdenDelPresupuestoTests(TestCase):
+    """La lista sale secuencial por categoría programática.
+
+    No hereda de MaterializacionTests a propósito: acá se cargan aperturas en
+    el setUp y los tests de aquella clase asumen una base limpia.
+    """
+
+    GASTOS = '/api/v2/sis-poa/budget/presupuesto-gastos/?gestion=2027'
+
+    # A propósito en desorden: si el árbol respeta el orden de carga en vez de
+    # ordenar, se nota.
+    FILAS = [
+        ('300 0', 'SUBPROGRAMA', None),
+        ('300 0 002', 'ACTIVIDAD', 'ACT B'),
+        ('000 0', 'SUBPROGRAMA', None),
+        ('171 0', 'SUBPROGRAMA', None),
+        ('171 0 004', 'ACTIVIDAD', 'VIAS'),
+        ('300 0 001', 'ACTIVIDAD', 'ACT A'),
+        ('000 0 009', 'ACTIVIDAD', 'ALCALDIA'),
+    ]
+
+    def setUp(self):
+        self.client = APIClient()
+        self.client.force_authenticate(
+            user=User.objects.create_user(email='o@t.com', password='x12345678'))
+        self.gestion = GestionFiscal.objects.create(anio=2027,
+                                                    estado='HABILITADA')
+        subprogramas = {}
+        for codigo, nivel, denominacion in self.FILAS:
+            # La actividad cuelga de `<programa> <segmento>`, que es de donde
+            # el árbol deduce el subprograma.
+            padre = subprogramas.get(' '.join(codigo.split(' ')[:2]))
+            categoria = CategoriaProgramaticaTecho.objects.create(
+                gestion=self.gestion, codigo=codigo, nivel=nivel,
+                denominacion=denominacion or codigo, parent=padre)
+            if nivel == 'SUBPROGRAMA':
+                subprogramas[codigo] = categoria
+                continue
+            # Solo las categorías con fila de gasto aparecen en el árbol.
+            Apertura.objects.create(gestion=self.gestion, categoria=categoria,
+                                    denominacion=denominacion)
+
+    def arbol(self):
+        return self.client.get(self.GASTOS).json()['programas']
+
+    def categorias(self):
+        return [a['categoria'] for p in self.arbol()
+                for s in p['subprogramas'] for a in s['actividades']]
+
+    def test_hay_varias_filas_que_ordenar(self):
+        # Si el árbol trae una sola fila, "está ordenado" no prueba nada.
+        self.assertEqual(len(self.categorias()), 4)
+
+    def test_ningun_codigo_lleva_el_sufijo_sp(self):
+        for p in self.arbol():
+            self.assertFalse(p['codigo'].endswith('.SP'))
+            for s in p['subprogramas']:
+                self.assertFalse(s['codigo'].endswith('.SP'))
+
+    def test_las_categorias_salen_en_orden_secuencial(self):
+        codigos = self.categorias()
+        self.assertEqual(codigos, sorted(codigos))
+        self.assertLess(codigos.index('000 0 009'), codigos.index('300 0 002'))
+
+    def test_los_subprogramas_salen_ordenados(self):
+        codigos = [s['codigo'] for p in self.arbol() for s in p['subprogramas']]
+        self.assertEqual(codigos, sorted(codigos))
+
+    def test_el_orden_no_depende_de_como_se_cargaron(self):
+        # `300 0` se creó antes que `171 0` y que `000 0`.
+        subs = [s['codigo'] for p in self.arbol() for s in p['subprogramas']]
+        self.assertLess(subs.index('000 0'), subs.index('171 0'))
+        self.assertLess(subs.index('171 0'), subs.index('300 0'))

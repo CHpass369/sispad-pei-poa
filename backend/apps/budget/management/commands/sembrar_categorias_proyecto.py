@@ -5,7 +5,7 @@ inversión —`180 08620281200000 000`, con el SISIN en el segmento del medio—
 viven en los reportes del SIGEP y sin ellas no hay forma de enlazar lo que una
 OTB prioriza con la fila de gasto que le corresponde.
 
-Cada categoría se cuelga del subprograma `<programa>.SP`, que es de donde
+Cada categoría se cuelga del subprograma `<programa> 0`, que es de donde
 cuelgan las actividades de funcionamiento: el árbol del presupuesto de gastos
 va actividad → subprograma → programa, y los PROGRAMA del catálogo son rangos
 (`180 - 189`), no códigos sueltos.
@@ -50,7 +50,7 @@ class Command(BaseCommand):
                 continue
             if partes.codigo in existentes or partes.codigo in nuevas:
                 continue
-            if f'{partes.programa}.SP' not in subprogramas:
+            if f'{partes.programa} 0' not in subprogramas:
                 sin_programa.add(partes.programa)
             nuevas[partes.codigo] = (partes, proyecto.nombre)
 
@@ -75,7 +75,7 @@ class Command(BaseCommand):
             CategoriaProgramaticaTecho.objects.create(
                 gestion=gestion, codigo=codigo, nivel='PROYECTO',
                 denominacion=denominacion[:300],
-                parent=subprogramas.get(f'{partes.programa}.SP'),
+                parent=subprogramas.get(f'{partes.programa} 0'),
                 origen='SIGEP',
             )
             creadas += 1

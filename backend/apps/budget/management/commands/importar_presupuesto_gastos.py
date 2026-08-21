@@ -98,8 +98,12 @@ class Command(BaseCommand):
                 subprograma = None
                 continue
             if col_e == 'SP':
+                # El subprograma es el segmento del medio del clasificador, el
+                # mismo lugar donde un proyecto lleva su SISIN. Un sufijo
+                # inventado como `.SP` rompe el orden secuencial por categoría.
                 subprograma = categoria(
-                    f'{prog}.SP'[:20], denominacion, NivelCategoria.SUBPROGRAMA, programa)
+                    f'{prog} {texto(i, 7) or "0"}'[:40], denominacion,
+                    NivelCategoria.SUBPROGRAMA, programa)
                 continue
 
             if not act:

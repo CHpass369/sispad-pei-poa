@@ -687,10 +687,17 @@ class PresupuestoGastosViewSet(viewsets.ViewSet):
                     total[clave] = total.get(clave, Decimal('0')) + monto
             return total
 
+        # Orden secuencial por categoría programática, explícito y en los tres
+        # niveles: depender del orden de inserción hace que baste con que una
+        # consulta cambie para que la lista salga desordenada.
+        def por_codigo(nodo):
+            return nodo['codigo']
+
         salida, total_general = [], {}
-        for p_nodo in programas.values():
+        for p_nodo in sorted(programas.values(), key=por_codigo):
             subs = []
-            for s_nodo in p_nodo['subprogramas'].values():
+            for s_nodo in sorted(p_nodo['subprogramas'].values(), key=por_codigo):
+                s_nodo['actividades'].sort(key=lambda a: a['categoria'])
                 s_nodo['total'] = sumar(s_nodo['actividades'])
                 subs.append(s_nodo)
             p_nodo['subprogramas'] = subs
