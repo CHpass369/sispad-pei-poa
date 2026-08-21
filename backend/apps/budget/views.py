@@ -473,7 +473,11 @@ class CategoriaProgramaticaTechoViewSet(viewsets.ModelViewSet):
 
         codigo = partes_categoria(datos.get('codigo', '')).codigo
         nivel = datos.get('nivel')
+        # El PROGRAMA se codifica con el rango de la directriz (`170-179`); el
+        # subprograma y lo que cuelga de él, con el número del programa.
         programa = codigo.split(' ')[0] if codigo else ''
+        if nivel == NivelCategoria.PROGRAMA and '-' in programa:
+            programa = programa.split('-')[0]
         if not programa.isdigit():
             raise ValidationError(
                 f'El programa de «{codigo}» debe ser numérico: la directriz '
@@ -708,7 +712,11 @@ class PresupuestoGastosViewSet(viewsets.ViewSet):
             p_nodo = programas.setdefault(cod_prog, {
                 'codigo': cod_prog,
                 'denominacion': programa.denominacion if programa else 'Sin programa',
-                'rango': rango,
+                # Del Anexo VI: el programa se codifica con el rango, y de ahí
+                # salen su finalidad y su sector.
+                'finalidad_funcion': rango.finalidad_funcion if rango else '',
+                'sector_economico': rango.sector_economico if rango else '',
+                'desde': rango.desde if rango else 10 ** 6,
                 'subprogramas': {},
             })
             s_nodo = p_nodo['subprogramas'].setdefault(cod_sub, {
@@ -760,29 +768,9 @@ class PresupuestoGastosViewSet(viewsets.ViewSet):
                 total_general[clave] = total_general.get(clave, Decimal('0')) + monto
             salida.append(p_nodo)
 
-        # El gasto se agrupa por el rango del Anexo VI, que es como lo lee el
-        # Ministerio: la materia (`170-179` infraestructura urbana y rural)
-        # antes que el programa suelto.
-        rangos: dict[str, dict] = {}
-        for p_nodo in salida:
-            rango = p_nodo.pop('rango', None)
-            clave = rango.codigo if rango else 'SIN RANGO'
-            r_nodo = rangos.setdefault(clave, {
-                'codigo': clave,
-                'denominacion': (rango.denominacion if rango
-                                 else 'Sin rango en la directriz'),
-                'finalidad_funcion': rango.finalidad_funcion if rango else '',
-                'sector_economico': rango.sector_economico if rango else '',
-                'desde': rango.desde if rango else 10 ** 6,
-                'programas': [],
-            })
-            r_nodo['programas'].append(p_nodo)
-
-        arbol_rangos = sorted(rangos.values(), key=lambda r: r['desde'])
-        for r_nodo in arbol_rangos:
-            r_nodo.pop('desde')
-            r_nodo['total'] = sumar(
-                [{'montos': p['total']} for p in r_nodo['programas']])
+        # El programa se codifica con el rango del Anexo VI (`170-179`), asi que
+        # ordenar por texto pondria `170-179` antes que `97`.
+        salida.sort(key=lambda p: p.pop('desde'))
 
         # Techo por FF/OF: sale del Presupuesto General de Recursos. Es el
         # limite contra el que se contrasta el gasto mientras se elabora el
@@ -807,9 +795,6 @@ class PresupuestoGastosViewSet(viewsets.ViewSet):
         }
 
         return Response({
-            # El gasto se entrega agrupado por rango de la directriz. `programas`
-            # queda como forma plana para lo que todavía no migró.
-            'rangos': arbol_rangos,
             'gestion': int(anio),
             'gestion_id': GestionFiscal.objects.filter(anio=int(anio)).values_list('id', flat=True).first(),
             'techos': techos,

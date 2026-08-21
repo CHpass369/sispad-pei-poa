@@ -34,15 +34,15 @@ def _alta_de_proyecto(partes, denominacion, gestion_fiscal, rango=None):
     """Da de alta la categoría de un proyecto que todavía no existe.
 
     El código de un proyecto es `<programa> <SISIN> <actividad>` y su
-    denominación es el nombre del proyecto. Se cuelga del subprograma
-    `<programa> 0`, que es de donde cuelga el resto del árbol del gasto.
+    denominación es el nombre del proyecto. Cuelga del subprograma, que es el
+    código de tres dígitos: `171` para `171 13120104700000 000`.
 
     Solo se crean categorías de proyecto: las de funcionamiento las fija el
     catálogo oficial y darlas de alta sobre la marcha lo ensuciaría.
     """
     padre = CategoriaProgramaticaTecho.objects.filter(
         gestion=gestion_fiscal, nivel='SUBPROGRAMA',
-        codigo=f'{partes.programa} 0').first()
+        codigo=partes.programa).first()
     return CategoriaProgramaticaTecho.objects.create(
         gestion=gestion_fiscal, codigo=partes.codigo, nivel='PROYECTO',
         denominacion=(denominacion or partes.codigo)[:300], parent=padre,

@@ -578,14 +578,15 @@ class AltaDeCategoriaTests(MaterializacionTests):
         self.assertEqual(volcado['programa'], '171')
 
     def test_la_cuelga_del_subprograma_de_su_programa(self):
-        # El subprograma es `<programa> <segmento>`, no un `.SP` inventado.
+        # El subprograma es el código de tres dígitos: `171` para
+        # `171 13120104700000 000`.
         CategoriaProgramaticaTecho.objects.create(
-            gestion=self.gestion, codigo='171 0', nivel='SUBPROGRAMA',
-            denominacion='VIALIDAD')
+            gestion=self.gestion, codigo='171', nivel='SUBPROGRAMA',
+            denominacion='INFRAESTRUCTURA URBANA Y RURAL - VIAS URBANAS')
         self.validar(self.acta_con_categoria('171 13120104700000 000')['id'])
         creada = CategoriaProgramaticaTecho.objects.get(
             codigo='171 13120104700000 000')
-        self.assertEqual(creada.parent.codigo, '171 0')
+        self.assertEqual(creada.parent.codigo, '171')
 
     def test_sin_subprograma_se_crea_igual_y_queda_sin_padre(self):
         # Mejor la categoría suelta que perder el monto priorizado.
@@ -725,8 +726,8 @@ class OrdenDelPresupuestoTests(TestCase):
         self.assertLess(subs.index('171 0'), subs.index('300 0'))
 
 
-class ArbolPorRangosTests(TestCase):
-    """El gasto se agrupa por el rango del Anexo VI, no por programa suelto."""
+class JerarquiaDelGastoTests(TestCase):
+    """El rango es el PROGRAMA y el código de tres dígitos el SUBPROGRAMA."""
 
     GASTOS = '/api/v2/sis-poa/budget/presupuesto-gastos/?gestion=2027'
 
@@ -740,80 +741,65 @@ class ArbolPorRangosTests(TestCase):
             gestion=2027, desde=170, hasta=179,
             denominacion='INFRAESTRUCTURA URBANA Y RURAL',
             finalidad_funcion='4.4.3; 4.5.1; 6.1', sector_economico='11')
+        self.programa = CategoriaProgramaticaTecho.objects.create(
+            gestion=self.gestion, codigo='170-179', nivel='PROGRAMA',
+            denominacion='INFRAESTRUCTURA URBANA Y RURAL',
+            rango_directriz=self.rango)
 
-        # Dos programas del mismo rango, con una categoría cada uno.
-        for programa in ('171', '175'):
-            prog = CategoriaProgramaticaTecho.objects.create(
-                gestion=self.gestion, codigo=programa, nivel='PROGRAMA',
-                denominacion='INFRAESTRUCTURA URBANA Y RURAL',
-                rango_directriz=self.rango)
+        for numero, nombre in (('170', 'INFRAESTRUCTURAS MUNICIPALES'),
+                               ('171', 'VIAS URBANAS')):
             sub = CategoriaProgramaticaTecho.objects.create(
-                gestion=self.gestion, codigo=f'{programa} 0',
-                nivel='SUBPROGRAMA', denominacion='OBRAS', parent=prog)
+                gestion=self.gestion, codigo=numero, nivel='SUBPROGRAMA',
+                denominacion=f'INFRAESTRUCTURA URBANA Y RURAL - {nombre}',
+                parent=self.programa)
             act = CategoriaProgramaticaTecho.objects.create(
-                gestion=self.gestion, codigo=f'{programa} 0 001',
-                nivel='ACTIVIDAD', denominacion=f'OBRA {programa}', parent=sub)
+                gestion=self.gestion, codigo=f'{numero} 0 001',
+                nivel='ACTIVIDAD', denominacion=f'OBRA {numero}', parent=sub)
             Apertura.objects.create(gestion=self.gestion, categoria=act,
-                                    denominacion=f'OBRA {programa}')
+                                    denominacion=f'OBRA {numero}')
 
     def arbol(self):
-        return self.client.get(self.GASTOS).json()
+        return self.client.get(self.GASTOS).json()['programas']
 
-    def test_los_programas_cuelgan_de_su_rango(self):
-        rangos = self.arbol()['rangos']
-        self.assertEqual(len(rangos), 1)
-        self.assertEqual(rangos[0]['codigo'], '170-179')
-        self.assertEqual([p['codigo'] for p in rangos[0]['programas']],
-                         ['171', '175'])
+    def test_el_programa_es_el_rango(self):
+        programas = self.arbol()
+        self.assertEqual(len(programas), 1)
+        self.assertEqual(programas[0]['codigo'], '170-179')
+        self.assertEqual(programas[0]['denominacion'],
+                         'INFRAESTRUCTURA URBANA Y RURAL')
 
-    def test_el_rango_trae_lo_que_exige_la_directriz(self):
-        rango = self.arbol()['rangos'][0]
-        self.assertEqual(rango['denominacion'], 'INFRAESTRUCTURA URBANA Y RURAL')
-        self.assertEqual(rango['sector_economico'], '11')
-        self.assertEqual(rango['finalidad_funcion'], '4.4.3; 4.5.1; 6.1')
+    def test_el_subprograma_es_el_codigo_de_tres_digitos(self):
+        subprogramas = self.arbol()[0]['subprogramas']
+        self.assertEqual([s['codigo'] for s in subprogramas], ['170', '171'])
+        self.assertIn('VIAS URBANAS', subprogramas[1]['denominacion'])
 
-    def test_un_programa_sin_rango_no_se_pierde(self):
-        # Queda visible bajo «SIN RANGO» en vez de desaparecer del árbol.
-        prog = CategoriaProgramaticaTecho.objects.create(
-            gestion=self.gestion, codigo='888', nivel='PROGRAMA',
-            denominacion='SIN DIRECTRIZ')
-        sub = CategoriaProgramaticaTecho.objects.create(
-            gestion=self.gestion, codigo='888 0', nivel='SUBPROGRAMA',
-            denominacion='X', parent=prog)
-        act = CategoriaProgramaticaTecho.objects.create(
-            gestion=self.gestion, codigo='888 0 001', nivel='ACTIVIDAD',
-            denominacion='Y', parent=sub)
-        Apertura.objects.create(gestion=self.gestion, categoria=act,
-                                denominacion='Y')
-        codigos = [r['codigo'] for r in self.arbol()['rangos']]
-        self.assertIn('SIN RANGO', codigos)
+    def test_la_actividad_cuelga_de_su_subprograma(self):
+        actividades = self.arbol()[0]['subprogramas'][0]['actividades']
+        self.assertEqual([a['categoria'] for a in actividades], ['170 0 001'])
 
-    def test_los_rangos_salen_en_orden_numerico_no_alfabetico(self):
-        # El 97 y el 170-179 ordenan distinto según el criterio: por número el
-        # 97 va primero, alfabéticamente '170-179' le gana porque '1' < '9'.
+    def test_el_programa_trae_lo_que_exige_la_directriz(self):
+        programa = self.arbol()[0]
+        self.assertEqual(programa['sector_economico'], '11')
+        self.assertEqual(programa['finalidad_funcion'], '4.4.3; 4.5.1; 6.1')
+
+    def test_los_programas_salen_en_orden_numerico_no_alfabetico(self):
+        # '170-179' y '97': por número el 97 va primero, por texto no.
         rango97 = RangoProgramaDirectriz.objects.create(
-            gestion=2027, desde=97, hasta=97,
-            denominacion='PARTIDAS NO ASIGNABLES - ACTIVOS FINANCIEROS')
+            gestion=2027, desde=97, hasta=97, denominacion='NO ASIGNABLES')
         prog = CategoriaProgramaticaTecho.objects.create(
-            gestion=self.gestion, codigo='097', nivel='PROGRAMA',
-            denominacion='PARTIDAS NO ASIGNABLES', rango_directriz=rango97)
+            gestion=self.gestion, codigo='97', nivel='PROGRAMA',
+            denominacion='NO ASIGNABLES', rango_directriz=rango97)
         sub = CategoriaProgramaticaTecho.objects.create(
-            gestion=self.gestion, codigo='097 0', nivel='SUBPROGRAMA',
+            gestion=self.gestion, codigo='097', nivel='SUBPROGRAMA',
             denominacion='X', parent=prog)
         act = CategoriaProgramaticaTecho.objects.create(
             gestion=self.gestion, codigo='097 0 001', nivel='ACTIVIDAD',
             denominacion='Y', parent=sub)
         Apertura.objects.create(gestion=self.gestion, categoria=act,
                                 denominacion='Y')
-        codigos = [r['codigo'] for r in self.arbol()['rangos']]
+        codigos = [p['codigo'] for p in self.arbol()]
         self.assertEqual(codigos, ['97', '170-179'])
         self.assertNotEqual(codigos, sorted(codigos))
-
-    def test_el_total_del_rango_suma_sus_programas(self):
-        rango = self.arbol()['rangos'][0]
-        self.assertIn('total', rango)
-        self.assertEqual(len(rango['programas']), 2)
-
 
 class AltaDesdeGastosTests(TestCase):
     """Estructurar desde la pantalla de Presupuesto General de Gastos."""

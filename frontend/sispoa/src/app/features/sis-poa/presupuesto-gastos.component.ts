@@ -39,25 +39,16 @@ interface Subprograma {
 }
 
 interface Programa {
-  codigo: string;
-  denominacion: string;
-  subprogramas: Subprograma[];
-  total: Record<string, string>;
-}
-
-/** Rango de programa del Anexo VI de la directriz. */
-interface Rango {
+  /** Se codifica con el rango de la directriz: `170-179`. */
   codigo: string;
   denominacion: string;
   finalidad_funcion: string;
   sector_economico: string;
-  programas: Programa[];
+  subprogramas: Subprograma[];
   total: Record<string, string>;
 }
 
 interface ArbolGastos {
-  /** El gasto agrupado como lo lee el Ministerio: por rango de la directriz. */
-  rangos: Rango[];
   gestion: number;
   gestion_id: number | null;
   /** Techo por FF/OF que viene del Presupuesto General de Recursos. */
@@ -93,8 +84,7 @@ interface ArbolGastos {
         </div>
         <div class="encabezado-acciones">
           <span class="contador" *ngIf="arbol">
-            {{ arbol.rangos.length }} rangos · {{ totalProgramas() }} programas ·
-            {{ totalActividades() }} categorías
+            {{ arbol.programas.length }} programas · {{ totalActividades() }} categorías
           </span>
           <button class="btn btn-outline btn-sm" (click)="expandirTodo(true)">Expandir</button>
           <button class="btn btn-outline btn-sm" (click)="expandirTodo(false)">Contraer</button>
@@ -175,31 +165,17 @@ interface ArbolGastos {
             </tr>
           </thead>
           <tbody>
-            <ng-container *ngFor="let r of arbol.rangos">
-              <tr class="fila-rango" (click)="alternar('R' + r.codigo)">
-                <td class="cod">{{ abierto('R' + r.codigo) ? '▾' : '▸' }} {{ r.codigo }}</td>
+            <ng-container *ngFor="let p of arbol.programas">
+              <tr class="fila-programa" (click)="alternar(p.codigo)">
+                <td class="cod">{{ abierto(p.codigo) ? '▾' : '▸' }} {{ p.codigo }}</td>
                 <td class="col-den">
-                  <strong>{{ r.denominacion }}</strong>
-                  <small class="norma" *ngIf="r.sector_economico">
-                    sector {{ r.sector_economico }}
-                    <span *ngIf="r.finalidad_funcion">
-                      · fin/fun {{ r.finalidad_funcion }}</span>
+                  <strong>{{ p.denominacion }}</strong>
+                  <small class="norma" *ngIf="p.sector_economico">
+                    sector {{ p.sector_economico }}
+                    <span *ngIf="p.finalidad_funcion">
+                      · fin/fun {{ p.finalidad_funcion }}</span>
                   </small>
                 </td>
-                <td></td>
-                <td *ngFor="let c of arbol.columnas" class="num">
-                  {{ moneda(r.total[c.ff_of]) }}
-                </td>
-                <td class="num"><strong>{{ moneda(sumar(r.total)) }}</strong></td>
-                <td></td>
-                <td class="col-acc"></td>
-              </tr>
-
-              <ng-container *ngIf="abierto('R' + r.codigo)">
-            <ng-container *ngFor="let p of r.programas">
-              <tr class="fila-programa" (click)="alternar(p.codigo)">
-                <td class="cod sangria-1">{{ abierto(p.codigo) ? '▾' : '▸' }} {{ p.codigo }}</td>
-                <td class="col-den"><strong>{{ p.denominacion }}</strong></td>
                 <td></td>
                 <td *ngFor="let c of arbol.columnas" class="num">
                   {{ moneda(p.total[c.ff_of]) }}
@@ -287,10 +263,8 @@ interface ArbolGastos {
                 </ng-container>
               </ng-container>
             </ng-container>
-              </ng-container>
-            </ng-container>
 
-            <tr *ngIf="!arbol.rangos.length">
+            <tr *ngIf="!arbol.programas.length">
               <td [attr.colspan]="arbol.columnas.length + 5">
                 <div class="sin-datos">
                   <span class="sin-datos-icono">▤</span>
@@ -300,7 +274,7 @@ interface ArbolGastos {
               </td>
             </tr>
           </tbody>
-          <tfoot *ngIf="arbol.rangos.length">
+          <tfoot *ngIf="arbol.programas.length">
             <tr class="fila-total">
               <td colspan="3">TOTAL GASTOS</td>
               <td *ngFor="let c of arbol.columnas" class="num">
@@ -348,11 +322,6 @@ interface ArbolGastos {
       margin: 0.35rem 0 0; font-size: 0.6875rem; color: var(--pip-green-700);
     }
     .guia-directriz.invalida { color: #B3261E; font-weight: 600; }
-    .fila-rango td {
-      background: var(--pip-green-100); cursor: pointer;
-      border-top: 2px solid var(--pip-green-500);
-    }
-    .fila-rango .col-den strong { font-size: 0.8125rem; }
     .norma {
       display: block; font-size: 0.625rem; font-weight: 400;
       color: var(--text-secondary);
@@ -492,24 +461,65 @@ export class PresupuestoGastosComponent implements OnInit {
   expandirTodo(abrir: boolean): void {
     this.expandidos.clear();
     if (!abrir || !this.arbol) { return; }
-    for (const r of this.arbol.rangos) {
-      this.expandidos.add('R' + r.codigo);
-      for (const p of r.programas) {
-        this.expandidos.add(p.codigo);
-        for (const s of p.subprogramas) { this.expandidos.add(p.codigo + s.codigo); }
-      }
+    for (const p of this.arbol.programas) {
+      this.expandidos.add(p.codigo);
+      for (const s of p.subprogramas) { this.expandidos.add(p.codigo + s.codigo); }
     }
   }
 
-  totalProgramas(): number {
-    return (this.arbol?.rangos ?? []).reduce((n, r) => n + r.programas.length, 0);
+  /**
+   * A qué programa de la directriz cae el código que se está escribiendo. El
+   * programa se codifica con el rango (`170-179`), así que basta con ver cuál
+   * lo contiene. Se avisa antes de guardar: enterarse por el error del
+   * servidor obliga a rehacer la carga.
+   */
+  rangoDelAlta(): Programa | null {
+    const numero = this.programaDelAlta();
+    if (numero === null || (numero >= 10 && numero <= 96)) { return null; }
+    const candidatos = (this.arbol?.programas ?? []).filter(
+      p => this.enRango(p.codigo, numero));
+    // Gana el más acotado: la directriz singulariza algún programa dentro de
+    // un rango para darle su propio sector.
+    return candidatos.length
+      ? candidatos.reduce(
+          (a, b) => this.anchoRango(a.codigo) <= this.anchoRango(b.codigo) ? a : b)
+      : null;
+  }
+
+  motivoDelAlta(): string {
+    const numero = this.programaDelAlta();
+    if (numero === null) { return 'El programa debe ser numérico.'; }
+    if (numero >= 10 && numero <= 96) {
+      return `El programa ${numero} no se puede usar: la directriz reserva `
+        + 'del 10 al 96 y dispone que no sean apropiados ni utilizados.';
+    }
+    return `El programa ${numero} no corresponde a ningún rango de la `
+      + 'directriz cargada.';
+  }
+
+  private programaDelAlta(): number | null {
+    const crudo = (this.alta?.codigo ?? '').trim().split(' ')[0].split('-')[0];
+    return /^\d+$/.test(crudo) ? Number(crudo) : null;
+  }
+
+  private limites(codigo: string): [number, number] {
+    const [a, b] = codigo.split('-');
+    return [Number(a), Number(b ?? a)];
+  }
+
+  private enRango(codigo: string, numero: number): boolean {
+    const [desde, hasta] = this.limites(codigo);
+    return desde <= numero && numero <= hasta;
+  }
+
+  private anchoRango(codigo: string): number {
+    const [desde, hasta] = this.limites(codigo);
+    return hasta - desde;
   }
 
   totalActividades(): number {
-    return (this.arbol?.rangos ?? []).reduce(
-      (n, r) => n + r.programas.reduce(
-        (m, p) => m + p.subprogramas.reduce(
-          (k, s) => k + s.actividades.length, 0), 0), 0);
+    return (this.arbol?.programas ?? []).reduce(
+      (n, p) => n + p.subprogramas.reduce((m, s) => m + s.actividades.length, 0), 0);
   }
 
   // --- Alta de programa, subprograma y actividad -----------------------------
@@ -614,11 +624,9 @@ export class PresupuestoGastosComponent implements OnInit {
     this.error = '';
 
     const actividades = new Map<number, Actividad>();
-    for (const r of this.arbol?.rangos ?? []) {
-      for (const p of r.programas) {
-        for (const s of p.subprogramas) {
-          for (const a of s.actividades) { actividades.set(a.id, a); }
-        }
+    for (const p of this.arbol?.programas ?? []) {
+      for (const s of p.subprogramas) {
+        for (const a of s.actividades) { actividades.set(a.id, a); }
       }
     }
 
