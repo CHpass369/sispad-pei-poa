@@ -21,6 +21,13 @@ User = get_user_model()
 API = '/api/v1/priorizacion'
 
 
+def _gestion(anio):
+    """La gestión fiscal del año, sembrada por migraciones o creada acá."""
+    gestion, _ = GestionFiscal.objects.get_or_create(
+        anio=anio, defaults={'estado': 'HABILITADA'})
+    return gestion
+
+
 class MaterializacionTests(TestCase):
     def setUp(self):
         self.client = APIClient()
@@ -31,7 +38,9 @@ class MaterializacionTests(TestCase):
         self.jefatura.roles.add(rol)
         self.client.force_authenticate(user=self.tecnico)
 
-        self.gestion = GestionFiscal.objects.create(anio=2027, estado='HABILITADA')
+        # Las migraciones ya siembran las gestiones fiscales: crearla nueva
+        # choca con el unique de `anio`.
+        self.gestion = _gestion(2027)
         # La directriz del Anexo VI: sin ella no se valida ningún código.
         for desde, hasta, den in [
             (0, 0, 'FUNCIONAMIENTO ÓRGANO EJECUTIVO'),
@@ -271,7 +280,9 @@ class CircuitoActaTests(MaterializacionTests):
 
         r = self.client.post(f'{API}/actas/{acta_id}/desvalidar/')
         self.assertEqual(r.json()['estado'], 'BORRADOR')
-        self.assertEqual(AperturaFuente.objects.get().monto, Decimal('0'))
+        # La fila no queda en cero: se suprime, y con ella el proyecto en el
+        # Presupuesto General de Gastos.
+        self.assertEqual(AperturaFuente.objects.count(), 0)
         self.assertEqual(r.json()['revertidos'][0]['monto'], 220000.0)
 
     def test_desvalidar_es_del_autor_no_de_cualquiera(self):
@@ -307,8 +318,8 @@ class CircuitoActaTests(MaterializacionTests):
         r = self.client.post(f'{API}/actas/{acta_id}/observar/',
                              {'comentario': 'Corregir el monto'})
         self.assertEqual(r.json()['estado'], 'OBSERVADO')
-        # Un acta devuelta no puede seguir ocupando techo.
-        self.assertEqual(AperturaFuente.objects.get().monto, Decimal('0'))
+        # Un acta devuelta no puede seguir ocupando techo ni figurando.
+        self.assertEqual(AperturaFuente.objects.count(), 0)
 
     def test_un_acta_aprobada_no_se_elimina(self):
         acta_id = self.crear_acta()['id']
@@ -321,7 +332,7 @@ class CircuitoActaTests(MaterializacionTests):
         self.validar(acta_id)
         r = self.client.delete(f'{API}/actas/{acta_id}/')
         self.assertEqual(r.status_code, status.HTTP_204_NO_CONTENT)
-        self.assertEqual(AperturaFuente.objects.get().monto, Decimal('0'))
+        self.assertEqual(AperturaFuente.objects.count(), 0)
 
     def test_desvalidar_corregir_y_volver_a_validar_deja_el_monto_nuevo(self):
         acta_id = self.crear_acta()['id']
@@ -676,8 +687,7 @@ class OrdenDelPresupuestoTests(TestCase):
         self.client = APIClient()
         self.client.force_authenticate(
             user=User.objects.create_user(email='o@t.com', password='x12345678'))
-        self.gestion = GestionFiscal.objects.create(anio=2027,
-                                                    estado='HABILITADA')
+        self.gestion = _gestion(2027)
         subprogramas = {}
         for codigo, nivel, denominacion in self.FILAS:
             # La actividad cuelga de `<programa> <segmento>`, que es de donde
@@ -735,8 +745,7 @@ class JerarquiaDelGastoTests(TestCase):
         self.client = APIClient()
         self.client.force_authenticate(
             user=User.objects.create_user(email='r@t.com', password='x12345678'))
-        self.gestion = GestionFiscal.objects.create(anio=2027,
-                                                    estado='HABILITADA')
+        self.gestion = _gestion(2027)
         self.rango = RangoProgramaDirectriz.objects.create(
             gestion=2027, desde=170, hasta=179,
             denominacion='INFRAESTRUCTURA URBANA Y RURAL',
@@ -811,8 +820,7 @@ class AltaDesdeGastosTests(TestCase):
         self.client.force_authenticate(
             user=User.objects.create_superuser(email='a@t.com',
                                                password='x12345678'))
-        self.gestion = GestionFiscal.objects.create(anio=2027,
-                                                    estado='HABILITADA')
+        self.gestion = _gestion(2027)
         for desde, hasta, den in [
             (170, 179, 'INFRAESTRUCTURA URBANA Y RURAL'),
             (250, 259, 'GRUPOS VULNERABLES Y DE LA MUJER'),
@@ -882,8 +890,7 @@ class SinDirectrizCargadaTests(TestCase):
             user=User.objects.create_superuser(email='s@t.com',
                                                password='x12345678'))
         # A propósito sin RangoProgramaDirectriz.
-        self.gestion = GestionFiscal.objects.create(anio=2030,
-                                                    estado='HABILITADA')
+        self.gestion = _gestion(2030)
 
     def crear(self, codigo):
         return self.client.post(self.API, {
@@ -918,3 +925,166 @@ class SinDirectrizCargadaTests(TestCase):
         self.assertEqual(
             CategoriaProgramaticaTecho.objects.get(codigo='175')
             .rango_directriz.codigo, '170-179')
+
+
+class EditarActaMaterializadaTests(MaterializacionTests):
+    """Editar un acta ya volcada no puede dejar plata huérfana en el gasto."""
+
+    def acta_de_dos(self):
+        return self.crear_acta(proyectos=[
+            {'nombre': 'CONST. PAVIMENTO ZONA SUDESTE D1', 'monto': '35000',
+             'sisin': '', 'categoria_programatica': '180 08620281200000 000',
+             'fuente': str(self.ff.id), 'organismo': str(self.of.id)},
+            {'nombre': 'CONST. PAVIMENTO ZONA SUDESTE D1', 'monto': '1000000',
+             'sisin': '', 'categoria_programatica': '180 08620281200000 000',
+             'fuente': str(self.ff.id), 'organismo': str(self.of.id)},
+        ])
+
+    def editar(self, acta_id, montos):
+        return self.client.put(f'{API}/actas/{acta_id}/', {
+            'gestion': 2027, 'distrito': str(self.distrito.id),
+            'otb': 'SAN JOSE DE KORIPILA', 'presidente': 'JUAN',
+            'responsable_registro': 'ANA', 'fecha': '2026-09-03',
+            'proyectos': [{
+                'nombre': 'CONST. PAVIMENTO ZONA SUDESTE D1', 'monto': m,
+                'sisin': '', 'categoria_programatica': '180 08620281200000 000',
+                'fuente': str(self.ff.id), 'organismo': str(self.of.id),
+            } for m in montos],
+        }, format='json')
+
+    def test_editar_libera_lo_que_ya_estaba_volcado(self):
+        acta_id = self.acta_de_dos()['id']
+        self.validar(acta_id)
+        self.assertEqual(AperturaFuente.objects.get().monto, Decimal('1035000'))
+
+        self.editar(acta_id, ['35000', '1000000'])
+        # Sin liberar, el rastro se borraba con la fila y la plata quedaba
+        # huérfana en el gasto.
+        self.assertEqual(AperturaFuente.objects.count(), 0)
+
+    def test_editar_y_volver_a_validar_no_duplica(self):
+        acta_id = self.acta_de_dos()['id']
+        self.validar(acta_id)
+        self.editar(acta_id, ['35000', '1000000'])
+        self.validar(acta_id)
+        # Es el caso que reportó el área: 1.035.000 y no 2.070.000.
+        self.assertEqual(AperturaFuente.objects.get().monto, Decimal('1035000'))
+
+    def test_editar_un_acta_validada_la_devuelve_a_borrador(self):
+        acta_id = self.acta_de_dos()['id']
+        self.validar(acta_id)
+        r = self.editar(acta_id, ['50000'])
+        # Lo validado ya no es lo que dice el acta.
+        self.assertEqual(r.json()['estado'], 'BORRADOR')
+
+    def test_editar_con_montos_nuevos_deja_el_gasto_en_lo_nuevo(self):
+        acta_id = self.acta_de_dos()['id']
+        self.validar(acta_id)
+        self.editar(acta_id, ['70000'])
+        self.validar(acta_id)
+        self.assertEqual(AperturaFuente.objects.get().monto, Decimal('70000'))
+
+    def test_editar_un_acta_en_borrador_no_toca_el_gasto(self):
+        acta_id = self.acta_de_dos()['id']
+        self.editar(acta_id, ['35000'])
+        self.assertEqual(AperturaFuente.objects.count(), 0)
+
+    def test_un_acta_aprobada_no_se_edita(self):
+        acta_id = self.acta_de_dos()['id']
+        self.aprobar(acta_id)
+        r = self.editar(acta_id, ['1'])
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(AperturaFuente.objects.get().monto, Decimal('1035000'))
+
+
+class DesvalidarSuprimeDelGastoTests(MaterializacionTests):
+    """Al desvalidar, el proyecto se va del Presupuesto General de Gastos."""
+
+    GASTOS = '/api/v2/sis-poa/budget/presupuesto-gastos/?gestion=2027'
+
+    def categorias_en_gastos(self):
+        d = self.client.get(self.GASTOS).json()
+        return [a['categoria'] for p in d['programas']
+                for s in p['subprogramas'] for a in s['actividades']]
+
+    def subprogramas_en_gastos(self):
+        d = self.client.get(self.GASTOS).json()
+        return [s['codigo'] for p in d['programas'] for s in p['subprogramas']]
+
+    def test_el_proyecto_aparece_al_validar_y_se_va_al_desvalidar(self):
+        acta_id = self.crear_acta()['id']
+        self.validar(acta_id)
+        self.assertIn('180 08620281200000 000', self.categorias_en_gastos())
+
+        self.client.post(f'{API}/actas/{acta_id}/desvalidar/')
+        # No queda en cero: se suprime.
+        self.assertNotIn('180 08620281200000 000', self.categorias_en_gastos())
+
+    def test_el_subprograma_desaparece_con_su_unico_proyecto(self):
+        acta_id = self.crear_acta()['id']
+        self.validar(acta_id)
+        self.client.post(f'{API}/actas/{acta_id}/desvalidar/')
+        self.assertEqual(self.subprogramas_en_gastos(), [])
+
+    def test_no_queda_ni_la_fila_ni_la_apertura_que_creo_la_priorizacion(self):
+        acta_id = self.crear_acta()['id']
+        self.validar(acta_id)
+        self.client.post(f'{API}/actas/{acta_id}/desvalidar/')
+        self.assertEqual(AperturaFuente.objects.count(), 0)
+        self.assertEqual(Apertura.objects.count(), 0)
+
+    def test_la_categoria_que_definio_la_entidad_sobrevive(self):
+        # La del fixture la cargó la entidad: puede tener otro uso previsto
+        # aunque hoy se quede sin gasto.
+        acta_id = self.crear_acta()['id']
+        self.validar(acta_id)
+        self.client.post(f'{API}/actas/{acta_id}/desvalidar/')
+        self.assertTrue(CategoriaProgramaticaTecho.objects.filter(
+            codigo='180 08620281200000 000').exists())
+
+    def test_la_categoria_que_dio_de_alta_la_priorizacion_si_se_borra(self):
+        acta = self.crear_acta(proyectos=[{
+            'nombre': 'CONST. PUENTE', 'monto': '9000', 'sisin': '',
+            'categoria_programatica': '171 13120104700000 000',
+            'fuente': str(self.ff.id), 'organismo': str(self.of.id)}])
+        self.validar(acta['id'])
+        self.assertTrue(CategoriaProgramaticaTecho.objects.filter(
+            codigo='171 13120104700000 000').exists())
+        self.client.post(f'{API}/actas/{acta["id"]}/desvalidar/')
+        self.assertFalse(CategoriaProgramaticaTecho.objects.filter(
+            codigo='171 13120104700000 000').exists())
+
+    def test_una_fila_que_ya_existia_no_se_borra(self):
+        # Solo se da de baja lo que trajo la priorización.
+        propia = CategoriaProgramaticaTecho.objects.create(
+            gestion=self.gestion, codigo='180 0 007', nivel='ACTIVIDAD',
+            denominacion='OBRA DE LA ENTIDAD')
+        Apertura.objects.create(gestion=self.gestion, categoria=propia,
+                                denominacion='OBRA DE LA ENTIDAD')
+        acta_id = self.crear_acta()['id']
+        self.validar(acta_id)
+        self.client.post(f'{API}/actas/{acta_id}/desvalidar/')
+        self.assertTrue(CategoriaProgramaticaTecho.objects.filter(
+            codigo='180 0 007').exists())
+        self.assertEqual(Apertura.objects.count(), 1)
+
+    def test_si_otra_acta_aporta_a_la_misma_fila_la_fila_se_queda(self):
+        primera = self.crear_acta()['id']
+        segunda = self.crear_acta(otb='OTB LOS PINOS')['id']
+        self.validar(primera)
+        self.validar(segunda)
+        self.assertEqual(AperturaFuente.objects.get().monto, Decimal('440000'))
+
+        self.client.post(f'{API}/actas/{primera}/desvalidar/')
+        # Queda lo de la otra acta: no se puede suprimir plata ajena.
+        self.assertEqual(AperturaFuente.objects.get().monto, Decimal('220000'))
+        self.assertIn('180 08620281200000 000', self.categorias_en_gastos())
+
+    def test_observar_tambien_suprime(self):
+        acta_id = self.crear_acta()['id']
+        self.validar(acta_id)
+        self.client.force_authenticate(user=self.jefatura)
+        self.client.post(f'{API}/actas/{acta_id}/observar/',
+                         {'comentario': 'Corregir'})
+        self.client.force_authenticate(user=self.tecnico)
+        self.assertEqual(self.categorias_en_gastos(), [])

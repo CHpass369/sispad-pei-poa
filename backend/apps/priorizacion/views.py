@@ -107,6 +107,19 @@ class ActaPriorizacionViewSet(viewsets.ModelViewSet):
         # Quien crea el acta es quien después puede validarla y desvalidarla.
         serializer.save(created_by=self.request.user)
 
+    def update(self, request, *args, **kwargs):
+        """Un acta aprobada ya no se edita.
+
+        Lo aprobado está volcado al Presupuesto General de Gastos y firmado:
+        cambiarlo por detrás dejaría el gasto diciendo una cosa y el acta otra.
+        """
+        if self.get_object().estado == EstadosActa.APROBADO:
+            return Response(
+                {'error': 'Un acta aprobada ya no admite cambios. Pida a la '
+                          'jefatura que la observe primero.'},
+                status=status.HTTP_400_BAD_REQUEST)
+        return super().update(request, *args, **kwargs)
+
     # --- Circuito de revisión ----------------------------------------------
 
     def _es_autor(self, acta):

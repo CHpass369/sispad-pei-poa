@@ -87,6 +87,8 @@ def _apertura_de(proyecto, gestion_fiscal, categoria):
         proyecto_codigo=partes.programa,
         codigo_sisin=partes.sisin or proyecto.sisin or '',
         actividad_codigo=partes.actividad,
+        # Queda marcada: al desvalidar se suprime, no se deja en cero.
+        origen='PRIORIZACION',
     ), True
 
 
@@ -176,6 +178,37 @@ def materializar_acta(acta):
     return {'materializados': materializados, 'omitidos': omitidos}
 
 
+def _limpiar_rastro(fila):
+    """Borra lo que quedó vacío después de revertir.
+
+    Una fila en cero no es lo mismo que una fila que no existe: el proyecto
+    seguiría figurando en el Presupuesto General de Gastos, y con él su
+    subprograma, como si la entidad hubiera decidido asignarle nada. Lo que
+    trajo la priorización se va con ella.
+
+    Solo se da de baja lo que creó la priorización —la apertura lo declara en
+    `origen`—; una línea cargada por la entidad se queda aunque su monto sea
+    cero.
+    """
+    if fila.monto:
+        return
+    apertura = fila.allocation
+    fila.delete()
+
+    categoria = apertura.categoria
+    if apertura.fuentes.exists() or apertura.origen != 'PRIORIZACION':
+        return
+    apertura.delete()
+    if categoria is None:
+        return
+    # Y la categoría del proyecto, si la dio de alta la priorización y no quedó
+    # nadie usándola. Una categoría que definió la entidad se queda: puede
+    # tener otro uso previsto aunque hoy no tenga gasto. El subprograma
+    # desaparece solo, porque el árbol muestra los que tienen aperturas.
+    if categoria.origen == 'PRIORIZACION' and not categoria.aperturas.exists():
+        categoria.delete()
+
+
 @transaction.atomic
 def desmaterializar_acta(acta):
     """Deshace el volcado: el acta vuelve a estar solo comprometida.
@@ -197,4 +230,5 @@ def desmaterializar_acta(acta):
         proyecto.apertura_fuente = None
         proyecto.monto_materializado = None
         proyecto.save(update_fields=['apertura_fuente', 'monto_materializado'])
+        _limpiar_rastro(fila)
     return revertidos

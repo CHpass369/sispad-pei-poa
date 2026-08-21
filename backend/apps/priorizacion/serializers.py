@@ -1,6 +1,8 @@
 from rest_framework import serializers
 
-from .models import ActaPriorizacion, ProyectoCatalogo, ProyectoPriorizado
+from .models import (
+    ActaPriorizacion, EstadosActa, ProyectoCatalogo, ProyectoPriorizado,
+)
 
 
 class ProyectoCatalogoSerializer(serializers.ModelSerializer):
@@ -48,10 +50,25 @@ class ActaPriorizacionSerializer(serializers.ModelSerializer):
         return acta
 
     def update(self, instance, validated_data):
+        from .materializacion import desmaterializar_acta
+
         proyectos = validated_data.pop('proyectos', None)
         for campo, valor in validated_data.items():
             setattr(instance, campo, valor)
+
+        if proyectos is not None:
+            # Lo ya volcado al gasto se libera ANTES de reemplazar la lista.
+            # El rastro de cuánto puso cada proyecto vive en su propia fila, y
+            # al borrarla se pierde: la plata quedaría en el presupuesto de
+            # gastos sin que nada recuerde de dónde vino, y al volver a validar
+            # se sumaría de nuevo.
+            revertidos = desmaterializar_acta(instance)
+            if revertidos and instance.estado == EstadosActa.VALIDADO:
+                # Lo validado ya no es lo que dice el acta.
+                instance.estado = EstadosActa.BORRADOR
+
         instance.save()
+
         if proyectos is not None:
             # El acta se edita como un todo: se reemplaza la lista completa en
             # vez de intentar casar altas, bajas y cambios de orden.

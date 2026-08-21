@@ -707,6 +707,12 @@ class Apertura(TimeStampedModel):
         default=EstadoApertura.ACTIVA,
     )
     orden = models.PositiveIntegerField(default=0)
+    # Qué trajo esta línea al presupuesto. `PRIORIZACION` marca la que creó un
+    # acta: al desvalidarla hay que suprimirla, no dejarla en cero, porque el
+    # proyecto seguiría figurando como si se le hubiera asignado nada. Una
+    # línea cargada por la entidad se queda aunque su monto quede en cero.
+    origen = models.CharField(
+        max_length=20, blank=True, default='', verbose_name='Origen')
 
     # Revisión por categoría programática: cada línea se valida y aprueba por
     # separado. Independiente de `estado`, que es el ciclo de vida.
