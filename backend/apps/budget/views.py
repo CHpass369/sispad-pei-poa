@@ -653,9 +653,11 @@ class PresupuestoGastosViewSet(viewsets.ViewSet):
             cod_prog = programa.codigo if programa else 'SIN PROGRAMA'
             cod_sub = subprograma.codigo if subprograma else 'SIN SUBPROGRAMA'
 
+            rango = programa.rango_directriz if programa else None
             p_nodo = programas.setdefault(cod_prog, {
                 'codigo': cod_prog,
                 'denominacion': programa.denominacion if programa else 'Sin programa',
+                'rango': rango,
                 'subprogramas': {},
             })
             s_nodo = p_nodo['subprogramas'].setdefault(cod_sub, {
@@ -707,6 +709,30 @@ class PresupuestoGastosViewSet(viewsets.ViewSet):
                 total_general[clave] = total_general.get(clave, Decimal('0')) + monto
             salida.append(p_nodo)
 
+        # El gasto se agrupa por el rango del Anexo VI, que es como lo lee el
+        # Ministerio: la materia (`170-179` infraestructura urbana y rural)
+        # antes que el programa suelto.
+        rangos: dict[str, dict] = {}
+        for p_nodo in salida:
+            rango = p_nodo.pop('rango', None)
+            clave = rango.codigo if rango else 'SIN RANGO'
+            r_nodo = rangos.setdefault(clave, {
+                'codigo': clave,
+                'denominacion': (rango.denominacion if rango
+                                 else 'Sin rango en la directriz'),
+                'finalidad_funcion': rango.finalidad_funcion if rango else '',
+                'sector_economico': rango.sector_economico if rango else '',
+                'desde': rango.desde if rango else 10 ** 6,
+                'programas': [],
+            })
+            r_nodo['programas'].append(p_nodo)
+
+        arbol_rangos = sorted(rangos.values(), key=lambda r: r['desde'])
+        for r_nodo in arbol_rangos:
+            r_nodo.pop('desde')
+            r_nodo['total'] = sumar(
+                [{'montos': p['total']} for p in r_nodo['programas']])
+
         # Techo por FF/OF: sale del Presupuesto General de Recursos. Es el
         # limite contra el que se contrasta el gasto mientras se elabora el
         # POA, y la diferencia es lo que queda por asignar de cada fuente.
@@ -730,6 +756,9 @@ class PresupuestoGastosViewSet(viewsets.ViewSet):
         }
 
         return Response({
+            # El gasto se entrega agrupado por rango de la directriz. `programas`
+            # queda como forma plana para lo que todavía no migró.
+            'rangos': arbol_rangos,
             'gestion': int(anio),
             'gestion_id': GestionFiscal.objects.filter(anio=int(anio)).values_list('id', flat=True).first(),
             'techos': techos,

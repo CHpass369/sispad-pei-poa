@@ -45,7 +45,19 @@ interface Programa {
   total: Record<string, string>;
 }
 
+/** Rango de programa del Anexo VI de la directriz. */
+interface Rango {
+  codigo: string;
+  denominacion: string;
+  finalidad_funcion: string;
+  sector_economico: string;
+  programas: Programa[];
+  total: Record<string, string>;
+}
+
 interface ArbolGastos {
+  /** El gasto agrupado como lo lee el Ministerio: por rango de la directriz. */
+  rangos: Rango[];
   gestion: number;
   gestion_id: number | null;
   /** Techo por FF/OF que viene del Presupuesto General de Recursos. */
@@ -81,7 +93,8 @@ interface ArbolGastos {
         </div>
         <div class="encabezado-acciones">
           <span class="contador" *ngIf="arbol">
-            {{ arbol.programas.length }} programas · {{ totalActividades() }} categorías
+            {{ arbol.rangos.length }} rangos · {{ totalProgramas() }} programas ·
+            {{ totalActividades() }} categorías
           </span>
           <button class="btn btn-outline btn-sm" (click)="expandirTodo(true)">Expandir</button>
           <button class="btn btn-outline btn-sm" (click)="expandirTodo(false)">Contraer</button>
@@ -151,9 +164,30 @@ interface ArbolGastos {
             </tr>
           </thead>
           <tbody>
-            <ng-container *ngFor="let p of arbol.programas">
+            <ng-container *ngFor="let r of arbol.rangos">
+              <tr class="fila-rango" (click)="alternar('R' + r.codigo)">
+                <td class="cod">{{ abierto('R' + r.codigo) ? '▾' : '▸' }} {{ r.codigo }}</td>
+                <td class="col-den">
+                  <strong>{{ r.denominacion }}</strong>
+                  <small class="norma" *ngIf="r.sector_economico">
+                    sector {{ r.sector_economico }}
+                    <span *ngIf="r.finalidad_funcion">
+                      · fin/fun {{ r.finalidad_funcion }}</span>
+                  </small>
+                </td>
+                <td></td>
+                <td *ngFor="let c of arbol.columnas" class="num">
+                  {{ moneda(r.total[c.ff_of]) }}
+                </td>
+                <td class="num"><strong>{{ moneda(sumar(r.total)) }}</strong></td>
+                <td></td>
+                <td class="col-acc"></td>
+              </tr>
+
+              <ng-container *ngIf="abierto('R' + r.codigo)">
+            <ng-container *ngFor="let p of r.programas">
               <tr class="fila-programa" (click)="alternar(p.codigo)">
-                <td class="cod">{{ abierto(p.codigo) ? '▾' : '▸' }} {{ p.codigo }}</td>
+                <td class="cod sangria-1">{{ abierto(p.codigo) ? '▾' : '▸' }} {{ p.codigo }}</td>
                 <td class="col-den"><strong>{{ p.denominacion }}</strong></td>
                 <td></td>
                 <td *ngFor="let c of arbol.columnas" class="num">
@@ -242,8 +276,10 @@ interface ArbolGastos {
                 </ng-container>
               </ng-container>
             </ng-container>
+              </ng-container>
+            </ng-container>
 
-            <tr *ngIf="!arbol.programas.length">
+            <tr *ngIf="!arbol.rangos.length">
               <td [attr.colspan]="arbol.columnas.length + 5">
                 <div class="sin-datos">
                   <span class="sin-datos-icono">▤</span>
@@ -253,7 +289,7 @@ interface ArbolGastos {
               </td>
             </tr>
           </tbody>
-          <tfoot *ngIf="arbol.programas.length">
+          <tfoot *ngIf="arbol.rangos.length">
             <tr class="fila-total">
               <td colspan="3">TOTAL GASTOS</td>
               <td *ngFor="let c of arbol.columnas" class="num">
@@ -296,6 +332,15 @@ interface ArbolGastos {
     .fila-programa td {
       background: var(--pip-green-100); font-weight: 600; cursor: pointer;
       border-top: 2px solid var(--pip-green-500);
+    }
+    .fila-rango td {
+      background: var(--pip-green-100); cursor: pointer;
+      border-top: 2px solid var(--pip-green-500);
+    }
+    .fila-rango .col-den strong { font-size: 0.8125rem; }
+    .norma {
+      display: block; font-size: 0.625rem; font-weight: 400;
+      color: var(--text-secondary);
     }
     .fila-subprograma td { background: var(--realce); cursor: pointer; }
     .fila-actividad.oculta { display: none; }
@@ -432,15 +477,20 @@ export class PresupuestoGastosComponent implements OnInit {
   expandirTodo(abrir: boolean): void {
     this.expandidos.clear();
     if (!abrir || !this.arbol) { return; }
-    for (const p of this.arbol.programas) {
-      this.expandidos.add(p.codigo);
-      for (const s of p.subprogramas) { this.expandidos.add(p.codigo + s.codigo); }
+    for (const r of this.arbol.rangos) {
+      this.expandidos.add('R' + r.codigo);
+      for (const p of r.programas) {
+        this.expandidos.add(p.codigo);
+        for (const s of p.subprogramas) { this.expandidos.add(p.codigo + s.codigo); }
+      }
     }
   }
 
   totalActividades(): number {
-    return (this.arbol?.programas ?? []).reduce(
-      (n, p) => n + p.subprogramas.reduce((m, s) => m + s.actividades.length, 0), 0);
+    return (this.arbol?.rangos ?? []).reduce(
+      (n, r) => n + r.programas.reduce(
+        (m, p) => m + p.subprogramas.reduce(
+          (k, s) => k + s.actividades.length, 0), 0), 0);
   }
 
   // --- Alta de programa, subprograma y actividad -----------------------------
@@ -545,9 +595,11 @@ export class PresupuestoGastosComponent implements OnInit {
     this.error = '';
 
     const actividades = new Map<number, Actividad>();
-    for (const p of this.arbol?.programas ?? []) {
-      for (const s of p.subprogramas) {
-        for (const a of s.actividades) { actividades.set(a.id, a); }
+    for (const r of this.arbol?.rangos ?? []) {
+      for (const p of r.programas) {
+        for (const s of p.subprogramas) {
+          for (const a of s.actividades) { actividades.set(a.id, a); }
+        }
       }
     }
 

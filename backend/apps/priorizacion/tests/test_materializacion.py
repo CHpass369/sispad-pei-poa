@@ -723,3 +723,93 @@ class OrdenDelPresupuestoTests(TestCase):
         subs = [s['codigo'] for p in self.arbol() for s in p['subprogramas']]
         self.assertLess(subs.index('000 0'), subs.index('171 0'))
         self.assertLess(subs.index('171 0'), subs.index('300 0'))
+
+
+class ArbolPorRangosTests(TestCase):
+    """El gasto se agrupa por el rango del Anexo VI, no por programa suelto."""
+
+    GASTOS = '/api/v2/sis-poa/budget/presupuesto-gastos/?gestion=2027'
+
+    def setUp(self):
+        self.client = APIClient()
+        self.client.force_authenticate(
+            user=User.objects.create_user(email='r@t.com', password='x12345678'))
+        self.gestion = GestionFiscal.objects.create(anio=2027,
+                                                    estado='HABILITADA')
+        self.rango = RangoProgramaDirectriz.objects.create(
+            gestion=2027, desde=170, hasta=179,
+            denominacion='INFRAESTRUCTURA URBANA Y RURAL',
+            finalidad_funcion='4.4.3; 4.5.1; 6.1', sector_economico='11')
+
+        # Dos programas del mismo rango, con una categoría cada uno.
+        for programa in ('171', '175'):
+            prog = CategoriaProgramaticaTecho.objects.create(
+                gestion=self.gestion, codigo=programa, nivel='PROGRAMA',
+                denominacion='INFRAESTRUCTURA URBANA Y RURAL',
+                rango_directriz=self.rango)
+            sub = CategoriaProgramaticaTecho.objects.create(
+                gestion=self.gestion, codigo=f'{programa} 0',
+                nivel='SUBPROGRAMA', denominacion='OBRAS', parent=prog)
+            act = CategoriaProgramaticaTecho.objects.create(
+                gestion=self.gestion, codigo=f'{programa} 0 001',
+                nivel='ACTIVIDAD', denominacion=f'OBRA {programa}', parent=sub)
+            Apertura.objects.create(gestion=self.gestion, categoria=act,
+                                    denominacion=f'OBRA {programa}')
+
+    def arbol(self):
+        return self.client.get(self.GASTOS).json()
+
+    def test_los_programas_cuelgan_de_su_rango(self):
+        rangos = self.arbol()['rangos']
+        self.assertEqual(len(rangos), 1)
+        self.assertEqual(rangos[0]['codigo'], '170-179')
+        self.assertEqual([p['codigo'] for p in rangos[0]['programas']],
+                         ['171', '175'])
+
+    def test_el_rango_trae_lo_que_exige_la_directriz(self):
+        rango = self.arbol()['rangos'][0]
+        self.assertEqual(rango['denominacion'], 'INFRAESTRUCTURA URBANA Y RURAL')
+        self.assertEqual(rango['sector_economico'], '11')
+        self.assertEqual(rango['finalidad_funcion'], '4.4.3; 4.5.1; 6.1')
+
+    def test_un_programa_sin_rango_no_se_pierde(self):
+        # Queda visible bajo «SIN RANGO» en vez de desaparecer del árbol.
+        prog = CategoriaProgramaticaTecho.objects.create(
+            gestion=self.gestion, codigo='888', nivel='PROGRAMA',
+            denominacion='SIN DIRECTRIZ')
+        sub = CategoriaProgramaticaTecho.objects.create(
+            gestion=self.gestion, codigo='888 0', nivel='SUBPROGRAMA',
+            denominacion='X', parent=prog)
+        act = CategoriaProgramaticaTecho.objects.create(
+            gestion=self.gestion, codigo='888 0 001', nivel='ACTIVIDAD',
+            denominacion='Y', parent=sub)
+        Apertura.objects.create(gestion=self.gestion, categoria=act,
+                                denominacion='Y')
+        codigos = [r['codigo'] for r in self.arbol()['rangos']]
+        self.assertIn('SIN RANGO', codigos)
+
+    def test_los_rangos_salen_en_orden_numerico_no_alfabetico(self):
+        # El 97 y el 170-179 ordenan distinto según el criterio: por número el
+        # 97 va primero, alfabéticamente '170-179' le gana porque '1' < '9'.
+        rango97 = RangoProgramaDirectriz.objects.create(
+            gestion=2027, desde=97, hasta=97,
+            denominacion='PARTIDAS NO ASIGNABLES - ACTIVOS FINANCIEROS')
+        prog = CategoriaProgramaticaTecho.objects.create(
+            gestion=self.gestion, codigo='097', nivel='PROGRAMA',
+            denominacion='PARTIDAS NO ASIGNABLES', rango_directriz=rango97)
+        sub = CategoriaProgramaticaTecho.objects.create(
+            gestion=self.gestion, codigo='097 0', nivel='SUBPROGRAMA',
+            denominacion='X', parent=prog)
+        act = CategoriaProgramaticaTecho.objects.create(
+            gestion=self.gestion, codigo='097 0 001', nivel='ACTIVIDAD',
+            denominacion='Y', parent=sub)
+        Apertura.objects.create(gestion=self.gestion, categoria=act,
+                                denominacion='Y')
+        codigos = [r['codigo'] for r in self.arbol()['rangos']]
+        self.assertEqual(codigos, ['97', '170-179'])
+        self.assertNotEqual(codigos, sorted(codigos))
+
+    def test_el_total_del_rango_suma_sus_programas(self):
+        rango = self.arbol()['rangos'][0]
+        self.assertIn('total', rango)
+        self.assertEqual(len(rango['programas']), 2)
