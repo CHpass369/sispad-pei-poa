@@ -40,7 +40,7 @@ class Command(BaseCommand):
             defaults={
                 'estado': GestionFiscal.Estado.PREPARACION,
                 'descripcion': 'Gestión de trabajo (cargar_dominios_mefp).',
-                'activa': True,
+                # Sin `activa`: el candado de SIS-POA lo da `habilitar_gestion`.
             },
         )
         creados = 0

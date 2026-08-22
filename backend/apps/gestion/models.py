@@ -2,6 +2,7 @@ import uuid
 from datetime import date
 
 from django.db import models
+from django.db.models import Q, UniqueConstraint
 from django.conf import settings
 from django.core.exceptions import ValidationError
 
@@ -52,7 +53,15 @@ class GestionFiscal(models.Model):
         null=True,
         blank=True,
     )
-    activa = models.BooleanField(default=True)
+    # El candado de SIS-POA (ADR-007). `activa=True` marca la única gestión
+    # sobre la que se planifica y programa; el índice único parcial de `Meta`
+    # impide que haya dos. Nace en False a propósito: una gestión recién
+    # creada o sembrada todavía no tomó el candado, lo toma `habilitar_gestion`.
+    activa = models.BooleanField(
+        default=False,
+        verbose_name='Gestión habilitada',
+        help_text='Única gestión habilitada para planificar y programar en SIS-POA.',
+    )
 
     creado_en = models.DateTimeField(auto_now_add=True)
     actualizado_en = models.DateTimeField(auto_now=True)
@@ -65,6 +74,19 @@ class GestionFiscal(models.Model):
         verbose_name = 'Gestión fiscal'
         verbose_name_plural = 'Gestiones fiscales'
         ordering = ['-anio']
+        constraints = [
+            # Índice único parcial: a lo sumo una fila con `activa=True`.
+            # Es el candado propiamente dicho; el resto de la plataforma lo
+            # lee, pero quien lo garantiza es PostgreSQL.
+            UniqueConstraint(
+                fields=['activa'],
+                condition=Q(activa=True),
+                name='unica_gestion_habilitada',
+                violation_error_message=(
+                    'Ya hay una gestión habilitada; ciérrela antes de habilitar otra.'
+                ),
+            ),
+        ]
 
     def __str__(self):
         return f'Gestión {self.anio}'

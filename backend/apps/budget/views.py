@@ -42,6 +42,8 @@ from apps.accounts.permissions import TieneCapacidad
 from apps.auditoria.models import EventoAuditoria
 from apps.auditoria.services import registrar_evento
 from apps.core.pagination import AuditoriaDualPagination, ImportacionDualPagination
+from apps.gestion import candado
+from apps.gestion.mixins import gestion_del_candado
 from apps.gestion.models import GestionFiscal
 
 from apps.budget.categoria import partes_categoria
@@ -168,6 +170,25 @@ class GestionFiscalPresupuestoViewSet(viewsets.ModelViewSet):
     def close(self, request, pk=None):
         """Cierra la gestión del ciclo presupuestario (CERRADA)."""
         return self._ejecutar_servicio(request, pk, cerrar_gestion)
+
+    @action(detail=False, methods=['get'], url_path='activa')
+    def activa(self, request):
+        """La gestión habilitada — el candado de SIS-POA (ADR-007).
+
+        Es la única lectura que necesita el frontend para que todos los
+        módulos operen sobre la misma gestión sin que nadie escriba el año a
+        mano. Cualquier usuario autenticado la consulta: sin ella el menú y
+        las pantallas de SIS-POA no saben sobre qué año trabajan.
+
+        El sobre es estable a propósito (`habilitada` + `gestion`): un 204 sin
+        cuerpo obligaría a cada consumidor a distinguir "no hay gestión" de
+        "falló la llamada".
+        """
+        gestion = candado.gestion_habilitada()
+        return Response({
+            'habilitada': gestion is not None,
+            'gestion': self.get_serializer(gestion).data if gestion else None,
+        })
 
 
 # ---------------------------------------------------------------------------
@@ -665,14 +686,13 @@ class PresupuestoGastosViewSet(viewsets.ViewSet):
         return por_apertura
 
     def list(self, request):
-        anio = request.query_params.get('gestion')
-        if not anio:
-            return Response(
-                {'error': 'Indique la gestión: ?gestion=2027'}, status=400)
+        # El gasto es de la gestión habilitada. Antes exigía `?gestion=` y
+        # devolvía 400 sin él; ahora la absorbe del candado (ADR-007).
+        anio = gestion_del_candado(request).anio
 
         aperturas = (
             Apertura.objects
-            .filter(gestion__anio=int(anio))
+            .filter(gestion__anio=anio)
             .select_related('categoria', 'categoria__parent', 'da', 'ue', 'distrito')
             .prefetch_related('fuentes__fuente', 'fuentes__organismo')
             .order_by('categoria__codigo', 'actividad_codigo')
