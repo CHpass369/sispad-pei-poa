@@ -1,6 +1,8 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from apps.gestion.mixins import CandadoSisPoaMixin
+
 from .models import TechoPresupuestario, DistribucionTecho, MovimientoTecho
 from .serializers import (
     TechoPresupuestarioSerializer, DistribucionTechoSerializer,
@@ -9,10 +11,10 @@ from .serializers import (
 from .services import validar_movimiento, aplicar_movimiento, obtener_saldo_disponible
 
 
-class TechoPresupuestarioViewSet(viewsets.ModelViewSet):
+class TechoPresupuestarioViewSet(CandadoSisPoaMixin, viewsets.ModelViewSet):
     queryset = TechoPresupuestario.objects.all()
     serializer_class = TechoPresupuestarioSerializer
-    filterset_fields = ['gestion', 'fuente', 'activo']
+    filterset_fields = ['fuente', 'activo']
 
 
 class DistribucionTechoViewSet(viewsets.ModelViewSet):

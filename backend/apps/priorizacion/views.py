@@ -16,6 +16,10 @@ from .models import (
 from apps.budget.categoria import partes_categoria
 from apps.documentos.almacen import guardar as guardar_documento
 from apps.documentos.models import DocumentoAdjunto
+from apps.gestion.mixins import (
+    CandadoSisPoaMixin,
+    gestion_del_candado as _gestion_del_candado,
+)
 from apps.gestion.models import GestionFiscal
 
 from .materializacion import (
@@ -82,8 +86,12 @@ class ProyectoCatalogoViewSet(viewsets.ReadOnlyModelViewSet):
         })
 
 
-class ActaPriorizacionViewSet(viewsets.ModelViewSet):
-    """Actas de priorización, con su circuito de revisión."""
+class ActaPriorizacionViewSet(CandadoSisPoaMixin, viewsets.ModelViewSet):
+    """Actas de priorización, con su circuito de revisión.
+
+    El acta es de la gestión habilitada y de ninguna otra: `gestion` salió de
+    los filtros libres y ahora la pone el candado (ADR-007).
+    """
     serializer_class = ActaPriorizacionSerializer
     permission_classes = [IsAuthenticated]
     queryset = (ActaPriorizacion.objects
@@ -92,8 +100,10 @@ class ActaPriorizacionViewSet(viewsets.ModelViewSet):
                 .all())
 
     def get_queryset(self):
+        # `super()` entra por CandadoSisPoaMixin, que acota a la gestión
+        # habilitada antes de que se apliquen estos filtros.
         qs = super().get_queryset()
-        for campo in ('gestion', 'distrito', 'estado'):
+        for campo in ('distrito', 'estado'):
             valor = self.request.query_params.get(campo)
             if valor:
                 qs = qs.filter(**{campo: valor})
@@ -425,10 +435,13 @@ class MatrizPriorizacionViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
 
     def list(self, request):
-        gestion = request.query_params.get('gestion')
-        actas = ActaPriorizacion.objects.select_related('distrito')
-        if gestion:
-            actas = actas.filter(gestion=int(gestion))
+        # ViewSet plano: no hay `get_queryset` donde enganchar el mixin, así
+        # que el candado se resuelve acá. Sin el `if gestion:` de antes, que
+        # mezclaba todas las gestiones cuando el cliente no mandaba el año.
+        gestion = _gestion_del_candado(request).anio
+        actas = ActaPriorizacion.objects.select_related('distrito').filter(
+            gestion=gestion,
+        )
 
         # Los alias no pueden llamarse como la relación: `proyectos=Count(...)`
         # pisa el nombre y rompe el Sum('proyectos__monto') de al lado.
@@ -456,7 +469,7 @@ class MatrizPriorizacionViewSet(viewsets.ViewSet):
                 })
 
         return Response({
-            'gestion': int(gestion) if gestion else None,
+            'gestion': gestion,
             'resumen': [{
                 'distrito': d['distrito__nombre'],
                 'codigo': d['distrito__codigo'],
@@ -487,11 +500,10 @@ class CategoriaProgramaticaViewSet(viewsets.ViewSet):
         )
 
         qs = CategoriaProgramaticaTecho.objects.all()
-        gestion = request.query_params.get('gestion')
-        if gestion:
-            por_anio = qs.filter(gestion__anio=int(gestion))
-            # Una gestión sin catálogo propio usa el vigente.
-            qs = por_anio if por_anio.exists() else qs
+        gestion = _gestion_del_candado(request).anio
+        por_anio = qs.filter(gestion__anio=gestion)
+        # Una gestión sin catálogo propio usa el vigente.
+        qs = por_anio if por_anio.exists() else qs
         # Se ofrecen las de funcionamiento Y las de proyecto: lo que una OTB
         # prioriza es casi siempre inversión, y si el desplegable solo trae
         # ACTIVIDAD el técnico termina cargando una obra bajo
@@ -501,7 +513,7 @@ class CategoriaProgramaticaViewSet(viewsets.ViewSet):
         qs = qs.filter(nivel=nivel) if nivel else qs.filter(
             nivel__in=['ACTIVIDAD', 'PROYECTO'])
         rangos = {r.id: r for r in RangoProgramaDirectriz.objects.filter(
-            gestion=int(gestion or 0))}
+            gestion=gestion)}
         salida = []
         for c in qs.order_by('codigo'):
             partes = partes_categoria(c.codigo)
@@ -527,13 +539,12 @@ class SaldoFinanciamientoViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
 
     def list(self, request):
-        gestion = request.query_params.get('gestion')
-        if not gestion:
-            return Response({'error': 'Indique la gestión.'},
-                            status=status.HTTP_400_BAD_REQUEST)
+        # Antes exigía `?gestion=` y devolvía 400 sin él; ahora la absorbe del
+        # candado, que es la única gestión sobre la que se prioriza.
+        gestion = _gestion_del_candado(request).anio
         filas = saldos(gestion, request.query_params.get('excluir_acta') or None)
         return Response({
-            'gestion': int(gestion),
+            'gestion': gestion,
             'total_techo': sum(f['techo'] for f in filas),
             'total_disponible': sum(f['disponible'] for f in filas),
             'pares': filas,

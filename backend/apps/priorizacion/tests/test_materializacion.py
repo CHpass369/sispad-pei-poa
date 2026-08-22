@@ -22,9 +22,14 @@ API = '/api/v1/priorizacion'
 
 
 def _gestion(anio):
-    """La gestión fiscal del año, sembrada por migraciones o creada acá."""
-    gestion, _ = GestionFiscal.objects.get_or_create(
-        anio=anio, defaults={'estado': 'HABILITADA'})
+    """La gestión fiscal del año, habilitada y con el candado (ADR-007).
+
+    Sin candado ningún endpoint de SIS-POA responde: se libera el de las
+    demás gestiones antes de tomarlo, porque solo puede tenerlo una.
+    """
+    GestionFiscal.objects.exclude(anio=anio).update(activa=False)
+    gestion, _ = GestionFiscal.objects.update_or_create(
+        anio=anio, defaults={'estado': 'HABILITADA', 'activa': True})
     return gestion
 
 

@@ -10,6 +10,7 @@ from rest_framework import status
 
 from apps.accounts.models import Usuario
 from apps.gestion.models import GestionFiscal
+from apps.gestion.testing import habilitar_gestion_para_tests
 from apps.seguimiento.models import (
     ReporteSeguimiento, EntradaSeguimiento, Alerta, UmbralConfiguracion,
 )
@@ -22,6 +23,8 @@ from apps.seguimiento.services import (
 class ReporteSeguimientoViewSetTests(TestCase):
 
     def setUp(self):
+        # Los reportes de seguimiento son de la gestión habilitada (ADR-007).
+        habilitar_gestion_para_tests(2026)
         self.client = APIClient()
         self.user = Usuario.objects.create_user(
             email='tecnico@test.com',

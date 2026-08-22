@@ -3,6 +3,8 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from apps.gestion.mixins import CandadoSisPoaMixin, gestion_del_candado
+
 from .models import (
     ReporteSeguimiento, EntradaSeguimiento, Alerta, UmbralConfiguracion,
 )
@@ -18,12 +20,14 @@ from .services import (
 )
 
 
-class ReporteSeguimientoViewSet(viewsets.ModelViewSet):
+class ReporteSeguimientoViewSet(CandadoSisPoaMixin, viewsets.ModelViewSet):
+    """Reportes de seguimiento de la gestión habilitada (ADR-007)."""
+
     queryset = ReporteSeguimiento.objects.select_related(
         'unidad_organizacional', 'submitted_by', 'approved_by',
     ).all()
     serializer_class = ReporteSeguimientoSerializer
-    filterset_fields = ['gestion', 'periodo', 'estado', 'unidad_organizacional']
+    filterset_fields = ['periodo', 'estado', 'unidad_organizacional']
     search_fields = ['periodo', 'unidad_organizacional__nombre']
     ordering_fields = ['gestion', 'periodo', 'estado', 'created_at']
 
@@ -104,19 +108,11 @@ class EntradaSeguimientoViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def semaforo(self, request):
-        """Retorna estado del semaforo por gestion y periodo."""
-        gestion = request.query_params.get('gestion')
+        """Retorna estado del semaforo por periodo, en la gestión habilitada."""
+        gestion = gestion_del_candado(request).anio
         periodo = request.query_params.get('periodo')
 
-        if not gestion:
-            return Response(
-                {'error': 'gestion es requerido'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        qs = self.get_queryset().filter(
-            reporte__gestion=int(gestion)
-        )
+        qs = self.get_queryset().filter(reporte__gestion=gestion)
         if periodo:
             qs = qs.filter(reporte__periodo=periodo)
 
@@ -133,7 +129,7 @@ class EntradaSeguimientoViewSet(viewsets.ModelViewSet):
             resultado[semaforo].append(data)
 
         return Response({
-            'gestion': int(gestion),
+            'gestion': gestion,
             'periodo': periodo,
             'resumen': {
                 'verde': len(resultado['verde']),
@@ -151,14 +147,7 @@ class EntradaSeguimientoViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def dashboard(self, request):
         """Retorna datos agregados del dashboard de seguimiento."""
-        gestion = request.query_params.get('gestion')
-        if not gestion:
-            return Response(
-                {'error': 'gestion es requerido'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        data = dashboard_seguimiento(int(gestion))
-        return Response(data)
+        return Response(dashboard_seguimiento(gestion_del_candado(request).anio))
 
 
 class AlertaViewSet(viewsets.ModelViewSet):

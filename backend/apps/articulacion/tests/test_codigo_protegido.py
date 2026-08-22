@@ -13,6 +13,7 @@ from django.db import DatabaseError, connection, transaction
 from rest_framework import status
 from rest_framework.test import APIClient
 
+from apps.gestion.testing import habilitar_gestion_para_tests
 from apps.articulacion.models import (
     AccionPOA,
     ActividadPOAU,
@@ -79,6 +80,9 @@ def admin_client(db):
 
 @pytest.fixture
 def coding_cases(db):
+    # Los endpoints de POA/POAU viven dentro del candado (ADR-007).
+    habilitar_gestion_para_tests(2027)
+
     resultado_pad = ResultadoPAD.objects.create(
         id_cadena='PROTECT-RP-BASE',
         codigo_resultado='PROTECT-RP-BASE',
@@ -187,7 +191,7 @@ def coding_cases(db):
                 'codigo_accion': 'PROTECT-ACP-NEW',
                 'denominacion': 'Acción POA nueva',
                 'producto_pei': str(producto_pei.pk),
-                'gestion': 2028,
+                'gestion': 2027,
             },
         },
         'operacion_poau': {

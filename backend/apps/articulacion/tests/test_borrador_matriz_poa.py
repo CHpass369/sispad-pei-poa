@@ -15,6 +15,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from apps.accounts.models import Rol
+from apps.gestion.testing import habilitar_gestion_para_tests
 from apps.articulacion.models import (
     AccionPOA, ActividadPOAU, BorradorMatrizPOA, OperacionPOAU, ProductoPEI,
     ResultadoPEI, TareaPOAU,
@@ -77,6 +78,9 @@ def accion_dict(nombre, operaciones=None, actividad='023'):
 
 class BorradorMatrizPOAAPITest(TestCase):
     def setUp(self):
+        # El borrador de Matriz POA nace en la gestión habilitada: el
+        # candado la estampa y el `default=2026` del modelo ya no aplica.
+        habilitar_gestion_para_tests(2026)
         self.client = APIClient()
         self.tecnico = User.objects.create_user(
             email='tecnico@test.com', password='tecnico123',
@@ -400,7 +404,7 @@ class BorradorMatrizPOAAPITest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN, response.data)
 
         response = self.client.put(
-            f'{BASE}/{borrador_id}/', {'gestion': 2027, 'datos': {}}, format='json',
+            f'{BASE}/{borrador_id}/', {'gestion': 2026, 'datos': {}}, format='json',
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN, response.data)
 
