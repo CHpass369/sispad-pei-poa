@@ -94,6 +94,7 @@ from .services import (
     actualizar_objeto_gasto,
     cerrar_allocation,
     cerrar_gestion,
+    eliminar_gestion,
     composicion_techo,
     crear_allocation,
     crear_reform,
@@ -112,12 +113,17 @@ from .services import (
     observar_distribucion,
     observar_reform,
     programar_objeto_gasto,
+    reabrir_gestion,
     rechazar_reform,
     resumen_distribucion,
     validar_distribucion_completa,
 )
 
 CAPACIDAD_GESTION = 'sis_poa.budget.manage'
+# Reabrir o eliminar una gestión revierte o borra un acto formal del ciclo.
+# No alcanza con administrar el presupuesto: es de la jefatura de POA y de
+# administración (migración accounts.0008).
+CAPACIDAD_GOBERNANZA_GESTION = 'sis_poa.budget.reopen'
 CAPACIDAD_APROBACION = 'sis_poa.budget.approve'
 CAPACIDAD_AUDITORIA = 'sis_poa.budget.audit_read'
 
@@ -149,6 +155,8 @@ class GestionFiscalPresupuestoViewSet(viewsets.ModelViewSet):
     search_fields = ['anio', 'descripcion']
 
     def get_permissions(self):
+        if self.action in ('reopen', 'destroy'):
+            return [TieneCapacidad(CAPACIDAD_GOBERNANZA_GESTION)]
         if self.action in ('enable', 'close'):
             return [TieneCapacidad(CAPACIDAD_GESTION)]
         return super().get_permissions()
@@ -170,6 +178,30 @@ class GestionFiscalPresupuestoViewSet(viewsets.ModelViewSet):
     def close(self, request, pk=None):
         """Cierra la gestión del ciclo presupuestario (CERRADA)."""
         return self._ejecutar_servicio(request, pk, cerrar_gestion)
+
+    @action(detail=True, methods=['post'], url_path='reopen')
+    def reopen(self, request, pk=None):
+        """CERRADA → HABILITADA. Cuerpo: `{'motivo': 'texto'}`.
+
+        El motivo viaja en el cuerpo y es obligatorio: reabrir revierte el
+        cierre del ejercicio y tiene que quedar dicho por qué.
+        """
+        motivo = request.data.get('motivo') or request.data.get('observaciones') or ''
+        gestion = self.get_object()
+        try:
+            reabrir_gestion(gestion, request.user, motivo)
+        except DjangoValidationError as exc:
+            return _respuesta_error(exc)
+        return Response(self.get_serializer(gestion).data)
+
+    def destroy(self, request, *args, **kwargs):
+        """Elimina la gestión solo si está vacía y no tiene el candado."""
+        gestion = self.get_object()
+        try:
+            eliminar_gestion(gestion, request.user)
+        except DjangoValidationError as exc:
+            return _respuesta_error(exc)
+        return Response(status=204)
 
     @action(detail=False, methods=['get'], url_path='activa')
     def activa(self, request):

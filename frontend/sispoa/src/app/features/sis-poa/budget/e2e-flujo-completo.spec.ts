@@ -55,6 +55,10 @@ describe('E2E UI: flujo completo presupuestario', () => {
     fecha_cierre: null,
     activa: false,
     gestion_anterior: null,
+    puede_habilitar: true,
+    puede_reabrir: false,
+    puede_cerrar: true,
+    puede_eliminar: true,
   };
 
   const gestionHabilitada: FiscalYear = {
@@ -63,6 +67,8 @@ describe('E2E UI: flujo completo presupuestario', () => {
     estado_display: 'Habilitada',
     fecha_apertura: '2026-01-02',
     activa: true,
+    puede_habilitar: false,
+    puede_eliminar: false,
   };
 
   // -- Fixtures: techo directivo (Fase 2) ------------------------------------
@@ -401,7 +407,13 @@ describe('E2E UI: flujo completo presupuestario', () => {
       botonesTexto(fixtureFiscal).some((t) => t === 'Habilitar'),
     ).withContext('gestión en preparación muestra el botón Habilitar').toBeTrue();
 
+    // Habilitar ahora abre una confirmacion antes de tocar la API. El boton
+    // del dialogo repite la etiqueta de la accion, asi que se confirma por el
+    // componente y no por texto: dos botones dirian 'Habilitar'.
     clickBoton(fixtureFiscal, 'Habilitar');
+    expect(fiscal.accionPendiente?.tipo).toBe('habilitar');
+    fixtureFiscal.detectChanges();
+    fiscal.confirmarAccion();
 
     const reqEnable = httpMock.expectOne(
       (r) => r.method === 'POST' && r.url.includes('/fiscal-years/2027/enable/'),

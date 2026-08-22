@@ -113,6 +113,55 @@ Efectos: `estado = CERRADA`, `activa = False` (suelta el candado) y
 `fecha_cierre = now()`, con auditoría `accion=cerrar`. Al cerrar, SIS-POA queda
 sin gestión habilitada hasta que se habilite la siguiente.
 
+## 5.1 `reabrir_gestion` (POST `/fiscal-years/{id}/reopen/`)
+
+`CERRADA → HABILITADA`. Es la flecha que faltaba: hasta acá el cierre era de
+ida. `habilitar_gestion` rechaza las cerradas, así que un cierre por error
+dejaba congelados el techo directivo, la distribución y el POA de esa gestión
+—y desde que existe el candado, dejaba además a SIS-POA entero sin gestión
+sobre la que operar—. La única salida era entrar a la base por consola, donde
+no queda rastro de nada.
+
+Validaciones:
+
+1. La gestión tiene que estar cerrada (`ESTADOS_REABRIBLES`).
+2. **El motivo es obligatorio.** Reabrir revierte un acto formal: la
+   diferencia entre «no se puede» y «se puede, pero dejás tu nombre y el
+   porqué».
+3. Si **otra** gestión tiene el candado se rechaza nombrándola: reabrir no
+   puede robárselo a la que está en curso.
+
+Efectos: `estado = HABILITADA`, `activa = True` (retoma el candado),
+`fecha_cierre = None` y `EventoAuditoria` con `accion=reabrir`, donde el
+resumen incluye el motivo.
+
+## 5.2 `eliminar_gestion` (DELETE `/fiscal-years/{id}/`)
+
+Solo cubre el caso real: la gestión abierta por error. Se rechaza si
+
+- tiene el candado (apagar SIS-POA no puede ser el efecto lateral de un
+  DELETE: hay que cerrarla primero), o
+- tiene **cualquier** registro dependiente.
+
+El conteo de dependencias usa `get_fields(include_hidden=True)`, y eso no es
+un detalle: casi todas las FK hacia `GestionFiscal` usan `related_name='+'`
+—catálogos, organización, workflow— y quedan fuera de `_meta.related_objects`.
+Sin las ocultas, una gestión con catálogos y unidades cargados parecería
+vacía, y las FK de budget son CASCADE: el borrado se llevaría por delante
+techos, distribuciones y reformas en silencio.
+
+La auditoría es la única excepción: sus eventos se desvinculan
+(`gestion = NULL`) en vez de bloquear, y conservan el rastro por
+`entidad`/`entidad_id`, que son texto.
+
+## 5.3 Quién puede reabrir y eliminar
+
+Estas dos no van con `sis_poa.budget.manage`: esa capacidad la tiene
+cualquiera que administre el presupuesto. Reabrir y eliminar revierten o
+borran un acto formal del ciclo, así que exigen **`sis_poa.budget.reopen`**
+(migración `accounts.0008`), sembrada en `jefe_poa`, `admin_poa` y
+`superadmin`. La jefatura de POA y administración, y nadie más.
+
 ## 6. `heredar_configuracion(gestion_nueva, gestion_origen)`
 
 Copia **solo configuración** (sin datos de formulación) de la gestión origen a
@@ -135,9 +184,14 @@ gestión para el ciclo.
 | `GET/PATCH /fiscal-years/{id}/` | detalle/edición | autenticado |
 | `POST /fiscal-years/{id}/enable/` | → `HABILITADA` | `sis_poa.budget.manage` |
 | `POST /fiscal-years/{id}/close/` | → `CERRADA` | `sis_poa.budget.manage` |
+| `POST /fiscal-years/{id}/reopen/` | → `HABILITADA` (cuerpo: `motivo`) | `sis_poa.budget.reopen` |
+| `DELETE /fiscal-years/{id}/` | elimina la gestión vacía y sin candado | `sis_poa.budget.reopen` |
 
 `estado`, `fecha_apertura`, `fecha_cierre` y `gestion_anterior` son
-read-only (los gestionan los servicios). Los errores de dominio se
+read-only (los gestionan los servicios). El serializer publica además
+`puede_habilitar`, `puede_reabrir`, `puede_cerrar` y `puede_eliminar`: las
+transiciones válidas se calculan en el backend porque la pantalla duplicaba
+las listas de estados y se desincronizaba con los servicios. Los errores de dominio se
 mapean a `400 {error: {detail}}`.
 
 ## 8. Bloqueos del ciclo (resumen)

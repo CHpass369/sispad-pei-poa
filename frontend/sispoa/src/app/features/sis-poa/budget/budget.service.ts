@@ -20,6 +20,11 @@ export interface FiscalYear {
   encargado_cargado?: string | null;
   activa: boolean;
   gestion_anterior: number | null;
+  /** Transiciones válidas resueltas por el backend (fuente única de verdad). */
+  puede_habilitar?: boolean;
+  puede_reabrir?: boolean;
+  puede_cerrar?: boolean;
+  puede_eliminar?: boolean;
 }
 
 export interface FiscalYearInput {
@@ -767,6 +772,18 @@ export class BudgetService {
 
   cerrar(id: string): Observable<FiscalYear> {
     return this.http.post<FiscalYear>(`${this.base}/fiscal-years/${id}/close/`, {});
+  }
+
+  /** CERRADA → HABILITADA. El motivo es obligatorio y queda en auditoría. */
+  reabrir(id: string, motivo: string): Observable<FiscalYear> {
+    return this.http.post<FiscalYear>(
+      `${this.base}/fiscal-years/${id}/reopen/`,
+      { motivo },
+    );
+  }
+
+  eliminar(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/fiscal-years/${id}/`);
   }
 
   // -- Techo directivo (Fase 2) ----------------------------------------------

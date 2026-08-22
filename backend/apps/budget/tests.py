@@ -713,6 +713,209 @@ class FiscalYearApiTests(TestCase):
         self.assertEqual(gestion.estado, 'HABILITADA')
 
 
+    # -- Reapertura ----------------------------------------------------------
+
+    def test_reopen_devuelve_la_gestion_cerrada_al_ciclo(self):
+        gestion = crear_gestion(2028, estado='HABILITADA')
+        self.client.post(f'{self.url}{gestion.id}/close/', {}, format='json')
+
+        resp = self.client.post(
+            f'{self.url}{gestion.id}/reopen/',
+            {'motivo': 'se cerró por error'}, format='json',
+        )
+
+        self.assertEqual(resp.status_code, 200, resp.data)
+        gestion.refresh_from_db()
+        self.assertEqual(gestion.estado, 'HABILITADA')
+        self.assertIsNone(gestion.fecha_cierre)
+        # Vuelve a tomar el candado: SIS-POA opera otra vez sobre ella.
+        self.assertTrue(gestion.activa)
+        self.assertTrue(validar_gestion_para_techo(gestion))
+        evento = EventoAuditoria.objects.filter(
+            entidad='GestionFiscal', entidad_id=str(gestion.id),
+            accion='reabrir',
+        ).first()
+        self.assertIsNotNone(evento)
+        self.assertIn('se cerró por error', evento.resumen)
+
+    def test_reopen_sin_motivo_rechazado(self):
+        # El motivo es lo que separa "se puede" de "se puede sin dejar rastro".
+        gestion = crear_gestion(2028, estado='CERRADA')
+        resp = self.client.post(
+            f'{self.url}{gestion.id}/reopen/', {'motivo': '  '}, format='json',
+        )
+        self.assertEqual(resp.status_code, 400, resp.data)
+        gestion.refresh_from_db()
+        self.assertEqual(gestion.estado, 'CERRADA')
+
+    def test_reopen_de_gestion_no_cerrada_rechazado(self):
+        gestion = crear_gestion(2028, estado='HABILITADA')
+        resp = self.client.post(
+            f'{self.url}{gestion.id}/reopen/', {'motivo': 'x'}, format='json',
+        )
+        self.assertEqual(resp.status_code, 400, resp.data)
+
+    def test_reopen_con_otra_gestion_habilitada_rechazado(self):
+        # El candado admite una sola: reabrir no puede robárselo a la que
+        # está en curso, tiene que cerrarse esa primero.
+        GestionFiscal.objects.update(activa=False)
+        cerrada = crear_gestion(2028, estado='CERRADA')
+        en_curso = crear_gestion(2029, estado='preparacion')
+        self.client.post(f'{self.url}{en_curso.id}/enable/', {}, format='json')
+
+        resp = self.client.post(
+            f'{self.url}{cerrada.id}/reopen/', {'motivo': 'x'}, format='json',
+        )
+
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertIn('2029', str(resp.data))
+        cerrada.refresh_from_db()
+        self.assertFalse(cerrada.activa)
+
+    # -- Gobernanza: reabrir y eliminar son de la jefatura --------------------
+
+    def _usuario_con(self, *capacidades, email):
+        from apps.accounts.models import Capacidad
+        rol = Rol.objects.create(
+            codigo=f'rol_{email.split("@")[0]}', nombre='Rol de prueba',
+        )
+        for codigo in capacidades:
+            capacidad, _ = Capacidad.objects.get_or_create(
+                codigo=codigo, defaults={'nombre': codigo, 'sistema': 'sis-poa'},
+            )
+            rol.capacidades.add(capacidad)
+        usuario = Usuario.objects.create_user(email=email, password='test2026')
+        usuario.roles.add(rol)
+        cliente = APIClient()
+        cliente.force_authenticate(user=usuario)
+        return cliente
+
+    def test_administrar_el_presupuesto_no_alcanza_para_reabrir(self):
+        # `sis_poa.budget.manage` la tiene cualquiera que administre el
+        # presupuesto. Reabrir revierte un acto formal: es de la jefatura.
+        cliente = self._usuario_con(
+            'sis_poa.budget.manage', email='tecnico@budget.test',
+        )
+        gestion = crear_gestion(2028, estado='CERRADA')
+
+        resp = cliente.post(
+            f'{self.url}{gestion.id}/reopen/', {'motivo': 'x'}, format='json',
+        )
+
+        self.assertEqual(resp.status_code, 403, resp.data)
+        gestion.refresh_from_db()
+        self.assertEqual(gestion.estado, 'CERRADA')
+
+    def test_la_jefatura_de_poa_reabre(self):
+        cliente = self._usuario_con(
+            'sis_poa.budget.reopen', email='jefatura@budget.test',
+        )
+        GestionFiscal.objects.update(activa=False)
+        gestion = crear_gestion(2028, estado='CERRADA')
+
+        resp = cliente.post(
+            f'{self.url}{gestion.id}/reopen/',
+            {'motivo': 'cierre anticipado por error de carga'}, format='json',
+        )
+
+        self.assertEqual(resp.status_code, 200, resp.data)
+        gestion.refresh_from_db()
+        self.assertEqual(gestion.estado, 'HABILITADA')
+
+    def test_administrar_el_presupuesto_no_alcanza_para_eliminar(self):
+        cliente = self._usuario_con(
+            'sis_poa.budget.manage', email='tecnico2@budget.test',
+        )
+        gestion = crear_gestion(2028, estado='preparacion')
+
+        resp = cliente.delete(f'{self.url}{gestion.id}/')
+
+        self.assertEqual(resp.status_code, 403, resp.data)
+        self.assertTrue(GestionFiscal.objects.filter(pk=gestion.pk).exists())
+
+    # -- Eliminación ---------------------------------------------------------
+
+    def test_eliminar_gestion_vacia_conserva_la_auditoria(self):
+        gestion = crear_gestion(2028, estado='preparacion')
+        gestion_id = gestion.id
+
+        resp = self.client.delete(f'{self.url}{gestion_id}/')
+
+        self.assertEqual(resp.status_code, 204, resp.data)
+        self.assertFalse(GestionFiscal.objects.filter(pk=gestion_id).exists())
+        eventos = EventoAuditoria.objects.filter(
+            entidad='GestionFiscal', entidad_id=str(gestion_id),
+        )
+        # El rastro sobrevive desvinculado de la gestión eliminada.
+        self.assertTrue(eventos.exists())
+        self.assertTrue(all(e.gestion_id is None for e in eventos))
+        self.assertTrue(eventos.filter(accion='anular').exists())
+
+    def test_no_se_elimina_la_gestion_que_tiene_el_candado(self):
+        # Apagar SIS-POA no puede ser el efecto lateral de un DELETE.
+        GestionFiscal.objects.update(activa=False)
+        gestion = crear_gestion(2028, estado='preparacion')
+        self.client.post(f'{self.url}{gestion.id}/enable/', {}, format='json')
+
+        resp = self.client.delete(f'{self.url}{gestion.id}/')
+
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertIn('habilitada', str(resp.data))
+        self.assertTrue(GestionFiscal.objects.filter(pk=gestion.pk).exists())
+
+    def test_eliminar_gestion_con_dependencias_rechazado(self):
+        gestion = crear_gestion(2028, estado='HABILITADA')
+        TechoDirectivo.objects.create(gestion=gestion)
+
+        resp = self.client.delete(f'{self.url}{gestion.id}/')
+
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertTrue(GestionFiscal.objects.filter(pk=gestion.pk).exists())
+
+    def test_eliminar_gestion_ve_las_dependencias_ocultas(self):
+        # Casi todas las FK hacia la gestión usan related_name='+': si el
+        # conteo mirara solo `_meta.related_objects`, una gestión con
+        # catálogos cargados parecería vacía y se borraría en cascada.
+        gestion = crear_gestion(2028, estado='HABILITADA')
+        FuenteFinanciamiento.objects.create(
+            codigo='11', denominacion='Tesoro General', gestion=gestion,
+            fecha_vigencia_desde=timezone.now().date(),
+        )
+
+        resp = self.client.delete(f'{self.url}{gestion.id}/')
+
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertIn('Fuentes de financiamiento', str(resp.data))
+        self.assertTrue(GestionFiscal.objects.filter(pk=gestion.pk).exists())
+
+    # -- Transiciones expuestas a la UI --------------------------------------
+
+    def test_serializer_expone_las_transiciones_validas(self):
+        cerrada = crear_gestion(2028, estado='CERRADA')
+        preparacion = crear_gestion(2030, estado='preparacion')
+
+        resp = self.client.get(self.url)
+        por_anio = {g['anio']: g for g in resp.data['results']}
+
+        self.assertFalse(por_anio[cerrada.anio]['puede_habilitar'])
+        self.assertTrue(por_anio[cerrada.anio]['puede_reabrir'])
+        self.assertFalse(por_anio[cerrada.anio]['puede_cerrar'])
+
+        self.assertTrue(por_anio[preparacion.anio]['puede_habilitar'])
+        self.assertFalse(por_anio[preparacion.anio]['puede_reabrir'])
+        self.assertTrue(por_anio[preparacion.anio]['puede_cerrar'])
+        self.assertTrue(por_anio[preparacion.anio]['puede_eliminar'])
+
+    def test_puede_eliminar_es_falso_con_dependencias(self):
+        gestion = crear_gestion(2028, estado='HABILITADA')
+        TechoDirectivo.objects.create(gestion=gestion)
+
+        resp = self.client.get(self.url)
+        por_anio = {g['anio']: g for g in resp.data['results']}
+
+        self.assertFalse(por_anio[gestion.anio]['puede_eliminar'])
+
+
 class FiscalYearServiceTests(TestCase):
     def test_habilitar_gestion_sin_usuario(self):
         gestion = crear_gestion(2028, estado='preparacion')
