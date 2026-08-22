@@ -1,5 +1,6 @@
 import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { finalize } from 'rxjs';
+import { GestionHabilitadaService } from '../../core/services/gestion-habilitada.service';
 import { ActaPriorizacion, PriorizacionService } from './priorizacion.service';
 
 @Component({
@@ -13,8 +14,6 @@ import { ActaPriorizacion, PriorizacionService } from './priorizacion.service';
           <p class="sub">Lo que cada organización territorial priorizó para el POA.</p>
         </div>
         <div class="encabezado-acciones">
-          <input class="form-control filtro" type="number" [(ngModel)]="gestion"
-                 (change)="cargar()" placeholder="Gestión">
           <select class="form-control filtro" [(ngModel)]="distrito" (change)="cargar()">
             <option value="">Todos los distritos</option>
             <option *ngFor="let d of distritos" [value]="d.id">{{ d.nombre }}</option>
@@ -141,14 +140,16 @@ import { ActaPriorizacion, PriorizacionService } from './priorizacion.service';
 export class ActasListadoComponent implements OnInit {
   actas: ActaPriorizacion[] = [];
   distritos: any[] = [];
-  gestion = 2027;
+  /** La gestión la fija el candado de SIS-POA, no un filtro (ADR-007). */
+  get gestion(): number | null { return this.gestionActiva.anio(); }
   distrito = '';
   busqueda = '';
   cargando = true;
   error = '';
   aviso = '';
 
-  constructor(private api: PriorizacionService, private cdr: ChangeDetectorRef) {}
+  constructor(private api: PriorizacionService, private cdr: ChangeDetectorRef,
+              private gestionActiva: GestionHabilitadaService) {}
 
   ngOnInit(): void {
     this.api.distritos().subscribe(d => {
@@ -169,9 +170,9 @@ export class ActasListadoComponent implements OnInit {
   cargar(): void {
     this.cargando = true;
     this.error = '';
-    this.api.listarActas({
-      gestion: this.gestion, distrito: this.distrito, q: this.busqueda,
-    }).pipe(finalize(() => { this.cargando = false; this.cdr.markForCheck(); }))
+    // La gestión no viaja como filtro: la resuelve el candado en el backend.
+    this.api.listarActas({ distrito: this.distrito, q: this.busqueda })
+      .pipe(finalize(() => { this.cargando = false; this.cdr.markForCheck(); }))
       .subscribe({
         next: d => {
           this.actas = d.results ?? d;

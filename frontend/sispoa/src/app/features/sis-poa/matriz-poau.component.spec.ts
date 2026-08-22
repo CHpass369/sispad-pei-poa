@@ -2,6 +2,8 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 import { RouterTestingModule } from '@angular/router/testing';
 import { MatrizPoauComponent } from './matriz-poau.component';
+import { GestionHabilitadaService } from '../../core/services/gestion-habilitada.service';
+import { gestionHabilitadaStub } from '../../core/testing/gestion-habilitada.stub';
 
 /** Árbol mínimo con las seis ramas del formato: unidad → … → tarea. */
 const FILAS = [
@@ -27,6 +29,9 @@ describe('MatrizPoauComponent', () => {
     TestBed.configureTestingModule({
       imports: [HttpClientTestingModule, RouterTestingModule],
       declarations: [MatrizPoauComponent],
+      providers: [
+        { provide: GestionHabilitadaService, useValue: gestionHabilitadaStub(2027) },
+      ],
     });
     componente = TestBed.createComponent(MatrizPoauComponent).componentInstance;
     http = TestBed.inject(HttpTestingController);
@@ -317,7 +322,7 @@ describe('MatrizPoauComponent · selección y acciones', () => {
     spyOn(window, 'confirm').and.returnValue(true);
     componente.eliminar(FILAS_ACC[5]);
     http.expectOne(r => r.url.endsWith('/articulacion/tareas/tar-1/')).flush({});
-    http.expectOne(r => r.url.includes('matriz-poau?') || r.url.includes('matriz-poau/?'))
+    http.expectOne(r => r.url.includes('matriz-poau'))
         .flush({ gestion: 2027, unidades: [], total_filas: 0, filas: [] });
     expect(componente.filas.length).toBe(0);
   });

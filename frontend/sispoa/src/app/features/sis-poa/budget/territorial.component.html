@@ -1,12 +1,7 @@
 <div class="page-header">
   <h2>Distribución Territorial</h2>
   <div class="acciones">
-    <select class="input" [ngModel]="gestionSeleccionada" (ngModelChange)="seleccionarGestion($event)"
-      style="width:auto">
-      @for (g of gestiones; track g) {
-        <option [ngValue]="g.id">{{ g.anio }} — {{ g.estado_display }}</option>
-      }
-    </select>
+    <span class="pastilla-gestion" title="Gestión habilitada para SIS-POA">Gestión {{ gestionAnio }}</span>
     <button class="btn btn-primary" (click)="nuevaDistribucion()">+ Nueva distribución</button>
   </div>
 </div>

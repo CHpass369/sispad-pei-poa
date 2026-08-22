@@ -135,7 +135,9 @@ import { FilaMatrizPoa, Hallazgo } from './poa-matriz.model';
 export class PoaMatrizViewerComponent {
   @Input() filas: FilaMatrizPoa[] = [];
   @Input() hallazgos: Hallazgo[] = [];
-  @Input() gestion = 2026;
+  /** La gestión llega del contenedor, que la toma del candado (ADR-007).
+   *  El default era un año literal y sobrevivía si el padre no la pasaba. */
+  @Input() gestion = 0;
   @Input() total = 0;
 
   vista: 'matriz' = 'matriz';

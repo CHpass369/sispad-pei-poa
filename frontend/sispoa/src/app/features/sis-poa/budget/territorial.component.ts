@@ -3,10 +3,10 @@ import {
   ApiErrorResponse,
   BudgetService,
   CatalogoOpciones,
-  FiscalYear,
   DistribucionTerritorial,
   TerritorialRow,
 } from './budget.service';
+import { GestionHabilitadaService } from '../../../core/services/gestion-habilitada.service';
 
 /** Métodos de reparto: controla qué columna editable se muestra. */
 export const METODOS: { valor: string; etiqueta: string; usaPoblacion: boolean; usaPorcentaje: boolean; usaMonto: boolean }[] = [
@@ -48,7 +48,6 @@ export const METODOS: { valor: string; etiqueta: string; usaPoblacion: boolean; 
   `],
 })
 export class TerritorialComponent implements OnInit {
-  gestiones: FiscalYear[] = [];
   gestionSeleccionada: string | null = null;
   opciones: CatalogoOpciones | null = null;
   lista: DistribucionTerritorial[] = [];
@@ -69,23 +68,24 @@ export class TerritorialComponent implements OnInit {
   error = '';
   mensaje = '';
 
-  constructor(private service: BudgetService) {}
+  constructor(private service: BudgetService,
+              private gestionActiva: GestionHabilitadaService) {}
 
   ngOnInit(): void {
-    this.service.listar().subscribe({
-      next: (data) => {
-        this.gestiones = data.results;
-        if (this.gestiones.length > 0) {
-          this.seleccionarGestion(this.gestiones[0].id);
-        } else {
-          this.cargando = false;
-        }
-      },
-      error: () => {
-        this.error = 'Error al cargar las gestiones fiscales';
-        this.cargando = false;
-      },
-    });
+    // Sin selector de gestión: SIS-POA opera sobre la habilitada y sobre
+    // ninguna otra (ADR-007). El guard ya garantizó que existe.
+    const habilitada = this.gestionActiva.gestion();
+    if (!habilitada) {
+      this.error = 'No hay una gestión fiscal habilitada.';
+      this.cargando = false;
+      return;
+    }
+    this.seleccionarGestion(habilitada.id);
+  }
+
+  /** Año de la gestión habilitada, para el encabezado. */
+  get gestionAnio(): number | null {
+    return this.gestionActiva.anio();
   }
 
   seleccionarGestion(id: string): void {

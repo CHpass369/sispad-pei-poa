@@ -4,6 +4,7 @@ import { Subject, finalize, takeUntil, TimeoutError, timeout } from 'rxjs';
 import { AuthService } from '../../../core/services/auth.service';
 import { Usuario } from '../../../core/models/usuario.model';
 import { PermissionsService } from '../../../core/services/permissions.service';
+import { GestionHabilitadaService } from '../../../core/services/gestion-habilitada.service';
 import { BudgetService, FiscalYear } from './budget.service';
 
 const ESTADOS_ABIERTOS = ['preparacion', 'CONFIGURACION'];
@@ -68,6 +69,7 @@ export class FiscalYearComponent implements OnInit, OnDestroy {
     private auth: AuthService,
     private permissions: PermissionsService,
     private cdr: ChangeDetectorRef,
+    private gestionActiva: GestionHabilitadaService,
   ) {}
 
   get puedeGestionar(): boolean {
@@ -243,6 +245,7 @@ export class FiscalYearComponent implements OnInit, OnDestroy {
       next: () => {
         this.mensaje = `Gestión ${gestion.anio} habilitada`;
         this.cdr.markForCheck();
+        this.refrescarCandado();
         this.cargar();
       },
       error: () => {
@@ -260,12 +263,27 @@ export class FiscalYearComponent implements OnInit, OnDestroy {
       next: () => {
         this.mensaje = `Gestión ${gestion.anio} cerrada`;
         this.cdr.markForCheck();
+        this.refrescarCandado();
         this.cargar();
       },
       error: () => {
         this.error = `No se pudo cerrar la gestión ${gestion.anio}`;
         this.cdr.markForCheck();
       },
+    });
+  }
+
+  /**
+   * Vuelve a leer el candado tras habilitar o cerrar.
+   *
+   * Sin esto el resto de la plataforma —sidebar, encabezado y cada módulo de
+   * SIS-POA— sigue operando sobre la gestión anterior hasta que alguien
+   * recargue el navegador.
+   */
+  private refrescarCandado(): void {
+    this.gestionActiva.refrescar().subscribe({
+      next: () => this.cdr.markForCheck(),
+      error: () => undefined,
     });
   }
 

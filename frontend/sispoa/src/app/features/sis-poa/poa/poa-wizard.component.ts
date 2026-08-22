@@ -4,6 +4,7 @@ import {
   Observable, catchError, concatMap, from, map, of, switchMap, toArray,
 } from 'rxjs';
 import { ApiService } from '../../../core/services/api.service';
+import { GestionHabilitadaService } from '../../../core/services/gestion-habilitada.service';
 import { PoaBorradoresService } from './poa-borradores.service';
 import {
   ANCHO_ACTIVIDAD,
@@ -86,7 +87,8 @@ import {
         </p>
         <div class="form-2col">
           <div class="field"><label>Gestión fiscal a programar</label>
-            <input [(ngModel)]="gestion" type="number" class="form-control"></div>
+            <input [ngModel]="gestion" name="gestion" type="number" class="form-control" readonly
+                   title="La fija la habilitación de gestión fiscal"></div>
           <div class="field">
             <label>Acción institucional específica (producto institucional del PEI)</label>
             <select [(ngModel)]="productoSel" class="form-control" (change)="heredarDelPei()">
@@ -467,7 +469,9 @@ export class PoaWizardComponent implements OnInit {
   paso = 0;
   pasos = ['Articulación PEI', 'Área responsable', 'Acciones', 'Operaciones', 'Registro'];
 
-  gestion = 2026;
+  /** La gestión sobre la que se programa la fija el candado (ADR-007).
+   *  Estaba clavada en 2026, que es una gestión CERRADA. */
+  gestion = 0;
   articulacion: ArticulacionPeiPoa = articulacionVacia();
   acciones: AccionCortoPlazoForm[] = [accionVacia()];
 
@@ -497,11 +501,13 @@ export class PoaWizardComponent implements OnInit {
     private borradores: PoaBorradoresService,
     private ruta: ActivatedRoute,
     private cdr: ChangeDetectorRef,
+    private gestionActiva: GestionHabilitadaService,
   ) {}
 
   get modoEdicion(): boolean { return !!this.borradorId; }
 
   ngOnInit(): void {
+    this.gestion = this.gestionActiva.anio() ?? 0;
     this.cargarProductosPei();
     this.cargarResultadosPei();
     this.cargarUnidades();

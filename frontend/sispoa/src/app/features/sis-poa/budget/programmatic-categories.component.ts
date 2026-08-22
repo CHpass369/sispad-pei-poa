@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { BudgetService, CategoriaProgramaticaTecho, CategoriaNodo } from './budget.service';
+import { GestionHabilitadaService } from '../../../core/services/gestion-habilitada.service';
 
 @Component({
   standalone: false,
@@ -8,11 +9,7 @@ import { BudgetService, CategoriaProgramaticaTecho, CategoriaNodo } from './budg
     <div class="page-header">
       <h2>Categorías Programáticas</h2>
       <div class="page-header-actions">
-        <select class="form-control" [ngModel]="gestionSeleccionada" (ngModelChange)="cargar($event)" style="width:auto">
-          @for (g of gestiones; track g) {
-            <option [ngValue]="g.id">{{ g.anio }}</option>
-          }
-        </select>
+        <span class="pastilla-gestion">Gestión {{ gestionAnio }}</span>
         <button class="btn btn-primary" (click)="mostrarFormulario = !mostrarFormulario">
           {{ mostrarFormulario ? 'Cancelar' : 'Nueva categoría' }}
         </button>
@@ -100,8 +97,8 @@ import { BudgetService, CategoriaProgramaticaTecho, CategoriaNodo } from './budg
     `,
 })
 export class ProgrammaticCategoriesComponent implements OnInit {
-  gestiones: { id: number; anio: number }[] = [];
-  gestionSeleccionada: number | null = null;
+  /** Id de la gestión habilitada. Era `Number(g.id)` sobre un UUID: NaN. */
+  gestionSeleccionada: string | null = null;
   categorias: CategoriaProgramaticaTecho[] = [];
   cargando = false;
   guardando = false;
@@ -110,19 +107,26 @@ export class ProgrammaticCategoriesComponent implements OnInit {
 
   nueva = { codigo: '', denominacion: '', nivel: 'PROGRAMA', parent: null as number | null };
 
-  constructor(private budget: BudgetService) {}
+  constructor(private budget: BudgetService,
+              private gestionActiva: GestionHabilitadaService) {}
 
   ngOnInit(): void {
-    this.budget.listar({}).subscribe((res) => {
-      this.gestiones = res.results.map((g) => ({ id: Number(g.id), anio: g.anio }));
-      if (this.gestiones.length) {
-        this.gestionSeleccionada = this.gestiones[0].id;
-        this.cargar(this.gestionSeleccionada);
-      }
-    });
+    // El catálogo programático es de la gestión habilitada (ADR-007). El
+    // selector anterior hacía `Number(g.id)` sobre un UUID y mandaba NaN.
+    const habilitada = this.gestionActiva.gestion();
+    if (!habilitada) {
+      this.error = 'No hay una gestión fiscal habilitada.';
+      return;
+    }
+    this.cargar(habilitada.id);
   }
 
-  cargar(gestionId: number): void {
+  /** Año de la gestión habilitada, para el encabezado. */
+  get gestionAnio(): number | null {
+    return this.gestionActiva.anio();
+  }
+
+  cargar(gestionId: string): void {
     this.gestionSeleccionada = gestionId;
     this.cargando = true;
     this.error = '';
@@ -166,17 +170,35 @@ export class ProgrammaticCategoriesComponent implements OnInit {
     });
   }
 
+  /**
+   * Duplica la categoría a otra gestión.
+   *
+   * Es la excepción deliberada al candado: así se siembra el catálogo de la
+   * gestión SIGUIENTE antes de habilitarla. La gestión destino se resuelve
+   * contra la API en vez de contra una lista local, que era lo único que
+   * seguía obligando a esta pantalla a traerse todas las gestiones.
+   */
   duplicar(c: CategoriaProgramaticaTecho): void {
     const destino = prompt('Gestión destino (año):', '');
     if (!destino) return;
-    const gestionDestino = this.gestiones.find((g) => String(g.anio) === destino)?.id;
-    if (!gestionDestino) {
-      this.error = `No existe gestión ${destino}.`;
+    const anio = Number(destino);
+    if (!Number.isInteger(anio)) {
+      this.error = `«${destino}» no es un año válido.`;
       return;
     }
-    this.budget.duplicarCategoria(c.id, gestionDestino).subscribe({
-      next: () => this.cargar(this.gestionSeleccionada!),
-      error: (e) => (this.error = e?.error?.error?.detail ?? 'Error al duplicar'),
+    this.budget.listar({ anio }).subscribe({
+      next: (res) => {
+        const gestionDestino = res.results[0]?.id;
+        if (!gestionDestino) {
+          this.error = `No existe gestión ${destino}.`;
+          return;
+        }
+        this.budget.duplicarCategoria(c.id, gestionDestino).subscribe({
+          next: () => this.cargar(this.gestionSeleccionada!),
+          error: (e) => (this.error = e?.error?.error?.detail ?? 'Error al duplicar'),
+        });
+      },
+      error: () => (this.error = `No se pudo resolver la gestión ${destino}.`),
     });
   }
 }

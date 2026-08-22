@@ -4,6 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { of, throwError } from 'rxjs';
 import { ProgrammaticCategoriesComponent } from './programmatic-categories.component';
 import { BudgetService, CategoriaProgramaticaTecho } from './budget.service';
+import { GestionHabilitadaService } from '../../../core/services/gestion-habilitada.service';
+import { gestionHabilitadaStub } from '../../../core/testing/gestion-habilitada.stub';
 
 describe('ProgrammaticCategoriesComponent', () => {
   let component: ProgrammaticCategoriesComponent;
@@ -28,7 +30,10 @@ describe('ProgrammaticCategoriesComponent', () => {
     await TestBed.configureTestingModule({
       declarations: [ProgrammaticCategoriesComponent],
       imports: [HttpClientTestingModule, FormsModule],
-      providers: [{ provide: BudgetService, useValue: serviceSpy }],
+      providers: [
+        { provide: BudgetService, useValue: serviceSpy },
+        { provide: GestionHabilitadaService, useValue: gestionHabilitadaStub(2027) },
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(ProgrammaticCategoriesComponent);
@@ -40,18 +45,23 @@ describe('ProgrammaticCategoriesComponent', () => {
     expect(component).toBeTruthy();
   });
 
-  it('should load fiscal years and categories on init', () => {
-    expect(serviceSpy.listar).toHaveBeenCalled();
-    expect(serviceSpy.listarCategorias).toHaveBeenCalledWith({ gestion: 2027 });
+  it('carga las categorías de la gestión del candado, sin listar gestiones', () => {
+    // El desplegable anterior hacía `Number(g.id)` sobre un UUID y mandaba
+    // NaN; ahora el id sale del candado y viaja tal cual.
+    expect(serviceSpy.listar).not.toHaveBeenCalled();
+    expect(serviceSpy.listarCategorias).toHaveBeenCalledWith({
+      gestion: 'gestion-habilitada-stub',
+    });
     expect(component.categorias.length).toBe(1);
   });
 
   it('should create a category and reload', () => {
-    component.gestionSeleccionada = 2027;
+    component.gestionSeleccionada = 'gestion-habilitada-stub';
     component.nueva = { codigo: '098', denominacion: 'Educación', nivel: 'PROGRAMA', parent: null };
     component.crear();
     expect(serviceSpy.crearCategoria).toHaveBeenCalledWith({
-      gestion: 2027, codigo: '098', denominacion: 'Educación', nivel: 'PROGRAMA', parent: null,
+      gestion: 'gestion-habilitada-stub', codigo: '098',
+      denominacion: 'Educación', nivel: 'PROGRAMA', parent: null,
     });
     expect(component.mostrarFormulario).toBeFalse();
   });
@@ -60,7 +70,7 @@ describe('ProgrammaticCategoriesComponent', () => {
     serviceSpy.crearCategoria.and.returnValue(throwError(() => ({
       error: { error: { detail: 'No se puede crear' } },
     })));
-    component.gestionSeleccionada = 2027;
+    component.gestionSeleccionada = 'gestion-habilitada-stub';
     component.nueva = { codigo: '099', denominacion: 'X', nivel: 'PROGRAMA', parent: null };
     component.crear();
     expect(component.error).toContain('No se puede crear');

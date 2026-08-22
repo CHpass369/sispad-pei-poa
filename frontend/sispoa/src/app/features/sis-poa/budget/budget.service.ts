@@ -62,7 +62,8 @@ export interface CategoriaProgramaticaTecho {
 }
 
 export interface ProgrammaticCategoryInput {
-  gestion: number;
+  /** UUID de la gestión, o el año. El backend acepta ambos. */
+  gestion: string | number;
   codigo: string;
   denominacion: string;
   nivel: string;
@@ -866,7 +867,7 @@ export class BudgetService {
 
   // -- Categorías programáticas y catálogos (Fase 3) -------------------------
 
-  listarCategorias(params?: { gestion?: number; nivel?: string }): Observable<Paginado<CategoriaProgramaticaTecho>> {
+  listarCategorias(params?: { gestion?: string | number; nivel?: string }): Observable<Paginado<CategoriaProgramaticaTecho>> {
     return this.http.get<Paginado<CategoriaProgramaticaTecho>>(
       `${this.base}/programmatic-categories/`,
       { params: this.params(params) },
@@ -883,7 +884,7 @@ export class BudgetService {
     });
   }
 
-  duplicarCategoria(id: number, gestionDestino: number): Observable<unknown> {
+  duplicarCategoria(id: number, gestionDestino: string | number): Observable<unknown> {
     return this.http.post(`${this.base}/programmatic-categories/${id}/duplicar_a_gestion/`, {
       gestion_destino: gestionDestino,
     });

@@ -4,6 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { of, throwError } from 'rxjs';
 import { ImportsComponent } from './imports.component';
 import { Importacion, BudgetService, FiscalYear } from './budget.service';
+import { GestionHabilitadaService } from '../../../core/services/gestion-habilitada.service';
+import { gestionHabilitadaStub } from '../../../core/testing/gestion-habilitada.stub';
 
 describe('ImportsComponent', () => {
   let component: ImportsComponent;
@@ -56,7 +58,13 @@ describe('ImportsComponent', () => {
     await TestBed.configureTestingModule({
       declarations: [ImportsComponent],
       imports: [HttpClientTestingModule, FormsModule],
-      providers: [{ provide: BudgetService, useValue: serviceSpy }],
+      providers: [
+        { provide: BudgetService, useValue: serviceSpy },
+        {
+          provide: GestionHabilitadaService,
+          useValue: gestionHabilitadaStub(2030, '2030'),
+        },
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(ImportsComponent);
@@ -68,10 +76,12 @@ describe('ImportsComponent', () => {
     expect(component).toBeTruthy();
   });
 
-  it('should load fiscal years on init', () => {
-    expect(serviceSpy.listar).toHaveBeenCalled();
-    expect(component.gestiones.length).toBe(1);
+  it('toma la gestión del candado sin pedir la lista de gestiones', () => {
+    // Con candado duro no hay nada que elegir: la pantalla no lista gestiones
+    // (ADR-007), y por eso tampoco puede autoseleccionar la equivocada.
+    expect(serviceSpy.listar).not.toHaveBeenCalled();
     expect(component.gestionSeleccionada).toBe('2030');
+    expect(component.gestionAnio).toBe(2030);
   });
 
   it('should move through wizard steps on upload', () => {

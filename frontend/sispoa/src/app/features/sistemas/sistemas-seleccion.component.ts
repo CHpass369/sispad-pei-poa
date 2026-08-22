@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { PermissionsService } from '../../core/services/permissions.service';
+import { GestionHabilitadaService } from '../../core/services/gestion-habilitada.service';
 
 interface Sistema {
   codigo: string;
@@ -58,7 +59,7 @@ interface Sistema {
 
       <footer class="foot">
         <span>Plataforma Integral de Planificación · GAM Sacaba</span>
-        <span class="mono">Gestión 2027 · RM N° 271/2026 · pip_core</span>
+        <span class="mono">Gestión {{ gestionAnio ?? 'sin habilitar' }} · pip_core</span>
       </footer>
     </div>
     `,
@@ -150,7 +151,12 @@ export class SistemasSeleccionComponent implements OnInit {
   sistemas: (Sistema & { modulos: string[] })[] = [];
   sinAcceso = false;
 
-  constructor(private permissions: PermissionsService) {}
+  constructor(private permissions: PermissionsService,
+              private gestionActiva: GestionHabilitadaService) {}
+
+  /** El pie mostraba «Gestión 2027 · RM N° 271/2026» fijo: al cambiar de
+   *  gestión anunciaba la anterior, y la RM tampoco la seguía. */
+  get gestionAnio(): number | null { return this.gestionActiva.anio(); }
 
   ngOnInit(): void {
     const config = [

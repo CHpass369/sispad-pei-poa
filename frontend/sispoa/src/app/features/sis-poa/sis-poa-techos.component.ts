@@ -1,10 +1,10 @@
 import { Component, OnInit } from '@angular/core';
 import { PermissionsService } from '../../core/services/permissions.service';
+import { GestionHabilitadaService } from '../../core/services/gestion-habilitada.service';
 import {
   BudgetService,
   DetalleCatalogo,
   TechoDirectivo,
-  FiscalYear,
 } from './budget/budget.service';
 
 const ORIGENES = [
@@ -33,12 +33,7 @@ const ORIGENES = [
       <form (ngSubmit)="crear()" class="card form-inline">
         <div class="campo">
           <label>Gestión</label>
-          <select [(ngModel)]="form.gestion" name="g" required class="input">
-            <option value="" disabled>Seleccione...</option>
-            @for (gf of gestiones; track gf) {
-              <option [value]="gf.id">{{ gf.anio }}</option>
-            }
-          </select>
+          <span class="pastilla-gestion">Gestión {{ gestionAnio }}</span>
         </div>
         <div class="campo">
           <label>Origen</label>
@@ -119,7 +114,6 @@ const ORIGENES = [
 })
 export class SisPoaTechosComponent implements OnInit {
   techos: TechoDirectivo[] = [];
-  gestiones: FiscalYear[] = [];
   fuentes: DetalleCatalogo[] = [];
   cargando = true;
   error = '';
@@ -133,23 +127,22 @@ export class SisPoaTechosComponent implements OnInit {
   constructor(
     private service: BudgetService,
     private permissions: PermissionsService,
+    private gestionActiva: GestionHabilitadaService,
   ) {}
+
+  /** Año de la gestión habilitada, para el encabezado del formulario. */
+  get gestionAnio(): number | null { return this.gestionActiva.anio(); }
 
   get puedeGestionar(): boolean {
     return this.permissions.hasAnyCapability(['sis_poa.budget.manage', 'sis_poa.formulate']);
   }
 
   ngOnInit(): void {
+    // El techo se crea sobre la gestión habilitada: no hay desplegable que
+    // elegir ni lista que traer (ADR-007).
+    this.form.gestion = this.gestionActiva.gestion()?.id ?? null;
     this.cargar();
-    this.cargarGestiones();
     this.cargarFuentes();
-  }
-
-  private cargarGestiones(): void {
-    this.service.listar().subscribe({
-      next: (data) => { this.gestiones = data.results; },
-      error: () => undefined,
-    });
   }
 
   private cargarFuentes(): void {

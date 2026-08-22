@@ -14,6 +14,8 @@ import {
   ValidacionDistribucion,
 } from './budget.service';
 import { MonedaPipe } from './moneda.pipe';
+import { GestionHabilitadaService } from '../../../core/services/gestion-habilitada.service';
+import { gestionHabilitadaStub } from '../../../core/testing/gestion-habilitada.stub';
 
 describe('DistributionComponent', () => {
   let component: DistributionComponent;
@@ -113,7 +115,10 @@ describe('DistributionComponent', () => {
     await TestBed.configureTestingModule({
       declarations: [DistributionComponent, MonedaPipe],
       imports: [HttpClientTestingModule, FormsModule],
-      providers: [{ provide: BudgetService, useValue: serviceSpy }],
+      providers: [
+        { provide: GestionHabilitadaService, useValue: gestionHabilitadaStub(2030, '2030') },
+        { provide: BudgetService, useValue: serviceSpy },
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(DistributionComponent);
@@ -126,7 +131,7 @@ describe('DistributionComponent', () => {
   });
 
   it('should load summary and aperturas on init', () => {
-    expect(serviceSpy.listar).toHaveBeenCalled();
+    expect(serviceSpy.listar).not.toHaveBeenCalled();
     expect(serviceSpy.resumenDistribucion).toHaveBeenCalledWith('2030');
     expect(serviceSpy.listarAperturas).toHaveBeenCalledWith({ gestion: '2030' });
     expect(component.resumen?.techo_distribuible).toBe('1500.00');

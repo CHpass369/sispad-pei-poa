@@ -4,6 +4,7 @@ import { Subject, filter, takeUntil } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
 import { PermissionsService } from '../../core/services/permissions.service';
 import { CapabilitiesService } from '../../core/services/capabilities.service';
+import { GestionHabilitadaService } from '../../core/services/gestion-habilitada.service';
 import { LEGACY_MENU_VISIBLE } from '../../core/config/cutover.config';
 
 interface NavItem {
@@ -112,9 +113,19 @@ const EQUIPO_POA_PE = [...ROLES_POA, ...ROLES_PE, ...ROLES_ADMIN];
         }
       </nav>
       @if (!collapsed) {
-        <div class="sidebar-foot">
+        <div class="sidebar-foot" [class.sin-gestion]="!gestion.hayGestion()">
           <div class="status-dot"></div>
-          <div><strong>Gestión 2027</strong><span>Formulación activa</span></div>
+          @if (gestion.gestion(); as habilitada) {
+            <div>
+              <strong>Gestión {{ habilitada.anio }}</strong>
+              <span>{{ habilitada.estado_display }}</span>
+            </div>
+          } @else {
+            <div>
+              <strong>Sin gestión habilitada</strong>
+              <span>SIS-POA no puede operar</span>
+            </div>
+          }
         </div>
       }
     </aside>
@@ -191,6 +202,10 @@ const EQUIPO_POA_PE = [...ROLES_POA, ...ROLES_PE, ...ROLES_ADMIN];
     }
     .sidebar-foot strong { display: block; color: #CFE3D6; font-size: 11.5px; }
     .sidebar-foot span { font-size: 10px; }
+    /* El pie deja de ser un cartel pintado: si no hay gestión habilitada,
+       SIS-POA está bloqueado y tiene que verse. */
+    .sidebar-foot.sin-gestion .status-dot { background: var(--pip-warn); }
+    .sidebar-foot.sin-gestion strong { color: #F0C674; }
 
     .sidebar-overlay { display: none; }
 
@@ -294,6 +309,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
     public auth: AuthService,
     private permissions: PermissionsService,
     private capabilities: CapabilitiesService,
+    public gestion: GestionHabilitadaService,
     private router: Router,
     private cdr: ChangeDetectorRef,
   ) {}
@@ -307,6 +323,10 @@ export class SidebarComponent implements OnInit, OnDestroy {
     // Menú dinámico: se reconstruye cuando llegan las capacidades (ADR-003)
     this.capabilities.cargadas$.pipe(takeUntil(this.destroy$)).subscribe(() => {
       this.rebuildMenu();
+      this.cdr.markForCheck();
+    });
+    // El pie muestra la gestión habilitada apenas se conoce (ADR-007).
+    this.gestion.cargada$.pipe(takeUntil(this.destroy$)).subscribe(() => {
       this.cdr.markForCheck();
     });
     // Menú contextual por sistema (ventana de selección → módulos del SIS)

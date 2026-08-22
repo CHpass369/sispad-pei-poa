@@ -148,7 +148,9 @@ import {
 export class PoauMatrizViewerComponent {
   @Input() filas: FilaMatrizPoau[] = [];
   @Input() hallazgos: Hallazgo[] = [];
-  @Input() gestion = 2026;
+  /** La gestión llega del contenedor, que la toma del candado (ADR-007).
+   *  El default era un año literal y sobrevivía si el padre no la pasaba. */
+  @Input() gestion = 0;
 
   vista: 'matriz' = 'matriz';
   meses = MESES;

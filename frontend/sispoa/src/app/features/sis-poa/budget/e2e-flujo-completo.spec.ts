@@ -7,6 +7,8 @@ import {
 import { FormsModule } from '@angular/forms';
 import { RouterTestingModule } from '@angular/router/testing';
 import { PermissionsService } from '../../../core/services/permissions.service';
+import { GestionHabilitadaService } from '../../../core/services/gestion-habilitada.service';
+import { gestionHabilitadaStub } from '../../../core/testing/gestion-habilitada.stub';
 import {
   Apertura,
   CatalogoOpciones,
@@ -369,7 +371,11 @@ describe('E2E UI: flujo completo presupuestario', () => {
         MonedaPipe,
       ],
       imports: [FormsModule, HttpClientTestingModule, RouterTestingModule],
-      providers: [{ provide: PermissionsService, useValue: permissionsSpy }],
+      providers: [
+        { provide: PermissionsService, useValue: permissionsSpy },
+        // El candado se carga al arranque de la app, no por pantalla.
+        { provide: GestionHabilitadaService, useValue: gestionHabilitadaStub(2027, '2027') },
+      ],
     }).compileComponents();
 
     httpMock = TestBed.inject(HttpTestingController);
@@ -425,15 +431,14 @@ describe('E2E UI: flujo completo presupuestario', () => {
     const techo = fixtureTecho.componentInstance;
     fixtureTecho.detectChanges(); // cargar(): listarTechos + listar
 
-    // Sin techos todavía: lista vacía + gestiones cargadas.
+    // Sin techos todavía. Ya no se pide la lista de gestiones: la del
+    // candado ya está cargada (ADR-007).
     flush(`${BASE}/directive-ceilings/`, { count: 0, results: [] });
-    flush(`${BASE}/fiscal-years/`, { count: 1, results: [gestionHabilitada] });
     fixtureTecho.detectChanges();
 
-    expect(techo.gestiones.length).toBe(1);
+    expect(techo.gestionAnio).toBe(2027);
 
-    // Crear el techo directivo para la gestión 2027 (BORRADOR v1).
-    techo.gestionNueva = '2027';
+    // El techo se crea sobre la gestión habilitada, sin elegirla.
     clickBoton(fixtureTecho, 'Nuevo techo');
 
     const reqCrearTecho = httpMock.expectOne(
@@ -460,7 +465,7 @@ describe('E2E UI: flujo completo presupuestario', () => {
         ),
       ],
     });
-    flush(`${BASE}/fiscal-years/`, { count: 1, results: [gestionHabilitada] });
+    // Ya no se recarga la lista de gestiones: `cargar()` solo trae los techos.
     flush(`${BASE}/directive-ceilings/7/`, {
       ...techoMock(
         'BORRADOR',
@@ -673,9 +678,8 @@ describe('E2E UI: flujo completo presupuestario', () => {
     // ===================================================================
     const fixtureCat = TestBed.createComponent(ProgrammaticCategoriesComponent);
     const categorias = fixtureCat.componentInstance;
-    fixtureCat.detectChanges(); // ngOnInit -> listar()
+    fixtureCat.detectChanges(); // ngOnInit -> cargar() con la gestión del candado
 
-    flush(`${BASE}/fiscal-years/`, { count: 1, results: [gestionHabilitada] });
     flush(`${BASE}/programmatic-categories/`, {
       count: 2,
       results: [catPrograma, catSubprograma],
@@ -714,9 +718,8 @@ describe('E2E UI: flujo completo presupuestario', () => {
 
     const fixtureDist = TestBed.createComponent(DistributionComponent);
     const distribucion = fixtureDist.componentInstance;
-    fixtureDist.detectChanges(); // ngOnInit -> listar()
+    fixtureDist.detectChanges(); // ngOnInit -> cargar() con la gestión del candado
 
-    flush(`${BASE}/fiscal-years/`, { count: 1, results: [gestionHabilitada] });
     flushCargaDistribucion();
     fixtureDist.detectChanges();
 

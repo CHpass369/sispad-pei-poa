@@ -3,6 +3,8 @@ import { HttpClientTestingModule, HttpTestingController } from '@angular/common/
 import { RouterTestingModule } from '@angular/router/testing';
 import { FormsModule } from '@angular/forms';
 import { ActaFormComponent } from './acta-form.component';
+import { GestionHabilitadaService } from '../../core/services/gestion-habilitada.service';
+import { gestionHabilitadaStub } from '../../core/testing/gestion-habilitada.stub';
 
 describe('ActaFormComponent · buscador y carga de proyectos', () => {
   let fixture: ComponentFixture<ActaFormComponent>;
@@ -29,6 +31,9 @@ describe('ActaFormComponent · buscador y carga de proyectos', () => {
     TestBed.configureTestingModule({
       imports: [HttpClientTestingModule, RouterTestingModule, FormsModule],
       declarations: [ActaFormComponent],
+      providers: [
+        { provide: GestionHabilitadaService, useValue: gestionHabilitadaStub(2027) },
+      ],
     });
     fixture = TestBed.createComponent(ActaFormComponent);
     componente = fixture.componentInstance;
@@ -147,6 +152,9 @@ describe('ActaFormComponent · techos por FF/OF', () => {
     TestBed.configureTestingModule({
       imports: [HttpClientTestingModule, RouterTestingModule, FormsModule],
       declarations: [ActaFormComponent],
+      providers: [
+        { provide: GestionHabilitadaService, useValue: gestionHabilitadaStub(2027) },
+      ],
     });
     componente = TestBed.createComponent(ActaFormComponent).componentInstance;
     http = TestBed.inject(HttpTestingController);
@@ -173,7 +181,7 @@ describe('ActaFormComponent · techos por FF/OF', () => {
     par_elegido: par, fuente: null, organismo: null,
   } as any);
 
-  it('pide el saldo de la gestión del acta y sin excluir nada al crear', () => {
+  it('pide el saldo sin mandar la gestión y sin excluir nada al crear', () => {
     // Al editar sí se excluye el acta: si no, sus propios montos se
     // descontarían del techo que se le muestra al técnico.
     const otro = TestBed.createComponent(ActaFormComponent).componentInstance;
@@ -181,8 +189,11 @@ describe('ActaFormComponent · techos por FF/OF', () => {
     http.expectOne(r => r.url.includes('/distritos/')).flush({ results: [] });
     http.expectOne(r => r.url.includes('categorias-programaticas')).flush([]);
     const pedido = http.expectOne(r => r.url.includes('/saldos/'));
-    expect(pedido.request.params.get('gestion')).toBe('2027');
+    // La gestión ya no viaja: el saldo es el de la gestión habilitada, que
+    // resuelve el backend desde el candado (ADR-007).
+    expect(pedido.request.params.get('gestion')).toBeNull();
     expect(pedido.request.params.get('excluir_acta')).toBeNull();
+    expect(otro.acta.gestion).toBe(2027);
     pedido.flush({ gestion: 2027, total_techo: 0, total_disponible: 0, pares: [] });
     expect(componente.pares.length).toBe(2);
   });

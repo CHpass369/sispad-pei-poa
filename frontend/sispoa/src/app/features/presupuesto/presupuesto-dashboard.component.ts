@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { ApiService } from '../../core/services/api.service';
+import { GestionHabilitadaService } from '../../core/services/gestion-habilitada.service';
 
 @Component({
   standalone: false,
@@ -114,14 +115,16 @@ import { ApiService } from '../../core/services/api.service';
   `]
 })
 export class PresupuestoDashboardComponent implements OnInit {
-  gestion = 2027;
+  /** La gestión la fija el candado de SIS-POA (ADR-007). */
+  get gestion(): number | null { return this.gestionActiva.anio(); }
   data: any = null;
   error = '';
 
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService,
+              private gestionActiva: GestionHabilitadaService) {}
 
   ngOnInit(): void {
-    this.api.get<any>('/dashboard/presupuesto/', { gestion: this.gestion }).subscribe({
+    this.api.get<any>('/dashboard/presupuesto/').subscribe({
       next: d => this.data = d,
       error: e => this.error = 'Error al cargar datos presupuestarios: ' + (e.message || e),
     });
