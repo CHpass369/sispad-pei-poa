@@ -31,6 +31,10 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from apps.accounts.models import AlcanceOrganizacional, Rol
 from apps.accounts.permissions import TieneCapacidad
+from apps.accounts.services import (
+    SISTEMAS_POR_ROL,
+    puede_administrar_sistema,
+)
 from apps.accounts.serializers import (
     AprobacionSerializer,
     RegistroPublicoSerializer,
@@ -43,27 +47,6 @@ Usuario = get_user_model()
 
 # Roles cuyo alcance al aprobar siempre es GLOBAL.
 ROLES_SCOPE_GLOBAL = {'JEFE_POA', 'SUPER_ADMIN'}
-SISTEMAS_POR_ROL = {
-    'JEFE_PE': {'sis_pe'},
-    'JEFE_POA': {'sis_poa'},
-    'SUPER_ADMIN': {'sis_pe', 'sis_poa'},
-}
-
-
-def _puede_aprobar_sistema(usuario, sistema):
-    """Aplica los límites explícitos de las jefaturas PE/POA."""
-    if usuario.is_superuser:
-        return True
-    codigos = set(
-        usuario.roles.filter(activo=True)
-        .values_list('codigo', flat=True)
-    )
-    sistemas = set()
-    for codigo in codigos & SISTEMAS_POR_ROL.keys():
-        sistemas.update(SISTEMAS_POR_ROL[codigo])
-    return not sistemas or sistema in sistemas
-
-
 class RegistroPublicoView(APIView):
     """POST /api/v2/auth/register/ — alta pública, queda PENDIENTE."""
 
@@ -147,7 +130,7 @@ class AprobarUsuarioView(APIView):
         data = serializer.validated_data
 
         sistema = data['sistema']
-        if not _puede_aprobar_sistema(request.user, sistema):
+        if not puede_administrar_sistema(request.user, sistema):
             return Response(
                 {'error': f"No puede aprobar usuarios para '{sistema}'."},
                 status=status.HTTP_403_FORBIDDEN,

@@ -6,6 +6,7 @@ from apps.gestion.models import GestionFiscal
 from apps.organizacion.models import UnidadOrganizacional
 
 from .models import AlcanceOrganizacional, Usuario, Rol
+from .services import sistemas_de_rol
 
 
 class RolSerializer(serializers.ModelSerializer):
@@ -142,3 +143,109 @@ class SolicitudSerializer(serializers.ModelSerializer):
         if alcance is None:
             return None
         return {'id': str(alcance.unidad_id), 'nombre': alcance.unidad.nombre}
+
+
+# --- F3b1: lectura y actualización administrativa de usuarios ---------------
+
+
+class UsuarioAdminFilterSerializer(serializers.Serializer):
+    search = serializers.CharField(required=False, allow_blank=True)
+    organizational_unit = serializers.UUIDField(required=False)
+    role = serializers.CharField(required=False, allow_blank=False)
+    system = serializers.ChoiceField(
+        choices=['sis_pe', 'sis_poa'],
+        required=False,
+    )
+    state = serializers.ChoiceField(
+        choices=Usuario.ESTADO_CHOICES,
+        required=False,
+    )
+
+
+class UsuarioAdminUpdateSerializer(serializers.ModelSerializer):
+    """PATCH estricto: F3b2 administrará roles, permisos y alcances."""
+
+    class Meta:
+        model = Usuario
+        fields = ['first_name', 'last_name', 'cargo', 'telefono']
+        extra_kwargs = {
+            field: {'required': False}
+            for field in fields
+        }
+
+    def to_internal_value(self, data):
+        desconocidos = set(data) - set(self.fields)
+        if desconocidos:
+            raise serializers.ValidationError({
+                campo: ['Este campo no puede modificarse en este endpoint.']
+                for campo in sorted(desconocidos)
+            })
+        return super().to_internal_value(data)
+
+
+class UsuarioAdminReadSerializer(serializers.ModelSerializer):
+    roles = serializers.SerializerMethodField()
+    alcances = serializers.SerializerMethodField()
+    sistemas = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Usuario
+        fields = [
+            'id', 'first_name', 'last_name', 'email', 'cargo',
+            'estado', 'activo', 'is_active', 'last_login',
+            'roles', 'alcances', 'sistemas',
+        ]
+
+    @staticmethod
+    def _roles(obj):
+        roles = getattr(obj, 'roles_admin', None)
+        if roles is None:
+            roles = obj.roles.filter(activo=True).prefetch_related('capacidades')
+        return roles
+
+    @staticmethod
+    def _alcances(obj):
+        alcances = getattr(obj, 'alcances_admin', None)
+        if alcances is None:
+            alcances = (
+                obj.alcances_organizacionales.filter(activo=True)
+                .select_related('rol', 'unidad', 'fiscal_year')
+                .prefetch_related('rol__capacidades')
+            )
+        return alcances
+
+    def get_roles(self, obj):
+        return [
+            {
+                'codigo': rol.codigo,
+                'nombre': rol.nombre,
+                'sistemas': sorted(sistemas_de_rol(rol)),
+            }
+            for rol in self._roles(obj)
+        ]
+
+    def get_alcances(self, obj):
+        return [
+            {
+                'rol': alcance.rol.codigo if alcance.rol else None,
+                'unidad': {
+                    'id': str(alcance.unidad_id),
+                    'codigo': alcance.unidad.codigo,
+                    'nombre': alcance.unidad.nombre,
+                },
+                'scope_type': alcance.scope_type,
+                'fiscal_year': (
+                    str(alcance.fiscal_year_id)
+                    if alcance.fiscal_year_id else None
+                ),
+            }
+            for alcance in self._alcances(obj)
+        ]
+
+    def get_sistemas(self, obj):
+        sistemas = set()
+        for rol in self._roles(obj):
+            sistemas.update(sistemas_de_rol(rol))
+        for alcance in self._alcances(obj):
+            sistemas.update(sistemas_de_rol(alcance.rol))
+        return sorted(sistemas)
