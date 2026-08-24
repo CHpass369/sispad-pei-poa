@@ -9,12 +9,20 @@ Se incluyen sin prefijo adicional desde config.urls_v2, de modo que quedan:
 - /api/v2/admin/users/<uuid>/activate/
 - /api/v2/admin/users/<uuid>/deactivate/
 - /api/v2/admin/solicitudes/
+- /api/v2/admin/roles/
+- /api/v2/admin/roles/<uuid>/
+- /api/v2/admin/roles/<uuid>/capabilities/
+- /api/v2/admin/capabilities/
 """
 from django.urls import path
 
 from apps.accounts.views_admin import (
     ActivarUsuarioView,
+    AsignarCapacidadesRolView,
+    CapacidadAdminListView,
     DesactivarUsuarioView,
+    RolAdminDetailView,
+    RolAdminListCreateView,
     UsuarioAdminDetailView,
     UsuarioAdminListView,
 )
@@ -52,5 +60,22 @@ urlpatterns = [
     path(
         'admin/solicitudes/', SolicitudesListView.as_view(),
         name='v2-admin-solicitudes',
+    ),
+    path(
+        'admin/roles/', RolAdminListCreateView.as_view(),
+        name='v2-admin-roles',
+    ),
+    path(
+        'admin/roles/<uuid:pk>/', RolAdminDetailView.as_view(),
+        name='v2-admin-role-detail',
+    ),
+    path(
+        'admin/roles/<uuid:pk>/capabilities/',
+        AsignarCapacidadesRolView.as_view(),
+        name='v2-admin-role-capabilities',
+    ),
+    path(
+        'admin/capabilities/', CapacidadAdminListView.as_view(),
+        name='v2-admin-capabilities',
     ),
 ]

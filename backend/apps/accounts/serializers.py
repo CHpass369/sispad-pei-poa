@@ -5,8 +5,16 @@ from rest_framework import serializers
 from apps.gestion.models import GestionFiscal
 from apps.organizacion.models import UnidadOrganizacional
 
-from .models import AlcanceOrganizacional, Usuario, Rol
-from .services import sistemas_de_rol
+from .models import AlcanceOrganizacional, Capacidad, Usuario, Rol
+from .permissions import listar_capacidades
+from .services import (
+    CODIGOS_ROLES_BASE,
+    SISTEMAS_CAPACIDADES_ASIGNABLES,
+    sistema_efectivo_capacidad,
+    sistemas_administrables,
+    sistemas_de_rol,
+    sistemas_efectivos_de_rol,
+)
 
 
 class RolSerializer(serializers.ModelSerializer):
@@ -249,3 +257,181 @@ class UsuarioAdminReadSerializer(serializers.ModelSerializer):
         for alcance in self._alcances(obj):
             sistemas.update(sistemas_de_rol(alcance.rol))
         return sorted(sistemas)
+
+
+# --- F3b2a: roles personalizados y catálogo de capacidades ------------------
+
+
+class RolAdminFilterSerializer(serializers.Serializer):
+    search = serializers.CharField(required=False, allow_blank=True)
+    system = serializers.ChoiceField(
+        choices=['sis_pe', 'sis_poa'], required=False,
+    )
+    active = serializers.BooleanField(required=False)
+    include_deprecated = serializers.BooleanField(required=False, default=False)
+
+
+class CapacidadAdminFilterSerializer(serializers.Serializer):
+    search = serializers.CharField(required=False, allow_blank=True)
+    system = serializers.ChoiceField(
+        choices=['sis_pe', 'sis_poa'], required=False,
+    )
+    active = serializers.BooleanField(required=False)
+
+
+class CapacidadAdminReadSerializer(serializers.ModelSerializer):
+    sistema = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Capacidad
+        fields = [
+            'id', 'codigo', 'nombre', 'descripcion', 'sistema', 'activo',
+            'orden',
+        ]
+
+    def get_sistema(self, obj):
+        return sistema_efectivo_capacidad(obj)
+
+
+class RolAdminReadSerializer(serializers.ModelSerializer):
+    sistemas = serializers.SerializerMethodField()
+    capacidades = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Rol
+        fields = [
+            'id', 'codigo', 'nombre', 'descripcion', 'activo', 'es_sistema',
+            'deprecated', 'orden', 'sistemas', 'capacidades',
+        ]
+
+    def get_sistemas(self, obj):
+        return sorted(
+            sistema
+            for sistema in sistemas_efectivos_de_rol(obj)
+            if sistema != 'sis_pro'
+        )
+
+    def get_capacidades(self, obj):
+        capacidades = getattr(obj, 'capacidades_admin', None)
+        if capacidades is None:
+            capacidades = obj.capacidades.order_by('codigo')
+        capacidades = [
+            capacidad
+            for capacidad in capacidades
+            if sistema_efectivo_capacidad(capacidad) != 'sis_pro'
+        ]
+        return CapacidadAdminReadSerializer(capacidades, many=True).data
+
+
+class _StrictFieldsSerializerMixin:
+    def to_internal_value(self, data):
+        desconocidos = set(data) - set(self.fields)
+        if desconocidos:
+            raise serializers.ValidationError({
+                campo: ['Este campo no está permitido.']
+                for campo in sorted(desconocidos)
+            })
+        return super().to_internal_value(data)
+
+
+class RolAdminCreateSerializer(
+    _StrictFieldsSerializerMixin, serializers.ModelSerializer,
+):
+    codigo = serializers.RegexField(r'^[A-Z][A-Z0-9_]{2,49}$')
+
+    class Meta:
+        model = Rol
+        fields = ['codigo', 'nombre', 'descripcion', 'activo']
+        extra_kwargs = {
+            'descripcion': {'required': False, 'allow_blank': True},
+            'activo': {'required': False},
+        }
+
+    def validate_codigo(self, value):
+        if value in CODIGOS_ROLES_BASE or Rol.objects.filter(
+            codigo__iexact=value,
+        ).exists():
+            raise serializers.ValidationError(
+                'El código está reservado o ya existe.',
+            )
+        return value
+
+    def create(self, validated_data):
+        return Rol.objects.create(
+            **validated_data,
+            es_sistema=False,
+            deprecated=False,
+        )
+
+
+class RolAdminUpdateSerializer(
+    _StrictFieldsSerializerMixin, serializers.ModelSerializer,
+):
+    class Meta:
+        model = Rol
+        fields = ['nombre', 'descripcion', 'activo', 'orden']
+        extra_kwargs = {
+            field: {'required': False}
+            for field in fields
+        }
+
+
+class AsignacionCapacidadesRolSerializer(
+    _StrictFieldsSerializerMixin, serializers.Serializer,
+):
+    capability_codes = serializers.ListField(
+        child=serializers.CharField(max_length=100),
+        allow_empty=True,
+    )
+
+    def validate_capability_codes(self, codigos):
+        if len(codigos) != len(set(codigos)):
+            raise serializers.ValidationError(
+                'No se permiten códigos de capacidad duplicados.',
+            )
+
+        capacidades = {
+            capacidad.codigo: capacidad
+            for capacidad in Capacidad.objects.filter(codigo__in=codigos)
+        }
+        faltantes = sorted(set(codigos) - set(capacidades))
+        inactivas = sorted(
+            codigo for codigo, capacidad in capacidades.items()
+            if not capacidad.activo
+        )
+        if faltantes or inactivas:
+            raise serializers.ValidationError(
+                'Todos los códigos deben existir y estar activos.',
+            )
+
+        sistemas = {
+            sistema_efectivo_capacidad(capacidad)
+            for capacidad in capacidades.values()
+        }
+        no_asignables = sistemas - SISTEMAS_CAPACIDADES_ASIGNABLES
+        if no_asignables:
+            raise serializers.ValidationError(
+                'Solo se pueden asignar capacidades SIS-PE, SIS-POA o accounts.',
+            )
+
+        actor = self.context['request'].user
+        if not actor.is_superuser:
+            administrables = sistemas_administrables(actor)
+            if (sistemas & {'sis_pe', 'sis_poa'}) - administrables:
+                raise serializers.ValidationError(
+                    'No puede asignar capacidades fuera de su sistema.',
+                )
+            cuentas_actor = {
+                codigo for codigo in listar_capacidades(actor)
+                if codigo.startswith('accounts.')
+            }
+            cuentas_solicitadas = {
+                codigo for codigo in codigos
+                if codigo.startswith('accounts.')
+            }
+            if not cuentas_solicitadas <= cuentas_actor:
+                raise serializers.ValidationError(
+                    'Solo puede asignar capacidades accounts que posee.',
+                )
+
+        return [capacidades[codigo] for codigo in codigos]

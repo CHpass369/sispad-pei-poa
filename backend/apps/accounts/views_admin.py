@@ -1,10 +1,11 @@
-"""F3b1: lectura, edición y estado de usuarios en API administrativa V2."""
+"""F3b1/F3b2a: administración IAM en API V2."""
 
 import logging
 
 from django.db import transaction
 from django.db.models import Prefetch, Q
 from rest_framework import generics, status
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -18,12 +19,21 @@ from apps.accounts.models import (
 )
 from apps.accounts.permissions import TieneCapacidad
 from apps.accounts.serializers import (
+    AsignacionCapacidadesRolSerializer,
+    CapacidadAdminFilterSerializer,
+    CapacidadAdminReadSerializer,
+    RolAdminCreateSerializer,
+    RolAdminFilterSerializer,
+    RolAdminReadSerializer,
+    RolAdminUpdateSerializer,
     UsuarioAdminFilterSerializer,
     UsuarioAdminReadSerializer,
     UsuarioAdminUpdateSerializer,
 )
 from apps.accounts.services import (
+    limitar_roles_administrables,
     limitar_usuarios_administrables,
+    roles_con_sistema,
     usuarios_con_sistema,
 )
 
@@ -180,3 +190,170 @@ class ActivarUsuarioView(_CambiarEstadoUsuarioView):
 
 class DesactivarUsuarioView(_CambiarEstadoUsuarioView):
     estado = Usuario.ESTADO_INACTIVO
+
+
+def _queryset_rol_admin():
+    capacidades = Prefetch(
+        'capacidades',
+        queryset=Capacidad.objects.order_by('codigo'),
+        to_attr='capacidades_admin',
+    )
+    return Rol.objects.prefetch_related(capacidades)
+
+
+def _filtros_roles(request):
+    filtros = RolAdminFilterSerializer(data=request.query_params)
+    filtros.is_valid(raise_exception=True)
+    data = filtros.validated_data
+    if data['include_deprecated'] and not request.user.is_superuser:
+        raise PermissionDenied(
+            'Solo un superusuario puede incluir roles deprecated.',
+        )
+    return data
+
+
+def _roles_visibles(request):
+    data = _filtros_roles(request)
+    queryset = limitar_roles_administrables(
+        _queryset_rol_admin(), request.user,
+    )
+    if not data['include_deprecated']:
+        queryset = queryset.filter(deprecated=False)
+    if search := data.get('search'):
+        queryset = queryset.filter(
+            Q(codigo__icontains=search)
+            | Q(nombre__icontains=search)
+            | Q(descripcion__icontains=search)
+        )
+    if sistema := data.get('system'):
+        queryset = roles_con_sistema(queryset, sistema)
+    if 'active' in request.query_params:
+        queryset = queryset.filter(activo=data['active'])
+    return queryset.order_by('orden', 'nombre', 'id')
+
+
+class RolAdminListCreateView(generics.ListCreateAPIView):
+    authentication_classes = [JWTAuthentication]
+    pagination_class = PageNumberPagination
+
+    def get_permissions(self):
+        capacidad = (
+            'accounts.rol.create'
+            if self.request.method == 'POST'
+            else 'accounts.rol.view'
+        )
+        return [TieneCapacidad(capacidad)]
+
+    def get_queryset(self):
+        return _roles_visibles(self.request)
+
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return RolAdminCreateSerializer
+        return RolAdminReadSerializer
+
+    def create(self, request, *args, **kwargs):
+        if not request.user.is_superuser:
+            raise PermissionDenied(
+                'Solo un superusuario puede crear roles personalizados.',
+            )
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        rol = serializer.save()
+        rol = _queryset_rol_admin().get(pk=rol.pk)
+        return Response(
+            RolAdminReadSerializer(rol).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class RolAdminDetailView(generics.RetrieveUpdateAPIView):
+    authentication_classes = [JWTAuthentication]
+    http_method_names = ['get', 'patch', 'head', 'options']
+
+    def get_permissions(self):
+        capacidad = (
+            'accounts.rol.edit'
+            if self.request.method == 'PATCH'
+            else 'accounts.rol.view'
+        )
+        return [TieneCapacidad(capacidad)]
+
+    def get_queryset(self):
+        return _roles_visibles(self.request)
+
+    def get_serializer_class(self):
+        if self.request.method == 'PATCH':
+            return RolAdminUpdateSerializer
+        return RolAdminReadSerializer
+
+    def patch(self, request, *args, **kwargs):
+        rol = self.get_object()
+        if rol.es_sistema:
+            raise PermissionDenied('Los roles del sistema son inmutables.')
+        serializer = self.get_serializer(
+            rol, data=request.data, partial=True,
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        actualizado = _queryset_rol_admin().get(pk=rol.pk)
+        return Response(RolAdminReadSerializer(actualizado).data)
+
+
+class AsignarCapacidadesRolView(APIView):
+    authentication_classes = [JWTAuthentication]
+
+    def get_permissions(self):
+        return [TieneCapacidad('accounts.capacidad.assign')]
+
+    @transaction.atomic
+    def put(self, request, pk):
+        try:
+            roles_visibles = limitar_roles_administrables(
+                Rol.objects.filter(deprecated=False), request.user,
+            )
+            rol = roles_visibles.select_for_update().get(pk=pk)
+        except (Rol.DoesNotExist, ValueError):
+            return Response(
+                {'error': 'Rol no encontrado.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        if rol.es_sistema:
+            raise PermissionDenied('Los roles del sistema son inmutables.')
+
+        serializer = AsignacionCapacidadesRolSerializer(
+            data=request.data, context={'request': request},
+        )
+        serializer.is_valid(raise_exception=True)
+        rol.capacidades.set(serializer.validated_data['capability_codes'])
+        actualizado = _queryset_rol_admin().get(pk=rol.pk)
+        return Response(RolAdminReadSerializer(actualizado).data)
+
+
+class CapacidadAdminListView(generics.ListAPIView):
+    serializer_class = CapacidadAdminReadSerializer
+    authentication_classes = [JWTAuthentication]
+    pagination_class = PageNumberPagination
+
+    def get_permissions(self):
+        return [TieneCapacidad('accounts.capacidad.view')]
+
+    def get_queryset(self):
+        filtros = CapacidadAdminFilterSerializer(data=self.request.query_params)
+        filtros.is_valid(raise_exception=True)
+        data = filtros.validated_data
+        queryset = Capacidad.objects.exclude(
+            Q(codigo__istartswith='sis_pro.')
+            | Q(codigo__istartswith='sis-pro.'),
+        )
+        if search := data.get('search'):
+            queryset = queryset.filter(
+                Q(codigo__icontains=search)
+                | Q(nombre__icontains=search)
+                | Q(descripcion__icontains=search)
+            )
+        if sistema := data.get('system'):
+            queryset = queryset.filter(codigo__startswith=f'{sistema}.')
+        if 'active' in self.request.query_params:
+            queryset = queryset.filter(activo=data['active'])
+        return queryset.order_by('codigo', 'id')

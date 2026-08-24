@@ -10,10 +10,19 @@ from apps.accounts.models import AlcanceOrganizacional, Rol
 Usuario = get_user_model()
 
 SISTEMAS_ADMINISTRABLES = {'sis_pe', 'sis_poa'}
+SISTEMAS_CAPACIDADES_ASIGNABLES = SISTEMAS_ADMINISTRABLES | {'accounts'}
 SISTEMAS_POR_ROL = {
     'JEFE_PE': {'sis_pe'},
     'JEFE_POA': {'sis_poa'},
     'SUPER_ADMIN': SISTEMAS_ADMINISTRABLES,
+}
+CODIGOS_ROLES_BASE = {
+    'SUPER_ADMIN',
+    'SECRETARIO_MUNICIPAL',
+    'DIRECTOR',
+    'JEFE_POA',
+    'JEFE_PE',
+    'FORMULADOR_POAU',
 }
 
 
@@ -126,6 +135,30 @@ def sistemas_de_rol(rol):
     }
 
 
+def sistema_efectivo_capacidad(capacidad_o_codigo):
+    """Deriva el sistema desde el código; el campo legacy no es autoridad."""
+    codigo = getattr(capacidad_o_codigo, 'codigo', capacidad_o_codigo)
+    prefijo, separador, _ = str(codigo).partition('.')
+    if not separador:
+        return ''
+    return prefijo.lower().replace('-', '_')
+
+
+def sistemas_efectivos_de_rol(rol):
+    """Namespaces efectivos de las capacidades activas de un rol."""
+    capacidades = getattr(rol, 'capacidades_admin', None)
+    if capacidades is None:
+        capacidades = rol.capacidades.filter(activo=True)
+    sistemas = {
+        sistema_efectivo_capacidad(capacidad)
+        for capacidad in capacidades
+        if capacidad.activo
+    }
+    sistemas.discard('')
+    sistemas.update(sistemas_de_rol(rol))
+    return sistemas
+
+
 def sistemas_administrables(usuario):
     """Límite explícito de SUPER_ADMIN y jefaturas PE/POA."""
     if usuario.is_superuser:
@@ -145,6 +178,43 @@ def sistemas_administrables(usuario):
 
 def puede_administrar_sistema(usuario, sistema):
     return sistema in sistemas_administrables(usuario)
+
+
+def roles_con_sistema(queryset, sistema):
+    """Filtra roles por sistema efectivo, incluyendo los roles base."""
+    codigos_especiales = [
+        codigo
+        for codigo, sistemas in SISTEMAS_POR_ROL.items()
+        if sistema in sistemas
+    ]
+    return queryset.filter(
+        Q(codigo__in=codigos_especiales)
+        | Q(
+            capacidades__activo=True,
+            capacidades__codigo__startswith=f'{sistema}.',
+        ),
+    ).distinct()
+
+
+def limitar_roles_administrables(queryset, administrador):
+    """Oculta a las jefaturas los roles con capacidades del otro sistema."""
+    sistemas = sistemas_administrables(administrador)
+    if sistemas == SISTEMAS_ADMINISTRABLES:
+        return queryset
+
+    sistemas_prohibidos = SISTEMAS_ADMINISTRABLES - sistemas
+    codigos_prohibidos = [
+        codigo
+        for codigo, sistemas_rol in SISTEMAS_POR_ROL.items()
+        if sistemas_rol & sistemas_prohibidos
+    ]
+    restriccion = Q(codigo__in=codigos_prohibidos)
+    for sistema in sistemas_prohibidos:
+        restriccion |= Q(
+            capacidades__activo=True,
+            capacidades__codigo__startswith=f'{sistema}.',
+        )
+    return queryset.exclude(restriccion)
 
 
 def _roles_objetivo_con_sistema(sistema):
