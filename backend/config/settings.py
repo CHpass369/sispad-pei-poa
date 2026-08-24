@@ -147,7 +147,21 @@ TIME_ZONE = 'America/La_Paz'
 USE_I18N = True
 USE_TZ = True
 
-STATIC_URL = '/static/'
+# Prefijo de montaje. Vacío cuando la plataforma es dueña de su dominio; con
+# valor cuando cuelga de una subruta de un nginx que ya atiende otro sistema
+# en la misma dirección (el caso del servidor municipal: '/pip').
+#
+# nginx quita el prefijo antes de pasar la petición, así que las rutas de
+# `urls.py` no cambian. Lo que sí cambia es la *generación*: sin
+# FORCE_SCRIPT_NAME, `reverse()` devolvería '/admin/login/' y el navegador
+# terminaría en el otro sistema.
+URL_PREFIX = os.environ.get('DJANGO_URL_PREFIX', '').rstrip('/')
+
+if URL_PREFIX:
+    FORCE_SCRIPT_NAME = URL_PREFIX
+    USE_X_FORWARDED_HOST = True
+
+STATIC_URL = f'{URL_PREFIX}/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Plantillas DOCX del expediente de preinversión (SISPRE / RM 115)
@@ -162,7 +176,7 @@ STORAGES = {
     },
 }
 
-MEDIA_URL = '/media/'
+MEDIA_URL = f'{URL_PREFIX}/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 # Clave de cifrado de los documentos (32 bytes en base64). Vive fuera del

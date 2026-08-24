@@ -2,6 +2,7 @@ import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { finalize, forkJoin } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
 import { BudgetService, FilaRecurso, PresupuestoRecursos } from './budget/budget.service';
+import { environment } from '../../../environments/environment';
 
 /**
  * Presupuesto General de Recursos de la gestión.
@@ -372,11 +373,11 @@ export class PresupuestoRecursosComponent implements OnInit {
    * era la limitacion real: venian fijos desde la carga inicial.
    */
   private cargarClasificadores(): void {
-    this.http.get<any>('/api/v1/fuentes/?page_size=100').subscribe({
+    this.http.get<any>(`${environment.apiUrl}/fuentes/?page_size=100`).subscribe({
       next: r => { this.fuentes = r?.results ?? r ?? []; this.cdr.markForCheck(); },
       error: () => { this.fuentes = []; },
     });
-    this.http.get<any>('/api/v1/organismos/?page_size=100').subscribe({
+    this.http.get<any>(`${environment.apiUrl}/organismos/?page_size=100`).subscribe({
       next: r => { this.organismos = r?.results ?? r ?? []; this.cdr.markForCheck(); },
       error: () => { this.organismos = []; },
     });
