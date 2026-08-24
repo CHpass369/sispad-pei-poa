@@ -17,6 +17,15 @@ from apps.gestion.models import GestionFiscal
 
 
 class TestSeedNormativoClasificadores2026(TestCase):
+    # Este test afirma sobre datos que sembraron las migraciones, y un
+    # TransactionTestCase hermano los borra: su teardown hace TRUNCATE de
+    # toda la base (comprobado: catalogo_version_clasificador queda en 0
+    # filas). Con xdist, que eso ocurra o no depende de en que worker caiga
+    # cada modulo, asi que el test pasaba o fallaba segun el reparto.
+    #
+    # serialized_rollback le pide a Django que restaure el estado inicial
+    # antes de correr. Es el mecanismo previsto justamente para esto.
+    serialized_rollback = True
 
     def test_seed_0003_aplicado_convive_con_preexistentes_y_conserva_propiedades(self):
         gf = GestionFiscal.objects.get_or_create(
