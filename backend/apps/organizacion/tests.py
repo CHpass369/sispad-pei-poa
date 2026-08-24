@@ -141,8 +141,14 @@ class TestContratoURLsV1:
 # Autenticación requerida (default: IsAuthenticated)
 # =============================================================================
 
+@pytest.mark.django_db
 class TestAutenticacion:
-    """Los endpoints exigen autenticación."""
+    """Los endpoints exigen autenticación.
+
+    Necesitan acceso a la base aunque no consulten nada: con
+    ``ATOMIC_REQUESTS = True`` Django abre la transacción **antes** de entrar a
+    la vista, así que hasta una respuesta 401 toca la conexión.
+    """
 
     def test_unidades_ejecutoras_requiere_auth(self, api_client):
         assert api_client.get(reverse('unidadejecutora-list')).status_code == status.HTTP_401_UNAUTHORIZED

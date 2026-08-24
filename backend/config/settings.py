@@ -112,6 +112,12 @@ DATABASES = {
         'PASSWORD': os.environ.get('DB_PASSWORD', ''),
         'HOST': os.environ.get('DB_HOST', '/tmp/opencode'),
         'PORT': os.environ.get('DB_PORT', '5433'),
+        # Cada peticion se envuelve en una transaccion: si la vista revienta a
+        # mitad de camino, no queda media escritura confirmada. Django corre en
+        # autocommit por omision, asi que sin esto la atomicidad es opcional y
+        # depende de que alguien se acuerde de pedir transaction.atomic.
+        # Para salirse a proposito existe @transaction.non_atomic_requests.
+        'ATOMIC_REQUESTS': True,
         # PIP (ADR-003): search_path multi-esquema — public primero para que
         # migraciones futuras y PostGIS sigan funcionando; las tablas de dominio
         # viven en pip_core/pip_catalogo/sis_pe/sis_poa/sis_pro/pip_integracion/
