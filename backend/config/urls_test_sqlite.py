@@ -1,8 +1,7 @@
-"""Urlconf para settings_test_sqlite: rutas v1 (apps no-geo) + v2 sin SIS-PRO.
+"""Urlconf para settings_test_sqlite: rutas v1 (apps no-geo) + v2.
 
-La API V2 completa incluye el router de SIS-PRO (apps.inversion), que usa
-modelos PostGIS; en SQLite se registran solo los namespaces de las apps
-no-geo (platform, sis-poa, me).
+Se registran solo los namespaces de las apps no-geo (platform, sis-poa, me),
+porque el resto usa modelos PostGIS que SQLite no soporta.
 """
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter

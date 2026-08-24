@@ -8,7 +8,7 @@ directamente con el venv local, sin base de datos Docker:
         -q --ds=config.settings_test_sqlite
 
 NO usar para la suite completa: las apps con modelos geo
-(territorio, inversion) requieren PostgreSQL/PostGIS.
+(territorio) requieren PostgreSQL/PostGIS.
 """
 from .settings import *  # noqa: F403
 
@@ -20,7 +20,7 @@ DATABASES = {
     }
 }
 
-# --- Aplicaciones: todas las locales NO-geo (territorio/inversion requieren
+# --- Aplicaciones: todas las locales NO-geo (territorio requiere
 # --- PostgreSQL/PostGIS y quedan fuera de este settings).
 LOCAL_APPS_TEST = [
     'apps.core',

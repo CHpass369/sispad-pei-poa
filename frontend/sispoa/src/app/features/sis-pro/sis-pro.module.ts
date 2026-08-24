@@ -1,86 +1,25 @@
 import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
 import { RouterModule, Routes } from '@angular/router';
-import { CapabilityGuard } from '../../core/guards/capability.guard';
 import { modulosPendientes } from '../sistemas/modulos-pendientes';
-import { PreinversionDetalleComponent } from './preinversion-detalle.component';
-import { PreinversionEdtpComponent } from './preinversion-edtp.component';
-import { PreinversionInventarioComponent } from './preinversion-inventario.component';
-import { PreinversionItcpComponent } from './preinversion-itcp.component';
-import { PreinversionListComponent } from './preinversion-list.component';
-import { PreinversionTdrComponent } from './preinversion-tdr.component';
-import { PreinversionWizardComponent } from './preinversion-wizard.component';
-import { SisProDashboardComponent } from './sis-pro-dashboard.component';
-import { SisProDetalleComponent } from './sis-pro-detalle.component';
-import { SisProListComponent } from './sis-pro-list.component';
 
+/**
+ * SIS-PRO — Ciclo del Proyecto (plan maestro §18.1).
+ *
+ * El sistema está en depuración: se retiró la UI V2 anterior (cartera,
+ * preinversión, asistentes ITCP/TDR/EDTP) junto con su backend, porque no
+ * llegó a usarse —ninguna de sus tablas tenía un solo registro— y su modelo
+ * de datos no acompañaba la codificación vigente. Cada módulo se reconstruye
+ * desde cero; mientras tanto todas las rutas resuelven al placeholder.
+ */
 const routes: Routes = [
   { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
-  {
-    path: 'dashboard',
-    component: SisProDashboardComponent,
-    canActivate: [CapabilityGuard],
-    data: { capacidades: ['sis_pro.project.read'] },
-  },
-  {
-    path: 'proyectos',
-    component: SisProListComponent,
-    canActivate: [CapabilityGuard],
-    data: { capacidades: ['sis_pro.project.read'] },
-  },
-  {
-    path: 'proyectos/:id',
-    component: SisProDetalleComponent,
-    canActivate: [CapabilityGuard],
-    data: { capacidades: ['sis_pro.project.read'] },
-  },
-  // Preinversión (SISPRE / RM 115) — ITCP · TDR · EDTP
-  {
-    path: 'preinversion',
-    component: PreinversionListComponent,
-    canActivate: [CapabilityGuard],
-    data: { capacidades: ['sis_pro.project.read'] },
-  },
-  {
-    path: 'preinversion/inventario',
-    component: PreinversionInventarioComponent,
-    canActivate: [CapabilityGuard],
-    data: { capacidades: ['sis_pro.project.read'] },
-  },
-  {
-    path: 'preinversion/:id',
-    component: PreinversionDetalleComponent,
-    canActivate: [CapabilityGuard],
-    data: { capacidades: ['sis_pro.project.read'] },
-  },
-  {
-    path: 'preinversion/:id/wizard',
-    component: PreinversionWizardComponent,
-    canActivate: [CapabilityGuard],
-    data: { capacidades: ['sis_pro.project.read'] },
-  },
-  {
-    path: 'preinversion/:id/itcp',
-    component: PreinversionItcpComponent,
-    canActivate: [CapabilityGuard],
-    data: { capacidades: ['sis_pro.project.read'] },
-  },
-  {
-    path: 'preinversion/:id/tdr',
-    component: PreinversionTdrComponent,
-    canActivate: [CapabilityGuard],
-    data: { capacidades: ['sis_pro.project.read'] },
-  },
-  {
-    path: 'preinversion/:id/edtp',
-    component: PreinversionEdtpComponent,
-    canActivate: [CapabilityGuard],
-    data: { capacidades: ['sis_pro.project.read'] },
-  },
-  // Módulos del plan maestro (§18.1 SIS-PRO) en desarrollo
   ...modulosPendientes(
     [
+      { ruta: 'dashboard', nombre: 'Dashboard de proyectos' },
+      { ruta: 'proyectos', nombre: 'Cartera de proyectos' },
+      { ruta: 'preinversion', nombre: 'Preinversión' },
+      { ruta: 'preinversion/inventario', nombre: 'Inventario documental' },
       { ruta: 'formulacion', nombre: 'Formulación técnica' },
       { ruta: 'contratacion', nombre: 'Contratación' },
       { ruta: 'ejecucion', nombre: 'Ejecución' },
@@ -88,24 +27,12 @@ const routes: Routes = [
       { ruta: 'seguimiento', nombre: 'Seguimiento de proyectos' },
     ],
     'SIS-PRO',
-    '/sis-pro/dashboard',
+    '/sistemas',
     ['sis_pro.project.read'],
   ),
 ];
 
 @NgModule({
-  declarations: [
-    SisProDashboardComponent,
-    SisProListComponent,
-    SisProDetalleComponent,
-    PreinversionListComponent,
-    PreinversionDetalleComponent,
-    PreinversionWizardComponent,
-    PreinversionInventarioComponent,
-    PreinversionItcpComponent,
-    PreinversionTdrComponent,
-    PreinversionEdtpComponent,
-  ],
-  imports: [CommonModule, FormsModule, RouterModule.forChild(routes)],
+  imports: [CommonModule, RouterModule.forChild(routes)],
 })
 export class SisProModule {}

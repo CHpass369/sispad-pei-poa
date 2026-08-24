@@ -14,8 +14,12 @@ interface NavItem {
   capacidades?: string[];
   /** Módulo sin UI propia todavía: la ruta resuelve a un placeholder. */
   pendiente?: boolean;
-  /** Módulo con UI real pero funcionalidad aún no estabilizada. */
+  /** Módulo con UI real pero funcionalidad aún no estabilizada.
+   *  Manda sobre el chip V1: nada puede estar estabilizado y en beta a la vez. */
   beta?: boolean;
+  /** Módulo heredado de la plataforma anterior, sujeto a LEGACY_MENU_VISIBLE.
+   *  Es la palanca de cutover, no una marca de madurez: puede convivir con
+   *  `beta` cuando el módulo todavía se está estabilizando. */
   legacy?: boolean;
   /** Módulo estabilizado (chip "V1") que no forma parte del cutover legacy.
    *  A diferencia de `legacy`, no queda sujeto a LEGACY_MENU_VISIBLE. */
@@ -102,8 +106,7 @@ const EQUIPO_POA_PE = [...ROLES_POA, ...ROLES_PE, ...ROLES_ADMIN];
                 <span>{{ item.label }}</span>
                 @if (item.pendiente || item.beta) {
                   <span class="tag" title="Módulo en desarrollo">Beta</span>
-                }
-                @if (item.legacy || item.v1) {
+                } @else if (item.legacy || item.v1) {
                   <span class="tag ok" title="Módulo V1">V1</span>
                 }
               }
@@ -254,14 +257,16 @@ export class SidebarComponent implements OnInit, OnDestroy {
         { route: '/sis-poa/seguimiento', label: 'Seguimiento y Evaluación', icon: 'activity', capacidades: ['sis_poa.formulate'], beta: true },
       ],
     },
+    // SIS-PRO está en depuración: se retiró la UI y el backend anteriores,
+    // así que todos sus módulos resuelven hoy al placeholder de desarrollo.
     'sis-pro': {
       title: 'SIS-PRO — Ciclo del Proyecto',
       items: [
-        { route: '/sis-pro/dashboard', label: 'Dashboard proyectos', icon: 'gauge', capacidades: ['sis_pro.project.read'] },
-        { route: '/sis-pro/proyectos', label: 'Cartera', icon: 'briefcase', capacidades: ['sis_pro.project.read'] },
-        { route: '/inversion', label: 'Proyectos de Inversión', icon: 'hard-hat', roles: ['superadmin', 'tecnico_admin', 'planificador'], legacy: true },
-        { route: '/sis-pro/preinversion', label: 'Preinversión', icon: 'drafting-compass', capacidades: ['sis_pro.project.read'] },
-        { route: '/sis-pro/preinversion/inventario', label: 'Inventario documental', icon: 'folder-open', capacidades: ['sis_pro.project.read'] },
+        { route: '/sis-pro/dashboard', label: 'Dashboard proyectos', icon: 'gauge', capacidades: ['sis_pro.project.read'], pendiente: true },
+        { route: '/sis-pro/proyectos', label: 'Cartera', icon: 'briefcase', capacidades: ['sis_pro.project.read'], pendiente: true },
+        { route: '/inversion', label: 'Proyectos de Inversión', icon: 'hard-hat', roles: ['superadmin', 'tecnico_admin', 'planificador'], pendiente: true },
+        { route: '/sis-pro/preinversion', label: 'Preinversión', icon: 'drafting-compass', capacidades: ['sis_pro.project.read'], pendiente: true },
+        { route: '/sis-pro/preinversion/inventario', label: 'Inventario documental', icon: 'folder-open', capacidades: ['sis_pro.project.read'], pendiente: true },
         { route: '/sis-pro/formulacion', label: 'Formulación', icon: 'file-pen-line', capacidades: ['sis_pro.project.read'], pendiente: true },
         { route: '/sis-pro/contratacion', label: 'Contratación', icon: 'handshake', capacidades: ['sis_pro.project.read'], pendiente: true },
         { route: '/sis-pro/ejecucion', label: 'Ejecución', icon: 'play', capacidades: ['sis_pro.project.read'], pendiente: true },

@@ -74,48 +74,46 @@ describe('SidebarComponent', () => {
   });
 
   it('should show legacy items by default (palanca en true)', () => {
+    navegarA('/sis-poa/poas');
     const rutasLegacy = component['visibleSections']
       .flatMap(s => s.items)
       .filter(i => i.legacy)
       .map(i => i.route);
-    expect(rutasLegacy).toContain('/inversion');
+    expect(rutasLegacy).toContain('/poau');
   });
 
   it('should hide legacy item when its route is turned off in the palanca', () => {
-    LEGACY_MENU_VISIBLE['/inversion'] = false;
-    component['rebuildMenu']();
-    fixture.detectChanges();
+    LEGACY_MENU_VISIBLE['/poau'] = false;
+    navegarA('/sis-poa/poas');
 
-    const rutas = component['visibleSections'].flatMap(s => s.items).map(i => i.route);
-    expect(rutas).not.toContain('/inversion');
-    // El resto del SIS-PRO V2 permanece visible.
-    expect(rutas).toContain('/sis-pro/proyectos');
-    expect(rutas).toContain('/sis-pro/preinversion');
+    const rutas = rutasVisibles();
+    expect(rutas).not.toContain('/poau');
+    // El resto del SIS-POA V2 permanece visible.
+    expect(rutas).toContain('/sis-poa/presupuesto-gastos');
+    expect(rutas).toContain('/priorizacion/actas');
   });
 
   it('should keep other legacy items visible when only one is turned off', () => {
-    LEGACY_MENU_VISIBLE['/inversion'] = false;
-    // Contexto SIS-POA: la palanca de /inversion no afecta los legacy de POA.
-    (component as unknown as { router: { url: string } })['router'] = { url: '/sis-poa/poas' } as never;
-    component['rebuildMenu']();
-    fixture.detectChanges();
+    LEGACY_MENU_VISIBLE['/poau'] = false;
+    navegarA('/sis-poa/poas');
 
-    const rutas = component['visibleSections'].flatMap(s => s.items).map(i => i.route);
-    expect(rutas).toContain('/poau');
-    expect(rutas).not.toContain('/inversion');
+    const rutas = rutasVisibles();
+    expect(rutas).toContain('/poau_recursos');
+    // Y los legacy que no figuran en la palanca no se ven afectados.
+    expect(rutas).toContain('/sis-poa/poas');
+    expect(rutas).not.toContain('/poau');
   });
 
   it('should still filter by capabilities/roles for non-legacy items', () => {
     permissionsSpy.hasAnyCapability.and.callFake(
-      (caps: string[]) => !caps.includes('sis_pro.project.read'),
+      (caps: string[]) => !caps.includes('sis_poa.formulate'),
     );
-    component['rebuildMenu']();
-    fixture.detectChanges();
+    navegarA('/sis-poa/poas');
 
-    const rutas = component['visibleSections'].flatMap(s => s.items).map(i => i.route);
-    expect(rutas).not.toContain('/sis-pro/proyectos');
-    // Los legacy con rol siguen regidos por roles.
-    expect(rutas).toContain('/inversion');
+    const rutas = rutasVisibles();
+    expect(rutas).not.toContain('/sis-poa/dashboard');
+    // Los ítems regidos por rol no dependen de las capacidades.
+    expect(rutas).toContain('/sis-poa/presupuesto-gastos');
   });
 
   // --- Contexto del sistema por ruta de módulo (bug: el menú perdía el SIS
@@ -127,6 +125,10 @@ describe('SidebarComponent', () => {
   function navegarA(url: string): void {
     (component as unknown as { router: { url: string } })['router'] = { url } as never;
     component['rebuildMenu']();
+    // El componente es OnPush y en producción cada rebuild va seguido de
+    // markForCheck. Sin replicarlo, `detectChanges` no repinta y el DOM se
+    // queda mostrando la sección de la URL inicial.
+    (component as unknown as { cdr: { markForCheck(): void } })['cdr'].markForCheck();
     fixture.detectChanges();
   }
 
@@ -207,11 +209,45 @@ describe('SidebarComponent', () => {
     expect(rutas).not.toContain('/sis-poa/presupuesto-gastos');
   });
 
-  it('should keep SIS-PRO context on legacy /inversion', () => {
+  it('should keep SIS-PRO context on /inversion', () => {
     navegarA('/inversion');
     const rutas = rutasVisibles();
     expect(rutas).toContain('/sis-pro/proyectos');
     expect(rutas).toContain('/inversion');
+  });
+
+  it('should mark the whole SIS-PRO section as pending, legacy included', () => {
+    navegarA('/sis-pro/dashboard');
+    const seccion = component['visibleSections']
+      .find(s => s.title.startsWith('SIS-PRO'))!;
+
+    // El sistema está en depuración: ningún módulo tiene UI propia.
+    expect(seccion.items.filter(i => !i.pendiente)).toEqual([]);
+    // Y ya no queda legacy que la palanca de cutover pueda ocultar.
+    expect(seccion.items.filter(i => i.legacy || i.v1)).toEqual([]);
+  });
+
+  it('should render the Beta chip next to every SIS-PRO module', () => {
+    navegarA('/sis-pro/dashboard');
+
+    // La bandera sola no prueba nada: lo que importa es que el chip se vea, y
+    // que cada ítem muestre uno solo, no Beta y V1 al mismo tiempo.
+    const chips = ['Dashboard proyectos', 'Cartera', 'Proyectos de Inversión',
+                   'Preinversión', 'Inventario documental', 'Formulación']
+      .map(label => Array.from(
+        fixture.nativeElement.querySelectorAll(`a[aria-label="${label}"] .tag`),
+      ).map(t => (t as HTMLElement).textContent!.trim()));
+
+    expect(chips).toEqual([
+      ['Beta'], ['Beta'], ['Beta'], ['Beta'], ['Beta'], ['Beta'],
+    ]);
+  });
+
+  it('should still render V1 for stabilised modules without beta', () => {
+    navegarA('/sis-poa/dashboard');
+    expect(fixture.nativeElement
+      .querySelector('a[aria-label="Presupuesto General de Gastos"] .tag')
+      .textContent.trim()).toBe('V1');
   });
 
   it('should show PLATAFORMA (Selección/Dashboard/Notificaciones) only on platform routes', () => {

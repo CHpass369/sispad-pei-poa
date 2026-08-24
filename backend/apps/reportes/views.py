@@ -8,7 +8,6 @@ from .serializers import ReporteGeneradoSerializer
 from .services import (
     generar_poa_unidad_xlsx,
     generar_poa_consolidado_xlsx,
-    generar_proyectos_xlsx,
     generar_observaciones_csv,
     generar_territorio_geojson,
     generar_acta_aprobacion_pdf,
@@ -60,11 +59,6 @@ class ReporteGeneradoViewSet(viewsets.ModelViewSet):
         return _responder_descarga(
             request, generar_poa_consolidado_xlsx, XLSX_CONTENT_TYPE,
         )
-
-    @action(detail=False, methods=['get'])
-    def proyectos(self, request):
-        """GET /api/v1/reportes/proyectos/?gestion=2026"""
-        return _responder_descarga(request, generar_proyectos_xlsx, XLSX_CONTENT_TYPE)
 
     @action(detail=False, methods=['get'])
     def observaciones(self, request):

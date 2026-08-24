@@ -23,7 +23,6 @@ from django.db.models import (
 from django.db.models.functions import Coalesce
 
 from apps.indicadores.models import Operacion, Producto
-from apps.inversion.models import ProyectoInversion
 from apps.organizacion.models import UnidadOrganizacional
 from apps.planificacion.models import AccionCortoPlazo
 from apps.presupuesto.models import (
@@ -536,33 +535,7 @@ def verificar_consistencia_presupuestaria(gestion: int) -> dict[str, Any]:
             }
         )
 
-    # ── 4. Proyectos de inversión sin código SISIN ──────────────────────
-    proyectos_sin_sisin = ProyectoInversion.objects.filter(
-        Q(gestion_inicio__lte=gestion) | Q(programacion_fisica_financiera__gestion=gestion),
-        activo=True,
-    ).filter(Q(codigo_sisin="") | Q(codigo_sisin__isnull=True)).distinct()
-    total_sin_sisin = proyectos_sin_sisin.count()
-    if total_sin_sisin:
-        hallazgos.append(
-            {
-                "categoria": "proyecto_sin_sisin",
-                "severidad": "grave",
-                "mensaje": (
-                    f"{total_sin_sisin} proyectos de inversión no tienen "
-                    "código SISIN-WEB registrado."
-                ),
-                "cantidad": total_sin_sisin,
-                "proyectos": list(
-                    proyectos_sin_sisin.values(
-                        "codigo_interno",
-                        "nombre",
-                        programa_codigo=F("programa__codigo"),
-                    )
-                ),
-            }
-        )
-
-    # ── 5. Techos sin distribuir o con saldo ────────────────────────────
+    # ── 4. Techos sin distribuir o con saldo ────────────────────────────
     techos = TechoPresupuestario.objects.filter(gestion=gestion, activo=True)
     for techo in techos:
         distribuciones = techo.distribuciones.filter(activo=True)

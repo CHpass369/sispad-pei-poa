@@ -30,7 +30,6 @@ from apps.presupuesto.models import ProgramaPresupuestario, LineaPresupuestaria
 from apps.planificacion.models import AccionCortoPlazo
 from apps.organizacion.models import UnidadOrganizacional
 from apps.techos.models import TechoPresupuestario, DistribucionTecho
-from apps.inversion.models import ProyectoInversion
 from apps.workflow.models import Observacion, Aprobacion
 from apps.core.semaforo import determinar_semaforo
 from apps.articulacion.models import (
@@ -156,49 +155,6 @@ def generar_poa_consolidado_xlsx(gestion: int) -> tuple:
         row += 1
 
     filename = _build_response_filename('consolidado', 'xlsx', gestion)
-    output = io.BytesIO()
-    wb.save(output)
-    output.seek(0)
-    return output, filename
-
-
-# ===== REPORTE DE PROYECTOS DE INVERSIÓN =====
-def generar_proyectos_xlsx(gestion: int) -> tuple:
-    """Genera XLSX de proyectos de inversión."""
-    if not HAS_OPENPYXL:
-        raise RuntimeError('openpyxl no está instalado')
-
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = f'Proyectos {gestion}'
-
-    ws.merge_cells('A1:I1')
-    ws['A1'] = f'PROYECTOS DE INVERSIÓN {gestion} - GAM SACABA'
-    ws['A1'].font = Font(bold=True, size=14, color='1B5E3B')
-
-    headers = ['Código', 'Nombre', 'SISIN', 'Prioridad', 'Etapa', 'Costo Total',
-               'Ejecutado', 'Fuente', 'Organismo']
-    for col, h in enumerate(headers, 1):
-        cell = ws.cell(row=3, column=col, value=h)
-        cell.fill = HEADER_FILL
-        cell.font = HEADER_FONT
-
-    proyectos = ProyectoInversion.objects.filter(gestion_inicio__lte=gestion) | \
-                ProyectoInversion.objects.filter(gestion_fin__gte=gestion)
-    proyectos = proyectos.filter(activo=True).distinct()
-
-    row = 4
-    for p in proyectos:
-        datos = [p.codigo_interno, p.nombre, p.codigo_sisin or '—',
-                 p.get_prioridad_display(), p.get_etapa_display(),
-                 float(p.costo_total), float(p.ejecucion_acumulada),
-                 p.fuente.denominacion if p.fuente else '—',
-                 p.organismo.denominacion if p.organismo else '—']
-        for col, val in enumerate(datos, 1):
-            ws.cell(row=row, column=col, value=val).border = BORDER_THIN
-        row += 1
-
-    filename = _build_response_filename('proyectos', 'xlsx', gestion)
     output = io.BytesIO()
     wb.save(output)
     output.seek(0)

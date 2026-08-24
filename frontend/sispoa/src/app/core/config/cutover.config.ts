@@ -14,7 +14,7 @@
  *   2. pad + articulacion       → cuando la reconciliación PAD esté al 100%
  *   3. indicadores              → cuando la jerarquía canónica V2 esté operativa
  *   4. poau                     → cuando el cutover SIS-POA esté completo
- *   5. inversion                → cuando la cartera V2 sea la oficial
+ *   5. inversion                → RETIRADO en la depuración de SIS-PRO
  *   6. resto de V1              → cutover completo + periodo de observación
  */
 export const LEGACY_MENU_VISIBLE: Record<string, boolean> = {
@@ -29,6 +29,7 @@ export const LEGACY_MENU_VISIBLE: Record<string, boolean> = {
   '/seguimiento': true,
   '/modificaciones': true,
   '/consolidacion': true,
-  // SIS-PRO
-  '/inversion': true,
+  // SIS-PRO no figura: su módulo V1 (/inversion) no se oculta, se retiró junto
+  // con el resto del sistema durante la depuración. La palanca solo gobierna
+  // legacy que todavía existe.
 };

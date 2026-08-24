@@ -50,23 +50,25 @@ def test_me_retrieve_es_equivalente_al_list(auth_client_v2):
     assert detail_data == list_data
 
 
-@pytest.mark.parametrize('namespace', ['platform', 'sis-pe', 'sis-poa', 'sis-pro'])
+# SIS-PRO no figura: su router se retiró durante la depuración del sistema.
+@pytest.mark.parametrize('namespace', ['platform', 'sis-pe', 'sis-poa'])
 def test_namespaces_v2_responden(auth_client_v2, namespace):
     """Los namespaces existen y responden su API root."""
     response = auth_client_v2.get(f'/api/v2/{namespace}/')
     assert response.status_code == 200
     payload = response.json()
-    if namespace in ('sis-pe', 'platform', 'sis-poa', 'sis-pro'):
-        # WP-04/08/10/11: kernel, workflow, SIS-POA y SIS-PRO ya registran rutas
-        assert payload
-        assert (
-            'instrumentos' in str(payload)
-            or 'workflow' in str(payload)
-            or 'poas' in str(payload)
-            or 'proyectos' in str(payload)
-        )
-    else:
-        assert payload == {}
+    # WP-04/08/10: kernel, workflow y SIS-POA registran rutas.
+    assert payload
+    assert (
+        'instrumentos' in str(payload)
+        or 'workflow' in str(payload)
+        or 'poas' in str(payload)
+    )
+
+
+def test_namespace_sis_pro_ya_no_existe(auth_client_v2):
+    """El sistema se retiró: su API root no debe seguir respondiendo."""
+    assert auth_client_v2.get('/api/v2/sis-pro/').status_code == 404
 
 
 def test_schema_v2_exporta_openapi(auth_client_v2):

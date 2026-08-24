@@ -30,7 +30,6 @@ urlpatterns = [
     path(f'{api_prefix}', include('apps.recursos.urls')),
     path(f'{api_prefix}', include('apps.techos.urls')),
     path(f'{api_prefix}', include('apps.presupuesto.urls')),
-    path(f'{api_prefix}', include('apps.inversion.urls')),
     path(f'{api_prefix}', include('apps.territorio.urls')),
     path(f'{api_prefix}pad/', include('apps.pad.urls')),
     path(f'{api_prefix}', include('apps.workflow.urls')),

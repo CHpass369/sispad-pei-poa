@@ -29,7 +29,6 @@ APP_CRITICOS = [
     'apps.accounts',
     'apps.planificacion',
     'apps.poau',
-    'apps.inversion',
     'apps.workflow',
 ]
 

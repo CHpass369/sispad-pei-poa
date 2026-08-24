@@ -8,7 +8,7 @@ Estructura:
     /api/v2/integracion/... PIP INTEGRACIÓN (cadena PAD-PEI, matrices…)
     /api/v2/auditoria/...   PIP AUDITORÍA (eventos de auditoría)
     /api/v2/sis-poa/...     SIS-POA (acciones, operaciones, presupuesto…)
-    /api/v2/sis-pro/...     SIS-PRO (proyectos, cartera…)
+    (SIS-PRO no expone API: el sistema se retiró durante su depuración)
     /api/v2/me/...          identidad/capacidades del usuario actual
 
 Los routers de cada sistema se pueblan en los work packages correspondientes.
@@ -59,39 +59,6 @@ from apps.territorio.views import (
     LocalizacionTerritorialViewSet as TerritorioLocalizacionTerritorialViewSet,
     UnidadTerritorialViewSet as TerritorioUnidadTerritorialViewSet,
 )
-from apps.inversion.views_v2 import (
-    CondicionViewSet,
-    CostoViewSet,
-    DocumentoViewSet,
-    ProyectoViewSet,
-    VinculoViewSet as VinculoProyectoViewSet,
-)
-from apps.inversion.views_preinversion import (
-    AlternativaProyectoViewSet,
-    AprobacionViewSet,
-    ComponenteProyectoViewSet,
-    CondicionITCPViewSet,
-    DocumentoGeneradoViewSet,
-    DocumentoPreinversionViewSet,
-    EDTPViewSet,
-    EstudioTecnicoViewSet,
-    FuenteFinanciamientoViewSet,
-    GrupoBeneficiarioViewSet,
-    IndicadorEvaluacionViewSet,
-    ItemCostoEDTPViewSet,
-    ItemCronogramaViewSet,
-    ITCPViewSet,
-    ObservacionViewSet,
-    PlanOMViewSet,
-    ProyectoPreinversionViewSet,
-    RevisionViewSet,
-    SeccionEDTPViewSet,
-    TDRActividadViewSet,
-    TDRItemPresupuestoViewSet,
-    TDRPersonalViewSet,
-    TDRProductoViewSet,
-    TDRViewSet,
-)
 from apps.poau.views_v2 import (
     AccionViewSet,
     ActividadViewSet,
@@ -109,7 +76,6 @@ from apps.workflow.views_v2 import (
 
 platform_router = DefaultRouter()
 sis_poa_router = DefaultRouter()
-sis_pro_router = DefaultRouter()
 core_router = DefaultRouter()
 catalogo_router = DefaultRouter()
 geo_router = DefaultRouter()
@@ -125,37 +91,6 @@ sis_poa_router.register('tareas', TareaViewSet, basename='v2-tareas')
 sis_poa_router.register('programaciones', ProgramacionViewSet, basename='v2-programaciones')
 sis_poa_router.register('techos', TechoViewSetV2, basename='v2-techos')
 
-sis_pro_router.register('proyectos', ProyectoViewSet, basename='v2-proyectos')
-sis_pro_router.register('proyectos-preinversion', ProyectoPreinversionViewSet, basename='v2-proyectos-preinversion')
-sis_pro_router.register('condiciones', CondicionViewSet, basename='v2-condiciones')
-sis_pro_router.register('documentos', DocumentoViewSet, basename='v2-documentos-proyecto')
-sis_pro_router.register('costos', CostoViewSet, basename='v2-costos-proyecto')
-sis_pro_router.register('vinculos', VinculoProyectoViewSet, basename='v2-vinculos-proyecto')
-
-# --- Preinversión (SISPRE / RM 115) ---------------------------------------
-sis_pro_router.register('itcps', ITCPViewSet, basename='v2-itcps')
-sis_pro_router.register('itcp-condiciones', CondicionITCPViewSet, basename='v2-itcp-condiciones')
-sis_pro_router.register('tdrs', TDRViewSet, basename='v2-tdrs')
-sis_pro_router.register('tdr-actividades', TDRActividadViewSet, basename='v2-tdr-actividades')
-sis_pro_router.register('tdr-productos', TDRProductoViewSet, basename='v2-tdr-productos')
-sis_pro_router.register('tdr-personal', TDRPersonalViewSet, basename='v2-tdr-personal')
-sis_pro_router.register('tdr-items-presupuesto', TDRItemPresupuestoViewSet, basename='v2-tdr-items-presupuesto')
-sis_pro_router.register('edtps', EDTPViewSet, basename='v2-edtps')
-sis_pro_router.register('edtp-secciones', SeccionEDTPViewSet, basename='v2-edtp-secciones')
-sis_pro_router.register('estudios-tecnicos', EstudioTecnicoViewSet, basename='v2-estudios-tecnicos')
-sis_pro_router.register('edtp-items-costo', ItemCostoEDTPViewSet, basename='v2-edtp-items-costo')
-sis_pro_router.register('edtp-financiamiento', FuenteFinanciamientoViewSet, basename='v2-edtp-financiamiento')
-sis_pro_router.register('edtp-cronograma', ItemCronogramaViewSet, basename='v2-edtp-cronograma')
-sis_pro_router.register('edtp-plan-om', PlanOMViewSet, basename='v2-edtp-plan-om')
-sis_pro_router.register('edtp-indicadores', IndicadorEvaluacionViewSet, basename='v2-edtp-indicadores')
-sis_pro_router.register('componentes', ComponenteProyectoViewSet, basename='v2-componentes-proyecto')
-sis_pro_router.register('beneficiarios', GrupoBeneficiarioViewSet, basename='v2-beneficiarios-proyecto')
-sis_pro_router.register('alternativas', AlternativaProyectoViewSet, basename='v2-alternativas-proyecto')
-sis_pro_router.register('documentos-preinv', DocumentoPreinversionViewSet, basename='v2-documentos-preinv')
-sis_pro_router.register('documentos-generados', DocumentoGeneradoViewSet, basename='v2-documentos-generados')
-sis_pro_router.register('revisiones', RevisionViewSet, basename='v2-revisiones-preinv')
-sis_pro_router.register('observaciones', ObservacionViewSet, basename='v2-observaciones-preinv')
-sis_pro_router.register('aprobaciones', AprobacionViewSet, basename='v2-aprobaciones-preinv')
 
 platform_router.register('workflow-definiciones', DefinicionViewSet, basename='v2-workflow-definiciones')
 platform_router.register('workflow-instancias', InstanciaViewSet, basename='v2-workflow-instancias')
@@ -217,6 +152,5 @@ urlpatterns = [
     path('auditoria/', include(auditoria_router.urls)),
     path('sis-poa/', include(sis_poa_router.urls)),
     path('sis-poa/budget/', include('apps.budget.urls')),
-    path('sis-pro/', include(sis_pro_router.urls)),
     path('', include(me_router.urls)),
 ]

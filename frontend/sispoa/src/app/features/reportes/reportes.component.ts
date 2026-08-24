@@ -130,7 +130,6 @@ export class ReportesComponent {
   tipos: TipoReporte[] = [
     { id: 'poa_unidad', label: 'POA por Unidad', formatos: ['xlsx', 'pdf'], endpoint: '/reportes/poa_unidad/' },
     { id: 'consolidado', label: 'Consolidado', formatos: ['xlsx', 'csv', 'pdf'], endpoint: '/reportes/consolidado/' },
-    { id: 'proyectos', label: 'Proyectos', formatos: ['xlsx', 'pdf'], endpoint: '/reportes/proyectos/' },
     { id: 'observaciones', label: 'Observaciones', formatos: ['xlsx', 'csv', 'pdf'], endpoint: '/reportes/observaciones/' },
     { id: 'mapa', label: 'Mapa', formatos: ['pdf'], endpoint: '/reportes/mapa/' },
     { id: 'acta_aprobacion', label: 'Acta de aprobación', formatos: ['pdf'], endpoint: '/reportes/acta_aprobacion/' },
