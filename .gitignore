@@ -59,3 +59,7 @@ htmlcov/
 
 # Worktrees de agentes (checkouts completos, no versionar)
 .claude/worktrees/
+
+# Frontend Angular compilado: lo produce `npm run build` en cada despliegue.
+# Versionarlo ensucia el arbol de trabajo del servidor y rompe `git pull --ff-only`.
+backend/static_assets/
