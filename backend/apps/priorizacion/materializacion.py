@@ -43,11 +43,18 @@ def _alta_de_proyecto(partes, denominacion, gestion_fiscal, rango=None):
     padre = CategoriaProgramaticaTecho.objects.filter(
         gestion=gestion_fiscal, nivel='SUBPROGRAMA',
         codigo=partes.programa).first()
-    return CategoriaProgramaticaTecho.objects.create(
-        gestion=gestion_fiscal, codigo=partes.codigo, nivel='PROYECTO',
-        denominacion=(denominacion or partes.codigo)[:300], parent=padre,
-        origen='PRIORIZACION', rango_directriz=rango,
+    # `get_or_create` y no `create`: dos validaciones simultáneas del mismo
+    # proyecto llegan acá juntas y el índice único (gestion, codigo) haría
+    # estallar a la segunda. Así la segunda se encuentra con la ya creada.
+    categoria, _ = CategoriaProgramaticaTecho.objects.get_or_create(
+        gestion=gestion_fiscal, codigo=partes.codigo,
+        defaults={
+            'nivel': 'PROYECTO',
+            'denominacion': (denominacion or partes.codigo)[:300],
+            'parent': padre, 'origen': 'PRIORIZACION', 'rango_directriz': rango,
+        },
     )
+    return categoria
 
 
 def _categoria_de(proyecto, gestion_fiscal):
@@ -73,7 +80,17 @@ def _categoria_de(proyecto, gestion_fiscal):
 
 
 def _apertura_de(proyecto, gestion_fiscal, categoria):
-    """La fila de gasto de esa categoría, creada si todavía no existe."""
+    """La fila de gasto de esa categoría, creada si todavía no existe.
+
+    Primero se toma con candado la categoría. `Apertura` es la única de las tres
+    tablas del circuito que **no** tiene índice único que la respalde, y no puede
+    tenerlo: una misma categoría admite varias aperturas a propósito —un programa
+    de salud con dos hospitales distintos, por ejemplo—. Sin serializar acá, dos
+    validaciones simultáneas no encuentran nada, las dos crean, y la categoría
+    aparece dos veces en el Presupuesto General de Gastos con la plata partida.
+    """
+    if categoria is not None:
+        CategoriaProgramaticaTecho.objects.select_for_update().get(pk=categoria.pk)
     partes = partes_categoria(proyecto.categoria_programatica)
     apertura = Apertura.objects.filter(
         gestion=gestion_fiscal, categoria=categoria).first()
@@ -90,6 +107,38 @@ def _apertura_de(proyecto, gestion_fiscal, categoria):
         # Queda marcada: al desvalidar se suprime, no se deja en cero.
         origen='PRIORIZACION',
     ), True
+
+
+def _fila_bloqueada(apertura, fuente, organismo):
+    """La fila de monto de ese par FF/OF, tomada con candado hasta el commit.
+
+    El monto se lee, se ajusta y se vuelve a escribir. Bajo `read committed`
+    —el nivel de aislamiento por defecto— dos validaciones simultáneas sobre
+    la misma fila leen el mismo valor y la segunda pisa a la primera: uno de
+    los dos montos desaparece sin error y sin rastro.
+
+    Estar dentro de `@transaction.atomic` no alcanza: una transacción da
+    atomicidad, no aislamiento contra lecturas obsoletas.
+
+    Se crea primero y se toma el candado después: `get_or_create` resuelve la
+    carrera de alta contra el índice único, y `select_for_update` la de
+    actualización.
+
+    Alcance real del candado: hoy quien serializa a la priorización consigo
+    misma es el de `_apertura_de` sobre la categoría, aguas arriba de acá. Este
+    queda como segunda línea, y sirve **solo** frente a otro escritor que
+    también tome candado. Contra uno que lea sin candado y escriba después no
+    protege a nadie: en PostgreSQL un SELECT común no se frena contra un FOR
+    UPDATE, así que el otro ya leería un monto viejo. Si algún día otro módulo
+    necesita sumar sobre esta fila, tiene que bloquearla él también.
+    """
+    AperturaFuente.objects.get_or_create(
+        allocation=apertura, fuente=fuente, organismo=organismo,
+        defaults={'monto': 0},
+    )
+    return AperturaFuente.objects.select_for_update().get(
+        allocation=apertura, fuente=fuente, organismo=organismo,
+    )
 
 
 def revisar_acta(acta):
@@ -149,10 +198,7 @@ def materializar_acta(acta):
             continue
 
         apertura, creada = _apertura_de(proyecto, gestion_fiscal, categoria)
-        fila, _ = AperturaFuente.objects.get_or_create(
-            allocation=apertura, fuente=proyecto.fuente,
-            organismo=proyecto.organismo, defaults={'monto': 0},
-        )
+        fila = _fila_bloqueada(apertura, proyecto.fuente, proyecto.organismo)
         # Se descuenta lo que este mismo proyecto ya había puesto: aprobar dos
         # veces recalcula, no suma de nuevo.
         anterior = proyecto.monto_materializado or 0
@@ -219,7 +265,10 @@ def desmaterializar_acta(acta):
     """
     revertidos = []
     for proyecto in acta.proyectos.exclude(apertura_fuente__isnull=True):
-        fila = proyecto.apertura_fuente
+        # Con candado, por lo mismo que al volcar: descontar sobre un monto
+        # leído hace un instante borra lo que otro puso en el medio.
+        fila = (AperturaFuente.objects.select_for_update()
+                .get(pk=proyecto.apertura_fuente_id))
         puesto = proyecto.monto_materializado or 0
         fila.monto = (fila.monto or 0) - puesto
         fila.save(update_fields=['monto'])
