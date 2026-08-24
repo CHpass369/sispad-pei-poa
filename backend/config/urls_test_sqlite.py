@@ -66,6 +66,7 @@ urlpatterns = [
     path('api/v1/', include('apps.notificaciones.urls')),
     path('api/v1/', include('apps.seguimiento.urls')),
     path('api/v1/articulacion/', include('apps.articulacion.urls')),
+    path('api/v2/', include('apps.accounts.urls_v2')),  # F3a: register + solicitudes
     path('api/v2/platform/', include(platform_router.urls)),
     path('api/v2/sis-poa/', include(sis_poa_router.urls)),
     path('api/v2/', include(me_router.urls)),

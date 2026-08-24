@@ -144,6 +144,9 @@ me_router = DefaultRouter()
 me_router.register('me', MeViewSet, basename='v2-me')
 
 urlpatterns = [
+    # accounts F3a: auth/register público + admin/solicitudes (antes de los
+    # routers; paths explícitos, sin choque con los namespaces por dominio).
+    path('', include('apps.accounts.urls_v2')),
     path('platform/', include(platform_router.urls)),
     path('core/', include(core_router.urls)),
     path('catalogos/', include(catalogo_router.urls)),

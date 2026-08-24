@@ -134,11 +134,29 @@ class AlcanceOrganizacional(models.Model):
 
 
 class Usuario(AbstractUser):
+    # F3a: ciclo de vida del registro público. `estado` convive con el
+    # booleano legacy `activo` (regla de la tarea: NO eliminar `activo`):
+    #   - PENDIENTE: registrado vía /api/v2/auth/register/, sin aprobar.
+    #   - ACTIVO: aprobado por un administrador (o usuario preexistente).
+    #   - INACTIVO: deshabilitado.
+    # La sincronización con `activo` se hace en save().
+    ESTADO_PENDIENTE = 'PENDIENTE'
+    ESTADO_ACTIVO = 'ACTIVO'
+    ESTADO_INACTIVO = 'INACTIVO'
+    ESTADO_CHOICES = [
+        (ESTADO_PENDIENTE, 'Pendiente de aprobación'),
+        (ESTADO_ACTIVO, 'Activo'),
+        (ESTADO_INACTIVO, 'Inactivo'),
+    ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     username = None
     email = models.EmailField(_('email address'), unique=True)
     cargo = models.CharField(max_length=200, blank=True)
     telefono = models.CharField(max_length=50, blank=True)
+    estado = models.CharField(
+        max_length=12, choices=ESTADO_CHOICES, default=ESTADO_ACTIVO,
+    )
     groups = models.ManyToManyField(
         'auth.Group',
         verbose_name=_('groups'),
@@ -177,6 +195,41 @@ class Usuario(AbstractUser):
         verbose_name = 'Usuario'
         verbose_name_plural = 'Usuarios'
         ordering = ['last_name', 'first_name']
+
+    def _sincronizar_estado_activo(self):
+        """Mantiene compatibles el estado F3a y el booleano legacy."""
+        if self._state.adding:
+            if self.estado == self.ESTADO_ACTIVO and not self.activo:
+                # Un alta legacy con activo=False conserva su intención.
+                self.estado = self.ESTADO_INACTIVO
+            else:
+                self.activo = self.estado == self.ESTADO_ACTIVO
+            return
+
+        anterior = type(self).objects.only('estado', 'activo').get(pk=self.pk)
+        if self.estado != anterior.estado:
+            # Las transiciones explícitas de estado tienen prioridad.
+            self.activo = self.estado == self.ESTADO_ACTIVO
+        elif self.activo != anterior.activo:
+            # Las escrituras legacy sobre `activo` siguen siendo válidas.
+            self.estado = (
+                self.ESTADO_ACTIVO if self.activo else self.ESTADO_INACTIVO
+            )
+        else:
+            self.activo = self.estado == self.ESTADO_ACTIVO
+
+    def save(self, *args, **kwargs):
+        update_fields = kwargs.get('update_fields')
+        sincronizar = (
+            self._state.adding
+            or update_fields is None
+            or bool({'estado', 'activo'} & set(update_fields))
+        )
+        if sincronizar:
+            self._sincronizar_estado_activo()
+            if update_fields is not None:
+                kwargs['update_fields'] = set(update_fields) | {'estado', 'activo'}
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f'{self.get_full_name()} <{self.email}>'
