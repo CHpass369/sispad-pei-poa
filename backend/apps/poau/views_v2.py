@@ -42,15 +42,14 @@ class PoASerializer(serializers.ModelSerializer):
 
 
 class AccionSerializer(serializers.ModelSerializer):
-    nodo_pei_codigo = serializers.CharField(
-        source='nodo_pei.codigo', read_only=True, default=None,
-    )
-
+    # `nodo_pei` lo retiro `poau/0006_remove_kernel_v2_fks` junto con el nucleo
+    # estrategico. Volvera cuando se reconstruya SIS-PE; hasta entonces el
+    # serializer no puede nombrarlo.
     class Meta:
         model = AccionCortoPlazo
         fields = [
-            'id', 'poa', 'codigo', 'nombre', 'descripcion', 'nodo_pei',
-            'nodo_pei_codigo', 'unidad', 'atributos', 'estado',
+            'id', 'poa', 'codigo', 'nombre', 'descripcion',
+            'unidad', 'atributos', 'estado',
             'created_at', 'updated_at',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
@@ -89,7 +88,7 @@ def _permisos_escritura():
 
 
 class PoAViewSet(viewsets.ModelViewSet):
-    queryset = PoAInstitucional.objects.select_related('version_pei')
+    queryset = PoAInstitucional.objects.all()
     serializer_class = PoASerializer
     filterset_fields = ['gestion', 'estado']
 
@@ -101,7 +100,7 @@ class PoAViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['get'])
     def acciones(self, request, pk=None):
         poa = self.get_object()
-        acciones = poa.acciones.select_related('nodo_pei', 'unidad')
+        acciones = poa.acciones.select_related('unidad')
         serializer = AccionSerializer(acciones, many=True)
         return Response(serializer.data)
 
@@ -154,7 +153,7 @@ class PoAViewSet(viewsets.ModelViewSet):
 
 
 class AccionViewSet(viewsets.ModelViewSet):
-    queryset = AccionCortoPlazo.objects.select_related('poa', 'nodo_pei')
+    queryset = AccionCortoPlazo.objects.select_related('poa')
     serializer_class = AccionSerializer
     filterset_fields = ['poa', 'estado']
 
