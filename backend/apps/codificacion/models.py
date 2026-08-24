@@ -652,7 +652,6 @@ class LineamientoPAD(CatalogoSegmentoBase):
         ]
         indexes = [
             models.Index(fields=['entidad_territorial', 'activo']),
-            models.Index(fields=['componente']),
         ]
 
 
@@ -934,9 +933,6 @@ class MapeoLineamientoPADLegacy(TimeStampedModel):
                 fields=['origen', 'legacy_id'],
                 name='uniq_mapeo_lineamiento_pad_legacy',
             ),
-        ]
-        indexes = [
-            models.Index(fields=['lineamiento_pad']),
         ]
 
     def save(self, *args, **kwargs):

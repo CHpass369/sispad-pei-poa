@@ -68,7 +68,6 @@ class AccionCorrectiva(TimeStampedModel):
         indexes = [
             models.Index(fields=['gestion', 'status']),
             models.Index(fields=['due_date']),
-            models.Index(fields=['responsible']),
         ]
 
     def __str__(self):

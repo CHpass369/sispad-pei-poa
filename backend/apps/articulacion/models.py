@@ -359,9 +359,6 @@ class ProductoPAD(CodigoSegmentadoModel):
                 name='uniq_producto_pad_padre_correlativo',
             ),
         ]
-        indexes = [
-            models.Index(fields=['resultado_pad']),
-        ]
 
     def __str__(self):
         return f'[{self.codigo_producto}] {self.denominacion[:80]}'
@@ -478,9 +475,6 @@ class ProductoPEI(CodigoSegmentadoModel):
                 fields=['resultado_pei', 'correlativo'],
                 name='uniq_producto_pei_padre_correlativo',
             ),
-        ]
-        indexes = [
-            models.Index(fields=['resultado_pei']),
         ]
 
     def __str__(self):
@@ -660,7 +654,6 @@ class AccionPOA(CodigoSegmentadoModel):
         ]
         indexes = [
             models.Index(fields=['gestion', 'estado']),
-            models.Index(fields=['producto_pei']),
         ]
 
     def save(self, *args, **kwargs):
@@ -741,9 +734,6 @@ class OperacionPOAU(CodigoSegmentadoModel):
                 name='uniq_operacion_poau_padre_correlativo',
             ),
         ]
-        indexes = [
-            models.Index(fields=['accion_poa']),
-        ]
 
     def save(self, *args, **kwargs):
         old_estado = None
@@ -817,9 +807,6 @@ class ActividadPOAU(CodigoSegmentadoModel):
                 fields=['operacion', 'correlativo'],
                 name='uniq_actividad_poau_padre_correlativo',
             ),
-        ]
-        indexes = [
-            models.Index(fields=['operacion']),
         ]
 
     def save(self, *args, **kwargs):
@@ -910,9 +897,6 @@ class TareaPOAU(CodigoSegmentadoModel):
                 fields=['actividad', 'correlativo'],
                 name='uniq_tarea_poau_padre_correlativo',
             ),
-        ]
-        indexes = [
-            models.Index(fields=['actividad']),
         ]
 
     def save(self, *args, **kwargs):
@@ -1043,7 +1027,6 @@ class SeguimientoPresupuesto(TimeStampedModel):
         ordering = ['gestion', 'id_cadena']
         indexes = [
             models.Index(fields=['gestion', 'estado']),
-            models.Index(fields=['accion_poa']),
         ]
 
     def save(self, *args, **kwargs):
