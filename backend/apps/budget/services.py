@@ -31,6 +31,7 @@ from django.utils import timezone
 
 from apps.auditoria.models import EventoAuditoria
 from apps.auditoria.services import registrar_evento
+from apps.gestion import candado
 from apps.gestion.models import CicloFormulacion, EtapaFormulacion, GestionFiscal
 
 from .models import (
@@ -61,7 +62,9 @@ ESTADO_EN_FORMULACION = 'EN_FORMULACION'
 ESTADO_VIGENTE = 'VIGENTE'
 ESTADO_CERRADA = 'CERRADA'
 
-# Estados desde los que la gestión ya no se puede habilitar.
+# Estados desde los que la gestión ya no se puede habilitar. Una gestión
+# cerrada no vuelve por `habilitar_gestion`: vuelve por `reabrir_gestion`,
+# que exige motivo y deja rastro.
 ESTADOS_NO_HABILITABLES = {
     ESTADO_VIGENTE,
     ESTADO_CERRADA,
@@ -69,10 +72,25 @@ ESTADOS_NO_HABILITABLES = {
     GestionFiscal.Estado.ARCHIVADA,
 }
 
+# Estados desde los que la gestión se puede reabrir (el cierre es revertible).
+ESTADOS_REABRIBLES = {
+    ESTADO_CERRADA,
+    GestionFiscal.Estado.CERRADA,
+}
+
+# La auditoría nunca bloquea la eliminación: sus eventos se desvinculan y el
+# rastro sobrevive porque guarda `entidad`/`entidad_id` como texto.
+RELACION_AUDITORIA = 'auditoria.EventoAuditoria'
+
 
 def gestion_habilitada(gestion):
-    """¿La gestión está habilitada para el ciclo presupuestario? (§10)"""
-    return gestion.estado in (ESTADO_HABILITADA, GestionFiscal.Estado.ABIERTA)
+    """¿La gestión está habilitada para el ciclo presupuestario? (§10)
+
+    Delega en `apps.gestion.candado`, que es la autoridad única del candado
+    desde ADR-007. La firma se conserva porque la usan los serializers, los
+    viewsets y los tests de esta app.
+    """
+    return candado.esta_habilitada(gestion)
 
 
 def gestion_en_formulacion(gestion):
@@ -97,13 +115,33 @@ def validar_gestion_para_techo(gestion):
     return True
 
 
+def _tomar_candado():
+    """Serializa habilitación y cierre bloqueando todas las gestiones.
+
+    Sin esto, `activa` sería un check-then-act: dos habilitaciones simultáneas
+    no ven ninguna activa, las dos escriben, y la segunda choca contra el
+    índice único parcial con un IntegrityError en vez de un error de dominio.
+    Bloquear la tabla entera sale gratis —son un puñado de filas— y habilitar
+    una gestión es una operación de gobernanza anual, no de tráfico.
+    """
+    return list(GestionFiscal.objects.select_for_update().order_by('anio'))
+
+
 @transaction.atomic
 def habilitar_gestion(gestion, usuario):
     """Habilita la gestión para el ciclo presupuestario (HABILITADA).
 
+    Le pone además el candado de SIS-POA (`activa=True`): a partir de acá esta
+    es LA gestión sobre la que se planifica y programa, y todos los módulos la
+    absorben (ADR-007). Por eso rechaza si otra gestión lo tiene todavía:
+    cerrar antes de abrir es el circuito, no un descuido.
+
     Registra EventoAuditoria (accion=modificar; no existe accion habilitar
     en el catálogo de `auditoria.EventoAuditoria.Accion`).
     """
+    _tomar_candado()
+    gestion.refresh_from_db()
+
     if gestion_habilitada(gestion):
         raise ValidationError(f'La gestión {gestion.anio} ya está habilitada.')
     if gestion.estado in ESTADOS_NO_HABILITABLES:
@@ -111,20 +149,30 @@ def habilitar_gestion(gestion, usuario):
             f'La gestión {gestion.anio} está {gestion.get_estado_display()}; '
             f'no se puede habilitar.'
         )
+    en_uso = GestionFiscal.objects.filter(activa=True).exclude(pk=gestion.pk).first()
+    if en_uso is not None:
+        raise ValidationError(
+            f'La gestión {en_uso.anio} está habilitada; ciérrela antes de '
+            f'habilitar la {gestion.anio}. SIS-POA opera sobre una sola gestión.'
+        )
 
     estado_previo = gestion.estado
     gestion.estado = ESTADO_HABILITADA
     gestion.fecha_apertura = timezone.now()
-    gestion.save(update_fields=['estado', 'fecha_apertura', 'actualizado_en'])
+    gestion.activa = True
+    gestion.save(
+        update_fields=['estado', 'fecha_apertura', 'activa', 'actualizado_en'],
+    )
     registrar_evento(
         usuario,
         EventoAuditoria.Accion.MODIFICAR,
         'GestionFiscal',
         gestion.id,
         resumen=f'Gestión {gestion.anio} habilitada para el ciclo presupuestario',
-        datos_previos={'estado': estado_previo},
+        datos_previos={'estado': estado_previo, 'activa': False},
         datos_posteriores={
             'estado': gestion.estado,
+            'activa': True,
             'fecha_apertura': gestion.fecha_apertura.isoformat(),
         },
         gestion=gestion.anio,
@@ -134,7 +182,14 @@ def habilitar_gestion(gestion, usuario):
 
 @transaction.atomic
 def cerrar_gestion(gestion, usuario):
-    """Cierra la gestión del ciclo presupuestario (CERRADA) y registra auditoría."""
+    """Cierra la gestión del ciclo presupuestario (CERRADA) y registra auditoría.
+
+    Suelta el candado (`activa=False`): al cerrar, SIS-POA queda sin gestión
+    habilitada hasta que se habilite la siguiente.
+    """
+    _tomar_candado()
+    gestion.refresh_from_db()
+
     if gestion.estado in (ESTADO_CERRADA, GestionFiscal.Estado.CERRADA):
         raise ValidationError(f'La gestión {gestion.anio} ya está cerrada.')
     if gestion.estado == GestionFiscal.Estado.ARCHIVADA:
@@ -143,23 +198,184 @@ def cerrar_gestion(gestion, usuario):
         )
 
     estado_previo = gestion.estado
+    activa_previa = gestion.activa
     gestion.estado = ESTADO_CERRADA
     gestion.fecha_cierre = timezone.now()
-    gestion.save(update_fields=['estado', 'fecha_cierre', 'actualizado_en'])
+    gestion.activa = False
+    gestion.save(
+        update_fields=['estado', 'fecha_cierre', 'activa', 'actualizado_en'],
+    )
     registrar_evento(
         usuario,
         EventoAuditoria.Accion.CERRAR,
         'GestionFiscal',
         gestion.id,
         resumen=f'Gestión {gestion.anio} cerrada (ciclo presupuestario)',
-        datos_previos={'estado': estado_previo},
+        datos_previos={'estado': estado_previo, 'activa': activa_previa},
         datos_posteriores={
             'estado': gestion.estado,
+            'activa': False,
             'fecha_cierre': gestion.fecha_cierre.isoformat(),
         },
         gestion=gestion.anio,
     )
     return gestion
+
+
+def gestion_reabrible(gestion):
+    """¿La gestión está cerrada y por tanto se puede reabrir?"""
+    return gestion.estado in ESTADOS_REABRIBLES
+
+
+@transaction.atomic
+def reabrir_gestion(gestion, usuario, motivo):
+    """Devuelve una gestión cerrada al ciclo presupuestario (CERRADA → HABILITADA).
+
+    Sin esto el cierre es un callejón sin salida: `habilitar_gestion` rechaza
+    las cerradas, así que un cierre por error deja congelados el techo
+    directivo, la distribución y el POA de esa gestión, y desde que existe el
+    candado deja además a SIS-POA entero sin gestión sobre la que operar. La
+    única salida era entrar a la base por consola, donde no queda rastro de
+    nada.
+
+    El motivo es obligatorio: reabrir revierte un acto formal. La diferencia
+    entre «no se puede» y «se puede, pero dejás tu nombre y el porqué».
+    """
+    _tomar_candado()
+    gestion.refresh_from_db()
+
+    if not gestion_reabrible(gestion):
+        raise ValidationError(
+            f'La gestión {gestion.anio} no está cerrada '
+            f'(estado actual: {gestion.get_estado_display()}); no se puede reabrir.'
+        )
+    if not (motivo or '').strip():
+        raise ValidationError('Debe indicar el motivo de la reapertura.')
+    en_uso = GestionFiscal.objects.filter(activa=True).exclude(pk=gestion.pk).first()
+    if en_uso is not None:
+        raise ValidationError(
+            f'La gestión {en_uso.anio} está habilitada; ciérrela antes de '
+            f'reabrir la {gestion.anio}. SIS-POA opera sobre una sola gestión.'
+        )
+
+    estado_previo = gestion.estado
+    fecha_cierre_previa = gestion.fecha_cierre
+    gestion.estado = ESTADO_HABILITADA
+    gestion.fecha_cierre = None
+    gestion.activa = True
+    if gestion.fecha_apertura is None:
+        gestion.fecha_apertura = timezone.now()
+    gestion.save(
+        update_fields=[
+            'estado', 'fecha_apertura', 'fecha_cierre', 'activa', 'actualizado_en',
+        ],
+    )
+    registrar_evento(
+        usuario,
+        EventoAuditoria.Accion.REABRIR,
+        'GestionFiscal',
+        gestion.id,
+        resumen=f'Gestión {gestion.anio} reabierta: {motivo.strip()}',
+        datos_previos={
+            'estado': estado_previo,
+            'activa': False,
+            'fecha_cierre': (
+                fecha_cierre_previa.isoformat() if fecha_cierre_previa else None
+            ),
+        },
+        datos_posteriores={
+            'estado': gestion.estado, 'activa': True, 'fecha_cierre': None,
+        },
+        gestion=gestion.anio,
+    )
+    return gestion
+
+
+def _relaciones_inversas(gestion):
+    """Relaciones que apuntan a la gestión, incluidas las ocultas.
+
+    Casi todas las FK hacia `GestionFiscal` usan `related_name='+'`
+    (catálogos, organización, workflow, auditoría…) y esas quedan fuera de
+    `_meta.related_objects`. Sin `include_hidden=True` el conteo de
+    dependencias solo vería las de budget y daría vía libre a eliminar una
+    gestión con catálogos y unidades ya cargados.
+    """
+    for campo in gestion._meta.get_fields(include_hidden=True):
+        if not (campo.is_relation and campo.auto_created and not campo.concrete):
+            continue
+        if campo.related_model._meta.label == RELACION_AUDITORIA:
+            continue
+        yield campo
+
+
+def gestion_eliminable(gestion):
+    """¿La gestión está vacía y sin el candado? Corta en la primera dependencia."""
+    if gestion.activa:
+        return False
+    return not any(
+        campo.related_model._base_manager
+        .filter(**{campo.field.name: gestion})
+        .exists()
+        for campo in _relaciones_inversas(gestion)
+    )
+
+
+def bloqueos_de_eliminacion(gestion):
+    """Dependencias que impiden eliminar la gestión, ya redactadas."""
+    bloqueos = []
+    if gestion.activa:
+        bloqueos.append('es la gestión habilitada de SIS-POA')
+    for campo in _relaciones_inversas(gestion):
+        total = (
+            campo.related_model._base_manager
+            .filter(**{campo.field.name: gestion})
+            .count()
+        )
+        if total:
+            bloqueos.append(
+                f'{campo.related_model._meta.verbose_name_plural}: {total}'
+            )
+    return sorted(bloqueos)
+
+
+@transaction.atomic
+def eliminar_gestion(gestion, usuario):
+    """Elimina una gestión que todavía no tiene nada colgando.
+
+    Solo cubre el caso real: la gestión abierta por error. Si existe cualquier
+    registro dependiente se rechaza, porque las FK de budget son CASCADE y un
+    borrado silencioso se llevaría por delante techos, distribuciones y
+    reformas. Tampoco se elimina la que tiene el candado: apagar SIS-POA no
+    puede ser el efecto lateral de un DELETE, hay que cerrarla primero.
+
+    La auditoría es la única excepción: sus eventos se desvinculan en vez de
+    bloquear, y conservan el rastro por `entidad_id`.
+    """
+    _tomar_candado()
+    gestion.refresh_from_db()
+
+    bloqueos = bloqueos_de_eliminacion(gestion)
+    if bloqueos:
+        raise ValidationError(
+            f'La gestión {gestion.anio} no se puede eliminar '
+            f'({"; ".join(bloqueos)}). Ciérrela en lugar de eliminarla.'
+        )
+
+    anio = gestion.anio
+    gestion_id = gestion.id
+    estado_previo = gestion.estado
+    EventoAuditoria.objects.filter(gestion=gestion).update(gestion=None)
+    gestion.delete()
+    registrar_evento(
+        usuario,
+        EventoAuditoria.Accion.ANULAR,
+        'GestionFiscal',
+        gestion_id,
+        resumen=f'Gestión {anio} eliminada del ciclo presupuestario',
+        datos_previos={'anio': anio, 'estado': estado_previo},
+        datos_posteriores=None,
+    )
+    return anio
 
 
 @transaction.atomic

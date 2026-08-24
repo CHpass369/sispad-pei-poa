@@ -66,12 +66,13 @@ export class SeguimientoService {
     return this.api.post<ReporteSeguimiento>('/reportes-seguimiento/', data);
   }
 
-  obtenerSemaforo(gestion: number): Observable<SemaforoResponse> {
-    return this.api.get<SemaforoResponse>('/entradas/semaforo/', { gestion });
+  /** Semáforo de la gestión habilitada (la resuelve el backend, ADR-007). */
+  obtenerSemaforo(): Observable<SemaforoResponse> {
+    return this.api.get<SemaforoResponse>('/entradas/semaforo/');
   }
 
-  obtenerDashboard(gestion: number): Observable<DashboardData> {
-    return this.api.get<DashboardData>('/entradas/dashboard/', { gestion });
+  obtenerDashboard(): Observable<DashboardData> {
+    return this.api.get<DashboardData>('/entradas/dashboard/');
   }
 
   listarAlertasActivas(): Observable<Alerta[]> {

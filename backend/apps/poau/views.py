@@ -5,6 +5,8 @@ from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Prefetch
 
+from apps.gestion.mixins import CandadoSisPoaMixin
+
 from .models import POAU, POAUActividad, EjecucionFisica, EjecucionFinanciera
 from .serializers import (
     POAUSerializer, POAUListSerializer, POAUActividadSerializer,
@@ -12,7 +14,9 @@ from .serializers import (
 )
 
 
-class POAUViewSet(viewsets.ModelViewSet):
+class POAUViewSet(CandadoSisPoaMixin, viewsets.ModelViewSet):
+    """POAU por unidad, acotado a la gestión habilitada (ADR-007)."""
+
     queryset = POAU.objects.select_related(
         'unidad', 'producto_territorial', 'responsable',
     ).prefetch_related(
@@ -30,7 +34,8 @@ class POAUViewSet(viewsets.ModelViewSet):
     ).all()
 
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['gestion', 'estado', 'unidad']
+    # 'gestion' salió del filtro libre: la pone el candado.
+    filterset_fields = ['estado', 'unidad']
     search_fields = ['codigo', 'nombre', 'descripcion']
     ordering_fields = ['gestion', 'codigo', 'created_at']
 

@@ -17,6 +17,8 @@ import re
 
 from django.shortcuts import get_object_or_404
 
+from apps.gestion.mixins import gestion_del_candado
+
 from .models import AccionPOA, OperacionPOAU
 
 MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio',
@@ -125,7 +127,9 @@ class MatrizPOAUViewSet(viewsets.ViewSet):
         return '', ''
 
     def list(self, request):
-        gestion = request.query_params.get('gestion')
+        # El candado manda: el POAU es de la gestión habilitada. Antes, sin
+        # `?gestion=`, la matriz mezclaba las acciones de todos los años.
+        gestion = gestion_del_candado(request).anio
         unidad = request.query_params.get('unidad')
 
         operaciones = (
@@ -135,9 +139,8 @@ class MatrizPOAUViewSet(viewsets.ViewSet):
             .prefetch_related('actividades__tareas')
             .order_by('accion_poa__unidad_responsable__codigo',
                       'accion_poa__codigo_accion', 'codigo_operacion')
+            .filter(accion_poa__gestion=gestion)
         )
-        if gestion:
-            operaciones = operaciones.filter(accion_poa__gestion=int(gestion))
         if unidad:
             operaciones = operaciones.filter(
                 accion_poa__unidad_responsable__codigo=unidad)
@@ -239,8 +242,12 @@ class MatrizPOAUViewSet(viewsets.ViewSet):
         formularios de `poau-matriz.model.ts`, para que editar sea modificar lo
         que ya está y no volver a tipearlo.
         """
+        # Acotado al candado: editar una acción de una gestión cerrada es
+        # justamente lo que el candado impide (ADR-007).
         accion = get_object_or_404(
-            AccionPOA.objects.select_related('producto_pei', 'unidad_responsable'),
+            AccionPOA.objects
+            .select_related('producto_pei', 'unidad_responsable')
+            .filter(gestion=gestion_del_candado(request).anio),
             pk=pk,
         )
         producto = accion.producto_pei

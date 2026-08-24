@@ -10,6 +10,8 @@ import {
   Reforma,
 } from './budget.service';
 import { MonedaPipe } from './moneda.pipe';
+import { GestionHabilitadaService } from '../../../core/services/gestion-habilitada.service';
+import { gestionHabilitadaStub } from '../../../core/testing/gestion-habilitada.stub';
 
 describe('ReformsComponent', () => {
   let component: ReformsComponent;
@@ -99,7 +101,10 @@ describe('ReformsComponent', () => {
     await TestBed.configureTestingModule({
       declarations: [ReformsComponent, MonedaPipe],
       imports: [HttpClientTestingModule, FormsModule],
-      providers: [{ provide: BudgetService, useValue: serviceSpy }],
+      providers: [
+        { provide: GestionHabilitadaService, useValue: gestionHabilitadaStub(2030, '2030') },
+        { provide: BudgetService, useValue: serviceSpy },
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(ReformsComponent);
@@ -112,7 +117,7 @@ describe('ReformsComponent', () => {
   });
 
   it('should load reforms and aperturas on init', () => {
-    expect(serviceSpy.listar).toHaveBeenCalled();
+    expect(serviceSpy.listar).not.toHaveBeenCalled();
     expect(serviceSpy.listarReforms).toHaveBeenCalledWith({ gestion: '2030' });
     expect(component.reforms.length).toBe(1);
     expect(component.aperturas.length).toBe(2);

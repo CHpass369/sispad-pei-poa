@@ -10,6 +10,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from apps.accounts.models import Rol
+from apps.gestion.testing import habilitar_gestion_para_tests
 from apps.articulacion.models import (
     AccionPOA, ActividadPOAU, OperacionPOAU, ProductoPEI, ResultadoPEI, TareaPOAU,
 )
@@ -20,6 +21,9 @@ API = '/api/v1/articulacion'
 
 class RevisionPOAUTests(TestCase):
     def setUp(self):
+        # El POAU vive dentro del candado: sin gestión habilitada los
+        # endpoints de SIS-POA responden 409 (ADR-007).
+        habilitar_gestion_para_tests(2027)
         self.client = APIClient()
         self.tecnico = User.objects.create_user(
             email='tecnico@test.com', password='tecnico123',

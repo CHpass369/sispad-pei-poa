@@ -3,6 +3,8 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 
+from apps.gestion.mixins import CandadoSisPoaMixin
+
 from .models import SolicitudModificacion, CambioModificacion, ImpactoModificacion
 from .serializers import (
     SolicitudModificacionSerializer,
@@ -13,11 +15,18 @@ from .serializers import (
 from .services import aplicar_modificacion, calcular_impacto_financiero, verificar_compatibilidad
 
 
-class SolicitudModificacionViewSet(viewsets.ModelViewSet):
+class SolicitudModificacionViewSet(CandadoSisPoaMixin, viewsets.ModelViewSet):
+    """Solicitudes de modificación de la gestión habilitada (ADR-007)."""
+
+    # Acá el campo se llama `gestion_fiscal` (deuda D3 de
+    # GESTION_FISCAL_AUDIT: conviven cinco convenciones de nombre).
+    # Renombrarlo rompería el contrato V1, así que el candado se adapta.
+    campo_gestion = 'gestion_fiscal'
+
     queryset = SolicitudModificacion.objects.select_related(
         'solicitado_por', 'poau',
     ).prefetch_related('cambios', 'impacto').all()
-    filterset_fields = ['tipo', 'gestion_fiscal', 'estado', 'entidad_afectada_tipo', 'poau']
+    filterset_fields = ['tipo', 'estado', 'entidad_afectada_tipo', 'poau']
     search_fields = ['motivo', 'informe_tecnico', 'documento_legal', 'entidad_afectada_tipo']
     ordering_fields = ['gestion_fiscal', 'tipo', 'estado', 'created_at', 'fecha_efectiva']
 

@@ -24,12 +24,7 @@
     <div class="form-grid">
       <div class="campo">
         <label>Gestión fiscal</label>
-        <select class="input" [(ngModel)]="gestionSeleccionada"
-          (ngModelChange)="seleccionarGestion($event)">
-          @for (g of gestiones; track g) {
-            <option [ngValue]="g.id">{{ g.anio }} — {{ g.estado_display }}</option>
-          }
-        </select>
+        <span class="pastilla-gestion">Gestión {{ gestionAnio }}</span>
       </div>
       <div class="campo">
         <label>Perfil de planilla</label>
@@ -50,9 +45,9 @@
         {{ cargando ? 'Subiendo…' : 'Subir y parsear' }}
       </button>
     </div>
-    @if (!cargando && gestiones.length === 0) {
+    @if (!cargando && !gestionAnio) {
       <div class="empty">
-        No hay gestiones fiscales disponibles.
+        No hay una gestión fiscal habilitada.
       </div>
     }
   </div>

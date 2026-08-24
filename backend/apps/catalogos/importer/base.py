@@ -30,7 +30,8 @@ def resolver_gestion(gestion):
         defaults={
             'estado': GestionFiscal.Estado.PREPARACION,
             'descripcion': 'Creada por el importador del catálogo maestro.',
-            'activa': True,
+            # Sin `activa`: sembrar una gestión no le da el candado de SIS-POA.
+            # Ese lo toma `habilitar_gestion`, y solo puede tenerlo una (ADR-007).
         },
     )
     return gestion_fiscal

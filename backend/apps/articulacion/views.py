@@ -28,6 +28,9 @@ from .serializers import (
     AsignacionObjetoGastoSerializer, BorradorMatrizPADSerializer,
     validar_estructura_resultados,
 )
+from apps.gestion import candado
+from apps.gestion.mixins import CandadoSisPoaMixin, GestionHabilitadaFilterMixin
+
 from .revision_poau import EstadosPOAU, RevisionPOAUMixin
 from .permissions import ArticulacionPermisos, permisos_revision_matriz
 from .services import (
@@ -267,16 +270,24 @@ class IndicadorCadenaViewSet(viewsets.ModelViewSet):
     ordering_fields = ['nivel_indicador', 'indicador']
 
 
-class AccionPOAViewSet(EstadoActionsMixin, viewsets.ModelViewSet):
+class AccionPOAViewSet(CandadoSisPoaMixin, EstadoActionsMixin, viewsets.ModelViewSet):
+    """Acciones de corto plazo de la gestión habilitada (ADR-007)."""
+
     queryset = AccionPOA.objects.all()
     serializer_class = AccionPOASerializer
     permission_classes = [ArticulacionPermisos]
-    filterset_fields = ['gestion', 'estado', 'producto_pei', 'unidad_responsable']
+    filterset_fields = ['estado', 'producto_pei', 'unidad_responsable']
     search_fields = ['codigo_accion', 'denominacion', 'programa']
     ordering_fields = ['codigo_accion', 'gestion', 'denominacion']
 
 
-class OperacionPOAUViewSet(RevisionPOAUMixin, viewsets.ModelViewSet):
+class OperacionPOAUViewSet(
+    GestionHabilitadaFilterMixin, RevisionPOAUMixin, viewsets.ModelViewSet,
+):
+    # La operación no lleva gestión propia: la hereda de su acción de corto
+    # plazo, y por ahí la acota el candado.
+    campo_gestion = 'accion_poa__gestion'
+
     queryset = OperacionPOAU.objects.all()
     serializer_class = OperacionPOAUSerializer
     permission_classes = [ArticulacionPermisos]
@@ -285,7 +296,11 @@ class OperacionPOAUViewSet(RevisionPOAUMixin, viewsets.ModelViewSet):
     ordering_fields = ['codigo_operacion', 'denominacion']
 
 
-class ActividadPOAUViewSet(RevisionPOAUMixin, viewsets.ModelViewSet):
+class ActividadPOAUViewSet(
+    GestionHabilitadaFilterMixin, RevisionPOAUMixin, viewsets.ModelViewSet,
+):
+    campo_gestion = 'operacion__accion_poa__gestion'
+
     queryset = ActividadPOAU.objects.all()
     serializer_class = ActividadPOAUSerializer
     permission_classes = [ArticulacionPermisos]
@@ -302,7 +317,11 @@ class ActividadNormativaViewSet(viewsets.ModelViewSet):
     ordering_fields = ['actividad', 'normativa']
 
 
-class TareaPOAUViewSet(RevisionPOAUMixin, viewsets.ModelViewSet):
+class TareaPOAUViewSet(
+    GestionHabilitadaFilterMixin, RevisionPOAUMixin, viewsets.ModelViewSet,
+):
+    campo_gestion = 'actividad__operacion__accion_poa__gestion'
+
     queryset = TareaPOAU.objects.all()
     serializer_class = TareaPOAUSerializer
     permission_classes = [ArticulacionPermisos]
@@ -319,20 +338,24 @@ class TareaNormativaViewSet(viewsets.ModelViewSet):
     ordering_fields = ['tarea', 'normativa']
 
 
-class SeguimientoPresupuestoViewSet(EstadoActionsMixin, viewsets.ModelViewSet):
+class SeguimientoPresupuestoViewSet(
+    CandadoSisPoaMixin, EstadoActionsMixin, viewsets.ModelViewSet,
+):
     queryset = SeguimientoPresupuesto.objects.all()
     serializer_class = SeguimientoPresupuestoSerializer
     permission_classes = [ArticulacionPermisos]
-    filterset_fields = ['gestion', 'estado', 'accion_poa', 'operacion', 'actividad']
+    filterset_fields = ['estado', 'accion_poa', 'operacion', 'actividad']
     search_fields = ['id_cadena', 'programa']
     ordering_fields = ['gestion', 'id_cadena']
 
 
-class AsignacionObjetoGastoViewSet(EstadoActionsMixin, viewsets.ModelViewSet):
+class AsignacionObjetoGastoViewSet(
+    CandadoSisPoaMixin, EstadoActionsMixin, viewsets.ModelViewSet,
+):
     queryset = AsignacionObjetoGasto.objects.all()
     serializer_class = AsignacionObjetoGastoSerializer
     permission_classes = [ArticulacionPermisos]
-    filterset_fields = ['gestion', 'estado', 'accion_poa', 'operacion', 'actividad', 'tipo_gasto']
+    filterset_fields = ['estado', 'accion_poa', 'operacion', 'actividad', 'tipo_gasto']
     search_fields = ['codigo_asignacion', 'descripcion_objeto']
     ordering_fields = ['codigo_asignacion', 'gestion']
 
@@ -787,7 +810,9 @@ class BorradorMatrizPEIViewSet(RevisionMatrizMixin, viewsets.ModelViewSet):
         return Response(self.get_serializer(borrador).data)
 
 
-class BorradorMatrizPOAViewSet(RevisionMatrizMixin, viewsets.ModelViewSet):
+class BorradorMatrizPOAViewSet(
+    CandadoSisPoaMixin, RevisionMatrizMixin, viewsets.ModelViewSet,
+):
     """CRUD del borrador de Matriz POA (guardado incremental por sección).
 
     Espejo de :class:`BorradorMatrizPEIViewSet`: PATCH parcial por sección,
@@ -798,10 +823,17 @@ class BorradorMatrizPOAViewSet(RevisionMatrizMixin, viewsets.ModelViewSet):
     queryset = BorradorMatrizPOA.objects.select_related('id_accion_poa')
     serializer_class = BorradorMatrizPOASerializer
     permission_classes = [ArticulacionPermisos]
-    filterset_fields = ['gestion', 'estado', 'estado_revision']
+    filterset_fields = ['estado', 'estado_revision']
 
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user, updated_by=self.request.user)
+        # La gestión la estampa el candado, no el cliente ni el `default=2026`
+        # del modelo: un borrador que naciera en 2026 quedaría en una gestión
+        # cerrada, invisible para el filtro de lectura y sin decir por qué.
+        serializer.save(
+            created_by=self.request.user,
+            updated_by=self.request.user,
+            gestion=candado.exigir_gestion_habilitada().anio,
+        )
 
     def _denegar(self, mensaje):
         return Response({'error': mensaje}, status=status.HTTP_403_FORBIDDEN)

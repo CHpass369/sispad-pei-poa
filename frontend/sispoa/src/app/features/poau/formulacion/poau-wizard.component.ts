@@ -3,6 +3,7 @@ import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { concatMap, from, of, switchMap, toArray } from 'rxjs';
 import { ApiService } from '../../../core/services/api.service';
+import { GestionHabilitadaService } from '../../../core/services/gestion-habilitada.service';
 import { environment } from '../../../../environments/environment';
 import {
   ActividadForm,
@@ -68,7 +69,8 @@ import {
         </p>
         <div class="form-2col">
           <div class="field"><label>Gestión</label>
-            <input [(ngModel)]="cabecera.gestion" type="number" class="form-control"></div>
+            <input [ngModel]="cabecera.gestion" name="gestion" type="number" class="form-control" readonly
+                   title="La fija la habilitación de gestión fiscal"></div>
           <div class="field">
             <label>Acción de corto plazo del POA</label>
             <select [(ngModel)]="accionSel" class="form-control" (change)="heredarDelPoa()">
@@ -486,9 +488,12 @@ export class PoauWizardComponent implements OnInit {
     private http: HttpClient,
     private cdr: ChangeDetectorRef,
     private ruta: ActivatedRoute,
+    private gestionActiva: GestionHabilitadaService,
   ) {}
 
   ngOnInit(): void {
+    // El POAU se formula sobre la gestión habilitada (ADR-007).
+    this.cabecera.gestion = this.gestionActiva.anio() ?? 0;
     this.cargarAccionesPoa();
     this.cargarProductosPei();
     this.cargarCategoriasMaestro();

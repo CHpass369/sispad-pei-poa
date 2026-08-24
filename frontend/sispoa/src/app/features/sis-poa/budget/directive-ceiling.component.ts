@@ -1,12 +1,12 @@
 import { Component, OnInit } from '@angular/core';
 import { PermissionsService } from '../../../core/services/permissions.service';
+import { GestionHabilitadaService } from '../../../core/services/gestion-habilitada.service';
 import {
   DocumentoPresupuestario,
   BudgetService,
   RecursoTecho,
   Composition,
   TechoDirectivo,
-  FiscalYear,
   GastoObligatorio,
 } from './budget.service';
 
@@ -60,7 +60,6 @@ const TIPOS_DOCUMENTO = [
 })
 export class DirectiveCeilingComponent implements OnInit {
   techos: TechoDirectivo[] = [];
-  gestiones: FiscalYear[] = [];
   seleccionadoId: number | null = null;
   seleccion: TechoDirectivo | null = null;
   composicion: Composition | null = null;
@@ -71,7 +70,14 @@ export class DirectiveCeilingComponent implements OnInit {
   error = '';
   mensaje = '';
 
-  gestionNueva: string | null = null;
+  /** Gestión del techo nuevo: siempre la habilitada (ADR-007).
+   *  Antes era un desplegable que ofrecía gestiones cerradas, y el
+   *  backend rechazaba la creación recién al enviar. */
+  get gestionNueva(): string | null {
+    return this.gestionActiva.gestion()?.id ?? null;
+  }
+
+  get gestionAnio(): number | null { return this.gestionActiva.anio(); }
   formRecurso: { origen: string; concepto: string; monto: number | null } = {
     origen: 'SIGEP',
     concepto: '',
@@ -95,6 +101,7 @@ export class DirectiveCeilingComponent implements OnInit {
   constructor(
     private service: BudgetService,
     private permissions: PermissionsService,
+    private gestionActiva: GestionHabilitadaService,
   ) {}
 
   get puedeGestionar(): boolean {
@@ -131,10 +138,6 @@ export class DirectiveCeilingComponent implements OnInit {
         this.error = 'Error al cargar los techos directivos';
         this.cargando = false;
       },
-    });
-    this.service.listar().subscribe({
-      next: (data) => { this.gestiones = data.results; },
-      error: () => { /* el error principal lo muestra listarTechos */ },
     });
   }
 
@@ -179,7 +182,6 @@ export class DirectiveCeilingComponent implements OnInit {
     this.service.crearTecho({ gestion: this.gestionNueva }).subscribe({
       next: (techo) => {
         this.mensaje = `Techo directivo creado para la gestión ${techo.gestion_anio}`;
-        this.gestionNueva = null;
         this.cargar();
       },
       error: () => {

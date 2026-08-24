@@ -39,8 +39,12 @@ from .models import (
     TipoMovimientoReform,
 )
 from .services import (
+    ESTADOS_NO_HABILITABLES,
     composicion_techo,
     crear_version_inicial,
+    gestion_eliminable,
+    gestion_habilitada,
+    gestion_reabrible,
     heredar_configuracion,
     validar_gestion_para_techo,
 )
@@ -55,6 +59,12 @@ class GestionFiscalPresupuestoSerializer(serializers.ModelSerializer):
         source='creado_por.email', read_only=True, allow_null=True,
     )
     gestion_anterior = serializers.SerializerMethodField()
+    # Las transiciones válidas se calculan acá y no en la pantalla: la UI
+    # duplicaba las listas de estados y se desincronizaba con los servicios.
+    puede_habilitar = serializers.SerializerMethodField()
+    puede_reabrir = serializers.SerializerMethodField()
+    puede_cerrar = serializers.SerializerMethodField()
+    puede_eliminar = serializers.SerializerMethodField()
     heredar_de = serializers.IntegerField(
         write_only=True, required=False, allow_null=True,
         help_text='Año de la gestión de la cual heredar la configuración '
@@ -70,6 +80,7 @@ class GestionFiscalPresupuestoSerializer(serializers.ModelSerializer):
             'fecha_cierre_programada', 'documento_habilitacion', 'activa',
             'gestion_anterior', 'heredar_de', 'creado_en', 'actualizado_en',
             'fecha_cargado', 'encargado_cargado',
+            'puede_habilitar', 'puede_reabrir', 'puede_cerrar', 'puede_eliminar',
         ]
         read_only_fields = [
             'id', 'estado', 'estado_display', 'fecha_apertura',
@@ -87,6 +98,22 @@ class GestionFiscalPresupuestoSerializer(serializers.ModelSerializer):
             instance.fecha_cierre_programada or date(instance.anio, 12, 31)
         ).isoformat()
         return data
+
+    def get_puede_habilitar(self, obj):
+        return not gestion_habilitada(obj) and obj.estado not in ESTADOS_NO_HABILITABLES
+
+    def get_puede_reabrir(self, obj):
+        return gestion_reabrible(obj)
+
+    def get_puede_cerrar(self, obj):
+        return obj.estado not in (
+            'CERRADA',
+            GestionFiscal.Estado.CERRADA,
+            GestionFiscal.Estado.ARCHIVADA,
+        )
+
+    def get_puede_eliminar(self, obj):
+        return gestion_eliminable(obj)
 
     def get_gestion_anterior(self, obj):
         anterior = (

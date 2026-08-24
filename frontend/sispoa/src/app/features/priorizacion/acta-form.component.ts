@@ -1,6 +1,7 @@
 import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subject, debounceTime, distinctUntilChanged, switchMap } from 'rxjs';
+import { GestionHabilitadaService } from '../../core/services/gestion-habilitada.service';
 import {
   ActaPriorizacion, PriorizacionService, ProyectoCatalogo, ProyectoPriorizado,
 } from './priorizacion.service';
@@ -27,7 +28,8 @@ import {
         <h3>Datos del acta</h3>
         <div class="grilla">
           <label>Gestión POA
-            <input class="form-control" type="number" [(ngModel)]="acta.gestion">
+            <input class="form-control" type="number" [ngModel]="acta.gestion" name="gestion" readonly
+                   title="La gestión la fija la habilitación de gestión fiscal">
           </label>
           <label>Distrito
             <select class="form-control" [(ngModel)]="acta.distrito">
@@ -222,7 +224,8 @@ import {
 export class ActaFormComponent implements OnInit {
   id = '';
   acta: ActaPriorizacion = {
-    gestion: 2027, distrito: '', otb: '', presidente: '',
+    // La gestión sale del candado (ADR-007); el backend rechaza cualquier otra.
+    gestion: 0, distrito: '', otb: '', presidente: '',
     responsable_registro: '', fecha: null, proyectos: [],
   };
   distritos: any[] = [];
@@ -238,9 +241,13 @@ export class ActaFormComponent implements OnInit {
   private teclas = new Subject<string>();
 
   constructor(private api: PriorizacionService, private cdr: ChangeDetectorRef,
-              private ruta: ActivatedRoute, private router: Router) {}
+              private ruta: ActivatedRoute, private router: Router,
+              private gestionActiva: GestionHabilitadaService) {}
 
   ngOnInit(): void {
+    // El acta nace en la gestión habilitada y el campo va de solo lectura:
+    // no es una decisión del técnico, es el candado de SIS-POA (ADR-007).
+    this.acta.gestion = this.gestionActiva.anio() ?? 0;
     this.api.distritos().subscribe(d => {
       this.distritos = d.results ?? d;
       this.cdr.markForCheck();
@@ -272,7 +279,7 @@ export class ActaFormComponent implements OnInit {
    * montos se descontarían del techo que se le muestra al técnico.
    */
   private cargarSaldos(): void {
-    this.api.saldos(this.acta.gestion, this.id).subscribe({
+    this.api.saldos(this.id).subscribe({
       next: (d: any) => { this.pares = d.pares ?? []; this.cdr.markForCheck(); },
       error: () => { this.pares = []; },
     });

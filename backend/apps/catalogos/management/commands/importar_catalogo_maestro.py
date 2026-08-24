@@ -85,7 +85,7 @@ def importar_gestion_fiscal(reporte, gestion):
                     'Réplica 2026 creada por el importador del catálogo '
                     'maestro (clasificadores 2026 vigentes).'
                 ),
-                'activa': True,
+                # Sin `activa`: el candado de SIS-POA lo da `habilitar_gestion`.
             },
         )
         if creado:
@@ -102,7 +102,7 @@ def importar_gestion_fiscal(reporte, gestion):
             defaults={
                 'estado': GestionFiscal.Estado.PREPARACION,
                 'descripcion': 'Gestión de trabajo (importador catálogo).',
-                'activa': True,
+                # Sin `activa`: el candado de SIS-POA lo da `habilitar_gestion`.
             },
         )
     reporte.conteos_modelo['GestionFiscal'] = (

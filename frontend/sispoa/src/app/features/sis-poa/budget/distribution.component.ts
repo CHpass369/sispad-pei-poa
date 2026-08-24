@@ -7,12 +7,12 @@ import {
   DistributionSummary,
   DistribucionVersion,
   ExpenseObject,
-  FiscalYear,
   CategoriaProgramaticaTecho,
   Reserva,
   ResumenApertura,
   ValidacionDistribucion,
 } from './budget.service';
+import { GestionHabilitadaService } from '../../../core/services/gestion-habilitada.service';
 
 @Component({
   standalone: false,
@@ -58,7 +58,6 @@ import {
   `],
 })
 export class DistributionComponent implements OnInit {
-  gestiones: FiscalYear[] = [];
   gestionSeleccionada: string | null = null;
   resumen: DistributionSummary | null = null;
   aperturas: Apertura[] = [];
@@ -108,23 +107,24 @@ export class DistributionComponent implements OnInit {
   errorObjetos = '';
   guardandoObjeto = false;
 
-  constructor(private service: BudgetService) {}
+  constructor(private service: BudgetService,
+              private gestionActiva: GestionHabilitadaService) {}
 
   ngOnInit(): void {
-    this.service.listar().subscribe({
-      next: (data) => {
-        this.gestiones = data.results;
-        if (this.gestiones.length > 0) {
-          this.seleccionarGestion(this.gestiones[0].id);
-        } else {
-          this.cargando = false;
-        }
-      },
-      error: () => {
-        this.error = 'Error al cargar las gestiones fiscales';
-        this.cargando = false;
-      },
-    });
+    // Sin selector de gestión: SIS-POA opera sobre la habilitada y sobre
+    // ninguna otra (ADR-007). El guard ya garantizó que existe.
+    const habilitada = this.gestionActiva.gestion();
+    if (!habilitada) {
+      this.error = 'No hay una gestión fiscal habilitada.';
+      this.cargando = false;
+      return;
+    }
+    this.seleccionarGestion(habilitada.id);
+  }
+
+  /** Año de la gestión habilitada, para el encabezado. */
+  get gestionAnio(): number | null {
+    return this.gestionActiva.anio();
   }
 
   seleccionarGestion(id: string): void {

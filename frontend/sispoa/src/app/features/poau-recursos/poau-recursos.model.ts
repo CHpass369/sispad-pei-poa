@@ -46,7 +46,9 @@ export function cabeceraVacia(): CabeceraRecursos {
     cargoReacp: '',
     da: '',
     ue: '',
-    gestion: 2027,
+    // Sin gestión: la pone el asistente con la del candado (ADR-007). Un
+    // literal acá reintroduce el año fijo por la puerta de atrás.
+    gestion: 0,
     accionPoaId: null,
     operacionId: null,
     actividadId: null,

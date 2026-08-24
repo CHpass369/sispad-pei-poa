@@ -67,7 +67,9 @@ export function cabeceraVacia(): CabeceraPoau {
     categoriaProgramatica: '',
     denominacionCategoria: '',
     accionPoaId: null,
-    gestion: 2026,
+    // Sin gestión: la pone el asistente con la del candado (ADR-007). Un
+    // literal acá reintroduce el año fijo por la puerta de atrás.
+    gestion: 0,
   };
 }
 

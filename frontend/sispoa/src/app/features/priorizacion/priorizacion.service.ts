@@ -113,22 +113,19 @@ export class PriorizacionService {
                          { responseType: 'blob' });
   }
 
-  matrices(gestion: number): Observable<any> {
-    return this.http.get(`${this.base}/matrices/`, {
-      params: new HttpParams().set('gestion', gestion),
-    });
+  /** Matrices acumulativas de la gestión habilitada (la resuelve el backend). */
+  matrices(): Observable<any> {
+    return this.http.get(`${this.base}/matrices/`);
   }
 
   /** Categorías programáticas nivel ACTIVIDAD, para elegir a mano en el acta. */
-  categorias(gestion = 2027): Observable<any> {
-    return this.http.get(`${this.base}/categorias-programaticas/`, {
-      params: new HttpParams().set('gestion', gestion),
-    });
+  categorias(): Observable<any> {
+    return this.http.get(`${this.base}/categorias-programaticas/`);
   }
 
   /** Techo, lo usado y lo que queda por par FF/OF. */
-  saldos(gestion: number, excluirActa = ''): Observable<any> {
-    let params = new HttpParams().set('gestion', gestion);
+  saldos(excluirActa = ''): Observable<any> {
+    let params = new HttpParams();
     if (excluirActa) { params = params.set('excluir_acta', excluirActa); }
     return this.http.get(`${this.base}/saldos/`, { params });
   }

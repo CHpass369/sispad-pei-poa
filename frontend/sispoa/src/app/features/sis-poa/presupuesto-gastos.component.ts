@@ -533,10 +533,12 @@ export class PresupuestoGastosComponent implements OnInit {
     });
   }
 
-  cargar(gestion = 2027): void {
+  cargar(): void {
     this.cargando = true;
     this.error = '';
-    this.http.get<ArbolGastos>(`${this.base}/presupuesto-gastos/?gestion=${gestion}`)
+    // Sin `?gestion=`: el backend responde por la gestión habilitada. El año
+    // ya no lo elige la pantalla (ADR-007) — acá estaba clavado en 2027.
+    this.http.get<ArbolGastos>(`${this.base}/presupuesto-gastos/`)
       .pipe(finalize(() => { this.cargando = false; this.cdr.markForCheck(); }))
       .subscribe({
         next: d => {

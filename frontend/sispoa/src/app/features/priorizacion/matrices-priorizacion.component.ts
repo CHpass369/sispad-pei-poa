@@ -1,5 +1,6 @@
 import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { finalize } from 'rxjs';
+import { GestionHabilitadaService } from '../../core/services/gestion-habilitada.service';
 import { PriorizacionService } from './priorizacion.service';
 
 @Component({
@@ -15,8 +16,6 @@ import { PriorizacionService } from './priorizacion.service';
           </p>
         </div>
         <div class="encabezado-acciones">
-          <input class="form-control filtro" type="number" [(ngModel)]="gestion"
-                 (change)="cargar()">
           <button class="btn btn-sm btn-excel" (click)="exportar()"
                   [disabled]="!filas.length">⬇ Excel</button>
         </div>
@@ -112,11 +111,13 @@ export class MatricesPriorizacionComponent implements OnInit {
   filas: any[] = [];
   resumen: any[] = [];
   totalMonto = 0;
-  gestion = 2027;
+  /** La gestión la fija el candado de SIS-POA, no un filtro (ADR-007). */
+  get gestion(): number | null { return this.gestionActiva.anio(); }
   cargando = true;
   error = '';
 
-  constructor(private api: PriorizacionService, private cdr: ChangeDetectorRef) {}
+  constructor(private api: PriorizacionService, private cdr: ChangeDetectorRef,
+              private gestionActiva: GestionHabilitadaService) {}
 
   ngOnInit(): void { this.cargar(); }
 
@@ -131,7 +132,7 @@ export class MatricesPriorizacionComponent implements OnInit {
   cargar(): void {
     this.cargando = true;
     this.error = '';
-    this.api.matrices(this.gestion)
+    this.api.matrices()
       .pipe(finalize(() => { this.cargando = false; this.cdr.markForCheck(); }))
       .subscribe({
         next: (d: any) => {

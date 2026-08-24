@@ -1,12 +1,7 @@
 <div class="page-header">
   <h2>Distribución Presupuestaria</h2>
   <div class="acciones">
-    <select class="input" [ngModel]="gestionSeleccionada" (ngModelChange)="seleccionarGestion($event)"
-      style="width:auto">
-      @for (g of gestiones; track g) {
-        <option [ngValue]="g.id">{{ g.anio }} — {{ g.estado_display }}</option>
-      }
-    </select>
+    <span class="pastilla-gestion" title="Gestión habilitada para SIS-POA">Gestión {{ gestionAnio }}</span>
     <div class="tooltip-wrap">
       <button class="btn btn-sm" disabled title="Disponible en la Fase 5">Importar GASTOS</button>
       <span class="tooltip-text">Fase 5 — Importador Excel</span>

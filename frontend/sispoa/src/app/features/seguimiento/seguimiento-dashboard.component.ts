@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { GestionHabilitadaService } from '../../core/services/gestion-habilitada.service';
 import { SeguimientoService, Semaforo, DashboardData, Alerta } from './seguimiento.service';
 
 @Component({
@@ -120,13 +121,15 @@ import { SeguimientoService, Semaforo, DashboardData, Alerta } from './seguimien
   `]
 })
 export class SeguimientoDashboardComponent implements OnInit {
-  readonly gestion = 2027;
+  /** La gestión la fija el candado de SIS-POA (ADR-007). */
+  get gestion(): number | null { return this.gestionActiva.anio(); }
   dashboard: DashboardData | null = null;
   semaforos: Semaforo[] = [];
   alertas: Alerta[] = [];
   cargando = true;
 
-  constructor(private seguimientoService: SeguimientoService) {}
+  constructor(private seguimientoService: SeguimientoService,
+              private gestionActiva: GestionHabilitadaService) {}
 
   ngOnInit(): void {
     this.cargarDashboard();
@@ -135,7 +138,7 @@ export class SeguimientoDashboardComponent implements OnInit {
   }
 
   cargarDashboard(): void {
-    this.seguimientoService.obtenerDashboard(this.gestion).subscribe({
+    this.seguimientoService.obtenerDashboard().subscribe({
       next: (data) => {
         this.dashboard = data;
         this.cargando = false;
@@ -145,7 +148,7 @@ export class SeguimientoDashboardComponent implements OnInit {
   }
 
   cargarSemaforo(): void {
-    this.seguimientoService.obtenerSemaforo(this.gestion).subscribe({
+    this.seguimientoService.obtenerSemaforo().subscribe({
       next: (data) => {
         this.semaforos = (['verde', 'amarillo', 'rojo'] as const).flatMap(
           estado => data.detalle[estado].map(item => ({

@@ -10,6 +10,8 @@ import {
   TechoDirectivo,
 } from './budget.service';
 import { PermissionsService } from '../../../core/services/permissions.service';
+import { GestionHabilitadaService } from '../../../core/services/gestion-habilitada.service';
+import { gestionHabilitadaStub } from '../../../core/testing/gestion-habilitada.stub';
 import { DirectiveCeilingComponent } from './directive-ceiling.component';
 import { MonedaPipe } from './moneda.pipe';
 
@@ -106,6 +108,7 @@ describe('DirectiveCeilingComponent', () => {
       declarations: [DirectiveCeilingComponent, MonedaPipe],
       imports: [FormsModule, HttpClientTestingModule, RouterTestingModule],
       providers: [
+        { provide: GestionHabilitadaService, useValue: gestionHabilitadaStub(2027) },
         { provide: BudgetService, useValue: serviceSpy },
         { provide: PermissionsService, useValue: permissionsSpy },
       ],
@@ -216,9 +219,11 @@ describe('DirectiveCeilingComponent', () => {
   it('should create ceiling and reload the list', () => {
     serviceSpy.crearTecho.and.returnValue(of(techoMock));
     fixture.detectChanges();
-    component.gestionNueva = 'g1';
+    // La gestión del techo nuevo ya no se elige: es la del candado.
     component.crear();
-    expect(serviceSpy.crearTecho).toHaveBeenCalledWith({ gestion: 'g1' });
+    expect(serviceSpy.crearTecho).toHaveBeenCalledWith({
+      gestion: 'gestion-habilitada-stub',
+    });
     expect(serviceSpy.listarTechos).toHaveBeenCalled();
   });
 

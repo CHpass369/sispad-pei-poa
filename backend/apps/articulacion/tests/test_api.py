@@ -2,6 +2,7 @@ from django.test import TestCase
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 from rest_framework import status
+from apps.gestion.testing import habilitar_gestion_para_tests
 from apps.articulacion.models import (
     ResultadoPAD, AccionPOA, ProductoPEI, ResultadoPEI,
 )
@@ -11,6 +12,9 @@ User = get_user_model()
 
 class ArticulacionAPITest(TestCase):
     def setUp(self):
+        # Las acciones POA de estos tests son de 2026: sin ese candado los
+        # endpoints de SIS-POA responden 409 (ADR-007).
+        habilitar_gestion_para_tests(2026)
         self.client = APIClient()
         # Usuario sin roles
         self.user_normal = User.objects.create_user(

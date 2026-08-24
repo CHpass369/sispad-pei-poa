@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterModule, Routes } from '@angular/router';
 import { SharedModule } from '../../shared/shared.module';
 import { CapabilityGuard } from '../../core/guards/capability.guard';
+import { GestionHabilitadaGuard } from '../../core/guards/gestion-habilitada.guard';
 import { modulosPendientes } from '../sistemas/modulos-pendientes';
 import { SisPoaDashboardComponent } from './sis-poa-dashboard.component';
 import { PoaWizardComponent } from './poa/poa-wizard.component';
@@ -21,12 +22,12 @@ const routes: Routes = [
   {
     path: 'dashboard',
     component: SisPoaDashboardComponent,
-    canActivate: [CapabilityGuard],
+    canActivate: [CapabilityGuard, GestionHabilitadaGuard],
     data: { capacidades: ['sis_poa.formulate'] },
   },
   {
     path: 'poas',
-    canActivate: [CapabilityGuard],
+    canActivate: [CapabilityGuard, GestionHabilitadaGuard],
     data: { capacidades: ['sis_poa.formulate'] },
     children: [
       { path: '', component: PoaHomeComponent },
@@ -39,37 +40,37 @@ const routes: Routes = [
     // Antes que 'poaus', para que la ruta específica gane.
     path: 'poaus/editar/:accion',
     loadChildren: () => import('../poau/poau.module').then(m => m.PoauModule),
-    canActivate: [CapabilityGuard],
+    canActivate: [CapabilityGuard, GestionHabilitadaGuard],
     data: { capacidades: ['sis_poa.formulate'] },
   },
   {
     path: 'poaus',
     component: MatrizPoauComponent,
-    canActivate: [CapabilityGuard],
+    canActivate: [CapabilityGuard, GestionHabilitadaGuard],
     data: { capacidades: ['sis_poa.formulate'] },
   },
   {
     path: 'presupuesto-gastos',
     component: PresupuestoGastosComponent,
-    canActivate: [CapabilityGuard],
+    canActivate: [CapabilityGuard, GestionHabilitadaGuard],
     data: { capacidades: ['sis_poa.formulate'] },
   },
   {
     path: 'presupuesto-recursos',
     component: PresupuestoRecursosComponent,
-    canActivate: [CapabilityGuard],
+    canActivate: [CapabilityGuard, GestionHabilitadaGuard],
     data: { capacidades: ['sis_poa.formulate'] },
   },
   {
     path: 'presupuesto',
     component: SisPoaPresupuestoComponent,
-    canActivate: [CapabilityGuard],
+    canActivate: [CapabilityGuard, GestionHabilitadaGuard],
     data: { capacidades: ['sis_poa.formulate'] },
   },
   {
     path: 'techos',
     component: SisPoaTechosComponent,
-    canActivate: [CapabilityGuard],
+    canActivate: [CapabilityGuard, GestionHabilitadaGuard],
     data: { capacidades: ['sis_poa.formulate'] },
   },
   {

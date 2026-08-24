@@ -5,6 +5,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from apps.accounts.models import Rol
+from apps.gestion.models import GestionFiscal
 from apps.priorizacion.models import (
     ActaPriorizacion, PlantillaActa, ProyectoCatalogo, ProyectoPriorizado,
     normalizar,
@@ -103,6 +104,13 @@ class ActaTests(TestCase):
         self.jefatura.roles.add(rol)
         self.client.force_authenticate(user=self.tecnico)
 
+        # Sin gestión habilitada SIS-POA no opera: el candado (ADR-007) es
+        # la precondición de todo el circuito de priorización.
+        GestionFiscal.objects.update(activa=False)
+        self.gestion = GestionFiscal.objects.update_or_create(
+            anio=2027, defaults={'estado': 'HABILITADA', 'activa': True},
+        )[0]
+
         self.distrito = Distrito.objects.create(codigo='D2', nombre='DISTRITO 2')
         PlantillaActa.objects.create(nombre='Acta', **PLANTILLA)
 
@@ -141,10 +149,15 @@ class ActaTests(TestCase):
         self.assertEqual(self.crear_acta().status_code,
                          status.HTTP_400_BAD_REQUEST)
 
-    def test_la_misma_otb_puede_priorizar_en_otra_gestion(self):
+    def test_no_se_prioriza_fuera_de_la_gestion_habilitada(self):
+        # Antes la misma OTB podía priorizar en otra gestión. Con el candado
+        # duro no: SIS-POA opera sobre la gestión habilitada y sobre ninguna
+        # otra, y el rechazo llega con su propio código (ADR-007).
         self.crear_acta()
-        self.assertEqual(self.crear_acta(gestion=2028).status_code,
-                         status.HTTP_201_CREATED)
+        respuesta = self.crear_acta(gestion=2028)
+        self.assertEqual(respuesta.status_code, status.HTTP_409_CONFLICT)
+        self.assertEqual(respuesta.json()['error']['code'],
+                         'fuera_de_gestion_habilitada')
 
     def test_editar_reemplaza_la_lista_completa_de_proyectos(self):
         acta_id = self.crear_acta().json()['id']
@@ -271,10 +284,14 @@ class ActaTests(TestCase):
         # El conteo no puede inflarse por el join con proyectos.
         self.assertEqual(d['resumen'][0]['proyectos'], 2)
 
-    def test_la_matriz_de_una_gestion_sin_actas_viene_vacia(self):
-        d = self.client.get(f'{API}/matrices/?gestion=2029').json()
+    def test_la_matriz_sin_actas_viene_vacia(self):
+        d = self.client.get(f'{API}/matrices/').json()
         self.assertEqual(d['total_filas'], 0)
         self.assertEqual(d['resumen'], [])
+
+    def test_la_matriz_de_otra_gestion_se_rechaza(self):
+        respuesta = self.client.get(f'{API}/matrices/?gestion=2029')
+        self.assertEqual(respuesta.status_code, status.HTTP_409_CONFLICT)
 
 
 class ActaPDFTests(ActaTests):

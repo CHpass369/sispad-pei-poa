@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, Routes } from '@angular/router';
 import { CapabilityGuard } from '../../../core/guards/capability.guard';
+import { GestionHabilitadaGuard } from '../../../core/guards/gestion-habilitada.guard';
 import { AuditComponent } from './audit.component';
 import { BudgetService } from './budget.service';
 import { DirectiveCeilingComponent } from './directive-ceiling.component';
@@ -25,43 +26,43 @@ const routes: Routes = [
   {
     path: 'techo-directivo',
     component: DirectiveCeilingComponent,
-    canActivate: [CapabilityGuard],
+    canActivate: [CapabilityGuard, GestionHabilitadaGuard],
     data: { capacidades: ['sis_poa.budget.manage', 'sis_poa.formulate'] },
   },
   {
     path: 'categorias-programaticas',
     component: ProgrammaticCategoriesComponent,
-    canActivate: [CapabilityGuard],
+    canActivate: [CapabilityGuard, GestionHabilitadaGuard],
     data: { capacidades: ['sis_poa.budget.manage', 'sis_poa.formulate'] },
   },
   {
     path: 'distribucion',
     component: DistributionComponent,
-    canActivate: [CapabilityGuard],
+    canActivate: [CapabilityGuard, GestionHabilitadaGuard],
     data: { capacidades: ['sis_poa.budget.manage', 'sis_poa.formulate'] },
   },
   {
     path: 'distribucion-territorial',
     component: TerritorialComponent,
-    canActivate: [CapabilityGuard],
+    canActivate: [CapabilityGuard, GestionHabilitadaGuard],
     data: { capacidades: ['sis_poa.budget.manage', 'sis_poa.formulate'] },
   },
   {
     path: 'importaciones',
     component: ImportsComponent,
-    canActivate: [CapabilityGuard],
+    canActivate: [CapabilityGuard, GestionHabilitadaGuard],
     data: { capacidades: ['sis_poa.budget.import'] },
   },
   {
     path: 'reformulaciones',
     component: ReformsComponent,
-    canActivate: [CapabilityGuard],
+    canActivate: [CapabilityGuard, GestionHabilitadaGuard],
     data: { capacidades: ['sis_poa.budget.reform', 'sis_poa.formulate'] },
   },
   {
     path: 'auditoria',
     component: AuditComponent,
-    canActivate: [CapabilityGuard],
+    canActivate: [CapabilityGuard, GestionHabilitadaGuard],
     data: { capacidades: ['sis_poa.budget.audit_read'] },
   },
 ];

@@ -1,6 +1,7 @@
 import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { concatMap, from, toArray } from 'rxjs';
 import { ApiService } from '../../core/services/api.service';
+import { GestionHabilitadaService } from '../../core/services/gestion-habilitada.service';
 import {
   CabeceraRecursos,
   FilaMatrizRecursos,
@@ -56,7 +57,8 @@ import {
         </p>
         <div class="form-2col">
           <div class="field"><label>Gestión</label>
-            <input [(ngModel)]="cabecera.gestion" type="number" class="form-control"></div>
+            <input [ngModel]="cabecera.gestion" name="gestion" type="number" class="form-control" readonly
+                   title="La fija la habilitación de gestión fiscal"></div>
           <div class="field"><label>Acción de corto plazo</label>
             <select [(ngModel)]="accionSel" class="form-control" (change)="onAccion()">
               <option value="">Seleccione...</option>
@@ -341,9 +343,12 @@ export class PoauRecursosWizardComponent implements OnInit {
   msg = '';
   msgClass = '';
 
-  constructor(private api: ApiService, private cdr: ChangeDetectorRef) {}
+  constructor(private api: ApiService, private cdr: ChangeDetectorRef,
+              private gestionActiva: GestionHabilitadaService) {}
 
   ngOnInit(): void {
+    // Los recursos del POAU son de la gestión habilitada (ADR-007).
+    this.cabecera.gestion = this.gestionActiva.anio() ?? 0;
     this.cargar('/articulacion/acciones-poa/', v => { this.acciones = v; this.cargando = false; });
     this.cargar('/articulacion/operaciones/', v => { this.operaciones = v; });
     this.cargar('/articulacion/actividades/', v => { this.actividades = v; });

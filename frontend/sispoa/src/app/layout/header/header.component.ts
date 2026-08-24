@@ -1,5 +1,7 @@
 import { Component, EventEmitter, Input, Output, ChangeDetectionStrategy } from '@angular/core';
 import { AuthService } from '../../core/services/auth.service';
+import { GestionHabilitadaService } from '../../core/services/gestion-habilitada.service';
+import { RUTA_HABILITACION } from '../../core/guards/gestion-habilitada.guard';
 import { Usuario } from '../../core/models/usuario.model';
 
 @Component({
@@ -18,7 +20,18 @@ import { Usuario } from '../../core/models/usuario.model';
       </div>
       <div class="topbar-right">
         @if (auth.user$ | async; as user) {
-          <span class="topbar-pill"><span class="dot"></span> Gestión 2027</span>
+          @if (gestion.cargada$ | async) {
+            @if (gestion.gestion(); as habilitada) {
+              <span class="topbar-pill" [title]="habilitada.estado_display">
+                <span class="dot"></span> Gestión {{ habilitada.anio }}
+              </span>
+            } @else {
+              <a class="topbar-pill sin-gestion" [routerLink]="rutaHabilitacion"
+                 title="SIS-POA necesita una gestión habilitada para operar">
+                <span class="dot"></span> Sin gestión habilitada
+              </a>
+            }
+          }
           <div class="avatar" [attr.aria-label]="'Usuario: ' + user.first_name + ' ' + user.last_name">{{ initials(user) }}</div>
           <button class="btn btn-outline btn-sm" (click)="auth.logout()">Salir</button>
         }
@@ -66,6 +79,11 @@ import { Usuario } from '../../core/models/usuario.model';
       display: flex; align-items: center; gap: 6px;
     }
     .topbar-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--pip-gold); }
+    /* Sin gestión habilitada SIS-POA no opera: el aviso lleva a habilitarla. */
+    .topbar-pill.sin-gestion {
+      border-color: var(--pip-warn); color: var(--pip-warn); text-decoration: none;
+    }
+    .topbar-pill.sin-gestion .dot { background: var(--pip-warn); }
     .avatar {
       width: 32px; height: 32px; border-radius: 50%;
       background: var(--pip-green-700); color: #fff;
@@ -83,8 +101,12 @@ import { Usuario } from '../../core/models/usuario.model';
 })
 export class HeaderComponent {
   @Output() toggleSidebar = new EventEmitter<void>();
+  readonly rutaHabilitacion = RUTA_HABILITACION;
 
-  constructor(public auth: AuthService) {}
+  constructor(
+    public auth: AuthService,
+    public gestion: GestionHabilitadaService,
+  ) {}
 
   initials(user: Usuario): string {
     return ((user.first_name?.[0] ?? '') + (user.last_name?.[0] ?? '')).toUpperCase();

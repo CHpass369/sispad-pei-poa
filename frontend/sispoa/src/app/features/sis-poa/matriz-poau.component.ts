@@ -6,6 +6,7 @@ import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { finalize } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { GestionHabilitadaService } from '../../core/services/gestion-habilitada.service';
 
 interface ColumnaMatriz { clave: string; etiqueta: string; ancho: number; }
 interface BloqueMatriz {
@@ -32,7 +33,7 @@ const BLOQUES_MATRIZ: BloqueMatriz[] = [
       { clave: 'cod_producto_pei', etiqueta: 'COD. PRODUCTO PEI', ancho: 108 },
       { clave: 'accion_institucional', etiqueta: 'ACCIÓN INSTITUCIONAL ESPECÍFICA (PEI)', ancho: 300 },
       { clave: 'cod_accion_corto_plazo', etiqueta: 'CÓDIGO ACCIÓN DE CORTO PLAZO', ancho: 132 },
-      { clave: 'accion_corto_plazo', etiqueta: 'ACCIÓN DE CORTO PLAZO GESTIÓN 2027 (PRODUCTO INSTITUCIONAL ANUAL)', ancho: 300 },
+      { clave: 'accion_corto_plazo', etiqueta: 'ACCIÓN DE CORTO PLAZO GESTIÓN {gestion} (PRODUCTO INSTITUCIONAL ANUAL)', ancho: 300 },
     ],
   },
   {
@@ -51,7 +52,7 @@ const BLOQUES_MATRIZ: BloqueMatriz[] = [
       { clave: 'indicador', etiqueta: 'INDICADOR', ancho: 230 },
       { clave: 'formula', etiqueta: 'FÓRMULA', ancho: 210 },
       { clave: 'unidad_medida', etiqueta: 'UNIDAD DE MEDIDA', ancho: 96 },
-      { clave: 'linea_base', etiqueta: 'LÍNEA BASE (2026)', ancho: 72 },
+      { clave: 'linea_base', etiqueta: 'LÍNEA BASE ({gestion_anterior})', ancho: 72 },
       { clave: 'meta', etiqueta: 'META', ancho: 72 },
       { clave: 'meta_actual', etiqueta: 'META ACTUAL', ancho: 80 },
       { clave: 'fecha_inicio', etiqueta: 'FECHA INICIO', ancho: 86 },
@@ -89,6 +90,26 @@ const BLOQUES_ARBOL: BloqueMatriz[] = [
     columnas: b.columnas.filter(c => !['operacion', 'actividad', 'tarea'].includes(c.clave)),
   })),
 ];
+
+/** Resuelve `{gestion}` y `{gestion_anterior}` en las etiquetas del formato.
+ *
+ *  El formato oficial lleva el año escrito adentro del encabezado. Antes estaba
+ *  clavado (`GESTIÓN 2027`, `LÍNEA BASE (2026)`), así que al cambiar de gestión
+ *  la matriz seguía anunciando la anterior — y lo que se exporta a Excel y PDF
+ *  es exactamente este encabezado. */
+function conGestion(bloques: BloqueMatriz[], anio: number | null): BloqueMatriz[] {
+  const gestion = anio === null ? '—' : String(anio);
+  const anterior = anio === null ? '—' : String(anio - 1);
+  return bloques.map(b => ({
+    ...b,
+    columnas: b.columnas.map(c => ({
+      ...c,
+      etiqueta: c.etiqueta
+        .replace('{gestion_anterior}', anterior)
+        .replace('{gestion}', gestion),
+    })),
+  }));
+}
 
 /** Color de fondo por nivel: el escalonado de la planilla, en pastel.
  *  Cada tono conserva la familia del original pero desaturado, para que la
@@ -403,7 +424,10 @@ const NUMERICAS = new Set(['linea_base', 'meta', 'meta_actual', 'ponderacion',
 })
 export class MatrizPoauComponent implements OnInit, AfterViewInit, OnDestroy {
   modo: 'arbol' | 'matriz' = 'arbol';
-  bloquesMatriz = BLOQUES_MATRIZ;
+  /** Encabezado oficial con el año de la gestión habilitada ya resuelto.
+   *  La exportación a Excel/PDF usa SIEMPRE este, nunca la vista de árbol. */
+  bloquesMatriz: BloqueMatriz[] = BLOQUES_MATRIZ;
+  private bloquesArbol: BloqueMatriz[] = BLOQUES_ARBOL;
   colorNivel = COLOR_NIVEL;
   columnaNivel = COLUMNA_NIVEL;
   etiquetaNivel = ETIQUETA_NIVEL;
@@ -418,7 +442,8 @@ export class MatrizPoauComponent implements OnInit, AfterViewInit, OnDestroy {
   ocupado = '';
   aviso = '';
   unidad = '';
-  gestion = 2027;
+  /** La gestión la pone el candado de SIS-POA, no la pantalla (ADR-007). */
+  get gestion(): number | null { return this.gestionActiva.anio(); }
   cargando = true;
   error = '';
 
@@ -427,7 +452,8 @@ export class MatrizPoauComponent implements OnInit, AfterViewInit, OnDestroy {
   private observador?: ResizeObserver;
 
   constructor(private http: HttpClient, private cdr: ChangeDetectorRef,
-              private router: Router) {}
+              private router: Router,
+              private gestionActiva: GestionHabilitadaService) {}
 
   /**
    * La fila de columnas se pega justo debajo de la de bandas. Ese desnivel no
@@ -453,7 +479,7 @@ export class MatrizPoauComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   get bloques(): BloqueMatriz[] {
-    return this.modo === 'arbol' ? BLOQUES_ARBOL : BLOQUES_MATRIZ;
+    return this.modo === 'arbol' ? this.bloquesArbol : this.bloquesMatriz;
   }
 
   cambiarModo(modo: 'arbol' | 'matriz'): void {
@@ -463,7 +489,13 @@ export class MatrizPoauComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  ngOnInit(): void { this.cargar(); }
+  ngOnInit(): void {
+    // El encabezado del formato oficial lleva el año adentro: se resuelve una
+    // vez, con la gestión que el candado ya dejó cargada antes de esta ruta.
+    this.bloquesMatriz = conGestion(BLOQUES_MATRIZ, this.gestion);
+    this.bloquesArbol = conGestion(BLOQUES_ARBOL, this.gestion);
+    this.cargar();
+  }
 
   get totalColumnas(): number {
     return this.bloques.reduce((n, b) => n + b.columnas.length, 0);
@@ -478,7 +510,7 @@ export class MatrizPoauComponent implements OnInit, AfterViewInit, OnDestroy {
     this.error = '';
     const filtro = this.unidad ? `&unidad=${encodeURIComponent(this.unidad)}` : '';
     this.http.get<any>(
-      `${environment.apiUrl}/articulacion/matriz-poau/?gestion=${this.gestion}${filtro}`)
+      `${environment.apiUrl}/articulacion/matriz-poau/${filtro ? '?' + filtro.slice(1) : ''}`)
       .pipe(finalize(() => { this.cargando = false; this.cdr.markForCheck(); }))
       .subscribe({
         next: d => {

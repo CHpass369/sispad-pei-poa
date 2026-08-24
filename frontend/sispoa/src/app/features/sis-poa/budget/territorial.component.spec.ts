@@ -9,6 +9,8 @@ import {
   DistribucionTerritorial,
 } from './budget.service';
 import { MonedaPipe } from './moneda.pipe';
+import { GestionHabilitadaService } from '../../../core/services/gestion-habilitada.service';
+import { gestionHabilitadaStub } from '../../../core/testing/gestion-habilitada.stub';
 
 describe('TerritorialComponent', () => {
   let component: TerritorialComponent;
@@ -60,7 +62,10 @@ describe('TerritorialComponent', () => {
     await TestBed.configureTestingModule({
       declarations: [TerritorialComponent, MonedaPipe],
       imports: [HttpClientTestingModule, FormsModule],
-      providers: [{ provide: BudgetService, useValue: serviceSpy }],
+      providers: [
+        { provide: GestionHabilitadaService, useValue: gestionHabilitadaStub(2030, '2030') },
+        { provide: BudgetService, useValue: serviceSpy },
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(TerritorialComponent);
@@ -73,7 +78,7 @@ describe('TerritorialComponent', () => {
   });
 
   it('should load gestiones y catálogos on init', () => {
-    expect(serviceSpy.listar).toHaveBeenCalled();
+    expect(serviceSpy.listar).not.toHaveBeenCalled();
     expect(serviceSpy.opcionesCatalogo).toHaveBeenCalled();
     expect(component.gestionSeleccionada).toBe('2030');
   });

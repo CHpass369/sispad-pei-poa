@@ -3,6 +3,8 @@ import { HttpClientTestingModule } from '@angular/common/http/testing';
 import { RouterTestingModule } from '@angular/router/testing';
 import { of, throwError } from 'rxjs';
 import { SeguimientoDashboardComponent } from './seguimiento-dashboard.component';
+import { GestionHabilitadaService } from '../../core/services/gestion-habilitada.service';
+import { gestionHabilitadaStub } from '../../core/testing/gestion-habilitada.stub';
 import { SeguimientoService } from './seguimiento.service';
 
 describe('SeguimientoDashboardComponent', () => {
@@ -48,6 +50,7 @@ describe('SeguimientoDashboardComponent', () => {
       declarations: [SeguimientoDashboardComponent],
       imports: [HttpClientTestingModule, RouterTestingModule],
       providers: [
+        { provide: GestionHabilitadaService, useValue: gestionHabilitadaStub(2027) },
         { provide: SeguimientoService, useValue: seguimientoServiceSpy },
       ],
     }).compileComponents();
@@ -63,8 +66,9 @@ describe('SeguimientoDashboardComponent', () => {
   it('should load dashboard data on init', () => {
     fixture.detectChanges();
 
-    expect(seguimientoServiceSpy.obtenerDashboard).toHaveBeenCalledWith(2027);
-    expect(seguimientoServiceSpy.obtenerSemaforo).toHaveBeenCalledWith(2027);
+    expect(seguimientoServiceSpy.obtenerDashboard).toHaveBeenCalledWith();
+    expect(seguimientoServiceSpy.obtenerSemaforo).toHaveBeenCalledWith();
+    expect(component.gestion).toBe(2027);
     expect(seguimientoServiceSpy.listarAlertasActivas).toHaveBeenCalled();
   });
 

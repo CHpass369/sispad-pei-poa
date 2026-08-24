@@ -14,14 +14,7 @@
   <form (ngSubmit)="crear()" class="card form-inline">
     <div class="campo">
       <label>Gestión fiscal</label>
-      <select [(ngModel)]="gestionNueva" name="gestion" class="input">
-        <option [ngValue]="null">— Seleccionar gestión —</option>
-        @for (gestion of gestiones; track gestion) {
-          <option [ngValue]="gestion.id">
-            Gestión {{ gestion.anio }} ({{ gestion.estado_display }})
-          </option>
-        }
-      </select>
+      <span class="pastilla-gestion">Gestión {{ gestionAnio }}</span>
     </div>
     <div class="campo">
       <button type="submit" class="btn btn-primary">+ Nuevo techo</button>

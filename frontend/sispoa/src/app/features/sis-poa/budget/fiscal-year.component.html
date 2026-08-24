@@ -3,16 +3,27 @@
   <p class="text-secondary">Ciclo presupuestario: configuración, habilitación, formulación, vigencia y cierre</p>
 </div>
 
-@if (error && !modalAbierto) {
+@if (error && !modalAbierto && !accionPendiente) {
   <div class="alert alert-error">{{ error }}</div>
 }
 @if (mensaje) {
   <div class="alert alert-success">{{ mensaje }}</div>
 }
 
-@if (puedeGestionar) {
-  <button type="button" class="btn btn-primary" (click)="abrirModal()">+ Nueva gestión</button>
-}
+<div class="barra-superior">
+  @if (puedeGestionar) {
+    <button type="button" class="btn btn-primary" (click)="abrirModal()">+ Nueva gestión</button>
+  }
+  @if (!cargando) {
+    <p class="resumen-ciclo">
+      @if (gestionEnCurso) {
+        <span>Formulación abierta en <strong>gestión {{ gestionEnCurso.anio }}</strong> ({{ gestionEnCurso.estado_display }})</span>
+      } @else {
+        <span>Ninguna gestión habilitada: el techo, la distribución y los POA están bloqueados.</span>
+      }
+    </p>
+  }
+</div>
 
 @if (cargando) {
   <div class="loading">Cargando gestiones fiscales...</div>
@@ -27,11 +38,12 @@
         <th>Gestión anterior</th>
         <th>Apertura</th>
         <th>Cierre</th>
+        <th>Documento</th>
         <th></th>
       </tr>
     </thead>
     <tbody>
-      @for (gestion of gestiones; track gestion) {
+      @for (gestion of gestiones; track gestion.id) {
         <tr>
           <td>{{ gestion.anio }}</td>
           <td><span class="badge" [class]="badgeClass(gestion)">{{ gestion.estado_display }}</span></td>
@@ -39,16 +51,35 @@
           <td>{{ (gestion.fecha_apertura | date: 'dd/MM/yyyy') || '—' }}</td>
           <td>{{ (gestion.fecha_cierre | date: 'dd/MM/yyyy') || '—' }}</td>
           <td>
+            @if (gestion.documento_habilitacion) {
+              <a class="documento-enlace" [href]="gestion.documento_habilitacion" target="_blank" rel="noopener">
+                Ver documento
+              </a>
+            } @else {
+              —
+            }
+          </td>
+          <td>
             @if (puedeGestionar) {
               <div class="acciones">
                 @if (puedeHabilitar(gestion)) {
-                  <button class="btn btn-sm btn-primary" (click)="habilitar(gestion)">
+                  <button class="btn btn-sm btn-primary" (click)="pedirConfirmacion('habilitar', gestion)">
                     Habilitar
                   </button>
                 }
+                @if (puedeReabrir(gestion)) {
+                  <button class="btn btn-sm btn-primary" (click)="pedirConfirmacion('reabrir', gestion)">
+                    Reabrir
+                  </button>
+                }
                 @if (puedeCerrar(gestion)) {
-                  <button class="btn btn-sm btn-danger" (click)="cerrar(gestion)">
+                  <button class="btn btn-sm btn-danger" (click)="pedirConfirmacion('cerrar', gestion)">
                     Cerrar
+                  </button>
+                }
+                @if (puedeEliminar(gestion)) {
+                  <button class="btn btn-sm btn-danger" (click)="pedirConfirmacion('eliminar', gestion)">
+                    Eliminar
                   </button>
                 }
               </div>
@@ -118,6 +149,42 @@
           <button type="submit" class="btn btn-primary" [disabled]="creando || !form.anio || !archivo">{{ creando ? 'Creando...' : 'Crear' }}</button>
         </div>
       </form>
+    </section>
+  </div>
+}
+
+@if (accionActual; as accion) {
+  <div class="modal-overlay">
+    <section class="modal confirmation-modal" role="dialog" aria-modal="true" aria-labelledby="accion-gestion-titulo">
+      <div class="confirmation-check" [class.peligro]="accion.peligro" role="img" aria-label="Confirmación requerida">?</div>
+      <h3 id="accion-gestion-titulo">{{ accion.titulo }} {{ accionPendiente!.gestion.anio }}</h3>
+      <p class="confirmation-message">{{ accion.descripcion(accionPendiente!.gestion) }}</p>
+
+      @if (accion.requiereMotivo) {
+        <div class="campo">
+          <label for="motivo-accion">Motivo <span aria-hidden="true">*</span></label>
+          <textarea id="motivo-accion" name="motivo" class="input" [(ngModel)]="motivo"
+                    required aria-required="true"
+                    placeholder="Ej: se cerró por error, falta consolidar el POA de la SMPDT"></textarea>
+          <small>Queda registrado en la auditoría de la gestión.</small>
+        </div>
+      }
+
+      @if (error) {
+        <div class="alert alert-error modal-error" role="alert">{{ error }}</div>
+      }
+
+      <div class="modal-acciones confirmation-actions">
+        <button type="button" class="btn btn-sm" (click)="cancelarAccion()" [disabled]="ejecutando">Cancelar</button>
+        <button type="button"
+                class="btn"
+                [class.btn-primary]="!accion.peligro"
+                [class.btn-danger]="accion.peligro"
+                (click)="confirmarAccion()"
+                [disabled]="confirmacionDeshabilitada">
+          {{ ejecutando ? 'Procesando...' : accion.etiqueta }}
+        </button>
+      </div>
     </section>
   </div>
 }

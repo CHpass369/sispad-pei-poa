@@ -9,6 +9,8 @@ import { NEVER, Subject, of, throwError } from 'rxjs';
 import { BudgetService, FiscalYear } from './budget.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { PermissionsService } from '../../../core/services/permissions.service';
+import { GestionHabilitadaService } from '../../../core/services/gestion-habilitada.service';
+import { gestionHabilitadaStub } from '../../../core/testing/gestion-habilitada.stub';
 import { FiscalYearComponent } from './fiscal-year.component';
 
 describe('FiscalYearComponent', () => {
@@ -31,6 +33,10 @@ describe('FiscalYearComponent', () => {
       fecha_cierre: null,
       activa: true,
       gestion_anterior: null,
+      puede_habilitar: false,
+      puede_reabrir: false,
+      puede_cerrar: true,
+      puede_eliminar: false,
     },
     {
       id: 'a2',
@@ -44,15 +50,41 @@ describe('FiscalYearComponent', () => {
       fecha_cierre: null,
       activa: true,
       gestion_anterior: 2026,
+      puede_habilitar: true,
+      puede_reabrir: false,
+      puede_cerrar: true,
+      puede_eliminar: true,
     },
   ];
 
+  const gestionCerrada: FiscalYear = {
+    id: 'a3',
+    anio: 2025,
+    estado: 'CERRADA',
+    estado_display: 'Ciclo cerrado',
+    descripcion: '',
+    anio_inicio_plurianual: null,
+    anio_fin_plurianual: null,
+    fecha_apertura: '2025-01-05T12:00:00Z',
+    fecha_cierre: '2025-12-31T12:00:00Z',
+    activa: false,
+    gestion_anterior: null,
+    puede_habilitar: false,
+    puede_reabrir: true,
+    puede_cerrar: false,
+    puede_eliminar: false,
+  };
+
   beforeEach(async () => {
-    serviceSpy = jasmine.createSpyObj('BudgetService', ['listar', 'crear', 'habilitar', 'cerrar']);
+    serviceSpy = jasmine.createSpyObj('BudgetService', [
+      'listar', 'crear', 'habilitar', 'cerrar', 'reabrir', 'eliminar',
+    ]);
     serviceSpy.listar.and.returnValue(of({ count: 2, results: mockGestiones }));
     serviceSpy.crear.and.returnValue(of(mockGestiones[0]));
     serviceSpy.habilitar.and.returnValue(of(mockGestiones[0]));
     serviceSpy.cerrar.and.returnValue(of(mockGestiones[0]));
+    serviceSpy.reabrir.and.returnValue(of(gestionCerrada));
+    serviceSpy.eliminar.and.returnValue(of(void 0));
 
     authSpy = jasmine.createSpyObj('AuthService', [], { user$: of({
       id: 'u1',
@@ -81,6 +113,8 @@ describe('FiscalYearComponent', () => {
         { provide: BudgetService, useValue: serviceSpy },
         { provide: AuthService, useValue: authSpy },
         { provide: PermissionsService, useValue: permissionsSpy },
+        // El candado se carga al arranque de la app, no por pantalla.
+        { provide: GestionHabilitadaService, useValue: gestionHabilitadaStub(2027) },
       ],
     }).compileComponents();
 
@@ -131,15 +165,103 @@ describe('FiscalYearComponent', () => {
     expect(badges[0].className).toContain('badge-success');
   });
 
-  it('should call habilitar service on button click', () => {
-    fixture.detectChanges();
-    const botones = fixture.nativeElement.querySelectorAll('button');
-    const habilitarBtn = Array.from(botones).find(
-      (b: HTMLButtonElement) => b.textContent?.trim() === 'Habilitar',
+  const clickEnBoton = (etiqueta: string): HTMLButtonElement => {
+    const boton = Array.from(fixture.nativeElement.querySelectorAll('button')).find(
+      (b: Element) => b.textContent?.trim() === etiqueta,
     ) as HTMLButtonElement;
-    expect(habilitarBtn).toBeTruthy();
-    habilitarBtn.click();
+    expect(boton).withContext(`botón "${etiqueta}"`).toBeTruthy();
+    boton.click();
+    fixture.detectChanges();
+    return boton;
+  };
+
+  it('should confirm before calling the habilitar service', () => {
+    fixture.detectChanges();
+
+    clickEnBoton('Habilitar');
+    expect(serviceSpy.habilitar).not.toHaveBeenCalled();
+    expect(component.accionPendiente?.tipo).toBe('habilitar');
+
+    component.confirmarAccion();
+
     expect(serviceSpy.habilitar).toHaveBeenCalledWith('a2');
+    expect(component.accionPendiente).toBeNull();
+    expect(component.mensaje).toBe('Gestión 2027 habilitada');
+  });
+
+  it('should not offer transitions the backend rejected', () => {
+    fixture.detectChanges();
+    const etiquetas = Array.from(
+      fixture.nativeElement.querySelectorAll('tbody tr:first-child button'),
+    ).map((b: Element) => b.textContent?.trim());
+
+    expect(etiquetas).toEqual(['Cerrar']);
+  });
+
+  it('should require a motivo before reopening a closed fiscal year', () => {
+    serviceSpy.listar.and.returnValue(of({ count: 1, results: [gestionCerrada] }));
+    fixture.detectChanges();
+
+    clickEnBoton('Reabrir');
+    expect(component.confirmacionDeshabilitada).toBeTrue();
+
+    component.confirmarAccion();
+    expect(serviceSpy.reabrir).not.toHaveBeenCalled();
+
+    component.motivo = '  se cerró por error  ';
+    expect(component.confirmacionDeshabilitada).toBeFalse();
+
+    component.confirmarAccion();
+    expect(serviceSpy.reabrir).toHaveBeenCalledWith('a3', 'se cerró por error');
+    expect(component.mensaje).toBe('Gestión 2025 reabierta');
+  });
+
+  it('should delete a fiscal year after confirmation', () => {
+    fixture.detectChanges();
+
+    clickEnBoton('Eliminar');
+    expect(serviceSpy.eliminar).not.toHaveBeenCalled();
+
+    component.confirmarAccion();
+
+    expect(serviceSpy.eliminar).toHaveBeenCalledWith('a2');
+    expect(component.mensaje).toBe('Gestión 2027 eliminada');
+    expect(component.accionPendiente).toBeNull();
+  });
+
+  it('should surface the backend reason when an action is rejected', () => {
+    serviceSpy.eliminar.and.returnValue(
+      throwError(() => ({
+        status: 400,
+        message: 'detail: La gestión 2027 tiene registros dependientes y no se puede eliminar.',
+      })),
+    );
+    fixture.detectChanges();
+
+    clickEnBoton('Eliminar');
+    component.confirmarAccion();
+    fixture.detectChanges();
+
+    expect(component.error)
+      .toBe('La gestión 2027 tiene registros dependientes y no se puede eliminar.');
+    expect(component.accionPendiente).withContext('el modal sigue abierto').not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.modal-error').textContent)
+      .toContain('registros dependientes');
+  });
+
+  it('should report which fiscal year is open for formulation', () => {
+    fixture.detectChanges();
+    expect(component.gestionEnCurso?.anio).toBe(2026);
+    expect(fixture.nativeElement.querySelector('.resumen-ciclo').textContent)
+      .toContain('gestión 2026');
+
+    serviceSpy.listar.and.returnValue(of({ count: 1, results: [gestionCerrada] }));
+    component.cargar();
+    fixture.detectChanges();
+
+    expect(component.gestionEnCurso).toBeNull();
+    expect(fixture.nativeElement.querySelector('.resumen-ciclo').textContent)
+      .toContain('Ninguna gestión habilitada');
   });
 
   it('should show empty state when no fiscal years', () => {
