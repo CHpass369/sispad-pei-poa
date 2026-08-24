@@ -159,7 +159,9 @@ URL_PREFIX = os.environ.get('DJANGO_URL_PREFIX', '').rstrip('/')
 
 if URL_PREFIX:
     FORCE_SCRIPT_NAME = URL_PREFIX
-    USE_X_FORWARDED_HOST = True
+    # No se activa USE_X_FORWARDED_HOST: nginx manda `Host $host` y nada más,
+    # así que no hay nada que leer de X-Forwarded-Host. Encenderlo solo abriría
+    # la puerta a que un cliente mande esa cabecera a mano y Django le crea.
 
 STATIC_URL = f'{URL_PREFIX}/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
