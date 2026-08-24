@@ -19,8 +19,101 @@ from apps.poau.models import POAU, POAUActividad, EjecucionFisica, EjecucionFina
 class POAUBaseTestCase(TestCase):
     """Base para tests del módulo POAU."""
 
+    @classmethod
+    def setUpTestData(cls):
+        """Fixtures compartidas entre tests de la misma clase (1 vez por clase).
+
+        Antes (setUp por-test) generaba IntegrityError por unique constraint
+        en el segundo test con `--reuse-db`. setUpTestData + get_or_create
+        elimina la creación duplicada y permite tests que cuentan instancias
+        vean estado limpio por-test vía setUp.
+        """
+        cls.vig = date(2026, 1, 1)
+        cls.gestion, _ = GestionFiscal.objects.get_or_create(
+            anio=2026,
+            defaults={
+                'estado': 'abierta',
+                'anio_inicio_plurianual': 2026,
+                'anio_fin_plurianual': 2028,
+            },
+        )
+        cls.tipo_unidad, _ = TipoUnidad.objects.get_or_create(
+            codigo='SEC', defaults={'nombre': 'Secretaría', 'nivel': 1},
+        )
+        cls.unidad, _ = UnidadOrganizacional.objects.get_or_create(
+            codigo='SEC-01',
+            defaults={
+                'nombre': 'Secretaría General', 'sigla': 'SG',
+                'tipo': cls.tipo_unidad, 'gestion': cls.gestion,
+                'fecha_vigencia_desde': cls.vig,
+            },
+        )
+        cls.unidad_2, _ = UnidadOrganizacional.objects.get_or_create(
+            codigo='SEC-02',
+            defaults={
+                'nombre': 'Secretaría de Obras', 'sigla': 'SO',
+                'tipo': cls.tipo_unidad, 'gestion': cls.gestion,
+                'fecha_vigencia_desde': cls.vig,
+            },
+        )
+        cls.da, _ = DireccionAdministrativa.objects.get_or_create(
+            codigo='DA-01',
+            defaults={
+                'nombre': 'Dirección Administrativa',
+                'gestion': cls.gestion, 'fecha_vigencia_desde': cls.vig,
+            },
+        )
+        cls.ue, _ = UnidadEjecutora.objects.get_or_create(
+            codigo='UE-01',
+            defaults={
+                'nombre': 'Unidad Ejecutora 1',
+                'da': cls.da, 'gestion': cls.gestion,
+                'fecha_vigencia_desde': cls.vig,
+            },
+        )
+        cls.fuente, _ = FuenteFinanciamiento.objects.get_or_create(
+            codigo='41-113',
+            defaults={
+                'gestion': cls.gestion,
+                'denominacion': 'Coparticipación Tributaria',
+                'fecha_vigencia_desde': cls.vig,
+            },
+        )
+        cls.objeto_gasto, _ = ObjetoGasto.objects.get_or_create(
+            codigo='10000',
+            defaults={
+                'gestion': cls.gestion,
+                'denominacion': 'Servicios Personales',
+                'fecha_vigencia_desde': cls.vig,
+            },
+        )
+        cls.objeto_gasto_2, _ = ObjetoGasto.objects.get_or_create(
+            codigo='20000',
+            defaults={
+                'gestion': cls.gestion,
+                'denominacion': 'Servicios No Personales',
+                'fecha_vigencia_desde': cls.vig,
+            },
+        )
+        cls.programa, _ = ProgramaPresupuestario.objects.get_or_create(
+            codigo='000',
+            defaults={'nombre': 'Programa Test', 'gestion': 2026},
+        )
+        cls.techo, _ = TechoPresupuestario.objects.get_or_create(
+            gestion=2026,
+            defaults={
+                'monto_total': Decimal('500000.00'),
+                'fuente': cls.fuente,
+            },
+        )
+
     def setUp(self):
-        self.vig = date(2026, 1, 1)
+        """Fixtures por-test: Usuario y POAU fresh, con reset de estado."""
+        # Limpiar POAUs previos con los códigos del setUp para evitar
+        # unique constraint y residuos de mutaciones de tests anteriores.
+        POAU.objects.filter(
+            codigo__in=['POAU-2026-001', 'POAU-2026-002'],
+        ).delete()
         self.user = Usuario.objects.create_user(
             email='poau_test@gamsacaba.gob.bo', password='test123',
             first_name='POAU', last_name='Test',
@@ -28,58 +121,6 @@ class POAUBaseTestCase(TestCase):
         self.user_resp = Usuario.objects.create_user(
             email='responsable@gamsacaba.gob.bo', password='test123',
             first_name='Responsable', last_name='POAU',
-        )
-        self.gestion = GestionFiscal.objects.get_or_create(
-            anio=2026,
-            defaults={
-                'estado': 'abierta',
-                'anio_inicio_plurianual': 2026,
-                'anio_fin_plurianual': 2028,
-            },
-        )[0]
-        self.tipo_unidad = TipoUnidad.objects.create(
-            codigo='SEC', nombre='Secretaría', nivel=1,
-        )
-        self.unidad = UnidadOrganizacional.objects.create(
-            codigo='SEC-01', nombre='Secretaría General',
-            sigla='SG', tipo=self.tipo_unidad, gestion=self.gestion,
-            fecha_vigencia_desde=self.vig,
-        )
-        self.unidad_2 = UnidadOrganizacional.objects.create(
-            codigo='SEC-02', nombre='Secretaría de Obras',
-            sigla='SO', tipo=self.tipo_unidad, gestion=self.gestion,
-            fecha_vigencia_desde=self.vig,
-        )
-        self.da = DireccionAdministrativa.objects.create(
-            codigo='DA-01', nombre='Dirección Administrativa',
-            gestion=self.gestion, fecha_vigencia_desde=self.vig,
-        )
-        self.ue = UnidadEjecutora.objects.create(
-            codigo='UE-01', nombre='Unidad Ejecutora 1',
-            da=self.da, gestion=self.gestion, fecha_vigencia_desde=self.vig,
-        )
-        self.fuente = FuenteFinanciamiento.objects.create(
-            codigo='41-113', gestion=self.gestion,
-            denominacion='Coparticipación Tributaria',
-            fecha_vigencia_desde=self.vig,
-        )
-        self.objeto_gasto = ObjetoGasto.objects.create(
-            codigo='10000', gestion=self.gestion,
-            denominacion='Servicios Personales',
-            fecha_vigencia_desde=self.vig,
-        )
-        self.objeto_gasto_2 = ObjetoGasto.objects.create(
-            codigo='20000', gestion=self.gestion,
-            denominacion='Servicios No Personales',
-            fecha_vigencia_desde=self.vig,
-        )
-        self.programa = ProgramaPresupuestario.objects.create(
-            codigo='000', nombre='Programa Test',
-            gestion=2026,
-        )
-        self.techo = TechoPresupuestario.objects.create(
-            gestion=2026, monto_total=Decimal('500000.00'),
-            fuente=self.fuente,
         )
         self.poau = POAU.objects.create(
             unidad=self.unidad, gestion=2026,
@@ -277,6 +318,8 @@ class EjecucionFisicaModelTest(POAUBaseTestCase):
 
     def setUp(self):
         super().setUp()
+        # Limpiar POAUActividades previas del setUp con este codigo.
+        POAUActividad.objects.filter(codigo='ACT-EF').delete()
         self.actividad = POAUActividad.objects.create(
             poau=self.poau, codigo='ACT-EF',
             nombre='Actividad Ejecución Física',
@@ -384,6 +427,8 @@ class EjecucionFinancieraModelTest(POAUBaseTestCase):
 
     def setUp(self):
         super().setUp()
+        # Limpiar POAUActividades previas del setUp con este codigo.
+        POAUActividad.objects.filter(codigo='ACT-EFN').delete()
         self.actividad = POAUActividad.objects.create(
             poau=self.poau, codigo='ACT-EFN',
             nombre='Actividad Ejecución Financiera',
