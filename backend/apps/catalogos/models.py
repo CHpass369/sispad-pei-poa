@@ -264,7 +264,7 @@ class ClasificadorInstitucional(ClasificadorVersionadoMixin, CatalogoBase):
         related_name='clasificadores_institucionales',
     )
 
-    class Meta:
+    class Meta(CatalogoBase.Meta):
         db_table = 'catalogo_clasificador_institucional'
         verbose_name = 'Clasificador institucional'
         verbose_name_plural = 'Clasificadores institucionales'
@@ -287,7 +287,7 @@ class RubroRecurso(ClasificadorVersionadoMixin, CatalogoBase):
         related_name='rubros_recurso',
     )
 
-    class Meta:
+    class Meta(CatalogoBase.Meta):
         db_table = 'catalogo_rubro_recurso'
         verbose_name = 'Rubro de recurso'
         verbose_name_plural = 'Rubros de recursos'
@@ -329,7 +329,7 @@ class ObjetoGasto(ClasificadorVersionadoMixin, CatalogoBase):
     )
     nivel = models.CharField(max_length=20, choices=NIVEL_CHOICES, blank=True)
 
-    class Meta:
+    class Meta(CatalogoBase.Meta):
         db_table = 'catalogo_objeto_gasto'
         verbose_name = 'Objeto del gasto'
         verbose_name_plural = 'Objetos del gasto'
@@ -365,7 +365,7 @@ class FuenteFinanciamiento(ClasificadorVersionadoMixin, CatalogoBase):
         related_name='fuentes_financiamiento',
     )
 
-    class Meta:
+    class Meta(CatalogoBase.Meta):
         db_table = 'catalogo_fuente_financiamiento'
         verbose_name = 'Fuente de financiamiento'
         verbose_name_plural = 'Fuentes de financiamiento'
@@ -389,7 +389,7 @@ class OrganismoFinanciador(ClasificadorVersionadoMixin, CatalogoBase):
         related_name='organismos_financiadores',
     )
 
-    class Meta:
+    class Meta(CatalogoBase.Meta):
         db_table = 'catalogo_organismo_financiador'
         verbose_name = 'Organismo financiador'
         verbose_name_plural = 'Organismos financiadores'
@@ -450,7 +450,7 @@ class ClasificadorGeograficoPresupuestario(TimeStampedModel):
 
 class EntidadTransferencia(CatalogoBase):
     """Entidad otorgante o de transferencia"""
-    class Meta:
+    class Meta(CatalogoBase.Meta):
         db_table = 'catalogo_entidad_transferencia'
         verbose_name = 'Entidad de transferencia'
         verbose_name_plural = 'Entidades de transferencia'
@@ -466,7 +466,7 @@ class FinalidadFuncion(ClasificadorVersionadoMixin, CatalogoBase):
         related_name='finalidades_funciones',
     )
 
-    class Meta:
+    class Meta(CatalogoBase.Meta):
         db_table = 'catalogo_finalidad_funcion'
         verbose_name = 'Finalidad/Función'
         verbose_name_plural = 'Finalidades y funciones'
@@ -480,35 +480,35 @@ class FinalidadFuncion(ClasificadorVersionadoMixin, CatalogoBase):
 
 
 class UnidadMedida(CatalogoBase):
-    class Meta:
+    class Meta(CatalogoBase.Meta):
         db_table = 'catalogo_unidad_medida'
         verbose_name = 'Unidad de medida'
         verbose_name_plural = 'Unidades de medida'
 
 
 class TipoOperacion(CatalogoBase):
-    class Meta:
+    class Meta(CatalogoBase.Meta):
         db_table = 'catalogo_tipo_operacion'
         verbose_name = 'Tipo de operación'
         verbose_name_plural = 'Tipos de operación'
 
 
 class TipoProducto(CatalogoBase):
-    class Meta:
+    class Meta(CatalogoBase.Meta):
         db_table = 'catalogo_tipo_producto'
         verbose_name = 'Tipo de producto'
         verbose_name_plural = 'Tipos de producto'
 
 
 class TipoProyecto(CatalogoBase):
-    class Meta:
+    class Meta(CatalogoBase.Meta):
         db_table = 'catalogo_tipo_proyecto'
         verbose_name = 'Tipo de proyecto'
         verbose_name_plural = 'Tipos de proyecto'
 
 
 class TipoFinanciamiento(CatalogoBase):
-    class Meta:
+    class Meta(CatalogoBase.Meta):
         db_table = 'catalogo_tipo_financiamiento'
         verbose_name = 'Tipo de financiamiento'
         verbose_name_plural = 'Tipos de financiamiento'
@@ -568,7 +568,7 @@ class SectorEconomicoPresupuestario(ClasificadorVersionadoMixin, CatalogoBase):
         help_text='Profundidad derivada del código (1, 2 o 3).',
     )
 
-    class Meta:
+    class Meta(CatalogoBase.Meta):
         verbose_name = 'Sector económico presupuestario'
         verbose_name_plural = 'Sectores económicos presupuestarios'
         ordering = ['codigo']
