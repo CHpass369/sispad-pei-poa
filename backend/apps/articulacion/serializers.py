@@ -1,4 +1,8 @@
 from rest_framework import serializers
+
+from .programacion_mensual import (
+    EjecucionMensualMixin, ProgramacionMensualMixin,
+)
 from .models import (
     CodigoNivel, AcuerdoInternacional, CompatibilidadAcuerdoInternacional,
     Normativa, LineamientoPAD,
@@ -148,14 +152,14 @@ class AccionPOASerializer(serializers.ModelSerializer):
         read_only_fields = AUDIT_READ_ONLY_FIELDS + CODIFICACION_READ_ONLY_FIELDS
 
 
-class OperacionPOAUSerializer(serializers.ModelSerializer):
+class OperacionPOAUSerializer(ProgramacionMensualMixin, serializers.ModelSerializer):
     class Meta:
         model = OperacionPOAU
         fields = '__all__'
         read_only_fields = AUDIT_READ_ONLY_FIELDS + CODIFICACION_READ_ONLY_FIELDS
 
 
-class ActividadPOAUSerializer(serializers.ModelSerializer):
+class ActividadPOAUSerializer(ProgramacionMensualMixin, serializers.ModelSerializer):
     class Meta:
         model = ActividadPOAU
         fields = '__all__'
@@ -169,7 +173,7 @@ class ActividadNormativaSerializer(serializers.ModelSerializer):
         read_only_fields = ['id']
 
 
-class TareaPOAUSerializer(serializers.ModelSerializer):
+class TareaPOAUSerializer(ProgramacionMensualMixin, serializers.ModelSerializer):
     class Meta:
         model = TareaPOAU
         fields = '__all__'
@@ -183,7 +187,7 @@ class TareaNormativaSerializer(serializers.ModelSerializer):
         read_only_fields = ['id']
 
 
-class SeguimientoPresupuestoSerializer(serializers.ModelSerializer):
+class SeguimientoPresupuestoSerializer(EjecucionMensualMixin, serializers.ModelSerializer):
     presupuesto_vigente_calculado = serializers.SerializerMethodField()
 
     class Meta:
@@ -195,7 +199,7 @@ class SeguimientoPresupuestoSerializer(serializers.ModelSerializer):
         return (obj.presupuesto_inicial or 0) + (obj.modificaciones or 0)
 
 
-class AsignacionObjetoGastoSerializer(serializers.ModelSerializer):
+class AsignacionObjetoGastoSerializer(ProgramacionMensualMixin, serializers.ModelSerializer):
     monto_vigente_calculado = serializers.SerializerMethodField()
 
     class Meta:

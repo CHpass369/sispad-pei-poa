@@ -43,7 +43,7 @@ import {
               <th class="g-clasificador">ORG</th>
               <th class="g-clasificador">COD. PARTIDA</th>
               <th class="g-clasificador">BIEN O SERVICIO DEMANDADO</th>
-              <th class="g-mensual" *ngFor="let mes of meses">{{ mes | slice:0:3 }}</th>
+              <th class="g-mensual" *ngFor="let mes of meses">{{ mes | slice:0:3 | uppercase }}</th>
             </tr>
           </thead>
           <tbody>

@@ -149,7 +149,7 @@ import {
             <div class="field"><label>Fecha en la que se requiere el pago</label>
               <select [(ngModel)]="r.fechaRequerimiento" class="form-control">
                 <option value="">Mes estimado…</option>
-                <option *ngFor="let mes of meses" [value]="mes">{{ mes }}</option>
+                <option *ngFor="let mes of meses" [value]="mes">{{ mes | uppercase }}</option>
               </select>
             </div>
           </div>
@@ -173,7 +173,7 @@ import {
           <h5>Presupuesto programado mensual (Bs.)</h5>
           <div class="meses-grid">
             <div *ngFor="let mes of meses" class="field">
-              <label>{{ mes | slice:0:3 }}</label>
+              <label>{{ mes | slice:0:3 | uppercase }}</label>
               <input [(ngModel)]="r.programacion[mes]" type="number" class="form-control">
             </div>
           </div>

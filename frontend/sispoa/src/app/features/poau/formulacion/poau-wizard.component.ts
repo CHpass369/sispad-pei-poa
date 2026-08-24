@@ -194,7 +194,7 @@ import {
           <h5>Programación física mensual</h5>
           <div class="meses-grid">
             <div *ngFor="let mes of meses" class="field">
-              <label>{{ mes | slice:0:3 }}</label>
+              <label>{{ mes | slice:0:3 | uppercase }}</label>
               <input [(ngModel)]="o.programacion[mes]" type="number" class="form-control">
             </div>
           </div>
@@ -270,7 +270,7 @@ import {
             <h5>Programación física mensual</h5>
             <div class="meses-grid">
               <div *ngFor="let mes of meses" class="field">
-                <label>{{ mes | slice:0:3 }}</label>
+                <label>{{ mes | slice:0:3 | uppercase }}</label>
                 <input [(ngModel)]="ac.programacion[mes]" type="number" class="form-control">
               </div>
             </div>
@@ -307,7 +307,7 @@ import {
                 <h5>Programación física mensual</h5>
                 <div class="meses-grid">
                   <div *ngFor="let mes of meses" class="field">
-                    <label>{{ mes | slice:0:3 }}</label>
+                    <label>{{ mes | slice:0:3 | uppercase }}</label>
                     <input [(ngModel)]="ta.programacion[mes]" type="number" class="form-control">
                   </div>
                 </div>

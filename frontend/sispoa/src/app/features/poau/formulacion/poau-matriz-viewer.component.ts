@@ -56,7 +56,7 @@ import {
               <th class="g-temporal">INICIO</th>
               <th class="g-temporal">FINAL</th>
               <th class="g-temporal">% PONDERACIÓN</th>
-              <th class="g-fisica" *ngFor="let mes of meses">{{ mes }}</th>
+              <th class="g-fisica" *ngFor="let mes of meses">{{ mes | uppercase }}</th>
             </tr>
           </thead>
           <tbody>

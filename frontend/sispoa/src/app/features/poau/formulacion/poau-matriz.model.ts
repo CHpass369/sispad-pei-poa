@@ -7,10 +7,16 @@
  * los requerimientos y su presupuesto se tratan por separado (Cuadro 4).
  */
 
-/** Meses de la gestión, en el orden en que se programan. */
+/**
+ * Meses de la gestion, en el orden en que se programan.
+ *
+ * Van en minuscula porque son las CLAVES del jsonb `programacion_mensual`,
+ * y esa es la forma canonica que normaliza la API. En pantalla se muestran
+ * en mayuscula con el pipe `uppercase`.
+ */
 export const MESES = [
-  'ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO',
-  'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE',
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
 ] as const;
 
 export type Mes = (typeof MESES)[number];
