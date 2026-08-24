@@ -32,6 +32,7 @@ class Rol(models.Model):
     descripcion = models.TextField(blank=True)
     es_sistema = models.BooleanField(default=False)
     activo = models.BooleanField(default=True)
+    deprecated = models.BooleanField(default=False)
     orden = models.PositiveIntegerField(default=0)
     capacidades = models.ManyToManyField(
         'Capacidad', related_name='roles', blank=True,
@@ -76,7 +77,23 @@ class Capacidad(models.Model):
 
 
 class AlcanceOrganizacional(models.Model):
-    """Restringe la actuación de un usuario a unidades organizacionales."""
+    """Restringe la actuación de un usuario a unidades organizacionales.
+
+    F1 (ADR-003): se extiende con `scope_type`, `rol` y `fiscal_year` para
+    soportar alcances por rol y por gestión. Nota de deuda: los campos nuevos
+    usan nombres en inglés por instrucción de la tarea; el modelo legacy está
+    en español. `fiscal_year` es FK a GestionFiscal (F1.5 corrige el entero
+    suelto de F1).
+    """
+
+    SCOPE_SELF = 'SELF'
+    SCOPE_DESCENDANTS = 'DESCENDANTS'
+    SCOPE_GLOBAL = 'GLOBAL'
+    SCOPE_TYPE_CHOICES = [
+        (SCOPE_SELF, 'Self'),
+        (SCOPE_DESCENDANTS, 'Descendants'),
+        (SCOPE_GLOBAL, 'Global'),
+    ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     usuario = models.ForeignKey(
@@ -87,6 +104,19 @@ class AlcanceOrganizacional(models.Model):
         'organizacion.UnidadOrganizacional',
         related_name='alcances_usuarios',
         on_delete=models.CASCADE,
+    )
+    scope_type = models.CharField(
+        max_length=12, choices=SCOPE_TYPE_CHOICES, default=SCOPE_SELF,
+    )
+    rol = models.ForeignKey(
+        'Rol', related_name='alcances',
+        on_delete=models.CASCADE, null=True, blank=True,
+    )
+    fiscal_year = models.ForeignKey(
+        'gestion.GestionFiscal',
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='alcances_organizacionales',
     )
     vigente_desde = models.DateField(null=True, blank=True)
     vigente_hasta = models.DateField(null=True, blank=True)
