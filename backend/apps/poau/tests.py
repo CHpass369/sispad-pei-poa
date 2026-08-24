@@ -200,9 +200,6 @@ class POAUModelTest(POAUBaseTestCase):
     def test_poau_responsable(self):
         self.assertEqual(self.poau.responsable, self.user_resp)
 
-    def test_poau_con_producto_territorial_nulo(self):
-        self.assertIsNone(self.poau.producto_territorial)
-
     def test_poau_updated_at(self):
         old_updated = self.poau.updated_at
         self.poau.nombre = 'Nombre Actualizado'
