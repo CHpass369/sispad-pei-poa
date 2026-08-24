@@ -229,6 +229,18 @@ CORS_ALLOWED_ORIGINS = os.environ.get(
 ).split(',')
 CORS_ALLOW_CREDENTIALS = True
 
+# Orígenes desde los que Django acepta una petición que modifica datos.
+# Es una lista aparte de CORS: CORS decide quién puede *leer* la respuesta,
+# CSRF_TRUSTED_ORIGINS decide desde qué origen se acepta un POST. Sin el
+# origen real acá, con DEBUG=False todo formulario responde 403 aunque la
+# sesión sea válida — y el mensaje no menciona esta variable.
+CSRF_TRUSTED_ORIGINS = [
+    origen for origen in os.environ.get(
+        'CSRF_TRUSTED_ORIGINS',
+        'http://localhost:4200,http://127.0.0.1:4200',
+    ).split(',') if origen.strip()
+]
+
 # Spectacular
 SPECTACULAR_SETTINGS = {
     'TITLE': 'SISPOA Sacaba API',
@@ -323,3 +335,40 @@ if USE_OIDC:  # noqa
     ]
     # SimpleJWT sigue siendo el método de autenticación API principal
     # OIDC para Django admin login via browser
+
+
+# =============================================================================
+# Endurecimiento de producción
+# =============================================================================
+# Cabeceras que no dependen del transporte: valen siempre que no sea desarrollo.
+if not DEBUG:
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = 'DENY'
+    SECURE_REFERRER_POLICY = 'same-origin'
+    # nginx termina la conexión y reenvía por HTTP local: sin esta cabecera
+    # Django cree que la petición llegó en claro y redirige en bucle.
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# Interruptor explícito, separado de DEBUG. Un despliegue puede ser de
+# producción y todavía no tener certificado —el caso de una red interna
+# que estrena servidor—, y en ese estado forzar HTTPS deja la plataforma
+# inaccesible sin forma de entrar a diagnosticar.
+#
+# Mientras esté en False las sesiones viajan en claro: es un estado de
+# transición, no un destino.
+USE_HTTPS = os.environ.get('DJANGO_HTTPS', 'False').lower() in ('true', '1', 'yes')
+
+if USE_HTTPS:
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+
+    # HSTS solo tiene sentido con un nombre de dominio: los navegadores lo
+    # ignoran cuando el host es una dirección IP (RFC 6797, §8.1.1). Se activa
+    # con DJANGO_HSTS=True el día que exista un nombre, no antes: encenderlo
+    # contra un certificado que falla deja el sitio inalcanzable durante un
+    # año y no se puede deshacer desde el servidor.
+    if os.environ.get('DJANGO_HSTS', 'False').lower() in ('true', '1', 'yes'):
+        SECURE_HSTS_SECONDS = 31536000
+        SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+        SECURE_HSTS_PRELOAD = True
