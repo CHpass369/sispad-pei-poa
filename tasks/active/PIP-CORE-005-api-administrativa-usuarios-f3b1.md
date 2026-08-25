@@ -1,4 +1,4 @@
-# TASK PIP-CORE-005: IAM F3b1/F3b2a/F3b2b/F4a/F4b1
+# TASK PIP-CORE-005: IAM F3b1/F3b2a/F3b2b/F4a/F4b1/F4b2
 
 ## DOMINIO
 
@@ -6,7 +6,7 @@
 
 ## OBJECTIVE
 
-Exponer en API V2 la administración de usuarios (F3b1), roles personalizados/capacidades (F3b2a), asignaciones atómicas de roles/alcances organizacionales (F3b2b), el registro público Angular (F4a) y el listado administrativo Angular de usuarios (F4b1), respetando capacidades, roles base inmutables y límites SIS-PE/SIS-POA.
+Exponer en API V2 la administración de usuarios (F3b1), roles personalizados/capacidades (F3b2a), asignaciones atómicas de roles/alcances organizacionales (F3b2b), el registro público Angular (F4a), el listado administrativo Angular (F4b1) y la edición de datos/asignaciones (F4b2), respetando capacidades, roles base inmutables y límites SIS-PE/SIS-POA.
 
 ## CONTEXT
 
@@ -14,11 +14,11 @@ F3a incorporó el ciclo `PENDIENTE/ACTIVO/INACTIVO`, registro público y aprobac
 
 ## CURRENT BEHAVIOR
 
-F3b1, F3b2a y F3b2b exponen usuarios, roles, capacidades y asignaciones, con límites por sistema centralizados en `accounts.services`. El contrato F3b2b mantiene sincronizados `Usuario.roles` y los `AlcanceOrganizacional` activos, sin permitir reemplazos parciales ni elevación de privilegios por jefaturas. F4a ya ofrece registro público y un catálogo mínimo de UO. El feature Angular legacy `admin-usuarios` todavía consume API V1, no usa Material ni paginación backend y expone creación, edición y eliminación fuera del contrato F4b1.
+F3b1, F3b2a y F3b2b exponen usuarios, roles, capacidades y asignaciones, con límites por sistema centralizados en `accounts.services`. El contrato F3b2b mantiene sincronizados `Usuario.roles` y los `AlcanceOrganizacional` activos, sin permitir reemplazos parciales ni elevación de privilegios por jefaturas. F4a ofrece registro público y catálogo mínimo de UO. F4b1 ya reemplazó el interior legacy de `admin-usuarios` por el shell Material único, listado V2, filtros, paginación, detalle y cambios de estado; todavía no permite editar datos personales ni asignaciones.
 
 ## EXPECTED BEHAVIOR
 
-La API V2 permite consultar y actualizar usuarios dentro del dominio del actor, administrar exclusivamente roles personalizados y reemplazar atómicamente las asignaciones de roles/alcances que el actor puede administrar. Los seis roles base permanecen visibles e inmutables. El catálogo de capacidades es de solo lectura, excluye SIS-PRO y deriva el sistema efectivo desde el prefijo del código. Además, una persona anónima puede elegir una UO activa y vigente, enviar exclusivamente sus datos personales y recibir confirmación sin inicio de sesión ni token. En F4b1, la única entrada Angular `admin-usuarios` presenta el shell “Usuarios y permisos”, muestra tabs según capacidades y ofrece listado, filtros, paginación, detalle y cambios de estado contra API V2.
+La API V2 permite consultar y actualizar usuarios dentro del dominio del actor, administrar exclusivamente roles personalizados y reemplazar atómicamente las asignaciones de roles/alcances que el actor puede administrar. Los seis roles base permanecen visibles e inmutables. El catálogo de capacidades es de solo lectura, excluye SIS-PRO y deriva el sistema efectivo desde el prefijo del código. Además, una persona anónima puede elegir una UO activa y vigente, enviar exclusivamente sus datos personales y recibir confirmación sin inicio de sesión ni token. En F4b1/F4b2, la única entrada Angular `admin-usuarios` presenta el shell “Usuarios y permisos”, aplica visibilidad por capacidades y permite listar, consultar, actualizar datos personales y reemplazar atómicamente asignaciones administrables.
 
 ## IN SCOPE
 
@@ -50,12 +50,20 @@ La API V2 permite consultar y actualizar usuarios dentro del dominio del actor, 
 - [x] Servicio administrativo V2 y DTOs estrictamente tipados sin `any`.
 - [x] Guard de ruta con acceso por cualquiera de las cuatro capacidades administrativas.
 - [x] Tests focalizados de servicio, tabla, filtros, estados, acciones, tabs y ruta.
+- [x] Dialog Material accesible para edición de usuario desde el listado.
+- [x] PATCH estricto de nombres, apellidos, cargo y teléfono.
+- [x] Lectura y reemplazo atómico de asignaciones mediante GET/PUT V2.
+- [x] Filas dinámicas tipadas con rol, UO, scope, gestión opcional y sistema derivado.
+- [x] Scopes normativos fijos para roles base y seleccionables para roles personalizados.
+- [x] Preservación visual de asignaciones ajenas que el actor no puede reenviar.
+- [x] Bloqueo de asignaciones para usuarios pendientes con navegación a Solicitudes.
+- [x] Cierre seguro, estados de carga/error/éxito y refresco inmediato del listado/detalle.
+- [x] Tests F4b2 de contratos, scopes, filas, capacidades, pendiente, rollback visual y éxito.
 
 ## OUT OF SCOPE
 
 - Creación, edición o desactivación de capacidades.
 - Cambios de modelos o migraciones.
-- Edición de datos personales y asignaciones Angular (F4b2).
 - Implementación funcional de Roles, Permisos y Solicitudes (F4c).
 - Sidebar nuevo o rediseño de navegación (F5).
 - Refactorizaciones ajenas a `accounts`.
@@ -108,6 +116,29 @@ La API V2 permite consultar y actualizar usuarios dentro del dominio del actor, 
 8. **Pruebas:** cubrir URLs/query params/paginación, renderizado de columnas y filas, filtros, estados, capacidades, tabs y configuración de ruta.
 9. **Verificación:** ejecutar Karma focalizado con `ChromeHeadlessNoSandbox`, build production, type-check, lint únicamente si existe target funcional y `git diff --check`.
 
+## F4B2 IMPLEMENTATION PLAN
+
+1. **Dominio:** CORE/accounts en frontend; sin cambios de backend, modelos ni migraciones.
+2. **Reutilización:** extender `AdminUsuariosService`, el listado F4b1, `AuthService.listPublicOrganizationalUnits`, `GestionHabilitadaService`, `CapabilitiesService`, Material Dialog y tokens `--pip-*`.
+3. **Contrato personal:** agregar `patchUser` con un payload que solo puede contener `first_name`, `last_name`, `cargo` y `telefono`; no enviar correo, estado, roles ni scopes.
+4. **Contrato de asignaciones:** agregar `getAssignments`, `putAssignments` y `listRoles`; tipar roles, capacidades, scopes y payload atómico sin `any` ni API V1.
+5. **Dialog:** crear un componente focalizado con dos secciones y guardados independientes, foco inicial/restaurado, cierre con confirmación si hay cambios y diseño responsive.
+6. **Autoridad:** ocultar la acción si faltan capacidades; habilitar datos con `accounts.usuario.edit`, lectura con `accounts.alcance.view` y mutación con `accounts.alcance.assign`.
+7. **Scopes:** mantener únicamente el mapa normativo de seis roles base; derivar sistema desde `role.sistemas` y permitir los tres scopes en roles personalizados.
+8. **Preservación:** construir filas editables solo con roles devueltos por backend; mostrar aparte alcances ajenos y excluirlos del PUT para que la jefatura no intente reemplazar otro sistema.
+9. **Gestión fiscal:** reutilizar el candado V2 `GestionHabilitadaService`; ofrecer únicamente la gestión activa, omitir el selector si no existe, conservar IDs existentes y usar `null` en filas nuevas.
+10. **Pendientes:** no consultar ni editar asignaciones y ofrecer navegación al tab Solicitudes cuando sea visible.
+11. **Pruebas:** cubrir contratos HTTP, payloads, scope fijo/custom, filas, sistema derivado, pendiente, capacidades, error sin cierre/pérdida y refresco tras éxito.
+12. **Verificación:** ejecutar Karma focalizado con `ChromeHeadlessNoSandbox`, build production, typecheck app/specs y `git diff --check`; no ejecutar lint porque el proyecto no define target.
+
+## F4B2 PHONE CONTRACT CORRECTION PLAN
+
+1. **Backend/API:** extender únicamente `UsuarioAdminReadSerializer` para devolver `telefono` en listado, detalle y respuestas de mutación; mantener sin cambios el PATCH estricto de cuatro campos personales.
+2. **Frontend:** hacer obligatorio `AdminUser.telefono`, inicializar el formulario con el valor real del contrato y eliminar fallbacks creados para una respuesta incompleta.
+3. **Pruebas:** afirmar el teléfono en el contrato backend, el DTO/HTTP frontend y el dialog; comprobar que editar otro campo no envía ni reemplaza el teléfono.
+4. **Impacto:** sin modelos, migraciones, endpoints nuevos ni cambios fuera de CORE/accounts y `admin-usuarios`.
+5. **Verificación:** pytest focalizado, Karma F4b2, Ruff, build, typecheck app/specs, `makemigrations --check --dry-run` y `git diff --check`.
+
 ## DATABASE IMPACT
 
 Ninguno. Se reutilizan `Usuario`, `Rol`, `Capacidad`, sus M2M existentes y `AlcanceOrganizacional`; no hay migraciones esperadas.
@@ -129,7 +160,7 @@ Ninguno. Se reutilizan `Usuario`, `Rol`, `Capacidad`, sus M2M existentes y `Alca
 
 ## FRONTEND IMPACT
 
-F4a agrega la ruta pública `/auth/register`, extiende `AuthService` con contratos V2 y enlaza el login existente. F4b1 reemplaza el interior legacy de `/admin-usuarios` por el shell único “Usuarios y permisos”, usa exclusivamente `/api/v2/admin/users/`, conserva Roles/Permisos/Solicitudes como placeholders controlados por capacidades y retira las rutas legacy de creación/edición hasta F4b2. F5 permanece fuera de alcance.
+F4a agrega la ruta pública `/auth/register`, extiende `AuthService` con contratos V2 y enlaza el login existente. F4b1 reemplaza el interior legacy de `/admin-usuarios` por el shell único “Usuarios y permisos”. F4b2 agrega edición personal y gestión de asignaciones en un dialog Material, consume exclusivamente contratos V2 y conserva Roles/Permisos/Solicitudes como placeholders de F4c. F5 permanece fuera de alcance.
 
 ## FILES EXPECTED
 
@@ -169,6 +200,8 @@ F4a agrega la ruta pública `/auth/register`, extiende `AuthService` con contrat
 - `frontend/sispoa/src/app/features/admin-usuarios/admin-usuarios-routing.module.ts` — ruta única protegida.
 - `frontend/sispoa/src/app/features/admin-usuarios/admin-usuarios-routing.module.spec.ts` — contrato de guard y capacidades.
 - `frontend/sispoa/src/app/features/admin-usuarios/usuario-form.component.ts` — eliminado por depender de V1 y exponer operaciones fuera de F4b1.
+- `frontend/sispoa/src/app/features/admin-usuarios/usuario-edicion-dialog.component.{ts,html,scss}` — edición personal y asignaciones F4b2.
+- `frontend/sispoa/src/app/features/admin-usuarios/usuario-edicion-dialog.component.spec.ts` — comportamiento, capacidades y rollback visual F4b2.
 
 ## DEPENDENCIES
 
@@ -214,11 +247,25 @@ F3a, commit `1eaf906`, y F3b1 implementado en esta tarea.
 - [x] El servicio usa `environment.apiUrlV2`, no `ApiService` V1, y no contiene doble prefijo.
 - [x] No se ofrecen creación, edición, eliminación ni asignaciones antes de F4b2.
 - [x] Karma focalizado pasa con 14 tests; build production, typecheck de app/specs y `git diff --check` pasan.
+- [x] Editar solo aparece con capacidad personal o lectura de alcances; la mutación exige además `accounts.alcance.assign` para evitar reemplazos atómicos sin lectura previa.
+- [x] PATCH envía únicamente campos personales modificados y nunca correo, estado, roles ni asignaciones.
+- [x] GET/PUT de asignaciones y listado completo paginado de roles usan rutas V2 tipadas.
+- [x] Los seis roles base fijan su scope normativo; un rol personalizado mantiene selector SELF/DESCENDANTS/GLOBAL.
+- [x] El sistema visible se deriva de `role.sistemas`; no existen opciones ni datos simulados de SIS-PRO.
+- [x] Agregar/quitar filas es local y un error de PUT mantiene dialog y filas sin alterar.
+- [x] Alcances de roles no devueltos por el catálogo administrable se muestran como conservados y no se envían en PUT.
+- [x] Un usuario PENDIENTE no dispara GET de asignaciones y puede ir al tab Solicitudes si tiene capacidad.
+- [x] Cada éxito actualiza inmediatamente la fila y el detalle abierto mediante el resultado real del backend.
+- [x] Karma focalizado pasa con 26 tests; build production, typecheck app/specs y `git diff --check` pasan.
+- [x] El contrato administrativo devuelve `telefono` en listado, detalle y respuestas de mutación; `AdminUser.telefono` es obligatorio.
+- [x] El dialog inicializa el teléfono real y solo lo incluye en PATCH cuando cambia, sin fallback ni sobrescritura a ciegas.
+- [x] Corrección de contrato verificada con 24 tests backend y 27 tests Karma F4b2.
 
 ## TESTS
 
 ```bash
 cd backend; /home/chpass369/proyectos/poa/.venv/bin/python -m pytest apps/accounts/tests/test_user_admin_v2.py apps/accounts/tests/test_register.py --tb=short -q -o "addopts="
+cd backend; /home/chpass369/proyectos/poa/.venv/bin/python -m pytest -n 0 apps/accounts/tests/test_user_admin_v2.py
 cd backend; /home/chpass369/proyectos/poa/.venv/bin/python -m pytest apps/accounts/tests/test_role_admin_v2.py apps/accounts/tests/test_user_admin_v2.py apps/accounts/tests/test_register.py --tb=short -q -o "addopts="
 cd backend; /home/chpass369/proyectos/poa/.venv/bin/python -m pytest apps/accounts/ --tb=short -q -o "addopts="
 cd backend; /home/chpass369/proyectos/poa/.venv/bin/python -m pytest apps/accounts/tests/test_user_assignments_v2.py apps/accounts/tests/test_register.py apps/accounts/tests/test_user_admin_v2.py apps/accounts/tests/test_role_admin_v2.py --tb=short -q -o "addopts="
@@ -226,6 +273,7 @@ cd backend; /home/chpass369/proyectos/poa/.venv/bin/python -m ruff check apps/ac
 cd backend; /home/chpass369/proyectos/poa/.venv/bin/python manage.py makemigrations accounts --check --dry-run
 cd frontend/sispoa; CHROME_BIN=/snap/bin/chromium npm test -- --watch=false --browsers=ChromeHeadlessNoSandbox --include='src/app/core/services/auth.service.spec.ts' --include='src/app/features/auth/register.component.spec.ts' --include='src/app/features/auth/login.component.spec.ts'
 cd frontend/sispoa; npm run build -- --configuration production
+cd frontend/sispoa; CHROME_BIN=/snap/bin/chromium npm test -- --watch=false --browsers=ChromeHeadlessNoSandbox --include='src/app/features/admin-usuarios/admin-usuarios.service.spec.ts' --include='src/app/features/admin-usuarios/usuarios-lista.component.spec.ts' --include='src/app/features/admin-usuarios/usuario-edicion-dialog.component.spec.ts' --include='src/app/features/admin-usuarios/admin-usuarios-routing.module.spec.ts'
 cd frontend/sispoa; npm run lint
 git diff --check
 cd frontend/sispoa; CHROME_BIN=/snap/bin/chromium npm test -- --watch=false --browsers=ChromeHeadlessNoSandbox --include='src/app/features/admin-usuarios/admin-usuarios.service.spec.ts' --include='src/app/features/admin-usuarios/usuarios-lista.component.spec.ts' --include='src/app/features/admin-usuarios/admin-usuarios-routing.module.spec.ts'
@@ -236,7 +284,7 @@ cd frontend/sispoa; npm run build -- --configuration production
 
 ## RISKS
 
-La derivación de sistema depende de prefijos `sis_pe.`/`sis_poa.`/`accounts.`; el campo legacy `sistema` conserva datos históricos y no es autoridad. Sin un campo de propietario o sistema en `Rol`, un rol personalizado vacío o solo `accounts.*` no pertenece a PE ni POA; F3b2b permite asignarlo únicamente a SUPER_ADMIN. Los solapamientos se validan en API y la fila de usuario serializa escrituras concurrentes, pero no existe todavía un constraint de base de datos que impida duplicados creados fuera de este endpoint. Resolver ambas deudas requiere cambios de modelo fuera del alcance sin migraciones de F3b2b. En F4a/F4b1, el catálogo público permite enumerar nombres institucionales y devuelve la colección completa; F4b1 lo reutiliza para el filtro de UO porque no exige una capacidad organizacional adicional. El riesgo se limita a campos no sensibles y al throttling anónimo global, pero convendrá paginarlo si el catálogo crece significativamente. El filtro de rol acepta el código normativo; F4c podrá reemplazarlo por un selector cuando implemente el tab Roles y su catálogo autorizado.
+La derivación de sistema depende de prefijos `sis_pe.`/`sis_poa.`/`accounts.`; el campo legacy `sistema` conserva datos históricos y no es autoridad. Sin un campo de propietario o sistema en `Rol`, un rol personalizado vacío o solo `accounts.*` no pertenece a PE ni POA; F3b2b permite asignarlo únicamente a SUPER_ADMIN. Los solapamientos se validan en API y la fila de usuario serializa escrituras concurrentes, pero no existe todavía un constraint de base de datos que impida duplicados creados fuera de este endpoint. Resolver ambas deudas requiere cambios de modelo fuera del alcance sin migraciones de F3b2b. En F4a/F4b1, el catálogo público permite enumerar nombres institucionales y devuelve la colección completa; F4b1/F4b2 lo reutilizan porque no exige una capacidad organizacional adicional. El contrato administrativo ya expone `telefono` como string en listado, detalle y mutaciones; PATCH conserva el valor cuando se omite. `listRoles` exige autoridad backend propia; si el actor tiene capacidades de alcance pero no puede listar roles, el dialog muestra error y no intenta inventar opciones. Las asignaciones no devueltas por ese catálogo se excluyen del payload; el backend preserva únicamente las que están fuera de la autoridad del actor y mantiene la decisión final. La gestión fiscal usa exclusivamente el candado activo ADR-007; si no existe, omite el selector y usa `null` en filas nuevas.
 
 ## ROLLBACK
 
@@ -274,3 +322,13 @@ Revertir únicamente los bloques F3b2a en los archivos listados y eliminar su te
 - Se agregó un contrato `Paginado<T>` canónico y se evitó `any` en todos los artefactos activos F4b1.
 - Verificación F4b1: 14 tests Karma focalizados pasaron en Chrome Headless 151; build production y typecheck app/specs pasaron sin errores; `git diff --check` pasó. Lint no se ejecutó porque `angular.json` no define target `lint`.
 - No hubo cambios de backend, migraciones, endpoints, stage ni commit. Siguiente: F4b2 para edición de datos personales y asignaciones atómicas.
+- F4b2 agregó un dialog Material con guardados independientes para datos personales y asignaciones; no simula atomicidad entre dos endpoints distintos.
+- `AdminUsuariosService` incorporó PATCH personal, GET/PUT de asignaciones y carga de todas las páginas de roles activos.
+- Las filas de asignación derivan sistema desde backend, fijan scopes de los seis roles base y permiten scopes libres en roles personalizados.
+- Las asignaciones ajenas al catálogo administrable se muestran en un bloque preservado y se excluyen del PUT de una jefatura.
+- Un error de PUT conserva las filas y el dialog abierto; cada éxito actualiza inmediatamente la tabla y el detalle mediante `userSaved`.
+- La gestión fiscal reutiliza `GestionHabilitadaService`; no agrega endpoint, selector histórico ni mock.
+- Verificación F4b2: 26 tests Karma focalizados pasaron en Chrome Headless 151; build production pasó con hash `bb7e79c044a6b9b1` y chunk lazy de administración de `259.92 kB`; typecheck app/specs y `git diff --check` pasaron.
+- Lint no se ejecutó porque `angular.json` no define target `lint`. No hubo cambios de backend, migraciones, sidebar, stage ni commit. Siguiente: F4c.
+- Corrección final F4b2: `UsuarioAdminReadSerializer` expone `telefono`; Angular lo tipa como obligatorio y el dialog compara contra el valor real antes de construir PATCH.
+- Verificación de la corrección: 24 tests backend pasaron en 292.89 s; 27 tests Karma pasaron en Chrome Headless 151; Ruff pasó; `makemigrations accounts --check --dry-run` no detectó cambios; typecheck app/specs pasó; build production pasó con hash `e49ec32a1fc316b1` y chunk lazy admin de `259.49 kB`.

@@ -215,7 +215,7 @@ class UsuarioAdminReadSerializer(serializers.ModelSerializer):
     class Meta:
         model = Usuario
         fields = [
-            'id', 'first_name', 'last_name', 'email', 'cargo',
+            'id', 'first_name', 'last_name', 'email', 'cargo', 'telefono',
             'estado', 'activo', 'is_active', 'last_login',
             'roles', 'alcances', 'sistemas',
         ]

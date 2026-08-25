@@ -336,6 +336,15 @@ class UsuarioAdminFiltrosTests(F3b1TestBase):
 
 
 class UsuarioAdminContratoTests(F3b1TestBase):
+    def test_listado_expone_telefono(self):
+        response = self.cliente(self.superuser).get(reverse('v2-admin-users'))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        usuario = next(
+            item for item in self.resultados(response)
+            if item['id'] == str(self.usuario_pe.pk)
+        )
+        self.assertEqual(usuario['telefono'], '4455667')
+
     def test_detalle_expone_campos_roles_alcances_y_sistemas_deduplicados(self):
         response = self.cliente(self.superuser).get(
             self.url_detalle(self.usuario_pe),
@@ -344,11 +353,12 @@ class UsuarioAdminContratoTests(F3b1TestBase):
         self.assertEqual(
             set(response.data),
             {
-                'id', 'first_name', 'last_name', 'email', 'cargo',
+                'id', 'first_name', 'last_name', 'email', 'cargo', 'telefono',
                 'estado', 'activo', 'is_active', 'last_login',
                 'roles', 'alcances', 'sistemas',
             },
         )
+        self.assertEqual(response.data['telefono'], '4455667')
         self.assertEqual(response.data['sistemas'], ['sis_pe'])
         self.assertEqual(response.data['roles'], [{
             'codigo': self.rol_pe.codigo,
@@ -392,6 +402,19 @@ class UsuarioAdminPatchTests(F3b1TestBase):
         self.assertEqual(self.usuario_pe.last_name, 'Actualizada')
         self.assertEqual(self.usuario_pe.cargo, 'Jefa de Unidad')
         self.assertEqual(self.usuario_pe.telefono, '70000001')
+        self.assertEqual(response.data['telefono'], '70000001')
+
+    def test_patch_sin_telefono_preserva_y_devuelve_el_valor_actual(self):
+        response = self.cliente(self.jefe_pe).patch(
+            self.url_detalle(self.usuario_pe),
+            {'cargo': 'Responsable Estratégica'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.usuario_pe.refresh_from_db()
+        self.assertEqual(self.usuario_pe.cargo, 'Responsable Estratégica')
+        self.assertEqual(self.usuario_pe.telefono, '4455667')
+        self.assertEqual(response.data['telefono'], '4455667')
 
     def test_patch_rechaza_estado_roles_email_y_campos_desconocidos(self):
         originales = (

@@ -1,6 +1,7 @@
 import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { PageEvent } from '@angular/material/paginator';
-import { Observable } from 'rxjs';
+import { MatDialog } from '@angular/material/dialog';
+import { Observable, takeUntil } from 'rxjs';
 import { PublicOrganizationalUnit } from '../../core/models/usuario.model';
 import { AuthService } from '../../core/services/auth.service';
 import { CapabilitiesService } from '../../core/services/capabilities.service';
@@ -11,6 +12,11 @@ import {
   AdminUserState,
   AdminUsuariosService,
 } from './admin-usuarios.service';
+import {
+  UsuarioEdicionDialogComponent,
+  UsuarioEdicionDialogData,
+  UsuarioEdicionDialogResult,
+} from './usuario-edicion-dialog.component';
 
 @Component({
   standalone: false,
@@ -46,11 +52,13 @@ export class UsuariosListaComponent implements OnInit {
   detailLoading = false;
   detailError = '';
   stateChangeUserId: string | null = null;
+  selectedTabIndex = 0;
 
   constructor(
     private readonly adminUsers: AdminUsuariosService,
     private readonly auth: AuthService,
     private readonly capabilities: CapabilitiesService,
+    private readonly dialog: MatDialog,
   ) {}
 
   ngOnInit(): void {
@@ -78,6 +86,22 @@ export class UsuariosListaComponent implements OnInit {
 
   get canChangeUserState(): boolean {
     return this.capabilities.tiene('accounts.usuario.activate');
+  }
+
+  get canEditUser(): boolean {
+    return this.capabilities.tiene('accounts.usuario.edit');
+  }
+
+  get canViewAssignments(): boolean {
+    return this.capabilities.tiene('accounts.alcance.view');
+  }
+
+  get canAssign(): boolean {
+    return this.capabilities.tiene('accounts.alcance.assign');
+  }
+
+  get canOpenEditor(): boolean {
+    return this.canEditUser || this.canViewAssignments;
   }
 
   applyFilters(): void {
@@ -147,6 +171,48 @@ export class UsuariosListaComponent implements OnInit {
     this.detailError = '';
   }
 
+  openEditor(user: AdminUser): void {
+    if (!this.canOpenEditor) {
+      return;
+    }
+    const data: UsuarioEdicionDialogData = {
+      user,
+      organizationalUnits: this.organizationalUnits,
+      canEditPersonal: this.canEditUser,
+      canViewAssignments: this.canViewAssignments,
+      canAssign: this.canViewAssignments && this.canAssign,
+      canViewRequests: this.canViewRequests,
+    };
+    const dialogRef = this.dialog.open<
+      UsuarioEdicionDialogComponent,
+      UsuarioEdicionDialogData,
+      UsuarioEdicionDialogResult
+    >(UsuarioEdicionDialogComponent, {
+      data,
+      width: '64rem',
+      maxWidth: '96vw',
+      maxHeight: '94vh',
+      autoFocus: 'first-header',
+      restoreFocus: true,
+      ariaLabelledBy: 'user-edit-title',
+      ariaDescribedBy: 'user-edit-description',
+      closePredicate: (_result, _config, component) => {
+        const instance = component as UsuarioEdicionDialogComponent | null;
+        return !instance?.hasUnsavedChanges()
+          || instance.confirmDiscard();
+      },
+    });
+    const closed$ = dialogRef.afterClosed();
+    dialogRef.componentInstance.userSaved.pipe(takeUntil(closed$)).subscribe(
+      updated => this.updateUser(updated),
+    );
+    closed$.subscribe(result => {
+      if (result?.navigateToRequests) {
+        this.selectedTabIndex = this.requestsTabIndex();
+      }
+    });
+  }
+
   toggleUserState(user: AdminUser): void {
     if (!this.canChangeUserState || this.stateChangeUserId) {
       return;
@@ -201,6 +267,18 @@ export class UsuariosListaComponent implements OnInit {
 
   trackUser(_index: number, user: AdminUser): string {
     return user.id;
+  }
+
+  private updateUser(updated: AdminUser): void {
+    this.users = this.users.map(user => user.id === updated.id ? updated : user);
+    if (this.selectedUser?.id === updated.id) {
+      this.selectedUser = updated;
+    }
+  }
+
+  private requestsTabIndex(): number {
+    return [this.canViewUsers, this.canViewRoles, this.canViewCapabilities]
+      .filter(Boolean).length;
   }
 
   private loadOrganizationalUnits(): void {

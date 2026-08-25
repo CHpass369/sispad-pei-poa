@@ -13,7 +13,12 @@
     </div>
   </header>
 
-  <mat-tab-group class="iam-tabs" animationDuration="180ms" preserveContent>
+  <mat-tab-group
+    class="iam-tabs"
+    animationDuration="180ms"
+    preserveContent
+    [(selectedIndex)]="selectedTabIndex"
+  >
     @if (canViewUsers) {
       <mat-tab label="Usuarios">
         <div class="tab-content">
@@ -194,6 +199,17 @@
                     >
                       <lucide-angular name="eye" [size]="18" aria-hidden="true"></lucide-angular>
                     </button>
+                    @if (canOpenEditor) {
+                      <button
+                        mat-icon-button
+                        type="button"
+                        matTooltip="Editar usuario"
+                        [attr.aria-label]="'Editar ' + fullName(user)"
+                        (click)="openEditor(user)"
+                      >
+                        <lucide-angular name="pencil" [size]="18" aria-hidden="true"></lucide-angular>
+                      </button>
+                    }
                     @if (canChangeUserState) {
                       <button
                         mat-icon-button
@@ -301,9 +317,14 @@
                     </dd>
                   </div>
                 </dl>
-                <p class="detail-note">
-                  La edición de datos y asignaciones estará disponible en F4b2.
-                </p>
+                @if (canOpenEditor) {
+                  <div class="detail-actions">
+                    <button mat-stroked-button type="button" (click)="openEditor(selectedUser)">
+                      <lucide-angular name="pencil" [size]="17" aria-hidden="true"></lucide-angular>
+                      Editar usuario
+                    </button>
+                  </div>
+                }
               </mat-card-content>
             </mat-card>
           }

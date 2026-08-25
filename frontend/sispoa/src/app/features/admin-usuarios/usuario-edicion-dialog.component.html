@@ -1,0 +1,265 @@
+<header class="dialog-header">
+  <div>
+    <p class="dialog-eyebrow">Cuenta institucional</p>
+    <h2 mat-dialog-title id="user-edit-title" tabindex="-1">Editar usuario</h2>
+    <p id="user-edit-description" class="dialog-description">
+      {{ currentUser.email }} · {{ currentUser.estado === 'PENDIENTE' ? 'Pendiente' : 'Cuenta aprobada' }}
+    </p>
+  </div>
+  <button mat-icon-button type="button" aria-label="Cerrar edición" (click)="close()">
+    <lucide-angular name="x" [size]="19" aria-hidden="true"></lucide-angular>
+  </button>
+</header>
+
+<mat-dialog-content>
+  @if (data.canEditPersonal) {
+    <section class="dialog-section" aria-labelledby="personal-title">
+      <div class="section-heading">
+        <div>
+          <p class="section-step">01 · Identidad</p>
+          <h3 id="personal-title">Datos personales</h3>
+          <p>Actualice únicamente la información laboral y de contacto.</p>
+        </div>
+      </div>
+
+      <form class="personal-grid" #personalForm="ngForm" (ngSubmit)="savePersonal()">
+        <mat-form-field appearance="outline">
+          <mat-label>Nombres</mat-label>
+          <input matInput name="first_name" [(ngModel)]="personal.first_name" required autocomplete="given-name">
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Apellidos</mat-label>
+          <input matInput name="last_name" [(ngModel)]="personal.last_name" required autocomplete="family-name">
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Cargo</mat-label>
+          <input matInput name="cargo" [(ngModel)]="personal.cargo" autocomplete="organization-title">
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Teléfono</mat-label>
+          <input
+            matInput
+            name="telefono"
+            type="tel"
+            [(ngModel)]="personal.telefono"
+            autocomplete="tel"
+          >
+          @if (!currentUser.telefono) {
+            <mat-hint>Complete este campo solo si desea actualizarlo.</mat-hint>
+          }
+        </mat-form-field>
+
+        <div class="section-feedback" aria-live="polite">
+          @if (personalError) {
+            <p class="message error" role="alert">{{ personalError }}</p>
+          }
+          @if (personalSuccess) {
+            <p class="message success" role="status">{{ personalSuccess }}</p>
+          }
+        </div>
+        <div class="section-actions">
+          <button
+            mat-flat-button
+            type="submit"
+            [disabled]="savingPersonal || !personalForm.valid || !personalDirty"
+          >
+            <lucide-angular name="save" [size]="17" aria-hidden="true"></lucide-angular>
+            {{ savingPersonal ? 'Guardando…' : 'Guardar datos' }}
+          </button>
+        </div>
+      </form>
+    </section>
+  }
+
+  @if (data.canEditPersonal && data.canViewAssignments) {
+    <mat-divider></mat-divider>
+  }
+
+  @if (data.canViewAssignments) {
+    <section class="dialog-section" aria-labelledby="assignments-title">
+      <div class="section-heading assignments-heading">
+        <div>
+          <p class="section-step">02 · Autoridad</p>
+          <h3 id="assignments-title">Roles y alcances</h3>
+          <p>El guardado reemplaza atómicamente solo las asignaciones que puede administrar.</p>
+        </div>
+        @if (data.canAssign && !isPending && !loadingAssignments) {
+          <button mat-stroked-button type="button" (click)="addAssignment()">
+            <lucide-angular name="plus" [size]="17" aria-hidden="true"></lucide-angular>
+            Agregar asignación
+          </button>
+        }
+      </div>
+
+      @if (isPending) {
+        <div class="pending-panel" role="status">
+          <lucide-angular name="clipboard-clock" [size]="25" aria-hidden="true"></lucide-angular>
+          <div>
+            <strong>La cuenta todavía está pendiente</strong>
+            <p>Las asignaciones se habilitan después de aprobar la solicitud.</p>
+          </div>
+          @if (data.canViewRequests) {
+            <button mat-stroked-button type="button" (click)="goToRequests()">
+              Ir a Solicitudes
+              <lucide-angular name="arrow-right" [size]="16" aria-hidden="true"></lucide-angular>
+            </button>
+          }
+        </div>
+      } @else {
+        @if (loadingAssignments) {
+          <div class="assignments-loading" role="status" aria-live="polite">
+            <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+            <span>Cargando roles y alcances…</span>
+          </div>
+        }
+
+        @if (assignmentsLoadError && !loadingAssignments) {
+          <div class="load-error" role="alert">
+            <span>{{ assignmentsLoadError }}</span>
+            <button mat-button type="button" (click)="loadAssignments()">Reintentar</button>
+          </div>
+        }
+
+        @if (!loadingAssignments && !assignmentsLoadError) {
+          @if (rows.length === 0) {
+            <div class="assignments-empty" role="status">
+              <strong>Sin asignaciones administrables</strong>
+              <p>Puede agregar una fila si tiene permiso para asignar roles y alcances.</p>
+            </div>
+          }
+
+          <div class="assignment-list">
+            @for (row of rows; track trackRow($index, row); let index = $index) {
+              <article class="assignment-row">
+                <div class="row-index" aria-hidden="true">{{ index + 1 }}</div>
+                <div class="assignment-fields">
+                  <mat-form-field appearance="outline">
+                    <mat-label>Rol</mat-label>
+                    <mat-select
+                      [name]="'role-' + row.localId"
+                      [(ngModel)]="row.role_code"
+                      [disabled]="!data.canAssign"
+                      (selectionChange)="roleChanged(row)"
+                    >
+                      @for (role of roles; track role.id) {
+                        <mat-option [value]="role.codigo">{{ role.nombre }}</mat-option>
+                      }
+                    </mat-select>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline">
+                    <mat-label>Unidad organizacional</mat-label>
+                    <mat-select
+                      [name]="'unit-' + row.localId"
+                      [(ngModel)]="row.organizational_unit_id"
+                      [disabled]="!data.canAssign"
+                      (selectionChange)="assignmentsSuccess = ''"
+                    >
+                      @for (unit of organizationalUnits; track unit.id) {
+                        <mat-option [value]="unit.id">{{ unit.codigo }} · {{ unit.nombre }}</mat-option>
+                      }
+                    </mat-select>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline">
+                    <mat-label>Alcance</mat-label>
+                    <mat-select
+                      [name]="'scope-' + row.localId"
+                      [(ngModel)]="row.scope_type"
+                      [disabled]="!data.canAssign || fixedScope(row.role_code) !== null"
+                      (selectionChange)="assignmentsSuccess = ''"
+                    >
+                      @for (scope of scopes; track scope) {
+                        <mat-option [value]="scope">{{ scopeLabel(scope) }}</mat-option>
+                      }
+                    </mat-select>
+                    @if (fixedScope(row.role_code)) {
+                      <mat-hint>Alcance fijado por el rol base.</mat-hint>
+                    }
+                  </mat-form-field>
+
+                  @if (showFiscalYearSelector) {
+                    <mat-form-field appearance="outline">
+                      <mat-label>Gestión fiscal</mat-label>
+                      <mat-select
+                        [name]="'fiscal-year-' + row.localId"
+                        [(ngModel)]="row.fiscal_year_id"
+                        [disabled]="!data.canAssign"
+                        (selectionChange)="assignmentsSuccess = ''"
+                      >
+                        <mat-option [value]="null">Sin gestión</mat-option>
+                        @for (year of fiscalYears; track year.id) {
+                          <mat-option [value]="year.id">{{ year.anio }} · {{ year.estado_display }}</mat-option>
+                        }
+                        @if (isUnknownFiscalYear(row.fiscal_year_id)) {
+                          <mat-option [value]="row.fiscal_year_id">Gestión asignada sin detalle</mat-option>
+                        }
+                      </mat-select>
+                    </mat-form-field>
+                  }
+
+                  <div class="system-field">
+                    <span>Sistema</span>
+                    <strong>{{ systemsForRole(row.role_code) }}</strong>
+                  </div>
+                </div>
+                @if (data.canAssign) {
+                  <button
+                    mat-icon-button
+                    type="button"
+                    class="remove-row"
+                    [attr.aria-label]="'Quitar asignación ' + (index + 1)"
+                    (click)="removeAssignment(row)"
+                  >
+                    <lucide-angular name="trash-2" [size]="18" aria-hidden="true"></lucide-angular>
+                  </button>
+                }
+              </article>
+            }
+          </div>
+
+          @if (preservedAssignments.length) {
+            <div class="preserved-panel">
+              <strong>Asignaciones fuera del catálogo administrable</strong>
+              <p>No se envían; el backend preserva las que están fuera de su autoridad.</p>
+              <ul>
+                @for (scope of preservedAssignments; track scope.rol + scope.unidad.id) {
+                  <li>{{ scope.rol || 'Sin rol' }} · {{ scope.unidad.nombre }} · {{ scopeLabel(scope.scope_type) }}</li>
+                }
+              </ul>
+            </div>
+          }
+
+          @if (fiscalCatalogError) {
+            <p class="catalog-note" role="status">{{ fiscalCatalogError }}</p>
+          }
+          <div class="section-feedback" aria-live="polite">
+            @if (assignmentsError) {
+              <p class="message error" role="alert">{{ assignmentsError }}</p>
+            }
+            @if (assignmentsSuccess) {
+              <p class="message success" role="status">{{ assignmentsSuccess }}</p>
+            }
+          </div>
+          @if (data.canAssign) {
+            <div class="section-actions">
+              <button
+                mat-flat-button
+                type="button"
+                [disabled]="savingAssignments || !assignmentsDirty"
+                (click)="saveAssignments()"
+              >
+                <lucide-angular name="save" [size]="17" aria-hidden="true"></lucide-angular>
+                {{ savingAssignments ? 'Guardando…' : 'Guardar asignaciones' }}
+              </button>
+            </div>
+          }
+        }
+      }
+    </section>
+  }
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-stroked-button type="button" (click)="close()">Cerrar</button>
+</mat-dialog-actions>

@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { of, Subject, throwError } from 'rxjs';
 import { PublicOrganizationalUnit } from '../../core/models/usuario.model';
@@ -7,6 +8,7 @@ import { CapabilitiesService } from '../../core/services/capabilities.service';
 import { AdminUsuariosModule } from './admin-usuarios.module';
 import { AdminUser, AdminUsuariosService } from './admin-usuarios.service';
 import { UsuariosListaComponent } from './usuarios-lista.component';
+import { UsuarioEdicionDialogComponent } from './usuario-edicion-dialog.component';
 
 describe('UsuariosListaComponent', () => {
   let component: UsuariosListaComponent;
@@ -14,6 +16,7 @@ describe('UsuariosListaComponent', () => {
   let adminUsers: jasmine.SpyObj<AdminUsuariosService>;
   let auth: jasmine.SpyObj<AuthService>;
   let capabilities: jasmine.SpyObj<CapabilitiesService>;
+  let matDialog: jasmine.SpyObj<MatDialog>;
   let granted: Set<string>;
 
   const unit: PublicOrganizationalUnit = {
@@ -30,6 +33,7 @@ describe('UsuariosListaComponent', () => {
     last_name: 'Planificadora',
     email: 'ana@gob.bo',
     cargo: 'Especialista estratégica',
+    telefono: '4455667',
     estado: 'ACTIVO',
     activo: true,
     is_active: true,
@@ -73,6 +77,7 @@ describe('UsuariosListaComponent', () => {
     );
     auth = jasmine.createSpyObj<AuthService>('AuthService', ['listPublicOrganizationalUnits']);
     capabilities = jasmine.createSpyObj<CapabilitiesService>('CapabilitiesService', ['tiene']);
+    matDialog = jasmine.createSpyObj<MatDialog>('MatDialog', ['open']);
     granted = new Set(['accounts.usuario.view']);
     capabilities.tiene.and.callFake(code => granted.has(code));
     adminUsers.listUsers.and.returnValue(of(page));
@@ -97,6 +102,7 @@ describe('UsuariosListaComponent', () => {
         { provide: AdminUsuariosService, useValue: adminUsers },
         { provide: AuthService, useValue: auth },
         { provide: CapabilitiesService, useValue: capabilities },
+        { provide: MatDialog, useValue: matDialog },
       ],
     }).compileComponents();
 
@@ -185,7 +191,7 @@ describe('UsuariosListaComponent', () => {
     fixture.detectChanges();
 
     expect(adminUsers.getUser).toHaveBeenCalledOnceWith(activeUser.id);
-    expect(fixture.nativeElement.textContent).toContain('La edición de datos y asignaciones estará disponible en F4b2');
+    expect(fixture.nativeElement.textContent).toContain('Ana Planificadora');
   });
 
   it('hides state actions without activate capability', () => {
@@ -221,5 +227,40 @@ describe('UsuariosListaComponent', () => {
     );
     expect(labels).toEqual(['Usuarios', 'Roles', 'Permisos']);
     expect(labels).not.toContain('Solicitudes');
+  });
+
+  it('hides editing without capabilities and shows it with personal edit capability', () => {
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[aria-label="Editar Ana Planificadora"]')).toBeNull();
+
+    granted.add('accounts.alcance.assign');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[aria-label="Editar Ana Planificadora"]')).toBeNull();
+
+    granted.add('accounts.usuario.edit');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[aria-label="Editar Ana Planificadora"]')).not.toBeNull();
+  });
+
+  it('refreshes the table and open detail when the dialog emits a successful save', () => {
+    granted.add('accounts.usuario.edit');
+    const saved = new Subject<AdminUser>();
+    const closed = new Subject<{ navigateToRequests?: boolean } | undefined>();
+    const dialogRef = {
+      componentInstance: { userSaved: saved },
+      afterClosed: () => closed.asObservable(),
+    } as unknown as MatDialogRef<UsuarioEdicionDialogComponent>;
+    matDialog.open.and.returnValue(dialogRef);
+    fixture.detectChanges();
+    component.selectedUser = activeUser;
+
+    component.openEditor(activeUser);
+    const updated = { ...activeUser, first_name: 'Ana María', cargo: 'Jefa' };
+    saved.next(updated);
+
+    expect(component.users[0]).toEqual(updated);
+    expect(component.selectedUser).toEqual(updated);
+    expect(matDialog.open).toHaveBeenCalled();
   });
 });

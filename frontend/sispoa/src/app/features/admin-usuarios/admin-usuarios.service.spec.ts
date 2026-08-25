@@ -1,7 +1,12 @@
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { environment } from '../../../environments/environment';
-import { AdminUser, AdminUsuariosService } from './admin-usuarios.service';
+import {
+  AdminAssignmentsPayload,
+  AdminRole,
+  AdminUser,
+  AdminUsuariosService,
+} from './admin-usuarios.service';
 
 describe('AdminUsuariosService', () => {
   let service: AdminUsuariosService;
@@ -13,6 +18,7 @@ describe('AdminUsuariosService', () => {
     last_name: 'Planificadora',
     email: 'ana@gob.bo',
     cargo: 'Especialista',
+    telefono: '4455667',
     estado: 'ACTIVO',
     activo: true,
     is_active: true,
@@ -20,6 +26,19 @@ describe('AdminUsuariosService', () => {
     roles: [],
     alcances: [],
     sistemas: ['sis_pe'],
+  };
+
+  const role: AdminRole = {
+    id: 'role-1',
+    codigo: 'CUSTOM_PE',
+    nombre: 'Rol PE',
+    descripcion: '',
+    activo: true,
+    es_sistema: false,
+    deprecated: false,
+    orden: 1,
+    sistemas: ['sis_pe'],
+    capacidades: [],
   };
 
   beforeEach(() => {
@@ -74,8 +93,10 @@ describe('AdminUsuariosService', () => {
   });
 
   it('uses V2 detail and state-action URLs', () => {
-    service.getUser(user.id).subscribe();
+    let detailPhone = '';
+    service.getUser(user.id).subscribe(result => detailPhone = result.telefono);
     http.expectOne(`${environment.apiUrlV2}/admin/users/${user.id}/`).flush(user);
+    expect(detailPhone).toBe('4455667');
 
     service.activate(user.id).subscribe();
     const activate = http.expectOne(`${environment.apiUrlV2}/admin/users/${user.id}/activate/`);
@@ -87,5 +108,75 @@ describe('AdminUsuariosService', () => {
     const deactivate = http.expectOne(`${environment.apiUrlV2}/admin/users/${user.id}/deactivate/`);
     expect(deactivate.request.method).toBe('POST');
     deactivate.flush(user);
+  });
+
+  it('patches only the provided personal fields', () => {
+    service.patchUser(user.id, {
+      first_name: 'Ana María',
+      cargo: 'Jefa de unidad',
+      telefono: '70000001',
+    }).subscribe();
+
+    const request = http.expectOne(`${environment.apiUrlV2}/admin/users/${user.id}/`);
+    expect(request.request.method).toBe('PATCH');
+    expect(request.request.body).toEqual({
+      first_name: 'Ana María',
+      cargo: 'Jefa de unidad',
+      telefono: '70000001',
+    });
+    expect(request.request.body.roles).toBeUndefined();
+    expect(request.request.body.assignments).toBeUndefined();
+    request.flush(user);
+  });
+
+  it('uses the assignments GET and atomic PUT contracts', () => {
+    const payload: AdminAssignmentsPayload = {
+      assignments: [{
+        role_code: role.codigo,
+        organizational_unit_id: 'unit-1',
+        scope_type: 'DESCENDANTS',
+        fiscal_year_id: null,
+      }],
+    };
+
+    service.getAssignments(user.id).subscribe();
+    const getRequest = http.expectOne(
+      `${environment.apiUrlV2}/admin/users/${user.id}/assignments/`,
+    );
+    expect(getRequest.request.method).toBe('GET');
+    getRequest.flush(user);
+
+    service.putAssignments(user.id, payload).subscribe();
+    const putRequest = http.expectOne(
+      `${environment.apiUrlV2}/admin/users/${user.id}/assignments/`,
+    );
+    expect(putRequest.request.method).toBe('PUT');
+    expect(putRequest.request.body).toEqual(payload);
+    putRequest.flush(user);
+  });
+
+  it('loads every active role page from the V2 backend', () => {
+    let roles: AdminRole[] = [];
+    service.listRoles().subscribe(result => roles = result);
+
+    const first = http.expectOne(req => req.url === `${environment.apiUrlV2}/admin/roles/`);
+    expect(first.request.params.get('active')).toBe('true');
+    first.flush({
+      count: 2,
+      next: `${environment.apiUrlV2}/admin/roles/?active=true&page=2`,
+      previous: null,
+      results: [role],
+    });
+    const second = http.expectOne(
+      `${environment.apiUrlV2}/admin/roles/?active=true&page=2`,
+    );
+    second.flush({
+      count: 2,
+      next: null,
+      previous: `${environment.apiUrlV2}/admin/roles/?active=true`,
+      results: [{ ...role, id: 'role-2', codigo: 'CUSTOM_POA', sistemas: ['sis_poa'] }],
+    });
+
+    expect(roles.map(item => item.codigo)).toEqual(['CUSTOM_PE', 'CUSTOM_POA']);
   });
 });

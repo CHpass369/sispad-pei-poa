@@ -341,10 +341,25 @@ tr.mat-mdc-row:hover td {
   grid-column: 1 / -1;
 }
 
-.detail-note {
+.detail-note,
+.detail-actions {
   margin: var(--e-3) 0 0;
+}
+
+.detail-note {
   color: var(--pip-ink-soft);
   font-size: 0.76rem;
+}
+
+.detail-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.detail-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e-1);
 }
 
 .placeholder {
