@@ -35,6 +35,10 @@ import { AuthService } from '../../core/services/auth.service';
                 {{ loading ? 'Ingresando...' : 'Ingresar' }}
               </button>
             </form>
+            <div class="register-entry">
+              <span>¿No tienes una cuenta?</span>
+              <a routerLink="/auth/register">Crear cuenta</a>
+            </div>
             <div class="login-footer">
               <small>Gobierno Autónomo Municipal de Sacaba</small>
             </div>
@@ -67,6 +71,12 @@ import { AuthService } from '../../core/services/auth.service';
     .field label { display: block; margin-bottom: 0.375rem; font-weight: 500; font-size: 0.875rem; }
     .btn-block { width: 100%; justify-content: center; padding: 0.75rem; }
     .error-msg { color: var(--warn); font-size: 0.8125rem; margin-bottom: 0.75rem; }
+    .register-entry {
+      display: flex; justify-content: center; gap: 0.375rem; flex-wrap: wrap;
+      padding: 0 2rem 1.5rem; color: var(--pip-ink-soft); font-size: 0.875rem;
+    }
+    .register-entry a { color: var(--pip-green-700); font-weight: 600; }
+    .register-entry a:hover { color: var(--pip-green-600); text-decoration: underline; }
     .login-footer {
       padding: 1rem 2rem; text-align: center; background: var(--bg);
       color: var(--text-secondary);
@@ -93,7 +103,11 @@ export class LoginComponent {
     this.loading = true;
     this.error = '';
     this.cdr.markForCheck();
-    this.auth.login(this.loginForm.value as any).subscribe({
+    const credentials = this.loginForm.getRawValue();
+    this.auth.login({
+      email: credentials.email ?? '',
+      password: credentials.password ?? '',
+    }).subscribe({
       next: () => this.router.navigate(['/sistemas']),
       error: (err) => {
         this.error = err.message || 'Credenciales inválidas';

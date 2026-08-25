@@ -17,6 +17,7 @@ from .services import (
     sistemas_administrables,
     sistemas_de_rol,
     sistemas_efectivos_de_rol,
+    unidades_organizacionales_disponibles_registro,
 )
 
 
@@ -86,9 +87,11 @@ class RegistroPublicoSerializer(serializers.Serializer):
         return value
 
     def validate_unidad_organizacional_id(self, value):
-        if not UnidadOrganizacional.objects.filter(id=value).exists():
+        if not unidades_organizacionales_disponibles_registro().filter(
+            id=value,
+        ).exists():
             raise serializers.ValidationError(
-                'La unidad organizacional no existe.'
+                'La unidad organizacional no está disponible.'
             )
         return value
 
@@ -107,6 +110,16 @@ class RegistroPublicoSerializer(serializers.Serializer):
         except DjangoValidationError as exc:
             raise serializers.ValidationError({'password': exc.messages})
         return attrs
+
+
+class UnidadOrganizacionalPublicaSerializer(serializers.ModelSerializer):
+    """Contrato mínimo para seleccionar una UO durante el registro."""
+
+    padre = serializers.UUIDField(source='padre_id', read_only=True)
+
+    class Meta:
+        model = UnidadOrganizacional
+        fields = ['id', 'codigo', 'nombre', 'sigla', 'padre']
 
 
 class AprobacionSerializer(serializers.Serializer):

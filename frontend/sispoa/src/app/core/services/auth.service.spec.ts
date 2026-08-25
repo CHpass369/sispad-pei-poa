@@ -1,7 +1,12 @@
 import { TestBed } from '@angular/core/testing';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 import { AuthService } from './auth.service';
-import { LoginRequest, LoginResponse, Usuario } from '../models/usuario.model';
+import {
+  LoginRequest,
+  LoginResponse,
+  RegistrationRequest,
+  Usuario,
+} from '../models/usuario.model';
 import { environment } from '../../../environments/environment';
 
 describe('AuthService', () => {
@@ -83,6 +88,60 @@ describe('AuthService', () => {
 
       const userReq = httpMock.expectOne(`${environment.apiUrl}/auth/usuarios/me/`);
       userReq.flush(mockUser);
+    });
+  });
+
+  describe('public registration V2', () => {
+    const registration: RegistrationRequest = {
+      first_name: 'Ana',
+      last_name: 'Pérez',
+      email: 'ana.perez@sacaba.gob.bo',
+      cargo: 'Analista',
+      unidad_organizacional_id: 'b41aec54-c047-438c-b5df-a32d47f0ee65',
+      password: 'Clave.Segura.2026',
+      password_confirm: 'Clave.Segura.2026',
+    };
+
+    it('posts the exact payload to the V2 registration URL', () => {
+      service.register(registration).subscribe(response => {
+        expect(response.detail).toContain('administrador');
+      });
+
+      const req = httpMock.expectOne(`${environment.apiUrlV2}/auth/register/`);
+      expect(req.request.method).toBe('POST');
+      expect(req.request.body).toEqual(registration);
+      expect(req.request.url).not.toContain('/api/v1/api/v1');
+      req.flush({ detail: 'Registro recibido. Un administrador revisará su solicitud.' });
+    });
+
+    it('lists public organizational units with an optional search', () => {
+      service.listPublicOrganizationalUnits(' planificación ').subscribe(units => {
+        expect(units[0].codigo).toBe('DIR-PLA');
+      });
+
+      const req = httpMock.expectOne(request => (
+        request.url === `${environment.apiUrlV2}/auth/organizational-units/`
+        && request.params.get('search') === 'planificación'
+      ));
+      expect(req.request.method).toBe('GET');
+      expect(req.request.urlWithParams).not.toContain('/api/v1/api/v1');
+      req.flush([{
+        id: registration.unidad_organizacional_id,
+        codigo: 'DIR-PLA',
+        nombre: 'Dirección de Planificación',
+        sigla: 'DPLA',
+        padre: null,
+      }]);
+    });
+
+    it('does not persist tokens after registration', () => {
+      service.register(registration).subscribe();
+
+      httpMock.expectOne(`${environment.apiUrlV2}/auth/register/`).flush({
+        detail: 'Registro recibido. Un administrador revisará su solicitud.',
+      });
+
+      expect(localStorage.getItem(tokenKey)).toBeNull();
     });
   });
 

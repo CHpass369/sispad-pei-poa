@@ -3,6 +3,7 @@
 Se incluyen sin prefijo adicional desde config.urls_v2, de modo que quedan:
 
 - /api/v2/auth/register/
+- /api/v2/auth/organizational-units/
 - /api/v2/admin/users/<uuid>/approve/
 - /api/v2/admin/users/
 - /api/v2/admin/users/<uuid>/
@@ -32,12 +33,18 @@ from apps.accounts.views_register import (
     AprobarUsuarioView,
     RegistroPublicoView,
     SolicitudesListView,
+    UnidadesOrganizacionalesPublicasView,
 )
 
 urlpatterns = [
     path(
         'auth/register/', RegistroPublicoView.as_view(),
         name='v2-auth-register',
+    ),
+    path(
+        'auth/organizational-units/',
+        UnidadesOrganizacionalesPublicasView.as_view(),
+        name='v2-auth-organizational-units',
     ),
     path(
         'admin/users/<uuid:pk>/approve/', AprobarUsuarioView.as_view(),

@@ -284,6 +284,12 @@ class RegistroPublicoTests(F3aTestBase):
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_unidad_inactiva_no_puede_solicitarse(self):
+        self.dir_catastro.activo = False
+        self.dir_catastro.save(update_fields=['activo'])
+        response = self.registrar('f3a-uo-inactiva@test.gob.bo')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
     def test_usuario_autenticado_no_puede_registrarse(self):
         response = self.registrar(
             'f3a-autenticado@test.gob.bo', client=self.cliente(self.jefe_poa),
@@ -301,6 +307,53 @@ class RegistroPublicoTests(F3aTestBase):
         self.assertIsNone(alcance.rol_id)
         self.assertFalse(alcance.activo)
         self.assertEqual(alcance.unidad_id, self.dir_catastro.id)
+
+
+class UnidadesOrganizacionalesPublicasTests(F3aTestBase):
+    """GET /api/v2/auth/organizational-units/."""
+
+    def setUp(self):
+        super().setUp()
+        self.url = reverse('v2-auth-organizational-units')
+
+    def test_listado_no_requiere_autenticacion(self):
+        response = APIClient().get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('F3A-DCAT', [unidad['codigo'] for unidad in response.data])
+
+    def test_listado_devuelve_solo_activas_y_vigentes(self):
+        self.secretaria.activo = False
+        self.secretaria.save(update_fields=['activo'])
+        self.dir_catastro.fecha_vigencia_hasta = date(2026, 1, 31)
+        self.dir_catastro.save(update_fields=['fecha_vigencia_hasta'])
+
+        response = APIClient().get(self.url)
+        codigos = [unidad['codigo'] for unidad in response.data]
+
+        self.assertNotIn('F3A-SEC', codigos)
+        self.assertNotIn('F3A-DCAT', codigos)
+        self.assertIn('F3A-GAMS', codigos)
+
+    def test_listado_expone_solo_campos_publicos_minimos(self):
+        response = APIClient().get(self.url)
+        unidad = next(
+            item for item in response.data if item['codigo'] == 'F3A-DCAT'
+        )
+        self.assertEqual(
+            set(unidad), {'id', 'codigo', 'nombre', 'sigla', 'padre'},
+        )
+        self.assertEqual(unidad['padre'], str(self.secretaria.id))
+
+    def test_busqueda_filtra_por_codigo_nombre_o_sigla(self):
+        self.dir_catastro.sigla = 'DCAT'
+        self.dir_catastro.save(update_fields=['sigla'])
+
+        response = APIClient().get(self.url, {'search': 'dcat'})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            [unidad['codigo'] for unidad in response.data], ['F3A-DCAT'],
+        )
 
 
 class AprobacionSuperAdminTests(F3aTestBase):

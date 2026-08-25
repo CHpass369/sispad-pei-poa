@@ -23,6 +23,7 @@ import logging
 
 from django.contrib.auth import get_user_model
 from django.db import transaction
+from django.db.models import Q
 from rest_framework import generics, permissions, status
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
@@ -34,11 +35,13 @@ from apps.accounts.permissions import TieneCapacidad
 from apps.accounts.services import (
     SISTEMAS_POR_ROL,
     puede_administrar_sistema,
+    unidades_organizacionales_disponibles_registro,
 )
 from apps.accounts.serializers import (
     AprobacionSerializer,
     RegistroPublicoSerializer,
     SolicitudSerializer,
+    UnidadOrganizacionalPublicaSerializer,
 )
 from apps.accounts.views import LoginThrottle
 
@@ -47,6 +50,8 @@ Usuario = get_user_model()
 
 # Roles cuyo alcance al aprobar siempre es GLOBAL.
 ROLES_SCOPE_GLOBAL = {'JEFE_POA', 'SUPER_ADMIN'}
+
+
 class RegistroPublicoView(APIView):
     """POST /api/v2/auth/register/ — alta pública, queda PENDIENTE."""
 
@@ -92,6 +97,25 @@ class RegistroPublicoView(APIView):
                        'Un administrador revisará su solicitud.'},
             status=status.HTTP_201_CREATED,
         )
+
+
+class UnidadesOrganizacionalesPublicasView(generics.ListAPIView):
+    """GET público con los únicos datos de UO necesarios para registrarse."""
+
+    permission_classes = [permissions.AllowAny]
+    serializer_class = UnidadOrganizacionalPublicaSerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        queryset = unidades_organizacionales_disponibles_registro()
+        search = self.request.query_params.get('search', '').strip()
+        if search:
+            queryset = queryset.filter(
+                Q(codigo__icontains=search)
+                | Q(nombre__icontains=search)
+                | Q(sigla__icontains=search)
+            )
+        return queryset.order_by('nombre', 'codigo')
 
 
 class AprobarUsuarioView(APIView):

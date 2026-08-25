@@ -1,4 +1,4 @@
-# TASK PIP-CORE-005: API administrativa IAM F3b1/F3b2a/F3b2b
+# TASK PIP-CORE-005: IAM F3b1/F3b2a/F3b2b/F4a
 
 ## DOMINIO
 
@@ -6,19 +6,19 @@
 
 ## OBJECTIVE
 
-Exponer en API V2 la administración de usuarios (F3b1), roles personalizados/capacidades (F3b2a) y asignaciones atómicas de roles/alcances organizacionales (F3b2b), respetando capacidades, roles base inmutables y límites SIS-PE/SIS-POA.
+Exponer en API V2 la administración de usuarios (F3b1), roles personalizados/capacidades (F3b2a), asignaciones atómicas de roles/alcances organizacionales (F3b2b) y el registro público Angular (F4a), respetando capacidades, roles base inmutables y límites SIS-PE/SIS-POA.
 
 ## CONTEXT
 
-F3a incorporó el ciclo `PENDIENTE/ACTIVO/INACTIVO`, registro público y aprobación. F3b1 completó la administración de datos personales y estado. F3b2a reutiliza `Rol`, `Capacidad`, la autorización administrativa y la derivación efectiva por prefijo para administrar roles personalizados sin habilitar edición del catálogo de capacidades. F3b2b reutiliza esos contratos para reemplazar, en una sola transacción, roles y alcances del dominio administrable del actor.
+F3a incorporó el ciclo `PENDIENTE/ACTIVO/INACTIVO`, registro público y aprobación. F3b1 completó la administración de datos personales y estado. F3b2a reutiliza `Rol`, `Capacidad`, la autorización administrativa y la derivación efectiva por prefijo para administrar roles personalizados sin habilitar edición del catálogo de capacidades. F3b2b reutiliza esos contratos para reemplazar, en una sola transacción, roles y alcances del dominio administrable del actor. F4a lleva el contrato público al frontend y necesita un catálogo anónimo mínimo de UO, porque `/api/v2/core/unidades/` exige autenticación y expone más campos de los necesarios.
 
 ## CURRENT BEHAVIOR
 
-F3b1, F3b2a y F3b2b exponen usuarios, roles, capacidades y asignaciones, con límites por sistema centralizados en `accounts.services`. El contrato F3b2b mantiene sincronizados `Usuario.roles` y los `AlcanceOrganizacional` activos, sin permitir reemplazos parciales ni elevación de privilegios por jefaturas.
+F3b1, F3b2a y F3b2b exponen usuarios, roles, capacidades y asignaciones, con límites por sistema centralizados en `accounts.services`. El contrato F3b2b mantiene sincronizados `Usuario.roles` y los `AlcanceOrganizacional` activos, sin permitir reemplazos parciales ni elevación de privilegios por jefaturas. El login Angular no ofrece todavía acceso al registro y no existe un selector público seguro de UO.
 
 ## EXPECTED BEHAVIOR
 
-La API V2 permite consultar y actualizar usuarios dentro del dominio del actor, administrar exclusivamente roles personalizados y reemplazar atómicamente las asignaciones de roles/alcances que el actor puede administrar. Los seis roles base permanecen visibles e inmutables. El catálogo de capacidades es de solo lectura, excluye SIS-PRO y deriva el sistema efectivo desde el prefijo del código.
+La API V2 permite consultar y actualizar usuarios dentro del dominio del actor, administrar exclusivamente roles personalizados y reemplazar atómicamente las asignaciones de roles/alcances que el actor puede administrar. Los seis roles base permanecen visibles e inmutables. El catálogo de capacidades es de solo lectura, excluye SIS-PRO y deriva el sistema efectivo desde el prefijo del código. Además, una persona anónima puede elegir una UO activa y vigente, enviar exclusivamente sus datos personales y recibir confirmación sin inicio de sesión ni token.
 
 ## IN SCOPE
 
@@ -37,11 +37,17 @@ La API V2 permite consultar y actualizar usuarios dentro del dominio del actor, 
 - [x] Preservación de asignaciones ajenas al sistema de JEFE_PE/JEFE_POA.
 - [x] Scopes fijos de roles base, normalización GLOBAL a raíz y scopes libres para roles personalizados.
 - [x] Tests F3b2b de autorización, dominio, validación, preservación y rollback.
+- [x] Contratos Angular V2 tipados para registro y catálogo público de UO.
+- [x] Ruta pública lazy `/auth/register` y formulario Material responsive.
+- [x] Enlace desde login hacia el registro público.
+- [x] Endpoint anónimo mínimo de UO activas y vigentes, con búsqueda opcional.
+- [x] Tests focalizados frontend y backend de F4a.
 
 ## OUT OF SCOPE
 
 - Creación, edición o desactivación de capacidades.
-- Cambios de modelos, migraciones o frontend.
+- Cambios de modelos o migraciones.
+- Sidebar y gestor administrativo Angular (F4b/F5).
 - Refactorizaciones ajenas a `accounts`.
 
 ## INVARIANTS
@@ -70,6 +76,16 @@ La API V2 permite consultar y actualizar usuarios dentro del dominio del actor, 
 6. **Pruebas:** crear `test_user_assignments_v2.py`; ejecutar regresión de register/user_admin/role_admin, suite completa accounts, Ruff, `makemigrations --check --dry-run` y `git diff --check`.
 7. **Impacto frontend:** ninguno; F4 consumirá el contrato posteriormente.
 
+## F4A IMPLEMENTATION PLAN
+
+1. **Dominio:** CORE/accounts y feature Angular `auth`; sin cambios de esquema ni dependencias nuevas.
+2. **Reutilización:** extender `AuthService`, `AuthModule`, la ruta lazy existente y la identidad visual del login; usar `HttpClient` con `environment.apiUrlV2`, no `ApiService` V1.
+3. **API pública:** agregar en `accounts` un listado `AllowAny` de UO activas y vigentes con `id`, `codigo`, `nombre`, `sigla` y `padre`; aceptar únicamente `search` y no exponer responsables, usuarios ni metadatos internos.
+4. **Contrato:** tipar payload, respuesta de registro y UO pública; devolver la colección breve sin paginación y validar también en backend que la UO enviada siga activa y vigente.
+5. **Interfaz:** crear un formulario Material de dos columnas que colapsa a una, con búsqueda de UO, validación cruzada de contraseñas, estado de carga y confirmación sin auto-login.
+6. **Pruebas:** cubrir URL/payload del servicio, seguridad del payload, mismatch, éxito sin token, errores API y navegación login→registro; verificar endpoint anónimo, vigencia y campos mínimos.
+7. **Verificación:** ejecutar Karma focalizado con `ChromeHeadlessNoSandbox`, build production, lint disponible, pytest focalizado, Ruff, `makemigrations --check --dry-run` y `git diff --check`.
+
 ## DATABASE IMPACT
 
 Ninguno. Se reutilizan `Usuario`, `Rol`, `Capacidad`, sus M2M existentes y `AlcanceOrganizacional`; no hay migraciones esperadas.
@@ -86,10 +102,12 @@ Ninguno. Se reutilizan `Usuario`, `Rol`, `Capacidad`, sus M2M existentes y `Alca
 - `PUT /api/v2/admin/roles/{id}/capabilities/`
 - `GET /api/v2/admin/capabilities/`
 - `GET|PUT /api/v2/admin/users/{id}/assignments/`
+- `GET /api/v2/auth/organizational-units/?search=...`
+- `POST /api/v2/auth/register/` (reutilizado por F4a)
 
 ## FRONTEND IMPACT
 
-Ninguno en esta tarea.
+F4a agrega la ruta pública `/auth/register`, extiende `AuthService` con contratos V2 y enlaza el login existente. F4b/F5 permanecen fuera de alcance.
 
 ## FILES EXPECTED
 
@@ -109,6 +127,18 @@ Ninguno en esta tarea.
 - `backend/apps/accounts/views_admin.py` — lectura y reemplazo transaccional F3b2b.
 - `backend/apps/accounts/urls_v2.py` — ruta F3b2b.
 - `backend/apps/accounts/tests/test_user_assignments_v2.py` — cobertura F3b2b.
+- `backend/apps/accounts/serializers.py` — contrato público mínimo de UO y validación de vigencia.
+- `backend/apps/accounts/views_register.py` — listado público seguro de UO.
+- `backend/apps/accounts/urls_v2.py` — ruta pública F4a.
+- `backend/apps/accounts/tests/test_register.py` — cobertura backend F4a.
+- `frontend/sispoa/src/app/core/models/usuario.model.ts` — contratos públicos de registro.
+- `frontend/sispoa/src/app/core/services/auth.service.ts` — métodos V2.
+- `frontend/sispoa/src/app/core/services/auth.service.spec.ts` — contratos HTTP F4a.
+- `frontend/sispoa/src/app/features/auth/auth.module.ts` — ruta y módulos Material.
+- `frontend/sispoa/src/app/features/auth/register.component.ts` — formulario público.
+- `frontend/sispoa/src/app/features/auth/register.component.spec.ts` — comportamiento del registro.
+- `frontend/sispoa/src/app/features/auth/login.component.ts` — enlace a registro.
+- `frontend/sispoa/src/app/features/auth/login.component.spec.ts` — navegación pública.
 
 ## DEPENDENCIES
 
@@ -139,6 +169,13 @@ F3a, commit `1eaf906`, y F3b1 implementado en esta tarea.
 - [x] Los roles base respetan su scope fijo; GLOBAL se normaliza a la raíz y los roles personalizados aceptan los tres scopes.
 - [x] Roles inactivos/deprecated, SIS-PRO, UO/gestión inexistentes, duplicados y usuarios PENDIENTE se rechazan sin mutaciones parciales.
 - [x] PUT no cambia `estado`, `activo` ni `is_active`.
+- [x] El listado público de UO no requiere autenticación y devuelve solo registros activos/vigentes y campos mínimos.
+- [x] `AuthService.register` y `listPublicOrganizationalUnits` usan `environment.apiUrlV2` sin doble prefijo V1.
+- [x] `/auth/register` es pública y no presenta ni envía rol, sistema, permisos o scope.
+- [x] El formulario bloquea mismatch, deshabilita submit durante la petición y muestra errores API claros.
+- [x] El éxito muestra el mensaje normativo, no almacena token y permite volver al login.
+- [x] Login muestra “¿No tienes una cuenta?” y “Crear cuenta”, que navega a `/auth/register`.
+- [x] Tests focalizados, build production, Ruff, migraciones y diff check pasan; lint fue ejecutado y reportado como no configurado.
 
 ## TESTS
 
@@ -149,12 +186,15 @@ cd backend; /home/chpass369/proyectos/poa/.venv/bin/python -m pytest apps/accoun
 cd backend; /home/chpass369/proyectos/poa/.venv/bin/python -m pytest apps/accounts/tests/test_user_assignments_v2.py apps/accounts/tests/test_register.py apps/accounts/tests/test_user_admin_v2.py apps/accounts/tests/test_role_admin_v2.py --tb=short -q -o "addopts="
 cd backend; /home/chpass369/proyectos/poa/.venv/bin/python -m ruff check apps/accounts/ config/urls_v2.py
 cd backend; /home/chpass369/proyectos/poa/.venv/bin/python manage.py makemigrations accounts --check --dry-run
+cd frontend/sispoa; CHROME_BIN=/snap/bin/chromium npm test -- --watch=false --browsers=ChromeHeadlessNoSandbox --include='src/app/core/services/auth.service.spec.ts' --include='src/app/features/auth/register.component.spec.ts' --include='src/app/features/auth/login.component.spec.ts'
+cd frontend/sispoa; npm run build -- --configuration production
+cd frontend/sispoa; npm run lint
 git diff --check
 ```
 
 ## RISKS
 
-La derivación de sistema depende de prefijos `sis_pe.`/`sis_poa.`/`accounts.`; el campo legacy `sistema` conserva datos históricos y no es autoridad. Sin un campo de propietario o sistema en `Rol`, un rol personalizado vacío o solo `accounts.*` no pertenece a PE ni POA; F3b2b permite asignarlo únicamente a SUPER_ADMIN. Los solapamientos se validan en API y la fila de usuario serializa escrituras concurrentes, pero no existe todavía un constraint de base de datos que impida duplicados creados fuera de este endpoint. Resolver ambas deudas requiere cambios de modelo fuera del alcance sin migraciones de F3b2b.
+La derivación de sistema depende de prefijos `sis_pe.`/`sis_poa.`/`accounts.`; el campo legacy `sistema` conserva datos históricos y no es autoridad. Sin un campo de propietario o sistema en `Rol`, un rol personalizado vacío o solo `accounts.*` no pertenece a PE ni POA; F3b2b permite asignarlo únicamente a SUPER_ADMIN. Los solapamientos se validan en API y la fila de usuario serializa escrituras concurrentes, pero no existe todavía un constraint de base de datos que impida duplicados creados fuera de este endpoint. Resolver ambas deudas requiere cambios de modelo fuera del alcance sin migraciones de F3b2b. En F4a, el catálogo público permite enumerar nombres institucionales y devuelve la colección completa; el riesgo se limita a campos no sensibles y al throttling anónimo global, pero convendrá paginar si el catálogo crece significativamente.
 
 ## ROLLBACK
 
@@ -178,4 +218,10 @@ Revertir únicamente los bloques F3b2a en los archivos listados y eliminar su te
 - Se agregaron 19 tests y 29 subtests F3b2b. La regresión focalizada pasó con 99 tests y 61 subtests; la suite completa de `accounts` pasó con 137 tests y 61 subtests.
 - Ruff pasó sobre `apps/accounts/` y `config/urls_v2.py`; `makemigrations accounts --check --dry-run` no detectó cambios y `git diff --check` pasó.
 - Una corrida focalizada lanzada en paralelo con la suite completa produjo errores internos de fixtures de pytest; ambas verificaciones canónicas se repitieron secuencialmente y pasaron.
-- Siguiente recomendado: F4 frontend del gestor unificado de usuarios, consumiendo el contrato F3b2b sin duplicar reglas de autoridad en Angular.
+- Siguiente recomendado: F4b para el gestor unificado de usuarios, consumiendo F3b1/F3b2b sin duplicar reglas de autoridad en Angular.
+- F4a agregó `GET /api/v2/auth/organizational-units/`, público, buscable y limitado a UO activas/vigentes con cinco campos públicos; el POST de registro rechaza ahora una UO no disponible aunque se fuerce el payload.
+- Angular agregó contratos V2 en `AuthService`, la ruta lazy `/auth/register`, un formulario Material responsive con selector buscable y el enlace desde login; no existe auto-login ni persistencia de token.
+- Verificación F4a: 30 tests Karma focalizados pasaron; build production pasó; 43 tests backend focalizados pasaron con SQLite; Ruff y `makemigrations --check --dry-run` pasaron; `git diff --check` pasó.
+- `npm run lint` se ejecutó, pero Angular reportó `Cannot find "lint" target for the specified project`; no hay lint configurado. PostgreSQL local en `/tmp/opencode:5433` no respondió, por lo que la corrida focalizada canónica se validó con `config.settings_test_sqlite`.
+- La suite completa `apps/accounts/` con settings SQLite obtuvo 129 tests y 51 subtests aprobados, con 23 fallos preexistentes porque esos settings reemplazan `REST_FRAMEWORK` y eliminan la paginación esperada por F3b1/F3b2a; no se modificaron esos tests fuera de alcance.
+- No hubo migraciones, stage ni commit. F4b queda como siguiente fase para consumir los contratos administrativos existentes sin tocar todavía sidebar/F5.

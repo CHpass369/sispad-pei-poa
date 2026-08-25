@@ -2,11 +2,19 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable, tap, switchMap, of } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { LoginRequest, LoginResponse, Usuario } from '../models/usuario.model';
+import {
+  LoginRequest,
+  LoginResponse,
+  PublicOrganizationalUnit,
+  RegistrationRequest,
+  RegistrationResponse,
+  Usuario,
+} from '../models/usuario.model';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private api = `${environment.apiUrl}/auth`;
+  private apiV2 = `${environment.apiUrlV2}/auth`;
   private tokenKey = environment.tokenKey;
   /** Key legacy (refactor PIP): se migra a tokenKey en el constructor si existe. */
   private legacyTokenKey = 'sispoa_token';
@@ -39,6 +47,18 @@ export class AuthService {
     return this.http.post<LoginResponse>(`${this.api}/login/`, data).pipe(
       tap(res => localStorage.setItem(this.tokenKey, JSON.stringify(res))),
       switchMap(() => this.fetchUser()),
+    );
+  }
+
+  register(data: RegistrationRequest): Observable<RegistrationResponse> {
+    return this.http.post<RegistrationResponse>(`${this.apiV2}/register/`, data);
+  }
+
+  listPublicOrganizationalUnits(search?: string): Observable<PublicOrganizationalUnit[]> {
+    const params = search?.trim() ? { search: search.trim() } : {};
+    return this.http.get<PublicOrganizationalUnit[]>(
+      `${this.apiV2}/organizational-units/`,
+      { params },
     );
   }
 

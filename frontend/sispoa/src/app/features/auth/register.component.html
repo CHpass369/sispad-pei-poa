@@ -1,0 +1,153 @@
+<main class="register-page">
+  <section class="register-card" aria-labelledby="register-title">
+    <header class="register-header">
+      <img
+        class="institutional-logo"
+        src="assets/images/logo-sacaba-horizontal.png"
+        alt="Gobierno Autónomo Municipal de Sacaba"
+        width="800"
+        height="252"
+      >
+      <div class="header-copy">
+        <p class="eyebrow">Acceso institucional</p>
+        <h1 id="register-title">Crear cuenta</h1>
+        <p>Completa tus datos. La cuenta quedará pendiente de revisión administrativa.</p>
+      </div>
+    </header>
+
+    @if (submittedSuccessfully) {
+      <div class="success-panel" role="status" aria-live="polite">
+        <span class="status-mark" aria-hidden="true">✓</span>
+        <div>
+          <h2>Solicitud enviada</h2>
+          <p>{{ successMessage }}</p>
+          <a routerLink="/auth/login" class="return-link">Volver al login</a>
+        </div>
+      </div>
+    } @else {
+      <form [formGroup]="registerForm" (ngSubmit)="onSubmit()" class="register-form" novalidate>
+        <div class="form-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>Nombres</mat-label>
+            <input matInput formControlName="first_name" autocomplete="given-name">
+            @if (registerForm.controls.first_name.hasError('required')) {
+              <mat-error>Ingresa tus nombres.</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Apellidos</mat-label>
+            <input matInput formControlName="last_name" autocomplete="family-name">
+            @if (registerForm.controls.last_name.hasError('required')) {
+              <mat-error>Ingresa tus apellidos.</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Correo electrónico</mat-label>
+            <input matInput formControlName="email" type="email" autocomplete="email">
+            @if (registerForm.controls.email.hasError('required')) {
+              <mat-error>Ingresa tu correo electrónico.</mat-error>
+            } @else if (registerForm.controls.email.hasError('email')) {
+              <mat-error>Ingresa un correo electrónico válido.</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Cargo</mat-label>
+            <input matInput formControlName="cargo" autocomplete="organization-title">
+            @if (registerForm.controls.cargo.hasError('required')) {
+              <mat-error>Ingresa tu cargo.</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Unidad organizacional</mat-label>
+            <input
+              #organizationalUnitInput
+              matInput
+              type="text"
+              [formControl]="organizationalUnitSearch"
+              [matAutocomplete]="organizationalUnitAutocomplete"
+              (input)="searchOrganizationalUnits(organizationalUnitInput.value)"
+              autocomplete="off"
+            >
+            <mat-hint>Escribe el nombre, la sigla o el código y selecciona una opción.</mat-hint>
+            @if (organizationalUnitSearch.hasError('required')) {
+              <mat-error>Selecciona tu unidad organizacional.</mat-error>
+            } @else if (organizationalUnitSearch.hasError('selectionRequired')) {
+              <mat-error>Selecciona una unidad de la lista.</mat-error>
+            }
+            <mat-autocomplete
+              #organizationalUnitAutocomplete="matAutocomplete"
+              [displayWith]="displayOrganizationalUnit"
+              (optionSelected)="selectOrganizationalUnit($event.option.value)"
+            >
+              @for (unit of organizationalUnits; track unit.id) {
+                <mat-option [value]="unit">
+                  <span class="unit-label">{{ unit.sigla || unit.codigo }}</span>
+                  <span>{{ unit.nombre }}</span>
+                </mat-option>
+              }
+            </mat-autocomplete>
+          </mat-form-field>
+
+          @if (loadingOrganizationalUnits) {
+            <div class="unit-state full-width" role="status">
+              <mat-spinner diameter="18"></mat-spinner>
+              <span>Buscando unidades organizacionales…</span>
+            </div>
+          } @else if (organizationalUnitsError) {
+            <p class="unit-state unit-error full-width" role="alert">{{ organizationalUnitsError }}</p>
+          }
+
+          <mat-form-field appearance="outline">
+            <mat-label>Contraseña</mat-label>
+            <input matInput formControlName="password" type="password" autocomplete="new-password">
+            <mat-hint>Mínimo 8 caracteres.</mat-hint>
+            @if (registerForm.controls.password.hasError('required')) {
+              <mat-error>Ingresa una contraseña.</mat-error>
+            } @else if (registerForm.controls.password.hasError('minlength')) {
+              <mat-error>La contraseña debe tener al menos 8 caracteres.</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Confirmar contraseña</mat-label>
+            <input matInput formControlName="password_confirm" type="password" autocomplete="new-password">
+            @if (registerForm.controls.password_confirm.hasError('required')) {
+              <mat-error>Confirma tu contraseña.</mat-error>
+            }
+          </mat-form-field>
+
+          @if (
+            registerForm.hasError('passwordMismatch')
+            && registerForm.controls.password_confirm.touched
+          ) {
+            <p class="password-mismatch full-width" role="alert">Las contraseñas no coinciden.</p>
+          }
+        </div>
+
+        @if (error) {
+          <p class="api-error" role="alert">{{ error }}</p>
+        }
+
+        <div class="form-actions">
+          <a routerLink="/auth/login" class="cancel-link">Volver al login</a>
+          <button
+            mat-flat-button
+            type="submit"
+            [disabled]="registerForm.invalid || submitting"
+          >
+            @if (submitting) {
+              <mat-spinner diameter="20"></mat-spinner>
+              <span>Enviando…</span>
+            } @else {
+              <span>Enviar solicitud</span>
+            }
+          </button>
+        </div>
+      </form>
+    }
+  </section>
+</main>

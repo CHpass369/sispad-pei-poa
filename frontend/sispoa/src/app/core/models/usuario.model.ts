@@ -32,3 +32,25 @@ export interface LoginResponse {
   access: string;
   refresh: string;
 }
+
+export interface RegistrationRequest {
+  first_name: string;
+  last_name: string;
+  email: string;
+  cargo: string;
+  unidad_organizacional_id: string;
+  password: string;
+  password_confirm: string;
+}
+
+export interface RegistrationResponse {
+  detail: string;
+}
+
+export interface PublicOrganizationalUnit {
+  id: string;
+  codigo: string;
+  nombre: string;
+  sigla: string;
+  padre: string | null;
+}

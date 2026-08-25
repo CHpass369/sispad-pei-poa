@@ -34,6 +34,20 @@ SCOPES_FIJOS_ROLES_SISTEMA = {
 }
 
 
+def unidades_organizacionales_disponibles_registro():
+    """UO públicas que pueden solicitarse en un registro nuevo."""
+    from apps.organizacion.models import UnidadOrganizacional
+
+    hoy = timezone.localdate()
+    return UnidadOrganizacional.objects.filter(
+        activo=True,
+        fecha_vigencia_desde__lte=hoy,
+    ).filter(
+        Q(fecha_vigencia_hasta__isnull=True)
+        | Q(fecha_vigencia_hasta__gte=hoy)
+    )
+
+
 def crear_usuario(email, password, first_name='', last_name='', **extra_fields):
     usuario = Usuario.objects.create_user(
         email=email,
