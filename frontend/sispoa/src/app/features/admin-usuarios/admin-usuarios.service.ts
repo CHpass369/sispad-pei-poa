@@ -106,6 +106,38 @@ export interface AdminRoleCapabilitiesPayload {
   capability_codes: string[];
 }
 
+export interface AdminRegistrationRequest {
+  id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  cargo: string;
+  date_joined: string | null;
+  unidad_solicitada: {
+    id: string;
+    nombre: string;
+  } | null;
+  estado?: AdminUserState;
+}
+
+export interface AdminApprovalPayload {
+  unidad_organizacional_id: string;
+  rol_codigo: string;
+  scope_type: AdminAssignmentScope;
+  sistema: AdminSystem;
+  fiscal_year_id: string | null;
+}
+
+export interface AdminApprovalResponse {
+  id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  estado: 'ACTIVO';
+  activo: boolean;
+  roles: string[];
+}
+
 export interface AdminAssignmentInput {
   role_code: string;
   organizational_unit_id: string;
@@ -122,6 +154,7 @@ export class AdminUsuariosService {
   private readonly baseUrl = `${environment.apiUrlV2}/admin/users`;
   private readonly rolesUrl = `${environment.apiUrlV2}/admin/roles/`;
   private readonly capabilitiesUrl = `${environment.apiUrlV2}/admin/capabilities/`;
+  private readonly requestsUrl = `${environment.apiUrlV2}/admin/solicitudes/`;
 
   constructor(private readonly http: HttpClient) {}
 
@@ -225,6 +258,22 @@ export class AdminUsuariosService {
         (capabilities, page) => [...capabilities, ...page.results],
         [] as AdminCapability[],
       ),
+    );
+  }
+
+  listRequests(page = 1): Observable<Paginado<AdminRegistrationRequest>> {
+    return this.http.get<Paginado<AdminRegistrationRequest>>(this.requestsUrl, {
+      params: new HttpParams().set('page', page.toString()),
+    });
+  }
+
+  approveRequest(
+    id: string,
+    data: AdminApprovalPayload,
+  ): Observable<AdminApprovalResponse> {
+    return this.http.post<AdminApprovalResponse>(
+      `${this.baseUrl}/${id}/approve/`,
+      data,
     );
   }
 

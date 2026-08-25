@@ -16,8 +16,8 @@ Decisiones:
   (ScopeResolver filtra activo=True y exige usuario.activo) y sirve para
   mostrar `unidad_solicitada` en el listado de solicitudes.
 - Un administrador no puede aprobarse a sí mismo (403).
-- Roles JEFE_POA/SUPER_ADMIN: alcance GLOBAL sobre la UO indicada. Resto de
-  roles: alcance con el `scope_type` del payload.
+- Los seis roles base usan el scope normativo compartido; los roles
+  personalizados usan el `scope_type` del payload.
 """
 import logging
 
@@ -33,7 +33,9 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from apps.accounts.models import AlcanceOrganizacional, Rol
 from apps.accounts.permissions import TieneCapacidad
 from apps.accounts.services import (
+    SCOPES_FIJOS_ROLES_SISTEMA,
     SISTEMAS_POR_ROL,
+    puede_administrar_asignacion_rol,
     puede_administrar_sistema,
     unidades_organizacionales_disponibles_registro,
 )
@@ -47,10 +49,6 @@ from apps.accounts.views import LoginThrottle
 
 logger = logging.getLogger(__name__)
 Usuario = get_user_model()
-
-# Roles cuyo alcance al aprobar siempre es GLOBAL.
-ROLES_SCOPE_GLOBAL = {'JEFE_POA', 'SUPER_ADMIN'}
-
 
 class RegistroPublicoView(APIView):
     """POST /api/v2/auth/register/ — alta pública, queda PENDIENTE."""
@@ -166,8 +164,13 @@ class AprobarUsuarioView(APIView):
         if rol is None:
             return Response(
                 {'error': f"El rol '{data['rol_codigo']}' no existe o está "
-                          'inactivo.'},
+                           'inactivo.'},
                 status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not puede_administrar_asignacion_rol(request.user, rol):
+            return Response(
+                {'error': 'No puede asignar el rol solicitado.'},
+                status=status.HTTP_403_FORBIDDEN,
             )
         sistemas_rol = SISTEMAS_POR_ROL.get(rol.codigo)
         if sistemas_rol is not None and sistema not in sistemas_rol:
@@ -188,10 +191,9 @@ class AprobarUsuarioView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if rol.codigo in ROLES_SCOPE_GLOBAL:
-            alcance_scope = AlcanceOrganizacional.SCOPE_GLOBAL
-        else:
-            alcance_scope = data['scope_type']
+        alcance_scope = SCOPES_FIJOS_ROLES_SISTEMA.get(
+            rol.codigo, data['scope_type'],
+        )
 
         AlcanceOrganizacional.objects.create(
             usuario=usuario,

@@ -1,0 +1,138 @@
+:host {
+  display: block;
+  color: var(--pip-ink);
+}
+
+.dialog-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--e-3);
+  padding: var(--e-3) var(--e-3) var(--e-2);
+  border-bottom: 1px solid var(--pip-line);
+  background: color-mix(in srgb, var(--pip-green-100) 42%, var(--pip-card));
+}
+
+.eyebrow {
+  margin: 0 0 0.18rem;
+  color: var(--pip-green-700);
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+h2[mat-dialog-title] {
+  margin: 0;
+  padding: 0;
+  font-size: 1.35rem;
+}
+
+.dialog-header p:last-child {
+  margin: 0.18rem 0 0;
+  color: var(--pip-ink-soft);
+  font-size: 0.78rem;
+}
+
+mat-dialog-content {
+  width: min(42rem, 88vw);
+  padding-top: var(--e-3);
+}
+
+.authority-notice,
+.catalog-error,
+.dialog-error,
+.fiscal-note {
+  margin: 0 0 var(--e-3);
+  padding: var(--e-2) var(--e-3);
+  border-radius: 8px;
+}
+
+.authority-notice {
+  display: flex;
+  align-items: center;
+  gap: var(--e-2);
+  border-left: 3px solid var(--pip-gold);
+  background: var(--neutro-fondo);
+  color: var(--neutro-tinta);
+}
+
+.catalog-error,
+.dialog-error {
+  background: var(--error-fondo);
+  color: var(--error-tinta);
+}
+
+.catalog-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e-2);
+}
+
+.loading-state {
+  display: grid;
+  gap: var(--e-2);
+  padding: var(--e-4);
+  color: var(--pip-ink-soft);
+  text-align: center;
+}
+
+form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--e-2);
+}
+
+.field-wide {
+  grid-column: 1 / -1;
+}
+
+.derived-field {
+  display: grid;
+  align-content: center;
+  min-height: 3.5rem;
+  padding: 0.55rem 0.85rem;
+  border: 1px solid var(--pip-line);
+  border-radius: 4px;
+  background: var(--pip-surface);
+}
+
+.derived-field span {
+  color: var(--pip-ink-soft);
+  font-size: 0.7rem;
+}
+
+.derived-field strong {
+  margin-top: 0.16rem;
+  font-size: 0.82rem;
+}
+
+.fiscal-note {
+  margin-bottom: 0;
+  background: color-mix(in srgb, var(--pip-gold) 10%, var(--pip-card));
+  color: var(--pip-ink-soft);
+  font-size: 0.76rem;
+}
+
+mat-dialog-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e-1);
+}
+
+@media (max-width: 580px) {
+  form {
+    grid-template-columns: 1fr;
+  }
+
+  .field-wide {
+    grid-column: auto;
+  }
+
+  .catalog-error {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

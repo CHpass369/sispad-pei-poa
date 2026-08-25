@@ -407,6 +407,38 @@ class AprobacionSuperAdminTests(F3aTestBase):
         alcance = u.alcances_organizacionales.get(rol=self.rol_super_admin)
         self.assertEqual(alcance.scope_type, AlcanceOrganizacional.SCOPE_GLOBAL)
 
+    def test_aprobacion_fuerza_scopes_normativos_de_roles_base(self):
+        casos = [
+            (
+                'f3a-ap-scope-jefepe@test.gob.bo', self.rol_jefe_pe,
+                'sis_pe', AlcanceOrganizacional.SCOPE_SELF,
+                AlcanceOrganizacional.SCOPE_GLOBAL,
+            ),
+            (
+                'f3a-ap-scope-director@test.gob.bo', self.rol_director,
+                'sis_poa', AlcanceOrganizacional.SCOPE_GLOBAL,
+                AlcanceOrganizacional.SCOPE_DESCENDANTS,
+            ),
+            (
+                'f3a-ap-scope-formulador@test.gob.bo', self.rol_formulador,
+                'sis_poa', AlcanceOrganizacional.SCOPE_GLOBAL,
+                AlcanceOrganizacional.SCOPE_SELF,
+            ),
+        ]
+        for email, rol, sistema, solicitado, esperado in casos:
+            with self.subTest(rol=rol.codigo):
+                usuario = self._pendiente(email)
+                response = self.aprobar(
+                    self.super_admin,
+                    usuario,
+                    rol_codigo=rol.codigo,
+                    sistema=sistema,
+                    scope_type=solicitado,
+                )
+                self.assertEqual(response.status_code, status.HTTP_200_OK)
+                alcance = usuario.alcances_organizacionales.get(rol=rol)
+                self.assertEqual(alcance.scope_type, esperado)
+
     def test_aprobacion_rol_inexistente_devuelve_400(self):
         u = self._pendiente('f3a-ap-rolno@test.gob.bo')
         response = self.aprobar(self.super_admin, u, rol_codigo='NO_EXISTE')
@@ -495,6 +527,15 @@ class AprobacionPermisosTests(F3aTestBase):
             self.jefe_pe, u, rol_codigo='DIRECTOR', sistema='sis_poa',
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_jefe_pe_no_puede_asignar_super_admin(self):
+        u = self._pendiente('f3a-c-jefepe-superadmin@test.gob.bo')
+        response = self.aprobar(
+            self.jefe_pe, u, rol_codigo='SUPER_ADMIN', sistema='sis_pe',
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        u.refresh_from_db()
+        self.assertEqual(u.estado, Usuario.ESTADO_PENDIENTE)
 
     def test_jefe_poa_no_puede_aprobar_para_sis_pe(self):
         u = self._pendiente('f3a-c-jefepoa@test.gob.bo')

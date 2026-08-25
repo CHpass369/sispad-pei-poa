@@ -2,8 +2,10 @@ import { HttpClientTestingModule, HttpTestingController } from '@angular/common/
 import { TestBed } from '@angular/core/testing';
 import { environment } from '../../../environments/environment';
 import {
+  AdminApprovalPayload,
   AdminCapability,
   AdminAssignmentsPayload,
+  AdminRegistrationRequest,
   AdminRole,
   AdminUser,
   AdminUsuariosService,
@@ -50,6 +52,16 @@ describe('AdminUsuariosService', () => {
     sistema: 'sis_pe',
     activo: true,
     orden: 1,
+  };
+
+  const registrationRequest: AdminRegistrationRequest = {
+    id: 'request-1',
+    email: 'pending@gob.bo',
+    first_name: 'Elena',
+    last_name: 'Pendiente',
+    cargo: 'Analista',
+    date_joined: '2026-08-25T10:00:00Z',
+    unidad_solicitada: { id: 'unit-1', nombre: 'Planificación' },
   };
 
   beforeEach(() => {
@@ -262,6 +274,55 @@ describe('AdminUsuariosService', () => {
     expect(request.request.params.get('active')).toBe('true');
     expect(request.request.params.get('page')).toBe('3');
     request.flush({ count: 1, next: null, previous: null, results: [capability] });
+  });
+
+  it('lists the selected requests page from the V2 backend', () => {
+    service.listRequests(4).subscribe(page => {
+      expect(page.count).toBe(26);
+      expect(page.results).toEqual([registrationRequest]);
+    });
+
+    const request = http.expectOne(
+      req => req.url === `${environment.apiUrlV2}/admin/solicitudes/`,
+    );
+    expect(request.request.method).toBe('GET');
+    expect(request.request.params.keys()).toEqual(['page']);
+    expect(request.request.params.get('page')).toBe('4');
+    request.flush({
+      count: 26,
+      next: `${environment.apiUrlV2}/admin/solicitudes/?page=5`,
+      previous: `${environment.apiUrlV2}/admin/solicitudes/?page=3`,
+      results: [registrationRequest],
+    });
+  });
+
+  it('posts the exact approval payload without privilege fields', () => {
+    const payload: AdminApprovalPayload = {
+      unidad_organizacional_id: 'unit-1',
+      rol_codigo: 'CUSTOM_PE',
+      scope_type: 'DESCENDANTS',
+      sistema: 'sis_pe',
+      fiscal_year_id: null,
+    };
+    service.approveRequest(registrationRequest.id, payload).subscribe();
+
+    const request = http.expectOne(
+      `${environment.apiUrlV2}/admin/users/${registrationRequest.id}/approve/`,
+    );
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual(payload);
+    expect(request.request.body.password).toBeUndefined();
+    expect(request.request.body.roles).toBeUndefined();
+    expect(request.request.body.is_staff).toBeUndefined();
+    request.flush({
+      id: registrationRequest.id,
+      email: registrationRequest.email,
+      first_name: registrationRequest.first_name,
+      last_name: registrationRequest.last_name,
+      estado: 'ACTIVO',
+      activo: true,
+      roles: ['CUSTOM_PE'],
+    });
   });
 
   it('loads every capability page for atomic role assignment', () => {

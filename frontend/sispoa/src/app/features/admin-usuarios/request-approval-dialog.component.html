@@ -1,0 +1,115 @@
+<header class="dialog-header">
+  <div>
+    <p class="eyebrow">Alta controlada</p>
+    <h2 mat-dialog-title id="request-approval-title" tabindex="-1">Aprobar solicitud</h2>
+    <p id="request-approval-description">{{ fullName() }} · {{ data.request.email }}</p>
+  </div>
+  <button mat-icon-button type="button" aria-label="Cerrar aprobación" [disabled]="saving" (click)="close()">
+    <lucide-angular name="x" [size]="19" aria-hidden="true"></lucide-angular>
+  </button>
+</header>
+
+<mat-dialog-content>
+  <div class="authority-notice" role="note">
+    <lucide-angular name="shield-check" [size]="21" aria-hidden="true"></lucide-angular>
+    <span>La aprobación activa la cuenta y crea una única asignación. El backend valida toda la autoridad.</span>
+  </div>
+
+  @if (loading) {
+    <div class="loading-state" role="status" aria-live="polite">
+      <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+      Cargando catálogos reales…
+    </div>
+  }
+
+  @if (catalogError && !loading) {
+    <div class="catalog-error" role="alert">
+      <span>{{ catalogError }}</span>
+      <button mat-stroked-button type="button" (click)="loadCatalogs()">Reintentar</button>
+    </div>
+  }
+
+  @if (!loading && !catalogError) {
+    <form id="request-approval-form" (ngSubmit)="approve()">
+      <mat-form-field appearance="outline" class="field-wide">
+        <mat-label>Unidad organizacional</mat-label>
+        <mat-select name="unit" [(ngModel)]="unitId" required>
+          @for (unit of organizationalUnits; track unit.id) {
+            <mat-option [value]="unit.id">
+              {{ unit.codigo ? unit.codigo + ' · ' : '' }}{{ unit.nombre }}
+            </mat-option>
+          }
+        </mat-select>
+        <mat-hint>Se preseleccionó la unidad pedida durante el registro.</mat-hint>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="field-wide">
+        <mat-label>Rol permitido</mat-label>
+        <mat-select name="role" [(ngModel)]="roleCode" required (selectionChange)="roleChanged()">
+          @for (role of roles; track role.id) {
+            <mat-option [value]="role.codigo">{{ role.codigo }} · {{ role.nombre }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+
+      @if (showSystemSelector) {
+        <mat-form-field appearance="outline">
+          <mat-label>Sistema</mat-label>
+          <mat-select name="system" [(ngModel)]="system" required (selectionChange)="systemChanged()">
+            @for (option of availableSystems; track option) {
+              <mat-option [value]="option">{{ systemLabel(option) }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      } @else {
+        <div class="derived-field">
+          <span>Sistema derivado</span>
+          <strong>{{ system ? systemLabel(system) : 'Sin sistema válido' }}</strong>
+        </div>
+      }
+
+      @if (showScopeSelector) {
+        <mat-form-field appearance="outline">
+          <mat-label>Alcance</mat-label>
+          <mat-select name="scope" [(ngModel)]="scope" required>
+            @for (option of scopes; track option) {
+              <mat-option [value]="option">{{ scopeLabel(option) }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      } @else {
+        <div class="derived-field">
+          <span>Alcance normativo</span>
+          <strong>{{ scopeLabel(fixedScope!) }}</strong>
+        </div>
+      }
+
+      <div class="fiscal-note field-wide">
+        @if (system === 'sis_poa' && fiscalYear) {
+          Gestión fiscal habilitada: <strong>{{ fiscalYear.anio }}</strong>
+        } @else if (system === 'sis_poa') {
+          No hay gestión fiscal habilitada; la asignación se enviará sin gestión.
+        } @else {
+          SIS-PE no usa gestión fiscal operativa en esta aprobación.
+        }
+      </div>
+    </form>
+  }
+
+  @if (approvalError) {
+    <p class="dialog-error" role="alert">{{ approvalError }}</p>
+  }
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-stroked-button type="button" [disabled]="saving" (click)="close()">Cancelar</button>
+  <button
+    mat-flat-button
+    type="submit"
+    form="request-approval-form"
+    [disabled]="saving || !canApprove"
+  >
+    <lucide-angular name="user-round-check" [size]="17" aria-hidden="true"></lucide-angular>
+    {{ saving ? 'Aprobando…' : 'Confirmar aprobación' }}
+  </button>
+</mat-dialog-actions>

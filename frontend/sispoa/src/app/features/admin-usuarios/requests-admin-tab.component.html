@@ -1,0 +1,95 @@
+<div class="requests-tab">
+  <header class="requests-header">
+    <div>
+      <p class="requests-kicker">Bandeja de ingreso</p>
+      <h2>Solicitudes</h2>
+      <p>Revise cuentas pendientes antes de otorgar cualquier acceso institucional.</p>
+    </div>
+    <button mat-stroked-button type="button" [disabled]="loading" (click)="refresh()">
+      <lucide-angular name="refresh-cw" [size]="17" aria-hidden="true"></lucide-angular>
+      Actualizar
+    </button>
+  </header>
+
+  @if (loading) {
+    <div class="loading-state" role="status" aria-live="polite">
+      <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+      Cargando solicitudes…
+    </div>
+  }
+
+  @if (error && !loading) {
+    <div class="feedback feedback-error" role="alert">
+      <lucide-angular name="cloud-off" [size]="32" aria-hidden="true"></lucide-angular>
+      <div><strong>No pudimos consultar las solicitudes</strong><p>{{ error }}</p></div>
+      <button mat-stroked-button type="button" (click)="loadRequests()">Reintentar</button>
+    </div>
+  }
+
+  @if (!loading && !error && requests.length) {
+    <div class="table-shell">
+      <table mat-table [dataSource]="requests" [trackBy]="trackRequest" aria-label="Solicitudes pendientes de acceso">
+        <ng-container matColumnDef="usuario">
+          <th mat-header-cell *matHeaderCellDef>Usuario</th>
+          <td mat-cell *matCellDef="let request">
+            <strong>{{ fullName(request) }}</strong>
+            <span class="secondary-value">{{ request.email }}</span>
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="cargo">
+          <th mat-header-cell *matHeaderCellDef>Cargo</th>
+          <td mat-cell *matCellDef="let request">{{ request.cargo || 'Sin registro' }}</td>
+        </ng-container>
+        <ng-container matColumnDef="unidad">
+          <th mat-header-cell *matHeaderCellDef>UO solicitada</th>
+          <td mat-cell *matCellDef="let request">{{ requestedUnit(request) }}</td>
+        </ng-container>
+        <ng-container matColumnDef="fecha">
+          <th mat-header-cell *matHeaderCellDef>Fecha de solicitud</th>
+          <td mat-cell *matCellDef="let request">
+            {{ request.date_joined ? (request.date_joined | date:'dd/MM/yyyy, HH:mm') : 'No informada' }}
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="estado">
+          <th mat-header-cell *matHeaderCellDef>Estado</th>
+          <td mat-cell *matCellDef="let request">
+            <span class="pending-chip"><span aria-hidden="true"></span>Pendiente</span>
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="acciones">
+          <th mat-header-cell *matHeaderCellDef>Acciones</th>
+          <td mat-cell *matCellDef="let request">
+            @if (canApprove) {
+              <button mat-flat-button type="button" [attr.aria-label]="'Aprobar solicitud de ' + fullName(request)" (click)="openApproval(request)">
+                <lucide-angular name="user-round-check" [size]="17" aria-hidden="true"></lucide-angular>
+                Aprobar
+              </button>
+            } @else {
+              <span class="muted">Solo consulta</span>
+            }
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+      </table>
+      <mat-paginator
+        [length]="totalRequests"
+        [pageIndex]="pageIndex"
+        [pageSize]="pageSize"
+        [pageSizeOptions]="[pageSize]"
+        [hidePageSize]="true"
+        [showFirstLastButtons]="true"
+        aria-label="Paginación de solicitudes"
+        (page)="changePage($event)"
+      ></mat-paginator>
+    </div>
+  }
+
+  @if (!loading && !error && !requests.length) {
+    <div class="feedback empty-state" role="status">
+      <lucide-angular name="user-round-check" [size]="34" aria-hidden="true"></lucide-angular>
+      <div><strong>No hay solicitudes pendientes</strong><p>La bandeja está al día. Use Actualizar para consultar nuevos registros.</p></div>
+    </div>
+  }
+</div>

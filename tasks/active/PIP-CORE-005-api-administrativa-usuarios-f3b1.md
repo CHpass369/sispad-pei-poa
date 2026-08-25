@@ -1,4 +1,4 @@
-# TASK PIP-CORE-005: IAM F3b1/F3b2a/F3b2b/F4a/F4b1/F4b2/F4c1
+# TASK PIP-CORE-005: IAM F3b1/F3b2a/F3b2b/F4a/F4b1/F4b2/F4c1/F4c2
 
 ## DOMINIO
 
@@ -6,7 +6,7 @@
 
 ## OBJECTIVE
 
-Exponer en API V2 la administración de usuarios (F3b1), roles personalizados/capacidades (F3b2a), asignaciones atómicas de roles/alcances organizacionales (F3b2b) y completar el gestor Angular hasta Roles/Permisos F4c1, respetando capacidades, roles base inmutables y límites SIS-PE/SIS-POA.
+Exponer en API V2 la administración de usuarios (F3b1), roles personalizados/capacidades (F3b2a), asignaciones atómicas de roles/alcances organizacionales (F3b2b) y completar el gestor Angular hasta la aprobación de Solicitudes F4c2, respetando capacidades, roles base inmutables y límites SIS-PE/SIS-POA.
 
 ## CONTEXT
 
@@ -14,11 +14,11 @@ F3a incorporó el ciclo `PENDIENTE/ACTIVO/INACTIVO`, registro público y aprobac
 
 ## CURRENT BEHAVIOR
 
-F3b1, F3b2a y F3b2b exponen usuarios, roles, capacidades y asignaciones con límites centralizados en `accounts.services`. F4a ofrece registro público; F4b1/F4b2 implementan listado, detalle, edición personal y asignaciones. F4c1 reemplaza los placeholders de Roles y Permisos por catálogos reales paginados y diálogos administrativos; Solicitudes permanece pendiente para F4c2.
+F3b1, F3b2a y F3b2b exponen usuarios, roles, capacidades y asignaciones con límites centralizados en `accounts.services`. F4a ofrece registro público; F4b1/F4b2 implementan listado, detalle, edición personal y asignaciones. F4c1 activa Roles y Permisos. F4c2 completa Solicitudes con bandeja PENDIENTE, aprobación controlada y refresco coordinado del listado de usuarios.
 
 ## EXPECTED BEHAVIOR
 
-La API V2 permite consultar y actualizar usuarios, administrar exclusivamente roles personalizados y reemplazar atómicamente asignaciones/capacidades dentro de la autoridad del actor. Los seis roles base permanecen visibles e inmutables. El catálogo de capacidades es read-only, excluye SIS-PRO y deriva sistema por prefijo. La única entrada Angular `admin-usuarios` aplica visibilidad por capacidades y ofrece Usuarios, Roles y Permisos funcionales; Solicitudes se reserva para F4c2.
+La API V2 permite consultar y actualizar usuarios, administrar exclusivamente roles personalizados y reemplazar atómicamente asignaciones/capacidades dentro de la autoridad del actor. Los seis roles base permanecen visibles e inmutables. El catálogo de capacidades es read-only y excluye SIS-PRO. La única entrada Angular `admin-usuarios` ofrece Usuarios, Roles, Permisos y Solicitudes funcionales con visibilidad por capacidad y autoridad final en backend.
 
 ## IN SCOPE
 
@@ -64,12 +64,16 @@ La API V2 permite consultar y actualizar usuarios, administrar exclusivamente ro
 - [x] Reemplazo atómico de capacidades de roles personalizados con catálogo real agrupado.
 - [x] Tab Permisos F4c1 read-only con filtros/paginación backend y exclusión SIS-PRO.
 - [x] Tests F4c1 de servicio, tablas, filtros, estados, autoridad y diálogos.
+- [x] Tab Solicitudes F4c2 con tabla PENDIENTE, paginación y estados completos.
+- [x] Dialog de aprobación con UO/rol reales, sistema derivado, scope normativo y gestión opcional.
+- [x] POST de aprobación estricto desde Angular y refresco coordinado de Solicitudes/Usuarios.
+- [x] Autoridad visual por `accounts.solicitud.view/approve` y error 400/403 sin pérdida de selección.
+- [x] Tests F4c2 de contratos, tabla, capacidades, derivación y aprobación.
 
 ## OUT OF SCOPE
 
 - Creación, edición o desactivación de capacidades.
 - Cambios de modelos o migraciones.
-- Implementación funcional de Solicitudes (F4c2).
 - Sidebar nuevo o rediseño de navegación (F5).
 - Refactorizaciones ajenas a `accounts`.
 
@@ -158,6 +162,20 @@ La API V2 permite consultar y actualizar usuarios, administrar exclusivamente ro
 10. **Pruebas:** cubrir URLs/query params/paginación, estados de tablas, tabs, roles base, payloads, 403 visible, PUT atómico, rollback de selección y ausencia de mutaciones/SIS-PRO en Permisos.
 11. **Verificación:** pytest/ruff/migraciones por el ajuste backend, Karma focalizado F4c1+regresión F4b, build production, typecheck app/specs y `git diff --check`; lint solo si existe target.
 
+## F4C2 IMPLEMENTATION PLAN
+
+1. **Dominio y alcance:** CORE/accounts; activar únicamente Solicitudes dentro del shell existente. Sidebar y F5 permanecen fuera de alcance; no hay modelos, migraciones ni endpoints nuevos.
+2. **Reutilización:** extender `AdminUsuariosService`, `Paginado<T>`, `AuthService.listPublicOrganizationalUnits`, `GestionHabilitadaService`, `CapabilitiesService`, Material Table/Paginator/Dialog, `adminApiErrorMessage` y el mapa normativo de scopes F4b2.
+3. **Contrato:** tipar la fila real de `GET /api/v2/admin/solicitudes/`, el payload exacto de aprobación y su respuesta mínima; enviar solo `page` al listado y los seis campos permitidos al POST.
+4. **Tabla:** crear un componente focalizado para solicitudes PENDIENTE con usuario, cargo, UO solicitada, fecha, estado, acciones, paginación y estados loading/error/empty con refresh explícito.
+5. **Diálogo:** cargar roles activos administrables y UO públicas reales; preseleccionar la UO solicitada, incorporar al catálogo la UO histórica si ya no está vigente y conservar selección ante 400/403.
+6. **Autoridad derivada:** ofrecer únicamente roles con sistema SIS-PE/SIS-POA; autoseleccionar sistema si es único o permitir elegir entre ambos si el rol es multi; reutilizar scope fijo para los seis roles base y selector SELF/DESCENDANTS/GLOBAL para custom.
+7. **Gestión fiscal:** usar el candado `GestionHabilitadaService` solo para SIS-POA; enviar su UUID cuando existe y `null` para SIS-PE o cuando no hay gestión. No crear selector histórico, mock ni endpoint.
+8. **Backend authority:** reemplazar la regla parcial por `SCOPES_FIJOS_ROLES_SISTEMA` y validar el rol con `puede_administrar_asignacion_rol`, ambos canónicos en `accounts.services`; los scopes base y la autoridad quedan protegidos aun fuera de Angular, con regresión focalizada.
+9. **Integración:** al aprobar, quitar la fila local, recargar la página de Solicitudes y emitir un evento al shell; el shell recarga Usuarios si el actor puede verlo.
+10. **Pruebas:** cubrir URLs/paginación, solo PENDIENTE, UO preseleccionada, sistema único/multi, scope fijo/custom, payload exacto, 400/403 sin pérdida, éxito y capacidades de tab/acción.
+11. **Verificación:** pytest/ruff/migraciones por la corrección backend, Karma focalizado F4c2+regresión admin, build production, typecheck app/specs y whitespace check tracked/untracked; lint solo si existe target.
+
 ## DATABASE IMPACT
 
 Ninguno. Se reutilizan `Usuario`, `Rol`, `Capacidad`, sus M2M existentes y `AlcanceOrganizacional`; no hay migraciones esperadas.
@@ -179,7 +197,7 @@ Ninguno. Se reutilizan `Usuario`, `Rol`, `Capacidad`, sus M2M existentes y `Alca
 
 ## FRONTEND IMPACT
 
-F4a agrega registro público; F4b1/F4b2 completan listado y edición de usuarios. F4c1 activa Roles y Permisos en el shell único con tablas paginadas y diálogos sobre API V2. Solicitudes conserva un placeholder explícito para F4c2; F5 permanece fuera de alcance.
+F4a agrega registro público; F4b1/F4b2 completan listado y edición de usuarios; F4c1 activa Roles y Permisos. F4c2 reemplaza el último placeholder por la bandeja de Solicitudes y aprobación sobre contratos V2 existentes. F5 permanece fuera de alcance.
 
 ## FILES EXPECTED
 
@@ -226,6 +244,11 @@ F4a agrega registro público; F4b1/F4b2 completan listado y edición de usuarios
 - `frontend/sispoa/src/app/features/admin-usuarios/role-form-dialog.component.{ts,html,scss,spec.ts}` — alta/edición custom.
 - `frontend/sispoa/src/app/features/admin-usuarios/role-capabilities-dialog.component.{ts,html,scss,spec.ts}` — reemplazo atómico de capacidades.
 - `frontend/sispoa/src/app/features/admin-usuarios/admin-api-error.ts` — extracción local de errores DRF para diálogos.
+- `backend/apps/accounts/views_register.py` — autoridad canónica de rol/scope durante aprobación F4c2.
+- `backend/apps/accounts/tests/test_register.py` — regresión de scopes base y bloqueo de elevación de rol.
+- `frontend/sispoa/src/app/features/admin-usuarios/admin-role-scope.ts` — mapa compartido de scopes normativos.
+- `frontend/sispoa/src/app/features/admin-usuarios/requests-admin-tab.component.{ts,html,scss,spec.ts}` — bandeja PENDIENTE F4c2.
+- `frontend/sispoa/src/app/features/admin-usuarios/request-approval-dialog.component.{ts,html,scss,spec.ts}` — aprobación con catálogos reales.
 
 ## DEPENDENCIES
 
@@ -291,6 +314,15 @@ F3a, commit `1eaf906`, y F3b1 implementado en esta tarea.
 - [x] Permisos es read-only, paginado, filtrable y no presenta acciones create/edit.
 - [x] El filtro backend `system` acepta `accounts` y continúa rechazando SIS-PRO.
 - [x] Verificación F4c1: 21 tests backend y 47 tests Karma pasan; Ruff, migraciones, typecheck app/specs, build y whitespace check pasan.
+- [x] Solicitudes muestra únicamente filas PENDIENTE con UO/fecha real, paginación backend y estados loading/error/empty.
+- [x] La UO solicitada queda preseleccionada y puede cambiarse por otra UO pública real.
+- [x] Roles sin SIS-PE/SIS-POA no se ofrecen; sistema único se deriva y rol multi limita el selector a ambos sistemas válidos.
+- [x] Los seis roles base usan scope normativo fijo y los custom permiten SELF/DESCENDANTS/GLOBAL.
+- [x] El payload de aprobación contiene exclusivamente UO, rol, scope, sistema y gestión opcional; nunca password, `is_staff` ni privilegios extra.
+- [x] Un 400/403 mantiene dialog y selecciones; éxito elimina/refresca Solicitudes y emite el UUID para refrescar Usuarios/detalle.
+- [x] Backend bloquea roles fuera de autoridad con 403 y aplica `SCOPES_FIJOS_ROLES_SISTEMA` incluso ante POST directo.
+- [x] Tab y acción respetan respectivamente `accounts.solicitud.view` y `accounts.solicitud.approve`.
+- [x] Verificación F4c2: 45 tests backend y 64 tests Karma pasan; Ruff, migraciones, typecheck app/specs, build y whitespace check pasan.
 
 ## TESTS
 
@@ -313,15 +345,17 @@ cd frontend/sispoa; npx tsc -p tsconfig.spec.json --noEmit
 cd frontend/sispoa; npm run build -- --configuration production
 cd backend; /home/chpass369/proyectos/poa/.venv/bin/python -m pytest -n 0 apps/accounts/tests/test_role_admin_v2.py
 cd frontend/sispoa; CHROME_BIN=/snap/bin/chromium npm test -- --watch=false --browsers=ChromeHeadlessNoSandbox --include='src/app/features/admin-usuarios/admin-usuarios.service.spec.ts' --include='src/app/features/admin-usuarios/usuarios-lista.component.spec.ts' --include='src/app/features/admin-usuarios/usuario-edicion-dialog.component.spec.ts' --include='src/app/features/admin-usuarios/admin-usuarios-routing.module.spec.ts' --include='src/app/features/admin-usuarios/roles-admin-tab.component.spec.ts' --include='src/app/features/admin-usuarios/role-form-dialog.component.spec.ts' --include='src/app/features/admin-usuarios/role-capabilities-dialog.component.spec.ts' --include='src/app/features/admin-usuarios/permissions-admin-tab.component.spec.ts'
+cd backend; /home/chpass369/proyectos/poa/.venv/bin/python -m pytest -n 0 apps/accounts/tests/test_register.py
+cd frontend/sispoa; CHROME_BIN=/snap/bin/chromium npm test -- --watch=false --browsers=ChromeHeadlessNoSandbox --include='src/app/features/admin-usuarios/admin-usuarios.service.spec.ts' --include='src/app/features/admin-usuarios/usuarios-lista.component.spec.ts' --include='src/app/features/admin-usuarios/usuario-edicion-dialog.component.spec.ts' --include='src/app/features/admin-usuarios/admin-usuarios-routing.module.spec.ts' --include='src/app/features/admin-usuarios/roles-admin-tab.component.spec.ts' --include='src/app/features/admin-usuarios/role-form-dialog.component.spec.ts' --include='src/app/features/admin-usuarios/role-capabilities-dialog.component.spec.ts' --include='src/app/features/admin-usuarios/permissions-admin-tab.component.spec.ts' --include='src/app/features/admin-usuarios/requests-admin-tab.component.spec.ts' --include='src/app/features/admin-usuarios/request-approval-dialog.component.spec.ts'
 ```
 
 ## RISKS
 
-La derivación de sistema depende de prefijos `sis_pe.`/`sis_poa.`/`accounts.`; el campo legacy `sistema` conserva datos históricos y no es autoridad. Sin un campo de propietario o sistema en `Rol`, un rol personalizado vacío o solo `accounts.*` no pertenece a PE ni POA; F3b2b permite asignarlo únicamente a SUPER_ADMIN. Los solapamientos se validan en API y la fila de usuario serializa escrituras concurrentes, pero no existe todavía un constraint de base de datos que impida duplicados creados fuera de este endpoint. Resolver ambas deudas requiere cambios de modelo fuera del alcance sin migraciones de F3b2b. En F4a/F4b1, el catálogo público permite enumerar nombres institucionales y devuelve la colección completa; F4b1/F4b2 lo reutilizan porque no exige una capacidad organizacional adicional. El contrato administrativo ya expone `telefono` como string en listado, detalle y mutaciones; PATCH conserva el valor cuando se omite. `listRoles` exige autoridad backend propia; si el actor tiene capacidades de alcance pero no puede listar roles, el dialog muestra error y no intenta inventar opciones. Las asignaciones no devueltas por ese catálogo se excluyen del payload; el backend preserva únicamente las que están fuera de la autoridad del actor y mantiene la decisión final. La gestión fiscal usa exclusivamente el candado activo ADR-007; si no existe, omite el selector y usa `null` en filas nuevas. En F4c1, la visibilidad del alta depende de `accounts.rol.create`, pero solo `is_superuser=True` puede completar el POST; el 403 visible es intencional y conserva la autoridad backend. El selector advierte y retira al guardar capacidades históricas fuera de SIS-PE/SIS-POA/accounts, porque el contrato atómico no permite reenviarlas. El chunk lazy de administración creció de 259.49 kB a 339.30 kB al incorporar tablas, diálogos y estilos F4c1; el build pasa, pero conviene vigilar su crecimiento en F4c2.
+La derivación de sistema depende de prefijos `sis_pe.`/`sis_poa.`/`accounts.`; el campo legacy `sistema` conserva datos históricos y no es autoridad. Sin un campo de propietario o sistema en `Rol`, un rol personalizado vacío o solo `accounts.*` no pertenece a PE ni POA; F3b2b permite asignarlo únicamente a SUPER_ADMIN. Los solapamientos se validan en API y la fila de usuario serializa escrituras concurrentes, pero no existe todavía un constraint de base de datos que impida duplicados creados fuera de este endpoint. Resolver ambas deudas requiere cambios de modelo fuera del alcance. El catálogo público de UO permite enumerar nombres institucionales y devuelve la colección completa. `listRoles` exige `accounts.rol.view`; un actor con `accounts.solicitud.approve` sin esa capacidad verá un error de catálogo, porque F4c2 no inventa una fuente paralela de roles. En F4c1, la visibilidad del alta depende de `accounts.rol.create`, pero solo `is_superuser=True` puede completar el POST. En F4c2, la autoridad de aprobación se endureció para reutilizar la regla cerrada F3b2b: actores que no sean SUPER_ADMIN/JEFE_PE/JEFE_POA pueden recibir 403 aun si una asignación manual les otorgó `accounts.solicitud.approve`; esta restricción evita elevación de rol. La gestión fiscal usa el candado ADR-007 solo para SIS-POA y envía `null` para SIS-PE o cuando no hay gestión habilitada. El chunk lazy de administración quedó en 362.72 kB; F5 debe evitar seguir concentrando UI no relacionada en este módulo.
 
 ## ROLLBACK
 
-Para revertir F4c1, restaurar los placeholders de Roles/Permisos, retirar sus cuatro componentes y el helper de error, revertir los métodos/DTOs F4c1 del servicio y devolver los filtros backend a SIS-PE/SIS-POA. No hay migraciones ni cambios estructurales que deshacer.
+Para revertir F4c2, restaurar el placeholder de Solicitudes, retirar sus dos componentes y el helper compartido de scope, devolver el mapa a `usuario-edicion-dialog`, revertir DTOs/métodos F4c2 y retirar del endpoint de aprobación los dos guards canónicos agregados. No hay migraciones ni endpoints nuevos que deshacer.
 
 ## FINAL REPORT
 
@@ -372,3 +406,12 @@ Para revertir F4c1, restaurar los placeholders de Roles/Permisos, retirar sus cu
 - Verificación frontend F4c1: 47 tests Karma pasaron en Chrome Headless 151; typecheck app/specs pasó; build production pasó con hash `62a5bcd69633786a` y chunk lazy admin de `339.30 kB`.
 - `git diff --check` y el check equivalente de todos los archivos untracked pasaron. Lint no se ejecutó porque `angular.json` no define target `lint`.
 - No hubo migraciones, endpoints nuevos, sidebar, stage ni commit. Siguiente: F4c2 para la bandeja de Solicitudes.
+- F4c2 reemplazó el último placeholder por una bandeja paginada de solicitudes PENDIENTE con fecha, UO solicitada, refresh y estados completos.
+- El diálogo usa UO/roles reales, deriva SIS-PE/SIS-POA desde capacidades, fija scopes base, permite scopes custom y aplica gestión ADR-007 solo a SIS-POA.
+- El payload POST es exacto y los errores 400/403 conservan selección; un éxito retira/refresca la solicitud y refresca el listado/detalle de Usuarios mediante evento tipado.
+- La autoridad backend de aprobación ahora reutiliza `puede_administrar_asignacion_rol` y `SCOPES_FIJOS_ROLES_SISTEMA`, cerrando una elevación posible por POST directo y el drift de scopes de cuatro roles base.
+- Auditoría posterior F4c2: se bloqueó todo cierre del dialog durante el POST para evitar una aprobación exitosa en backend sin callback de refresco en la bandeja; cancelar/cerrar vuelve a habilitarse al terminar el error.
+- Verificación backend F4c2: 45 tests pasaron secuencialmente en 247.73 s; Ruff pasó y `makemigrations accounts --check --dry-run` no detectó cambios.
+- Verificación frontend F4c2: 64 tests Karma pasaron en Chrome Headless 151; typecheck app/specs pasó; build production pasó con hash `545ef7940f17be47` y chunk lazy admin de `362.72 kB`.
+- Whitespace check tracked/untracked pasó. Lint no se ejecutó porque `angular.json` no define target `lint`.
+- No hubo migraciones, endpoints nuevos, sidebar/F5, stage ni commit. Siguiente: F5 con control explícito del tamaño del módulo admin.

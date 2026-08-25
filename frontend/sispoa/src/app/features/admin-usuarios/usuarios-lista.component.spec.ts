@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { of, Subject, throwError } from 'rxjs';
@@ -9,6 +10,7 @@ import { AdminUsuariosModule } from './admin-usuarios.module';
 import { AdminUser, AdminUsuariosService } from './admin-usuarios.service';
 import { UsuariosListaComponent } from './usuarios-lista.component';
 import { UsuarioEdicionDialogComponent } from './usuario-edicion-dialog.component';
+import { RequestsAdminTabComponent } from './requests-admin-tab.component';
 
 describe('UsuariosListaComponent', () => {
   let component: UsuariosListaComponent;
@@ -73,7 +75,10 @@ describe('UsuariosListaComponent', () => {
   beforeEach(async () => {
     adminUsers = jasmine.createSpyObj<AdminUsuariosService>(
       'AdminUsuariosService',
-      ['listUsers', 'getUser', 'activate', 'deactivate', 'listRolesPage', 'listCapabilities'],
+      [
+        'listUsers', 'getUser', 'activate', 'deactivate', 'listRolesPage',
+        'listCapabilities', 'listRequests',
+      ],
     );
     auth = jasmine.createSpyObj<AuthService>('AuthService', ['listPublicOrganizationalUnits']);
     capabilities = jasmine.createSpyObj<CapabilitiesService>('CapabilitiesService', ['tiene']);
@@ -85,6 +90,9 @@ describe('UsuariosListaComponent', () => {
       count: 0, next: null, previous: null, results: [],
     }));
     adminUsers.listCapabilities.and.returnValue(of({
+      count: 0, next: null, previous: null, results: [],
+    }));
+    adminUsers.listRequests.and.returnValue(of({
       count: 0, next: null, previous: null, results: [],
     }));
     adminUsers.getUser.and.returnValue(of(activeUser));
@@ -233,6 +241,28 @@ describe('UsuariosListaComponent', () => {
     );
     expect(labels).toEqual(['Usuarios', 'Roles', 'Permisos']);
     expect(labels).not.toContain('Solicitudes');
+  });
+
+  it('shows Requests only with view capability and refreshes Users after approval', () => {
+    granted.add('accounts.solicitud.view');
+    fixture.detectChanges();
+    const labels = Array.from(
+      fixture.nativeElement.querySelectorAll('.mdc-tab__text-label'),
+      (element: Element) => element.textContent?.trim(),
+    );
+    expect(labels).toContain('Solicitudes');
+
+    adminUsers.listUsers.calls.reset();
+    component.selectedTabIndex = 1;
+    fixture.detectChanges();
+    const requestsTab = fixture.debugElement.query(
+      By.directive(RequestsAdminTabComponent),
+    ).componentInstance as RequestsAdminTabComponent;
+    component.selectedUser = { ...activeUser, id: 'approved-request' };
+    requestsTab.requestApproved.emit('approved-request');
+
+    expect(adminUsers.listUsers).toHaveBeenCalledOnceWith(component.filters, 1);
+    expect(component.selectedUser).toBeNull();
   });
 
   it('hides editing without capabilities and shows it with personal edit capability', () => {

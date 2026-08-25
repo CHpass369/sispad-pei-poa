@@ -28,6 +28,7 @@ import {
   LucideAngularModule,
   Pencil,
   Plus,
+  RefreshCw,
   Save,
   Search,
   SearchX,
@@ -45,6 +46,8 @@ import { RolesAdminTabComponent } from './roles-admin-tab.component';
 import { PermissionsAdminTabComponent } from './permissions-admin-tab.component';
 import { RoleFormDialogComponent } from './role-form-dialog.component';
 import { RoleCapabilitiesDialogComponent } from './role-capabilities-dialog.component';
+import { RequestsAdminTabComponent } from './requests-admin-tab.component';
+import { RequestApprovalDialogComponent } from './request-approval-dialog.component';
 
 @NgModule({
   declarations: [
@@ -54,6 +57,8 @@ import { RoleCapabilitiesDialogComponent } from './role-capabilities-dialog.comp
     PermissionsAdminTabComponent,
     RoleFormDialogComponent,
     RoleCapabilitiesDialogComponent,
+    RequestsAdminTabComponent,
+    RequestApprovalDialogComponent,
   ],
   imports: [
     CommonModule,
@@ -84,6 +89,7 @@ import { RoleCapabilitiesDialogComponent } from './role-capabilities-dialog.comp
       LockKeyhole,
       Pencil,
       Plus,
+      RefreshCw,
       Save,
       Search,
       SearchX,

@@ -346,11 +346,7 @@
 
     @if (canViewRequests) {
       <mat-tab label="Solicitudes">
-        <div class="placeholder" role="status">
-          <lucide-angular name="clipboard-clock" [size]="36" aria-hidden="true"></lucide-angular>
-          <strong>Solicitudes en preparación</strong>
-          <p>La bandeja de solicitudes se habilitará en F4c2.</p>
-        </div>
+        <app-requests-admin-tab (requestApproved)="refreshUsersAfterApproval($event)"></app-requests-admin-tab>
       </mat-tab>
     }
   </mat-tab-group>

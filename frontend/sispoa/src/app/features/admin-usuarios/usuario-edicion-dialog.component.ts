@@ -15,15 +15,7 @@ import {
   AdminUserScope,
   AdminUsuariosService,
 } from './admin-usuarios.service';
-
-export const BASE_ROLE_SCOPES: Readonly<Record<string, AdminAssignmentScope>> = {
-  SUPER_ADMIN: 'GLOBAL',
-  JEFE_PE: 'GLOBAL',
-  JEFE_POA: 'GLOBAL',
-  SECRETARIO_MUNICIPAL: 'DESCENDANTS',
-  DIRECTOR: 'DESCENDANTS',
-  FORMULADOR_POAU: 'SELF',
-};
+import { fixedScopeForRole } from './admin-role-scope';
 
 export interface UsuarioEdicionDialogData {
   user: AdminUser;
@@ -183,7 +175,7 @@ export class UsuarioEdicionDialogComponent implements OnInit {
   }
 
   fixedScope(roleCode: string): AdminAssignmentScope | null {
-    return BASE_ROLE_SCOPES[roleCode] ?? null;
+    return fixedScopeForRole(roleCode);
   }
 
   scopeLabel(scope: AdminAssignmentScope): string {

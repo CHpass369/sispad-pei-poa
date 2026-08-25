@@ -269,6 +269,15 @@ export class UsuariosListaComponent implements OnInit {
     return user.id;
   }
 
+  refreshUsersAfterApproval(requestId: string): void {
+    if (this.selectedUser?.id === requestId) {
+      this.closeDetail();
+    }
+    if (this.canViewUsers) {
+      this.loadUsers();
+    }
+  }
+
   private updateUser(updated: AdminUser): void {
     this.users = this.users.map(user => user.id === updated.id ? updated : user);
     if (this.selectedUser?.id === updated.id) {
