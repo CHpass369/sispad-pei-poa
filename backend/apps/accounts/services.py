@@ -24,6 +24,14 @@ CODIGOS_ROLES_BASE = {
     'JEFE_PE',
     'FORMULADOR_POAU',
 }
+SCOPES_FIJOS_ROLES_SISTEMA = {
+    'SUPER_ADMIN': AlcanceOrganizacional.SCOPE_GLOBAL,
+    'JEFE_PE': AlcanceOrganizacional.SCOPE_GLOBAL,
+    'JEFE_POA': AlcanceOrganizacional.SCOPE_GLOBAL,
+    'SECRETARIO_MUNICIPAL': AlcanceOrganizacional.SCOPE_DESCENDANTS,
+    'DIRECTOR': AlcanceOrganizacional.SCOPE_DESCENDANTS,
+    'FORMULADOR_POAU': AlcanceOrganizacional.SCOPE_SELF,
+}
 
 
 def crear_usuario(email, password, first_name='', last_name='', **extra_fields):
@@ -180,6 +188,64 @@ def puede_administrar_sistema(usuario, sistema):
     return sistema in sistemas_administrables(usuario)
 
 
+def es_super_admin(usuario):
+    """Reconoce superusuario Django o el rol base SUPER_ADMIN activo."""
+    if usuario.is_superuser:
+        return True
+    return usuario.roles.filter(activo=True, codigo='SUPER_ADMIN').exists()
+
+
+def sistemas_asignaciones_administrables(usuario):
+    """Sistemas que el actor puede reemplazar en F3b2b.
+
+    A diferencia del fallback histórico de ``sistemas_administrables``, este
+    contrato es deliberadamente cerrado: solo SUPER_ADMIN y las dos jefaturas
+    base administran asignaciones de usuarios.
+    """
+    if es_super_admin(usuario):
+        return set(SISTEMAS_ADMINISTRABLES)
+    codigos = set(
+        usuario.roles.filter(activo=True).values_list('codigo', flat=True)
+    )
+    sistemas = set()
+    for codigo in codigos & {'JEFE_PE', 'JEFE_POA'}:
+        sistemas.update(SISTEMAS_POR_ROL[codigo])
+    return sistemas
+
+
+def puede_administrar_asignacion_rol(administrador, rol):
+    """Indica si F3b2b puede reemplazar asignaciones del rol indicado."""
+    sistemas = sistemas_efectivos_de_rol(rol)
+    if not sistemas or not sistemas <= SISTEMAS_CAPACIDADES_ASIGNABLES:
+        return False
+    if es_super_admin(administrador):
+        return True
+    if not rol.activo or rol.deprecated:
+        return False
+
+    sistemas_negocio = sistemas & SISTEMAS_ADMINISTRABLES
+    administrables = sistemas_asignaciones_administrables(administrador)
+    if not sistemas_negocio or not sistemas_negocio <= administrables:
+        return False
+
+    capacidades_accounts = {
+        capacidad.codigo
+        for capacidad in (
+            getattr(rol, 'capacidades_admin', None)
+            or rol.capacidades.filter(activo=True)
+        )
+        if capacidad.activo and capacidad.codigo.startswith('accounts.')
+    }
+    capacidades_actor = set(
+        administrador.roles.filter(
+            activo=True,
+            capacidades__activo=True,
+            capacidades__codigo__startswith='accounts.',
+        ).values_list('capacidades__codigo', flat=True)
+    )
+    return capacidades_accounts <= capacidades_actor
+
+
 def roles_con_sistema(queryset, sistema):
     """Filtra roles por sistema efectivo, incluyendo los roles base."""
     codigos_especiales = [
@@ -276,3 +342,50 @@ def limitar_usuarios_administrables(queryset, administrador):
     return queryset.annotate(
         _tiene_otro_sistema=Exists(directo_otro) | Exists(alcance_otro),
     ).filter(_tiene_otro_sistema=False)
+
+
+def limitar_objetivos_asignaciones(queryset, administrador):
+    """Visibilidad F3b2b: pertenece al sistema propio, aunque también a otro."""
+    if es_super_admin(administrador):
+        return queryset
+
+    sistemas = sistemas_asignaciones_administrables(administrador)
+    if not sistemas:
+        return queryset.none()
+
+    condicion = Q()
+    for sistema in sistemas:
+        roles_sistema = _roles_objetivo_con_sistema(sistema)
+        directo = Usuario.roles.through.objects.filter(
+            usuario_id=OuterRef('pk'),
+            rol_id__in=roles_sistema.values('pk'),
+        )
+        alcance = AlcanceOrganizacional.objects.filter(
+            usuario_id=OuterRef('pk'),
+            activo=True,
+            rol_id__in=roles_sistema.values('pk'),
+        )
+        alias = f'_asignable_{sistema}'
+        queryset = queryset.annotate(**{alias: Exists(directo) | Exists(alcance)})
+        condicion |= Q(**{alias: True})
+
+    super_admin_directo = Usuario.roles.through.objects.filter(
+        usuario_id=OuterRef('pk'),
+        rol__codigo='SUPER_ADMIN',
+        rol__activo=True,
+    )
+    super_admin_alcance = AlcanceOrganizacional.objects.filter(
+        usuario_id=OuterRef('pk'),
+        activo=True,
+        rol__codigo='SUPER_ADMIN',
+        rol__activo=True,
+    )
+    return queryset.annotate(
+        _objetivo_super_admin=(
+            Exists(super_admin_directo) | Exists(super_admin_alcance)
+        ),
+    ).filter(
+        condicion,
+        is_superuser=False,
+        _objetivo_super_admin=False,
+    )

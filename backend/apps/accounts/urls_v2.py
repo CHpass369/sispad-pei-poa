@@ -8,6 +8,7 @@ Se incluyen sin prefijo adicional desde config.urls_v2, de modo que quedan:
 - /api/v2/admin/users/<uuid>/
 - /api/v2/admin/users/<uuid>/activate/
 - /api/v2/admin/users/<uuid>/deactivate/
+- /api/v2/admin/users/<uuid>/assignments/
 - /api/v2/admin/solicitudes/
 - /api/v2/admin/roles/
 - /api/v2/admin/roles/<uuid>/
@@ -18,6 +19,7 @@ from django.urls import path
 
 from apps.accounts.views_admin import (
     ActivarUsuarioView,
+    AsignacionesUsuarioView,
     AsignarCapacidadesRolView,
     CapacidadAdminListView,
     DesactivarUsuarioView,
@@ -56,6 +58,11 @@ urlpatterns = [
     path(
         'admin/users/<uuid:pk>/deactivate/', DesactivarUsuarioView.as_view(),
         name='v2-admin-user-deactivate',
+    ),
+    path(
+        'admin/users/<uuid:pk>/assignments/',
+        AsignacionesUsuarioView.as_view(),
+        name='v2-admin-user-assignments',
     ),
     path(
         'admin/solicitudes/', SolicitudesListView.as_view(),

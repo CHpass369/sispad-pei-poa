@@ -1,4 +1,4 @@
-"""F3b1/F3b2a: administración IAM en API V2."""
+"""F3b1/F3b2a/F3b2b: administración IAM en API V2."""
 
 import logging
 
@@ -20,6 +20,7 @@ from apps.accounts.models import (
 from apps.accounts.permissions import TieneCapacidad
 from apps.accounts.serializers import (
     AsignacionCapacidadesRolSerializer,
+    AsignacionesUsuarioSerializer,
     CapacidadAdminFilterSerializer,
     CapacidadAdminReadSerializer,
     RolAdminCreateSerializer,
@@ -31,8 +32,11 @@ from apps.accounts.serializers import (
     UsuarioAdminUpdateSerializer,
 )
 from apps.accounts.services import (
+    es_super_admin,
+    limitar_objetivos_asignaciones,
     limitar_roles_administrables,
     limitar_usuarios_administrables,
+    puede_administrar_asignacion_rol,
     roles_con_sistema,
     usuarios_con_sistema,
 )
@@ -190,6 +194,127 @@ class ActivarUsuarioView(_CambiarEstadoUsuarioView):
 
 class DesactivarUsuarioView(_CambiarEstadoUsuarioView):
     estado = Usuario.ESTADO_INACTIVO
+
+
+def _objetivos_asignaciones(administrador):
+    return limitar_objetivos_asignaciones(
+        _queryset_usuario_admin(), administrador,
+    )
+
+
+class AsignacionesUsuarioView(APIView):
+    authentication_classes = [JWTAuthentication]
+
+    def get_permissions(self):
+        capacidad = (
+            'accounts.alcance.assign'
+            if self.request.method == 'PUT'
+            else 'accounts.alcance.view'
+        )
+        return [TieneCapacidad(capacidad)]
+
+    @staticmethod
+    def _usuario_no_encontrado():
+        return Response(
+            {'error': 'Usuario no encontrado.'},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    @staticmethod
+    def _rechazar_pendiente(usuario):
+        if usuario.estado != Usuario.ESTADO_PENDIENTE:
+            return None
+        return Response(
+            {'error': 'Las asignaciones requieren un usuario aprobado.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    def get(self, request, pk):
+        try:
+            usuario = _objetivos_asignaciones(request.user).get(pk=pk)
+        except (Usuario.DoesNotExist, ValueError):
+            return self._usuario_no_encontrado()
+        if respuesta := self._rechazar_pendiente(usuario):
+            return respuesta
+        return Response(UsuarioAdminReadSerializer(usuario).data)
+
+    @transaction.atomic
+    def put(self, request, pk):
+        try:
+            usuario = (
+                _objetivos_asignaciones(request.user)
+                .select_for_update()
+                .get(pk=pk)
+            )
+        except (Usuario.DoesNotExist, ValueError):
+            return self._usuario_no_encontrado()
+        if respuesta := self._rechazar_pendiente(usuario):
+            return respuesta
+        if usuario.pk == request.user.pk and not es_super_admin(request.user):
+            raise PermissionDenied(
+                'No puede modificar sus propias asignaciones.',
+            )
+
+        serializer = AsignacionesUsuarioSerializer(
+            data=request.data,
+            context={'request': request},
+        )
+        serializer.is_valid(raise_exception=True)
+        asignaciones = serializer.validated_data['assignments']
+
+        capacidades = Prefetch(
+            'capacidades',
+            queryset=Capacidad.objects.order_by('codigo'),
+            to_attr='capacidades_admin',
+        )
+        roles_actuales = (
+            Rol.objects.filter(
+                Q(usuarios=usuario)
+                | Q(
+                    alcances__usuario=usuario,
+                    alcances__activo=True,
+                ),
+            )
+            .prefetch_related(capacidades)
+            .distinct()
+        )
+        roles_reemplazables = {
+            rol.pk
+            for rol in roles_actuales
+            if puede_administrar_asignacion_rol(request.user, rol)
+        }
+
+        AlcanceOrganizacional.objects.filter(
+            usuario=usuario,
+            activo=True,
+            rol_id__in=roles_reemplazables,
+        ).delete()
+        AlcanceOrganizacional.objects.bulk_create([
+            AlcanceOrganizacional(
+                usuario=usuario,
+                rol=asignacion['rol'],
+                unidad=asignacion['unidad'],
+                scope_type=asignacion['scope_type'],
+                fiscal_year=asignacion['fiscal_year'],
+                activo=True,
+            )
+            for asignacion in asignaciones
+        ])
+
+        roles_preservados = set(
+            usuario.roles.exclude(pk__in=roles_reemplazables)
+            .values_list('pk', flat=True)
+        )
+        roles_nuevos = {asignacion['rol'].pk for asignacion in asignaciones}
+        usuario.roles.set(roles_preservados | roles_nuevos)
+
+        actualizado = _queryset_usuario_admin().get(pk=usuario.pk)
+        logger.info(
+            'Asignaciones de usuario %s reemplazadas por %s',
+            usuario.email,
+            request.user.email,
+        )
+        return Response(UsuarioAdminReadSerializer(actualizado).data)
 
 
 def _queryset_rol_admin():

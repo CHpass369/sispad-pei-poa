@@ -1,4 +1,4 @@
-# TASK PIP-CORE-005: API administrativa IAM F3b1/F3b2a
+# TASK PIP-CORE-005: API administrativa IAM F3b1/F3b2a/F3b2b
 
 ## DOMINIO
 
@@ -6,19 +6,19 @@
 
 ## OBJECTIVE
 
-Exponer en API V2 la administración de usuarios (F3b1) y de roles personalizados/capacidades (F3b2a), respetando capacidades, roles base inmutables y límites SIS-PE/SIS-POA.
+Exponer en API V2 la administración de usuarios (F3b1), roles personalizados/capacidades (F3b2a) y asignaciones atómicas de roles/alcances organizacionales (F3b2b), respetando capacidades, roles base inmutables y límites SIS-PE/SIS-POA.
 
 ## CONTEXT
 
-F3a incorporó el ciclo `PENDIENTE/ACTIVO/INACTIVO`, registro público y aprobación. F3b1 completó la administración de datos personales y estado. F3b2a reutiliza `Rol`, `Capacidad`, la autorización administrativa y la derivación efectiva por prefijo para administrar roles personalizados sin habilitar edición del catálogo de capacidades.
+F3a incorporó el ciclo `PENDIENTE/ACTIVO/INACTIVO`, registro público y aprobación. F3b1 completó la administración de datos personales y estado. F3b2a reutiliza `Rol`, `Capacidad`, la autorización administrativa y la derivación efectiva por prefijo para administrar roles personalizados sin habilitar edición del catálogo de capacidades. F3b2b reutiliza esos contratos para reemplazar, en una sola transacción, roles y alcances del dominio administrable del actor.
 
 ## CURRENT BEHAVIOR
 
-F3b1 ya expone usuarios y centraliza límites por sistema en `accounts.services`. La API V2 todavía no expone roles/capacidades; el `RolViewSet` V1 existente es genérico, no aplica las restricciones F3b2a y no debe reutilizarse como contrato administrativo V2.
+F3b1, F3b2a y F3b2b exponen usuarios, roles, capacidades y asignaciones, con límites por sistema centralizados en `accounts.services`. El contrato F3b2b mantiene sincronizados `Usuario.roles` y los `AlcanceOrganizacional` activos, sin permitir reemplazos parciales ni elevación de privilegios por jefaturas.
 
 ## EXPECTED BEHAVIOR
 
-La API V2 permite consultar y actualizar usuarios dentro del dominio del actor y administrar exclusivamente roles personalizados. Los seis roles base permanecen visibles e inmutables. El catálogo de capacidades es de solo lectura, excluye SIS-PRO y deriva el sistema efectivo desde el prefijo del código.
+La API V2 permite consultar y actualizar usuarios dentro del dominio del actor, administrar exclusivamente roles personalizados y reemplazar atómicamente las asignaciones de roles/alcances que el actor puede administrar. Los seis roles base permanecen visibles e inmutables. El catálogo de capacidades es de solo lectura, excluye SIS-PRO y deriva el sistema efectivo desde el prefijo del código.
 
 ## IN SCOPE
 
@@ -32,10 +32,14 @@ La API V2 permite consultar y actualizar usuarios dentro del dominio del actor y
 - [x] Catálogo paginado de capacidades de solo lectura sin SIS-PRO.
 - [x] Límites JEFE_PE/JEFE_POA para visibilidad, creación y asignación.
 - [x] Tests F3b2a de autorización, contrato, validación, inmutabilidad y atomicidad.
+- [x] GET de asignaciones reutilizando la serialización administrativa F3b1.
+- [x] PUT atómico que sincroniza roles y alcances del dominio administrable.
+- [x] Preservación de asignaciones ajenas al sistema de JEFE_PE/JEFE_POA.
+- [x] Scopes fijos de roles base, normalización GLOBAL a raíz y scopes libres para roles personalizados.
+- [x] Tests F3b2b de autorización, dominio, validación, preservación y rollback.
 
 ## OUT OF SCOPE
 
-- Asignación de roles o alcances a usuarios (F3b2b).
 - Creación, edición o desactivación de capacidades.
 - Cambios de modelos, migraciones o frontend.
 - Refactorizaciones ajenas a `accounts`.
@@ -51,6 +55,20 @@ La API V2 permite consultar y actualizar usuarios dentro del dominio del actor y
 - Solo `is_superuser=True` puede crear roles personalizados; `accounts.rol.create` no habilita POST por sí sola.
 - Ningún contrato F3b2a expone o acepta capacidades `sis_pro.*`.
 - La autorización por sistema se deriva del prefijo del código, no del campo legacy `Capacidad.sistema`.
+- F3b2b no modifica `estado`, `activo` ni `is_active`; rechaza usuarios `PENDIENTE`.
+- Cada asignación F3b2b produce un rol directo y un alcance activo ligado al mismo rol.
+- JEFE_PE/JEFE_POA nunca modifican asignaciones del otro sistema, usuarios SUPER_ADMIN ni sus propias asignaciones.
+- Se valida el payload completo antes de mutar y se bloquea el usuario con `select_for_update`.
+
+## F3B2B IMPLEMENTATION PLAN
+
+1. **Dominio:** CORE/accounts; sin cambios de esquema ni dependencias nuevas.
+2. **Servicios:** extender reglas de autoridad por sistema para clasificar roles asignables y limitar objetivos de asignaciones sin ocultar sus asignaciones preservadas del otro sistema.
+3. **Contrato:** agregar serializers estrictos para la lista `assignments`, resolver roles/UO/gestiones en bloque, rechazar duplicados y normalizar GLOBAL a la raíz organizacional.
+4. **Aplicación:** agregar GET/PUT sobre una vista transaccional; bloquear el usuario, validar antes de borrar/crear y reemplazar solo el subconjunto administrable.
+5. **Persistencia:** reutilizar M2M `Usuario.roles` y `AlcanceOrganizacional`; no crear tablas ni migraciones. Los roles directos se recalculan desde todos los alcances activos preservados y nuevos.
+6. **Pruebas:** crear `test_user_assignments_v2.py`; ejecutar regresión de register/user_admin/role_admin, suite completa accounts, Ruff, `makemigrations --check --dry-run` y `git diff --check`.
+7. **Impacto frontend:** ninguno; F4 consumirá el contrato posteriormente.
 
 ## DATABASE IMPACT
 
@@ -67,6 +85,7 @@ Ninguno. Se reutilizan `Usuario`, `Rol`, `Capacidad`, sus M2M existentes y `Alca
 - `GET|PATCH /api/v2/admin/roles/{id}/`
 - `PUT /api/v2/admin/roles/{id}/capabilities/`
 - `GET /api/v2/admin/capabilities/`
+- `GET|PUT /api/v2/admin/users/{id}/assignments/`
 
 ## FRONTEND IMPACT
 
@@ -85,6 +104,11 @@ Ninguno en esta tarea.
 - `backend/apps/accounts/views_admin.py` — endpoints F3b2a y reemplazo transaccional.
 - `backend/apps/accounts/urls_v2.py` — rutas F3b2a.
 - `backend/apps/accounts/tests/test_role_admin_v2.py` — cobertura F3b2a.
+- `backend/apps/accounts/services.py` — autoridad y clasificación F3b2b.
+- `backend/apps/accounts/serializers.py` — payload estricto y validación F3b2b.
+- `backend/apps/accounts/views_admin.py` — lectura y reemplazo transaccional F3b2b.
+- `backend/apps/accounts/urls_v2.py` — ruta F3b2b.
+- `backend/apps/accounts/tests/test_user_assignments_v2.py` — cobertura F3b2b.
 
 ## DEPENDENCIES
 
@@ -109,6 +133,12 @@ F3a, commit `1eaf906`, y F3b1 implementado en esta tarea.
 - [x] La asignación valida todos los códigos activos antes de reemplazar el M2M y es atómica.
 - [x] El catálogo de capacidades filtra por `search`, `system`, `active`, deriva sistema por prefijo y es de solo lectura.
 - [x] Las verificaciones focalizada, regresión de `accounts`, Ruff, migraciones y diff pasan.
+- [x] GET/PUT exigen respectivamente `accounts.alcance.view` y `accounts.alcance.assign`, con 404 fuera del dominio.
+- [x] SUPER_ADMIN reemplaza PE/POA/accounts; cada jefatura reemplaza solo su sistema y preserva el resto.
+- [x] Ninguna jefatura modifica usuarios SUPER_ADMIN, se autoasigna ni asigna roles/capacidades fuera de su autoridad.
+- [x] Los roles base respetan su scope fijo; GLOBAL se normaliza a la raíz y los roles personalizados aceptan los tres scopes.
+- [x] Roles inactivos/deprecated, SIS-PRO, UO/gestión inexistentes, duplicados y usuarios PENDIENTE se rechazan sin mutaciones parciales.
+- [x] PUT no cambia `estado`, `activo` ni `is_active`.
 
 ## TESTS
 
@@ -116,6 +146,7 @@ F3a, commit `1eaf906`, y F3b1 implementado en esta tarea.
 cd backend; /home/chpass369/proyectos/poa/.venv/bin/python -m pytest apps/accounts/tests/test_user_admin_v2.py apps/accounts/tests/test_register.py --tb=short -q -o "addopts="
 cd backend; /home/chpass369/proyectos/poa/.venv/bin/python -m pytest apps/accounts/tests/test_role_admin_v2.py apps/accounts/tests/test_user_admin_v2.py apps/accounts/tests/test_register.py --tb=short -q -o "addopts="
 cd backend; /home/chpass369/proyectos/poa/.venv/bin/python -m pytest apps/accounts/ --tb=short -q -o "addopts="
+cd backend; /home/chpass369/proyectos/poa/.venv/bin/python -m pytest apps/accounts/tests/test_user_assignments_v2.py apps/accounts/tests/test_register.py apps/accounts/tests/test_user_admin_v2.py apps/accounts/tests/test_role_admin_v2.py --tb=short -q -o "addopts="
 cd backend; /home/chpass369/proyectos/poa/.venv/bin/python -m ruff check apps/accounts/ config/urls_v2.py
 cd backend; /home/chpass369/proyectos/poa/.venv/bin/python manage.py makemigrations accounts --check --dry-run
 git diff --check
@@ -123,7 +154,7 @@ git diff --check
 
 ## RISKS
 
-La derivación de sistema depende de prefijos `sis_pe.`/`sis_poa.`/`accounts.`; el campo legacy `sistema` conserva datos históricos y no es autoridad. Sin un campo de propietario o sistema en `Rol`, un rol personalizado vacío o solo `accounts.*` no pertenece a PE ni POA y queda visible para ambas jefaturas; la asignación impide que incorporen capacidades fuera de su autoridad. Resolver propiedad explícita requeriría un cambio de modelo fuera de F3b2a.
+La derivación de sistema depende de prefijos `sis_pe.`/`sis_poa.`/`accounts.`; el campo legacy `sistema` conserva datos históricos y no es autoridad. Sin un campo de propietario o sistema en `Rol`, un rol personalizado vacío o solo `accounts.*` no pertenece a PE ni POA; F3b2b permite asignarlo únicamente a SUPER_ADMIN. Los solapamientos se validan en API y la fila de usuario serializa escrituras concurrentes, pero no existe todavía un constraint de base de datos que impida duplicados creados fuera de este endpoint. Resolver ambas deudas requiere cambios de modelo fuera del alcance sin migraciones de F3b2b.
 
 ## ROLLBACK
 
@@ -141,4 +172,10 @@ Revertir únicamente los bloques F3b2a en los archivos listados y eliminar su te
 - Se agregaron 20 tests y 21 subtests F3b2a. La verificación focalizada pasó con 80 tests y 32 subtests; la suite completa de `accounts` pasó con 118 tests y 32 subtests.
 - Ruff pasó, `makemigrations accounts --check --dry-run` no detectó cambios y `git diff --check` pasó.
 - No hay modelos, migraciones, frontend, commit ni stage. Los cambios ajenos preexistentes del working tree se preservaron.
-- Siguiente recomendado: F3b2b para asignar roles y alcances a usuarios reutilizando estos límites y la derivación efectiva por prefijo.
+- F3b2b agregó `GET|PUT /api/v2/admin/users/{id}/assignments/`, con validación completa previa, transacción y bloqueo `select_for_update` del usuario.
+- Las jefaturas reemplazan únicamente roles de su sistema que están dentro de su autoridad; las asignaciones del otro sistema y roles no administrables permanecen intactos. Usuarios mixtos son accesibles en F3b2b si pertenecen al sistema de la jefatura, sin relajar la visibilidad F3b1.
+- Los seis roles base exigen su scope fijo, GLOBAL almacena la UO raíz, los roles personalizados aceptan SELF/DESCENDANTS/GLOBAL y se rechazan asignaciones duplicadas o con cobertura solapada.
+- Se agregaron 19 tests y 29 subtests F3b2b. La regresión focalizada pasó con 99 tests y 61 subtests; la suite completa de `accounts` pasó con 137 tests y 61 subtests.
+- Ruff pasó sobre `apps/accounts/` y `config/urls_v2.py`; `makemigrations accounts --check --dry-run` no detectó cambios y `git diff --check` pasó.
+- Una corrida focalizada lanzada en paralelo con la suite completa produjo errores internos de fixtures de pytest; ambas verificaciones canónicas se repitieron secuencialmente y pasaron.
+- Siguiente recomendado: F4 frontend del gestor unificado de usuarios, consumiendo el contrato F3b2b sin duplicar reglas de autoridad en Angular.

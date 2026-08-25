@@ -1,5 +1,6 @@
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db.models import Prefetch
 from rest_framework import serializers
 
 from apps.gestion.models import GestionFiscal
@@ -9,7 +10,9 @@ from .models import AlcanceOrganizacional, Capacidad, Usuario, Rol
 from .permissions import listar_capacidades
 from .services import (
     CODIGOS_ROLES_BASE,
+    SCOPES_FIJOS_ROLES_SISTEMA,
     SISTEMAS_CAPACIDADES_ASIGNABLES,
+    puede_administrar_asignacion_rol,
     sistema_efectivo_capacidad,
     sistemas_administrables,
     sistemas_de_rol,
@@ -435,3 +438,163 @@ class AsignacionCapacidadesRolSerializer(
                 )
 
         return [capacidades[codigo] for codigo in codigos]
+
+
+# --- F3b2b: asignaciones atómicas de roles y alcances -----------------------
+
+
+class AsignacionUsuarioItemSerializer(
+    _StrictFieldsSerializerMixin, serializers.Serializer,
+):
+    role_code = serializers.CharField(max_length=50)
+    organizational_unit_id = serializers.UUIDField()
+    scope_type = serializers.ChoiceField(
+        choices=AlcanceOrganizacional.SCOPE_TYPE_CHOICES,
+    )
+    fiscal_year_id = serializers.UUIDField(required=False, allow_null=True)
+
+
+class AsignacionesUsuarioSerializer(
+    _StrictFieldsSerializerMixin, serializers.Serializer,
+):
+    assignments = AsignacionUsuarioItemSerializer(many=True, allow_empty=True)
+
+    @staticmethod
+    def _raiz(unidad):
+        visitadas = set()
+        actual = unidad
+        while actual.padre_id is not None:
+            if actual.pk in visitadas:
+                raise serializers.ValidationError(
+                    'La jerarquía organizacional contiene un ciclo.',
+                )
+            visitadas.add(actual.pk)
+            actual = actual.padre
+        return actual
+
+    @staticmethod
+    def _unidades_efectivas(asignacion):
+        scope_type = asignacion['scope_type']
+        if scope_type == AlcanceOrganizacional.SCOPE_GLOBAL:
+            return None
+        unidad = asignacion['unidad']
+        if scope_type == AlcanceOrganizacional.SCOPE_SELF:
+            return {unidad.pk}
+
+        visitadas = {unidad.pk}
+        frontera = [unidad.pk]
+        while frontera:
+            hijas = set(
+                UnidadOrganizacional.objects.filter(padre_id__in=frontera)
+                .values_list('pk', flat=True)
+            )
+            nuevas = hijas - visitadas
+            if not nuevas:
+                break
+            visitadas.update(nuevas)
+            frontera = list(nuevas)
+        return visitadas
+
+    def validate_assignments(self, assignments):
+        codigos = {item['role_code'] for item in assignments}
+        roles = {
+            rol.codigo: rol
+            for rol in Rol.objects.filter(codigo__in=codigos).prefetch_related(
+                Prefetch(
+                    'capacidades',
+                    queryset=Capacidad.objects.order_by('codigo'),
+                    to_attr='capacidades_admin',
+                ),
+            )
+        }
+        unidades_ids = {
+            item['organizational_unit_id'] for item in assignments
+        }
+        unidades = {
+            unidad.pk: unidad
+            for unidad in UnidadOrganizacional.objects.filter(
+                pk__in=unidades_ids,
+            ).select_related('padre')
+        }
+        gestiones_ids = {
+            item['fiscal_year_id']
+            for item in assignments
+            if item.get('fiscal_year_id') is not None
+        }
+        gestiones = {
+            gestion.pk: gestion
+            for gestion in GestionFiscal.objects.filter(pk__in=gestiones_ids)
+        }
+
+        if codigos - set(roles):
+            raise serializers.ValidationError(
+                'Todos los roles deben existir, estar activos y no deprecated.',
+            )
+        if unidades_ids - set(unidades):
+            raise serializers.ValidationError(
+                'Todas las unidades organizacionales deben existir.',
+            )
+        if gestiones_ids - set(gestiones):
+            raise serializers.ValidationError(
+                'Todas las gestiones fiscales deben existir.',
+            )
+
+        actor = self.context['request'].user
+        normalizadas = []
+        for item in assignments:
+            rol = roles[item['role_code']]
+            if not rol.activo or rol.deprecated:
+                raise serializers.ValidationError(
+                    f"El rol '{rol.codigo}' está inactivo o deprecated.",
+                )
+            if not puede_administrar_asignacion_rol(actor, rol):
+                raise serializers.ValidationError(
+                    f"No puede asignar el rol '{rol.codigo}' ni sus capacidades.",
+                )
+
+            scope_type = item['scope_type']
+            if rol.es_sistema:
+                scope_fijo = SCOPES_FIJOS_ROLES_SISTEMA.get(rol.codigo)
+                if scope_fijo is None:
+                    raise serializers.ValidationError(
+                        f"El rol de sistema '{rol.codigo}' no tiene scope definido.",
+                    )
+                if scope_type != scope_fijo:
+                    raise serializers.ValidationError(
+                        f"El rol '{rol.codigo}' exige scope '{scope_fijo}'.",
+                    )
+
+            unidad = unidades[item['organizational_unit_id']]
+            fiscal_year_id = item.get('fiscal_year_id')
+            gestion = gestiones.get(fiscal_year_id)
+            if gestion is not None and unidad.gestion_id != gestion.pk:
+                raise serializers.ValidationError(
+                    'La unidad organizacional no pertenece a la gestión fiscal.',
+                )
+            if scope_type == AlcanceOrganizacional.SCOPE_GLOBAL:
+                unidad = self._raiz(unidad)
+
+            normalizadas.append({
+                'rol': rol,
+                'unidad': unidad,
+                'scope_type': scope_type,
+                'fiscal_year': gestion,
+            })
+
+        por_rol_gestion = {}
+        for asignacion in normalizadas:
+            clave = (
+                asignacion['rol'].pk,
+                getattr(asignacion['fiscal_year'], 'pk', None),
+            )
+            efectivas = self._unidades_efectivas(asignacion)
+            anteriores = por_rol_gestion.setdefault(clave, [])
+            for previas in anteriores:
+                if efectivas is None or previas is None or efectivas & previas:
+                    raise serializers.ValidationError(
+                        'No se permiten asignaciones duplicadas o solapadas '
+                        'para el mismo rol y gestión.',
+                    )
+            anteriores.append(efectivas)
+
+        return normalizadas
