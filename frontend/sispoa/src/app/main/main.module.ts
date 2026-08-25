@@ -4,9 +4,8 @@ import { RouterModule, Routes } from '@angular/router';
 import { LayoutComponent } from '../layout/layout.component';
 import { LayoutModule } from '../layout/layout.module';
 import { AuthGuard } from '../core/guards/auth.guard';
-import { ModuloPendienteComponent } from '../features/sistemas/modulo-pendiente.component';
 
-const routes: Routes = [
+export const MAIN_ROUTES: Routes = [
   { path: '', redirectTo: 'sistemas', pathMatch: 'full' },
   {
     path: 'sistemas',
@@ -21,7 +20,6 @@ const routes: Routes = [
       { path: 'dashboard', loadChildren: () => import('../features/dashboard/dashboard.module').then(m => m.DashboardModule) },
       { path: 'sis-pe', loadChildren: () => import('../features/sis-pe/sis-pe.module').then(m => m.SisPeModule) },
       { path: 'sis-poa', loadChildren: () => import('../features/sis-poa/sis-poa.module').then(m => m.SisPoaModule) },
-      { path: 'sis-pro', loadChildren: () => import('../features/sis-pro/sis-pro.module').then(m => m.SisProModule) },
       { path: 'gestion', loadChildren: () => import('../features/gestion/gestion.module').then(m => m.GestionModule) },
       { path: 'organizacion', loadChildren: () => import('../features/organizacion/organizacion.module').then(m => m.OrganizacionModule) },
       { path: 'catalogos', loadChildren: () => import('../features/catalogos/catalogos.module').then(m => m.CatalogosModule) },
@@ -29,17 +27,6 @@ const routes: Routes = [
       { path: 'indicadores', loadChildren: () => import('../features/indicadores/indicadores.module').then(m => m.IndicadoresModule) },
       { path: 'presupuesto', loadChildren: () => import('../features/presupuesto/presupuesto.module').then(m => m.PresupuestoModule) },
       { path: 'techos', loadChildren: () => import('../features/techos/techos.module').then(m => m.TechosModule) },
-      // SIS-PRO en depuración: la cartera legacy se retiró junto con su
-      // backend. La ruta sobrevive como placeholder para no romper enlaces.
-      {
-        path: 'inversion',
-        component: ModuloPendienteComponent,
-        data: {
-          modulo: 'Proyectos de Inversión',
-          sistema: 'SIS-PRO',
-          volver: '/sistemas',
-        },
-      },
       { path: 'territorio', loadChildren: () => import('../features/territorio/territorio.module').then(m => m.TerritorioModule) },
       { path: 'workflow', loadChildren: () => import('../features/workflow/workflow.module').then(m => m.WorkflowModule) },
       { path: 'reportes', loadChildren: () => import('../features/reportes/reportes.module').then(m => m.ReportesModule) },
@@ -60,6 +47,6 @@ const routes: Routes = [
 ];
 
 @NgModule({
-  imports: [CommonModule, LayoutModule, RouterModule.forChild(routes)],
+  imports: [CommonModule, LayoutModule, RouterModule.forChild(MAIN_ROUTES)],
 })
 export class MainModule {}

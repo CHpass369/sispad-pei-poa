@@ -138,7 +138,7 @@ export class BreadcrumbsComponent implements OnInit, OnDestroy {
       'matrices-pad': 'PAD',
       'poau': 'POAU',
       'auditoria': 'Auditoría',
-      'admin-usuarios': 'Administración de Usuarios',
+      'admin-usuarios': 'Usuarios y permisos',
       'seguimiento': 'Seguimiento',
       'modificaciones': 'Modificaciones',
       'consolidacion': 'Consolidación',

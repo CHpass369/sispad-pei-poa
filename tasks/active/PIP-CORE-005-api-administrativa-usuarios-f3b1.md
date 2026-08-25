@@ -1,4 +1,4 @@
-# TASK PIP-CORE-005: IAM F3b1/F3b2a/F3b2b/F4a/F4b1/F4b2/F4c1/F4c2
+# TASK PIP-CORE-005: IAM F3b1/F3b2a/F3b2b/F4a/F4b1/F4b2/F4c1/F4c2/F5
 
 ## DOMINIO
 
@@ -6,7 +6,7 @@
 
 ## OBJECTIVE
 
-Exponer en API V2 la administración de usuarios (F3b1), roles personalizados/capacidades (F3b2a), asignaciones atómicas de roles/alcances organizacionales (F3b2b) y completar el gestor Angular hasta la aprobación de Solicitudes F4c2, respetando capacidades, roles base inmutables y límites SIS-PE/SIS-POA.
+Exponer en API V2 la administración de usuarios (F3b1), roles personalizados/capacidades (F3b2a), asignaciones atómicas de roles/alcances organizacionales (F3b2b), completar el gestor Angular hasta la aprobación de Solicitudes F4c2 y cerrar F5 con navegación derivada exclusivamente de capacidades, respetando roles base inmutables y límites SIS-PE/SIS-POA.
 
 ## CONTEXT
 
@@ -14,11 +14,11 @@ F3a incorporó el ciclo `PENDIENTE/ACTIVO/INACTIVO`, registro público y aprobac
 
 ## CURRENT BEHAVIOR
 
-F3b1, F3b2a y F3b2b exponen usuarios, roles, capacidades y asignaciones con límites centralizados en `accounts.services`. F4a ofrece registro público; F4b1/F4b2 implementan listado, detalle, edición personal y asignaciones. F4c1 activa Roles y Permisos. F4c2 completa Solicitudes con bandeja PENDIENTE, aprobación controlada y refresco coordinado del listado de usuarios.
+F3b1, F3b2a y F3b2b exponen usuarios, roles, capacidades y asignaciones con límites centralizados en `accounts.services`. F4a ofrece registro público; F4b1/F4b2 implementan listado, detalle, edición personal y asignaciones. F4c1 activa Roles y Permisos. F4c2 completa Solicitudes con bandeja PENDIENTE, aprobación controlada y refresco coordinado del listado de usuarios. F5 elimina las decisiones por rol del sidebar, limita TRANSVERSAL al gestor IAM y retira la ruta y el chunk lazy de SIS-PRO sin borrar su código fuente.
 
 ## EXPECTED BEHAVIOR
 
-La API V2 permite consultar y actualizar usuarios, administrar exclusivamente roles personalizados y reemplazar atómicamente asignaciones/capacidades dentro de la autoridad del actor. Los seis roles base permanecen visibles e inmutables. El catálogo de capacidades es read-only y excluye SIS-PRO. La única entrada Angular `admin-usuarios` ofrece Usuarios, Roles, Permisos y Solicitudes funcionales con visibilidad por capacidad y autoridad final en backend.
+La API V2 permite consultar y actualizar usuarios, administrar exclusivamente roles personalizados y reemplazar atómicamente asignaciones/capacidades dentro de la autoridad del actor. Los seis roles base permanecen visibles e inmutables. El catálogo de capacidades es read-only y excluye SIS-PRO. La única entrada Angular `admin-usuarios` ofrece Usuarios, Roles, Permisos y Solicitudes funcionales con visibilidad por capacidad y autoridad final en backend. El sidebar muestra módulos SIS-PE/SIS-POA autorizados por capacidades efectivas; TRANSVERSAL contiene solo “Usuarios y permisos” y SIS-PRO deja de formar parte del routing y grafo lazy de la aplicación actual.
 
 ## IN SCOPE
 
@@ -69,12 +69,20 @@ La API V2 permite consultar y actualizar usuarios, administrar exclusivamente ro
 - [x] POST de aprobación estricto desde Angular y refresco coordinado de Solicitudes/Usuarios.
 - [x] Autoridad visual por `accounts.solicitud.view/approve` y error 400/403 sin pérdida de selección.
 - [x] Tests F4c2 de contratos, tabla, capacidades, derivación y aprobación.
+- [x] Sidebar sin campos, filtros ni nombres de rol hardcodeados.
+- [x] SIS-PE y SIS-POA visibles por capacidades efectivas y con módulos filtrados por capacidad.
+- [x] TRANSVERSAL limitado a la única entrada “Usuarios y permisos”.
+- [x] Matriz de sidebar cubierta para FORMULADOR_POAU, JEFE_PE, JEFE_POA y SUPER_ADMIN.
+- [x] Ruta/import lazy y navegación de SIS-PRO retirados sin borrar su código fuente.
+- [x] Breadcrumb de `admin-usuarios` actualizado a “Usuarios y permisos”.
+- [x] Tests focalizados F5, typechecks, build sin chunk SIS-PRO y checks de whitespace.
 
 ## OUT OF SCOPE
 
 - Creación, edición o desactivación de capacidades.
 - Cambios de modelos o migraciones.
-- Sidebar nuevo o rediseño de navegación (F5).
+- Creación de un sidebar alternativo o rediseño visual de navegación.
+- Eliminación física del código fuente de SIS-PRO.
 - Refactorizaciones ajenas a `accounts`.
 
 ## INVARIANTS
@@ -176,6 +184,19 @@ La API V2 permite consultar y actualizar usuarios, administrar exclusivamente ro
 10. **Pruebas:** cubrir URLs/paginación, solo PENDIENTE, UO preseleccionada, sistema único/multi, scope fijo/custom, payload exacto, 400/403 sin pérdida, éxito y capacidades de tab/acción.
 11. **Verificación:** pytest/ruff/migraciones por la corrección backend, Karma focalizado F4c2+regresión admin, build production, typecheck app/specs y whitespace check tracked/untracked; lint solo si existe target.
 
+## F5 IMPLEMENTATION PLAN
+
+1. **Dominio y alcance:** CORE/frontend para navegación transversal, con lectura de capacidades SIS-PE/SIS-POA; sin backend, modelos, migraciones, endpoints ni cambios de datos.
+2. **Reutilización:** usar `CapabilitiesService`, `CapabilityGuard` y el sidebar existentes; declarar en el propio sidebar los grupos de capacidades necesarios para no ampliar el alcance de archivos del F5 cancelado.
+3. **Sidebar:** eliminar `NavItem.roles`, `PermissionsService`, constantes de roles y `hasAnyRole`; cada entrada de sistema y `admin-usuarios` se filtra por al menos una capacidad declarada.
+4. **Perfiles esperados:** `FORMULADOR_POAU` ve únicamente herramientas POAU dentro de SIS-POA; JEFE_PE ve únicamente SIS-PE más “Usuarios y permisos” cuando posee capacidad accounts; JEFE_POA ve SIS-POA completo; capacidades completas ven SIS-PE, SIS-POA y Usuarios, nunca SIS-PRO.
+5. **TRANSVERSAL:** conservar exactamente una entrada a `/admin-usuarios`, visible por cualquiera de `accounts.usuario.view`, `accounts.rol.view`, `accounts.capacidad.view` o `accounts.solicitud.view`.
+6. **Routing:** retirar SIS-PRO del contexto del sidebar y de `MainModule`; no modificar ni borrar `features/sis-pro/` y no convertir ocultamiento de menú en autorización.
+7. **Código retirado:** no borrar `features/sis-pro/`; comprobar mediante build production que ya no se emite el chunk `features-sis-pro-sis-pro-module`.
+8. **Presentación:** cambiar el breadcrumb de `admin-usuarios` a “Usuarios y permisos”; no modificar estilos ni identidad visual.
+9. **Pruebas:** reemplazar specs por rol/SIS-PRO con escenarios de capacidades, cubrir la matriz de cuatro perfiles, contrato de routing sin SIS-PRO y regresión de administración/autenticación.
+10. **Verificación:** Karma focalizado sidebar/routing/sistemas/admin/auth, typecheck app/specs, build production, búsqueda del chunk SIS-PRO y whitespace check tracked/untracked; lint se reporta no configurado porque `angular.json` no define target.
+
 ## DATABASE IMPACT
 
 Ninguno. Se reutilizan `Usuario`, `Rol`, `Capacidad`, sus M2M existentes y `AlcanceOrganizacional`; no hay migraciones esperadas.
@@ -197,7 +218,7 @@ Ninguno. Se reutilizan `Usuario`, `Rol`, `Capacidad`, sus M2M existentes y `Alca
 
 ## FRONTEND IMPACT
 
-F4a agrega registro público; F4b1/F4b2 completan listado y edición de usuarios; F4c1 activa Roles y Permisos. F4c2 reemplaza el último placeholder por la bandeja de Solicitudes y aprobación sobre contratos V2 existentes. F5 permanece fuera de alcance.
+F4a agrega registro público; F4b1/F4b2 completan listado y edición de usuarios; F4c1 activa Roles y Permisos. F4c2 reemplaza el último placeholder por la bandeja de Solicitudes y aprobación sobre contratos V2 existentes. F5 integra esa entrada única en una navegación por capacidades y retira la ruta y carga lazy de SIS-PRO.
 
 ## FILES EXPECTED
 
@@ -249,6 +270,9 @@ F4a agrega registro público; F4b1/F4b2 completan listado y edición de usuarios
 - `frontend/sispoa/src/app/features/admin-usuarios/admin-role-scope.ts` — mapa compartido de scopes normativos.
 - `frontend/sispoa/src/app/features/admin-usuarios/requests-admin-tab.component.{ts,html,scss,spec.ts}` — bandeja PENDIENTE F4c2.
 - `frontend/sispoa/src/app/features/admin-usuarios/request-approval-dialog.component.{ts,html,scss,spec.ts}` — aprobación con catálogos reales.
+- `frontend/sispoa/src/app/layout/sidebar/sidebar.component.{ts,spec.ts}` — menú exclusivamente por capacidades.
+- `frontend/sispoa/src/app/main/main.module.{ts,spec.ts}` — grafo lazy sin SIS-PRO.
+- `frontend/sispoa/src/app/core/components/breadcrumbs/breadcrumbs.component.{ts,spec.ts}` — etiqueta unificada del gestor IAM.
 
 ## DEPENDENCIES
 
@@ -323,6 +347,13 @@ F3a, commit `1eaf906`, y F3b1 implementado en esta tarea.
 - [x] Backend bloquea roles fuera de autoridad con 403 y aplica `SCOPES_FIJOS_ROLES_SISTEMA` incluso ante POST directo.
 - [x] Tab y acción respetan respectivamente `accounts.solicitud.view` y `accounts.solicitud.approve`.
 - [x] Verificación F4c2: 45 tests backend y 64 tests Karma pasan; Ruff, migraciones, typecheck app/specs, build y whitespace check pasan.
+- [x] El sidebar no contiene `roles`, `hasAnyRole` ni `PermissionsService`; cada módulo contextual se decide con `CapabilitiesService.tieneAlguna`.
+- [x] TRANSVERSAL desaparece sin capacidades administrativas y contiene exactamente “Usuarios y permisos” con cualquiera de sus cuatro capacidades `view`.
+- [x] `FORMULADOR_POAU` ve únicamente la entrada canónica POAU; JEFE_PE y JEFE_POA reciben sus módulos por capacidades de dominio.
+- [x] La matriz focalizada demuestra FORMULADOR_POAU solo con POAU, JEFE_PE solo con SIS-PE más Usuarios, JEFE_POA con SIS-POA completo más Usuarios y SUPER_ADMIN con PE/POA/Usuarios, nunca SIS-PRO.
+- [x] `MainModule` no registra `sis-pro` ni `inversion`; el build production no contiene chunk, módulo ni archivo SIS-PRO.
+- [x] El breadcrumb de `/admin-usuarios` usa “Usuarios y permisos”.
+- [x] Verificación F5: 43 tests Karma focalizados pasan; typecheck app/specs, build production y whitespace checks pasan.
 
 ## TESTS
 
@@ -347,15 +378,20 @@ cd backend; /home/chpass369/proyectos/poa/.venv/bin/python -m pytest -n 0 apps/a
 cd frontend/sispoa; CHROME_BIN=/snap/bin/chromium npm test -- --watch=false --browsers=ChromeHeadlessNoSandbox --include='src/app/features/admin-usuarios/admin-usuarios.service.spec.ts' --include='src/app/features/admin-usuarios/usuarios-lista.component.spec.ts' --include='src/app/features/admin-usuarios/usuario-edicion-dialog.component.spec.ts' --include='src/app/features/admin-usuarios/admin-usuarios-routing.module.spec.ts' --include='src/app/features/admin-usuarios/roles-admin-tab.component.spec.ts' --include='src/app/features/admin-usuarios/role-form-dialog.component.spec.ts' --include='src/app/features/admin-usuarios/role-capabilities-dialog.component.spec.ts' --include='src/app/features/admin-usuarios/permissions-admin-tab.component.spec.ts'
 cd backend; /home/chpass369/proyectos/poa/.venv/bin/python -m pytest -n 0 apps/accounts/tests/test_register.py
 cd frontend/sispoa; CHROME_BIN=/snap/bin/chromium npm test -- --watch=false --browsers=ChromeHeadlessNoSandbox --include='src/app/features/admin-usuarios/admin-usuarios.service.spec.ts' --include='src/app/features/admin-usuarios/usuarios-lista.component.spec.ts' --include='src/app/features/admin-usuarios/usuario-edicion-dialog.component.spec.ts' --include='src/app/features/admin-usuarios/admin-usuarios-routing.module.spec.ts' --include='src/app/features/admin-usuarios/roles-admin-tab.component.spec.ts' --include='src/app/features/admin-usuarios/role-form-dialog.component.spec.ts' --include='src/app/features/admin-usuarios/role-capabilities-dialog.component.spec.ts' --include='src/app/features/admin-usuarios/permissions-admin-tab.component.spec.ts' --include='src/app/features/admin-usuarios/requests-admin-tab.component.spec.ts' --include='src/app/features/admin-usuarios/request-approval-dialog.component.spec.ts'
+cd frontend/sispoa; CHROME_BIN=/snap/bin/chromium npm test -- --watch=false --browsers=ChromeHeadlessNoSandbox --include='src/app/layout/sidebar/sidebar.component.spec.ts' --include='src/app/main/main.module.spec.ts' --include='src/app/core/components/breadcrumbs/breadcrumbs.component.spec.ts' --include='src/app/features/admin-usuarios/admin-usuarios-routing.module.spec.ts' --include='src/app/core/guards/capability.guard.spec.ts' --include='src/app/core/services/auth.service.spec.ts'
+cd frontend/sispoa; npx tsc -p tsconfig.app.json --noEmit
+cd frontend/sispoa; npx tsc -p tsconfig.spec.json --noEmit
+cd frontend/sispoa; npm run build -- --configuration production
+cd frontend/sispoa; npm run lint  # target no configurado; se reporta N/A
 ```
 
 ## RISKS
 
-La derivación de sistema depende de prefijos `sis_pe.`/`sis_poa.`/`accounts.`; el campo legacy `sistema` conserva datos históricos y no es autoridad. Sin un campo de propietario o sistema en `Rol`, un rol personalizado vacío o solo `accounts.*` no pertenece a PE ni POA; F3b2b permite asignarlo únicamente a SUPER_ADMIN. Los solapamientos se validan en API y la fila de usuario serializa escrituras concurrentes, pero no existe todavía un constraint de base de datos que impida duplicados creados fuera de este endpoint. Resolver ambas deudas requiere cambios de modelo fuera del alcance. El catálogo público de UO permite enumerar nombres institucionales y devuelve la colección completa. `listRoles` exige `accounts.rol.view`; un actor con `accounts.solicitud.approve` sin esa capacidad verá un error de catálogo, porque F4c2 no inventa una fuente paralela de roles. En F4c1, la visibilidad del alta depende de `accounts.rol.create`, pero solo `is_superuser=True` puede completar el POST. En F4c2, la autoridad de aprobación se endureció para reutilizar la regla cerrada F3b2b: actores que no sean SUPER_ADMIN/JEFE_PE/JEFE_POA pueden recibir 403 aun si una asignación manual les otorgó `accounts.solicitud.approve`; esta restricción evita elevación de rol. La gestión fiscal usa el candado ADR-007 solo para SIS-POA y envía `null` para SIS-PE o cuando no hay gestión habilitada. El chunk lazy de administración quedó en 362.72 kB; F5 debe evitar seguir concentrando UI no relacionada en este módulo.
+La derivación de sistema depende de prefijos `sis_pe.`/`sis_poa.`/`accounts.`; el campo legacy `sistema` conserva datos históricos y no es autoridad. Sin un campo de propietario o sistema en `Rol`, un rol personalizado vacío o solo `accounts.*` no pertenece a PE ni POA; F3b2b permite asignarlo únicamente a SUPER_ADMIN. Los solapamientos se validan en API y la fila de usuario serializa escrituras concurrentes, pero no existe todavía un constraint de base de datos que impida duplicados creados fuera de este endpoint. Resolver ambas deudas requiere cambios de modelo fuera del alcance. El catálogo público de UO permite enumerar nombres institucionales y devuelve la colección completa. `listRoles` exige `accounts.rol.view`; un actor con `accounts.solicitud.approve` sin esa capacidad verá un error de catálogo, porque F4c2 no inventa una fuente paralela de roles. En F4c1, la visibilidad del alta depende de `accounts.rol.create`, pero solo `is_superuser=True` puede completar el POST. En F4c2, la autoridad de aprobación se endureció para reutilizar la regla cerrada F3b2b: actores que no sean SUPER_ADMIN/JEFE_PE/JEFE_POA pueden recibir 403 aun si una asignación manual les otorgó `accounts.solicitud.approve`; esta restricción evita elevación de rol. La gestión fiscal usa el candado ADR-007 solo para SIS-POA y envía `null` para SIS-PE o cuando no hay gestión habilitada. El chunk lazy de administración quedó en 362.72 kB. F5 no convierte el sidebar en autoridad: los módulos conservan sus contratos de routing y el backend sigue siendo el límite final.
 
 ## ROLLBACK
 
-Para revertir F4c2, restaurar el placeholder de Solicitudes, retirar sus dos componentes y el helper compartido de scope, devolver el mapa a `usuario-edicion-dialog`, revertir DTOs/métodos F4c2 y retirar del endpoint de aprobación los dos guards canónicos agregados. No hay migraciones ni endpoints nuevos que deshacer.
+Para revertir F4c2, restaurar el placeholder de Solicitudes, retirar sus dos componentes y el helper compartido de scope, devolver el mapa a `usuario-edicion-dialog`, revertir DTOs/métodos F4c2 y retirar del endpoint de aprobación los dos guards canónicos agregados. Para revertir F5, restaurar la configuración anterior de sidebar/MainModule, retirar los specs F5 y devolver la etiqueta del breadcrumb; no hay migraciones, endpoints ni código fuente SIS-PRO eliminado que deshacer.
 
 ## FINAL REPORT
 
@@ -415,3 +451,8 @@ Para revertir F4c2, restaurar el placeholder de Solicitudes, retirar sus dos com
 - Verificación frontend F4c2: 64 tests Karma pasaron en Chrome Headless 151; typecheck app/specs pasó; build production pasó con hash `545ef7940f17be47` y chunk lazy admin de `362.72 kB`.
 - Whitespace check tracked/untracked pasó. Lint no se ejecutó porque `angular.json` no define target `lint`.
 - No hubo migraciones, endpoints nuevos, sidebar/F5, stage ni commit. Siguiente: F5 con control explícito del tamaño del módulo admin.
+- F5 agrupó capacidades SIS-PE, SIS-POA y accounts dentro del sidebar; ya no depende de roles visibles ni de `PermissionsService`.
+- TRANSVERSAL contiene una sola entrada “Usuarios y permisos” y la matriz focalizada cubre FORMULADOR_POAU, JEFE_PE, JEFE_POA y SUPER_ADMIN.
+- SIS-PRO fue retirado del contexto del sidebar y de `MainModule`; su código fuente permanece intacto y el build hash `3f295caf83d80041` no emite el chunk `features-sis-pro-sis-pro-module`.
+- Verificación F5: 43 tests Karma focalizados pasan; typecheck app/specs y build production pasan; lint continúa N/A porque no existe target; whitespace tracked/untracked pasa.
+- No hubo backend, migraciones, endpoints, stage, commit ni borrado del feature SIS-PRO. Los cambios ajenos preexistentes se preservaron.

@@ -2,7 +2,6 @@ import { Component, EventEmitter, Output, ChangeDetectionStrategy, ChangeDetecto
 import { NavigationEnd, Router } from '@angular/router';
 import { Subject, filter, takeUntil } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
-import { PermissionsService } from '../../core/services/permissions.service';
 import { CapabilitiesService } from '../../core/services/capabilities.service';
 import { GestionHabilitadaService } from '../../core/services/gestion-habilitada.service';
 import { LEGACY_MENU_VISIBLE } from '../../core/config/cutover.config';
@@ -11,7 +10,6 @@ interface NavItem {
   route: string;
   label: string;
   icon: string;
-  roles?: string[];
   capacidades?: string[];
   /** Módulo sin UI propia todavía: la ruta resuelve a un placeholder. */
   pendiente?: boolean;
@@ -48,23 +46,88 @@ const RUTAS_POR_SISTEMA: Record<string, string> = {
   '/seguimiento': 'sis-poa',
   '/modificaciones': 'sis-poa',
   '/consolidacion': 'sis-poa',
-  // SIS-PRO
-  '/inversion': 'sis-pro',
 };
 
-/** Perfiles de acceso del menú SIS-POA.
- *  El superusuario (`is_superuser`) atraviesa todos los filtros en
- *  PermissionsService, por lo que no necesita figurar en estas listas. */
-const ROLES_ADMIN = ['superadmin', 'tecnico_admin'];
-const ROLES_POA = ['jefe_poa', 'tecnico_poa'];
-const ROLES_PE = ['jefe_pe', 'tecnico_pe'];
+const ADMIN_USUARIOS_CAPABILITIES = [
+  'accounts.usuario.view',
+  'accounts.rol.view',
+  'accounts.capacidad.view',
+  'accounts.solicitud.view',
+];
 
-/** Solo la jefatura de POA (más administración). */
-const SOLO_JEFE_POA = ['jefe_poa', ...ROLES_ADMIN];
-/** Jefatura y técnicos de POA (más administración). */
-const EQUIPO_POA = [...ROLES_POA, ...ROLES_ADMIN];
-/** Equipos de POA y de PE (más administración). */
-const EQUIPO_POA_PE = [...ROLES_POA, ...ROLES_PE, ...ROLES_ADMIN];
+const SIS_PE_INSTRUMENTOS_CAPABILITIES = [
+  'sis_pe.instrumento.read',
+  'sis_pe.instrumento.create',
+  'sis_pe.approve',
+];
+const SIS_PE_PAD_CAPABILITIES = ['sis_pe.pad.view', 'sis_pe.pad.edit', 'sis_pe.pad.validate'];
+const SIS_PE_PEI_CAPABILITIES = ['sis_pe.pei.view', 'sis_pe.pei.edit'];
+const SIS_PE_ARTICULACION_CAPABILITIES = [
+  'sis_pe.articulacion.view',
+  'sis_pe.articulacion.edit',
+  'sis_pe.articulacion.manage',
+];
+const SIS_PE_INDICADORES_CAPABILITIES = [
+  'sis_pe.indicadores.view',
+  'sis_pe.indicadores.edit',
+  'sis_pe.indicadores.read',
+  'sis_pe.indicadores.measure',
+];
+const SIS_PE_EVALUACION_CAPABILITIES = [
+  'sis_pe.evaluacion.view',
+  'sis_pe.evaluacion.edit',
+  'sis_pe.approve',
+];
+const SIS_PE_ACCESS_CAPABILITIES = [
+  ...SIS_PE_INSTRUMENTOS_CAPABILITIES,
+  ...SIS_PE_PAD_CAPABILITIES,
+  ...SIS_PE_PEI_CAPABILITIES,
+  ...SIS_PE_ARTICULACION_CAPABILITIES,
+  ...SIS_PE_INDICADORES_CAPABILITIES,
+  ...SIS_PE_EVALUACION_CAPABILITIES,
+];
+
+const SIS_POA_POAU_CAPABILITIES = [
+  'sis_poa.poau.view',
+  'sis_poa.poau.create',
+  'sis_poa.poau.edit',
+  'sis_poa.poau.submit',
+  'sis_poa.poau.review',
+  'sis_poa.poau.approve',
+];
+const SIS_POA_POA_CAPABILITIES = [
+  'sis_poa.poa.view',
+  'sis_poa.poa.edit',
+  'sis_poa.formulate',
+  'sis_poa.approve',
+];
+const SIS_POA_TECHOS_CAPABILITIES = [
+  'sis_poa.techos.view',
+  'sis_poa.techos.edit',
+  'sis_poa.budget.manage',
+  'sis_poa.budget.validate',
+  'sis_poa.budget.approve',
+  'sis_poa.budget.reopen',
+  'sis_poa.budget.audit_read',
+];
+const SIS_POA_DISTRIBUCIONES_CAPABILITIES = [
+  'sis_poa.distribuciones.view',
+  'sis_poa.distribuciones.edit',
+  'sis_poa.budget.manage',
+  'sis_poa.budget.import',
+  'sis_poa.budget.reform',
+];
+const SIS_POA_PROGRAMACION_CAPABILITIES = [
+  'sis_poa.programacion.view',
+  'sis_poa.programacion.edit',
+  'sis_poa.formulate',
+];
+const SIS_POA_SEGUIMIENTO_CAPABILITIES = [
+  'sis_poa.seguimiento.view',
+  'sis_poa.seguimiento.edit',
+  'sis_poa.seguimiento.manage',
+  'sis_poa.reportes.view',
+];
 
 @Component({
   standalone: false,
@@ -91,11 +154,11 @@ const EQUIPO_POA_PE = [...ROLES_POA, ...ROLES_PE, ...ROLES_ADMIN];
         </button>
       </div>
       <nav class="nav">
-        @for (section of visibleSections; track section) {
+        @for (section of visibleSections; track section.title) {
           @if (!collapsed) {
             <div class="nav-label">{{ section.title }}</div>
           }
-          @for (item of section.items; track item) {
+          @for (item of section.items; track item.route) {
             <a
               [routerLink]="item.route"
               routerLinkActive="active"
@@ -242,77 +305,48 @@ export class SidebarComponent implements OnInit, OnDestroy {
   private sistemaActual = '';
 
   /** Módulos del sistema activo según el plan maestro (§18.1).
-   *  V2 = capacidades · V1 = roles (legacy insertado en su SIS). */
+   *  Tanto V2 como los módulos legacy se filtran por capacidades efectivas. */
   private sistemasMenu: Record<string, NavSection> = {
     'sis-pe': {
       title: 'SIS-PE — Planificación Estratégica',
       items: [
-        { route: '/sis-pe/dashboard', label: 'Dashboard PE', icon: 'gauge', capacidades: ['sis_pe.instrumento.read'], beta: true },
-        { route: '/sis-pe/instrumentos', label: 'Instrumentos', icon: 'file-text', capacidades: ['sis_pe.instrumento.read'], beta: true },
-        { route: '/sis-pe/diagnostico', label: 'Diagnóstico Integral', icon: 'clipboard-list', capacidades: ['sis_pe.instrumento.read'], pendiente: true },
-        { route: '/matrices-pad', label: 'PAD', icon: 'layout-grid', capacidades: ['sis_pe.instrumento.read'], legacy: true },
-        { route: '/sis-pe/pei', label: 'PEI', icon: 'compass', capacidades: ['sis_pe.instrumento.read'], legacy: true },
-        { route: '/indicadores', label: 'Indicadores', icon: 'chart-column', roles: ['superadmin', 'tecnico_admin', 'planificador'], legacy: true },
-        { route: '/territorio', label: 'Territorialización de Acciones', icon: 'map-pin', roles: ['superadmin', 'tecnico_admin'], legacy: true },
-        { route: '/sis-pe/seguimiento-evaluacion', label: 'Seguimiento y Evaluación', icon: 'activity', capacidades: ['sis_pe.instrumento.read'], pendiente: true },
+        { route: '/sis-pe/dashboard', label: 'Dashboard PE', icon: 'gauge', capacidades: SIS_PE_ACCESS_CAPABILITIES, beta: true },
+        { route: '/sis-pe/instrumentos', label: 'Instrumentos', icon: 'file-text', capacidades: SIS_PE_INSTRUMENTOS_CAPABILITIES, beta: true },
+        { route: '/sis-pe/diagnostico', label: 'Diagnóstico Integral', icon: 'clipboard-list', capacidades: SIS_PE_INSTRUMENTOS_CAPABILITIES, pendiente: true },
+        { route: '/matrices-pad', label: 'PAD', icon: 'layout-grid', capacidades: SIS_PE_PAD_CAPABILITIES, legacy: true },
+        { route: '/sis-pe/pei', label: 'PEI', icon: 'compass', capacidades: SIS_PE_PEI_CAPABILITIES, legacy: true },
+        { route: '/indicadores', label: 'Indicadores', icon: 'chart-column', capacidades: SIS_PE_INDICADORES_CAPABILITIES, legacy: true },
+        { route: '/territorio', label: 'Territorialización de Acciones', icon: 'map-pin', capacidades: SIS_PE_ARTICULACION_CAPABILITIES, legacy: true },
+        { route: '/sis-pe/seguimiento-evaluacion', label: 'Seguimiento y Evaluación', icon: 'activity', capacidades: SIS_PE_EVALUACION_CAPABILITIES, pendiente: true },
       ],
     },
     'sis-poa': {
       title: 'SIS-POA — Planificación Operativa',
       items: [
-        { route: '/sis-poa/dashboard', label: 'Dashboard POA', icon: 'gauge', capacidades: ['sis_poa.formulate'], beta: true },
-        { route: '/sis-poa/budget/gestion-fiscal', label: 'Habilitación de Gestión', icon: 'calendar-check', roles: SOLO_JEFE_POA, v1: true },
-        { route: '/sis-poa/presupuesto-recursos', label: 'Presupuesto General de Recursos', icon: 'banknote', roles: EQUIPO_POA, v1: true },
-        { route: '/sis-poa/presupuesto-gastos', label: 'Presupuesto General de Gastos', icon: 'wallet', roles: EQUIPO_POA, v1: true },
-        { route: '/priorizacion/actas', label: 'Priorización POA', icon: 'clipboard-list', roles: EQUIPO_POA, v1: true },
-        { route: '/sis-poa/poas', label: 'POA', icon: 'calendar-days', roles: EQUIPO_POA_PE, legacy: true },
-        { route: '/sis-poa/poaus', label: 'POAUs', icon: 'list-tree', roles: EQUIPO_POA_PE, v1: true },
-        { route: '/poau', label: 'POAU (Físico)', icon: 'list-todo', roles: EQUIPO_POA_PE, legacy: true },
-        { route: '/poau_recursos', label: 'POAU (Recursos)', icon: 'boxes', roles: EQUIPO_POA_PE, legacy: true },
-        { route: '/sis-poa/seguimiento', label: 'Seguimiento y Evaluación', icon: 'activity', capacidades: ['sis_poa.formulate'], beta: true },
-      ],
-    },
-    // SIS-PRO está en depuración: se retiró la UI y el backend anteriores,
-    // así que todos sus módulos resuelven hoy al placeholder de desarrollo.
-    'sis-pro': {
-      title: 'SIS-PRO — Ciclo del Proyecto',
-      items: [
-        { route: '/sis-pro/dashboard', label: 'Dashboard proyectos', icon: 'gauge', capacidades: ['sis_pro.project.read'], pendiente: true },
-        { route: '/sis-pro/proyectos', label: 'Cartera', icon: 'briefcase', capacidades: ['sis_pro.project.read'], pendiente: true },
-        { route: '/inversion', label: 'Proyectos de Inversión', icon: 'hard-hat', roles: ['superadmin', 'tecnico_admin', 'planificador'], pendiente: true },
-        { route: '/sis-pro/preinversion', label: 'Preinversión', icon: 'drafting-compass', capacidades: ['sis_pro.project.read'], pendiente: true },
-        { route: '/sis-pro/preinversion/inventario', label: 'Inventario documental', icon: 'folder-open', capacidades: ['sis_pro.project.read'], pendiente: true },
-        { route: '/sis-pro/formulacion', label: 'Formulación', icon: 'file-pen-line', capacidades: ['sis_pro.project.read'], pendiente: true },
-        { route: '/sis-pro/contratacion', label: 'Contratación', icon: 'handshake', capacidades: ['sis_pro.project.read'], pendiente: true },
-        { route: '/sis-pro/ejecucion', label: 'Ejecución', icon: 'play', capacidades: ['sis_pro.project.read'], pendiente: true },
-        { route: '/sis-pro/supervision', label: 'Supervisión', icon: 'eye', capacidades: ['sis_pro.project.read'], pendiente: true },
-        { route: '/sis-pro/seguimiento', label: 'Seguimiento', icon: 'activity', capacidades: ['sis_pro.project.read'], pendiente: true },
+        { route: '/sis-poa/dashboard', label: 'Dashboard POA', icon: 'gauge', capacidades: SIS_POA_POA_CAPABILITIES, beta: true },
+        { route: '/sis-poa/budget/gestion-fiscal', label: 'Habilitación de Gestión', icon: 'calendar-check', capacidades: SIS_POA_TECHOS_CAPABILITIES, v1: true },
+        { route: '/sis-poa/presupuesto-recursos', label: 'Presupuesto General de Recursos', icon: 'banknote', capacidades: SIS_POA_DISTRIBUCIONES_CAPABILITIES, v1: true },
+        { route: '/sis-poa/presupuesto-gastos', label: 'Presupuesto General de Gastos', icon: 'wallet', capacidades: SIS_POA_DISTRIBUCIONES_CAPABILITIES, v1: true },
+        { route: '/priorizacion/actas', label: 'Priorización POA', icon: 'clipboard-list', capacidades: SIS_POA_POA_CAPABILITIES, v1: true },
+        { route: '/sis-poa/poas', label: 'POA', icon: 'calendar-days', capacidades: SIS_POA_POA_CAPABILITIES, legacy: true },
+        { route: '/sis-poa/poaus', label: 'POAU', icon: 'list-tree', capacidades: SIS_POA_POAU_CAPABILITIES, v1: true },
+        { route: '/poau', label: 'POAU (Físico)', icon: 'list-todo', capacidades: SIS_POA_PROGRAMACION_CAPABILITIES, legacy: true },
+        { route: '/poau_recursos', label: 'POAU (Recursos)', icon: 'boxes', capacidades: SIS_POA_DISTRIBUCIONES_CAPABILITIES, legacy: true },
+        { route: '/sis-poa/seguimiento', label: 'Seguimiento y Evaluación', icon: 'activity', capacidades: SIS_POA_SEGUIMIENTO_CAPABILITIES, beta: true },
       ],
     },
   };
 
-  /** Módulos de administración de la plataforma (§18.1 — se muestran siempre). */
+  /** Única entrada transversal del gestor IAM, gobernada por capacidades. */
   private administracionMenu: NavSection = {
     title: 'TRANSVERSAL',
     items: [
-      { route: '/admin-usuarios', label: 'Usuarios y permisos', icon: 'users', roles: ['superadmin', 'tecnico_admin'] },
-      { route: '/organizacion', label: 'Organización', icon: 'building-2', roles: ['superadmin', 'tecnico_admin'] },
-      { route: '/gestion', label: 'Gestiones / periodos', icon: 'calendar-range', roles: ['superadmin', 'tecnico_admin'] },
-      { route: '/catalogos', label: 'Catálogos', icon: 'book-open', roles: ['superadmin', 'tecnico_admin'] },
-      { route: '/normativa', label: 'Normativa', icon: 'scroll-text', roles: ['superadmin', 'tecnico_admin'] },
-      { route: '/documentos', label: 'Documentos', icon: 'folder', roles: ['superadmin', 'tecnico_admin'] },
-      { route: '/auditoria', label: 'Auditoría', icon: 'scan-search', roles: ['superadmin', 'tecnico_admin'] },
-      { route: '/reportes', label: 'Reportes', icon: 'chart-spline' },
-      { route: '/territorio/mapa', label: 'Mapa inversiones', icon: 'map-pinned' },
-      { route: '/workflow', label: 'Revisiones', icon: 'workflow', roles: ['superadmin', 'tecnico_admin', 'jefe_ue', 'director'] },
-      { route: '/workflow/observaciones', label: 'Observaciones', icon: 'circle-alert', roles: ['superadmin', 'tecnico_admin', 'jefe_ue', 'director'] },
-      { route: '/workflow/aprobaciones', label: 'Aprobaciones', icon: 'badge-check', roles: ['superadmin', 'tecnico_admin'] },
+      { route: '/admin-usuarios', label: 'Usuarios y permisos', icon: 'users', capacidades: ADMIN_USUARIOS_CAPABILITIES },
     ],
   };
 
   constructor(
     public auth: AuthService,
-    private permissions: PermissionsService,
     private capabilities: CapabilitiesService,
     public gestion: GestionHabilitadaService,
     private router: Router,
@@ -357,7 +391,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
     // pertenecen a un sistema (legacy V1 o V2 insertado en su SIS).
     const primerSegmento = '/' + (url.split('?')[0].split('/')[1] ?? '');
     this.sistemaActual =
-      ['sis-pe', 'sis-poa', 'sis-pro'].find(s => url.startsWith(`/${s}`)) ??
+      ['sis-pe', 'sis-poa'].find(s => url.startsWith(`/${s}`)) ??
       RUTAS_POR_SISTEMA[primerSegmento] ??
       '';
 
@@ -365,17 +399,19 @@ export class SidebarComponent implements OnInit, OnDestroy {
       // Dentro de un sistema: selector + módulos del SIS (V2 y V1 insertados)
       const sistema = this.sistemasMenu[this.sistemaActual];
       const items = this.filtrarItems(sistema.items);
+      const administracion = this.seccionFiltrada(this.administracionMenu);
       this.visibleSections = [
         {
           title: 'SISTEMAS',
           items: [{ route: '/sistemas', label: 'Selección de sistemas', icon: 'home' }],
         },
         { title: sistema.title, items },
-        this.administracionMenu,
-      ];
+        ...(administracion ? [administracion] : []),
+      ].filter(section => section.items.length > 0);
       return;
     }
 
+    const administracion = this.seccionFiltrada(this.administracionMenu);
     this.visibleSections = [
       {
         title: 'PLATAFORMA',
@@ -385,8 +421,13 @@ export class SidebarComponent implements OnInit, OnDestroy {
           { route: '/notificaciones', label: 'Notificaciones', icon: 'bell' },
         ],
       },
-      this.administracionMenu,
+      ...(administracion ? [administracion] : []),
     ].filter(section => section.items.length > 0);
+  }
+
+  private seccionFiltrada(section: NavSection): NavSection | null {
+    const items = this.filtrarItems(section.items);
+    return items.length ? { ...section, items } : null;
   }
 
   private filtrarItems(items: NavItem[]): NavItem[] {
@@ -396,10 +437,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
       if (item.legacy && LEGACY_MENU_VISIBLE[item.route] === false) {
         return false;
       }
-      if (item.capacidades?.length) {
-        return this.permissions.hasAnyCapability(item.capacidades);
-      }
-      return !item.roles || this.permissions.hasAnyRole(item.roles);
+      return !item.capacidades?.length || this.capabilities.tieneAlguna(item.capacidades);
     });
   }
 
