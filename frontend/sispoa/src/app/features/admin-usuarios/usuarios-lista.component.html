@@ -1,0 +1,344 @@
+<section class="iam-shell" aria-labelledby="iam-title">
+  <header class="iam-header">
+    <div>
+      <p class="iam-eyebrow">Administración de acceso</p>
+      <h1 id="iam-title">Usuarios y permisos</h1>
+      <p class="iam-intro">
+        Consulte cuentas y accesos habilitados para SIS-PE y SIS-POA.
+      </p>
+    </div>
+    <div class="iam-context" aria-label="Ámbito del módulo">
+      <lucide-angular name="shield-check" [size]="18" aria-hidden="true"></lucide-angular>
+      <span>Gestión centralizada</span>
+    </div>
+  </header>
+
+  <mat-tab-group class="iam-tabs" animationDuration="180ms" preserveContent>
+    @if (canViewUsers) {
+      <mat-tab label="Usuarios">
+        <div class="tab-content">
+          <form class="filters" (ngSubmit)="applyFilters()" aria-label="Filtros de usuarios">
+            <mat-form-field appearance="outline" class="filter-search">
+              <mat-label>Buscar</mat-label>
+              <lucide-angular matPrefix name="search" [size]="16" aria-hidden="true"></lucide-angular>
+              <input
+                matInput
+                name="search"
+                [(ngModel)]="filters.search"
+                placeholder="Nombre, correo o cargo"
+                autocomplete="off"
+              >
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Unidad organizacional</mat-label>
+              <mat-select name="organizational_unit" [(ngModel)]="filters.organizational_unit">
+                <mat-option [value]="undefined">Todas las unidades</mat-option>
+                @for (unit of organizationalUnits; track unit.id) {
+                  <mat-option [value]="unit.id">{{ unit.codigo }} · {{ unit.nombre }}</mat-option>
+                }
+              </mat-select>
+              @if (catalogError) {
+                <mat-hint class="filter-hint-error">{{ catalogError }}</mat-hint>
+              }
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Rol</mat-label>
+              <input
+                matInput
+                name="role"
+                [(ngModel)]="filters.role"
+                placeholder="Código del rol"
+                autocomplete="off"
+              >
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Sistema</mat-label>
+              <mat-select name="system" [(ngModel)]="filters.system">
+                <mat-option [value]="undefined">Todos los sistemas</mat-option>
+                <mat-option value="sis_pe">SIS-PE</mat-option>
+                <mat-option value="sis_poa">SIS-POA</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Estado</mat-label>
+              <mat-select name="state" [(ngModel)]="filters.state">
+                <mat-option [value]="undefined">Todos los estados</mat-option>
+                <mat-option value="PENDIENTE">Pendiente</mat-option>
+                <mat-option value="ACTIVO">Activo</mat-option>
+                <mat-option value="INACTIVO">Inactivo</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <div class="filter-actions">
+              <button mat-stroked-button type="button" (click)="clearFilters()">
+                Limpiar
+              </button>
+              <button mat-flat-button type="submit">
+                Aplicar filtros
+              </button>
+            </div>
+          </form>
+
+          @if (loading) {
+            <div class="loading-state" role="status" aria-live="polite">
+              <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+              <span>Cargando usuarios…</span>
+            </div>
+          }
+
+          @if (error && !loading) {
+            <div class="feedback feedback-error" role="alert">
+              <lucide-angular name="cloud-off" [size]="36" aria-hidden="true"></lucide-angular>
+              <div>
+                <strong>No pudimos consultar los usuarios</strong>
+                <p>{{ error }}</p>
+              </div>
+              <button mat-stroked-button type="button" (click)="loadUsers()">Reintentar</button>
+            </div>
+          }
+
+          @if (actionError) {
+            <div class="action-error" role="alert">
+              <lucide-angular name="circle-alert" [size]="18" aria-hidden="true"></lucide-angular>
+              <span>{{ actionError }}</span>
+            </div>
+          }
+
+          @if (!loading && !error && users.length > 0) {
+            <div class="table-shell">
+              <table mat-table [dataSource]="users" [trackBy]="trackUser" aria-label="Listado de usuarios">
+                <ng-container matColumnDef="usuario">
+                  <th mat-header-cell *matHeaderCellDef>Usuario</th>
+                  <td mat-cell *matCellDef="let user">
+                    <span class="user-name">{{ fullName(user) }}</span>
+                    <span class="user-email">{{ user.email }}</span>
+                  </td>
+                </ng-container>
+
+                <ng-container matColumnDef="cargo">
+                  <th mat-header-cell *matHeaderCellDef>Cargo</th>
+                  <td mat-cell *matCellDef="let user">{{ user.cargo || 'Sin registro' }}</td>
+                </ng-container>
+
+                <ng-container matColumnDef="unidad">
+                  <th mat-header-cell *matHeaderCellDef>Unidad organizacional</th>
+                  <td mat-cell *matCellDef="let user">
+                    @if (organizationalUnitNames(user).length) {
+                      @for (unit of organizationalUnitNames(user); track unit) {
+                        <span class="stacked-value">{{ unit }}</span>
+                      }
+                    } @else {
+                      <span class="muted">Sin asignación</span>
+                    }
+                  </td>
+                </ng-container>
+
+                <ng-container matColumnDef="rol">
+                  <th mat-header-cell *matHeaderCellDef>Rol</th>
+                  <td mat-cell *matCellDef="let user">
+                    @if (user.roles.length) {
+                      @for (role of user.roles; track role.codigo) {
+                        <span class="role-chip">{{ role.nombre }}</span>
+                      }
+                    } @else {
+                      <span class="muted">Sin rol</span>
+                    }
+                  </td>
+                </ng-container>
+
+                <ng-container matColumnDef="sistema">
+                  <th mat-header-cell *matHeaderCellDef>Sistema</th>
+                  <td mat-cell *matCellDef="let user">
+                    @if (user.sistemas.length) {
+                      @for (system of user.sistemas; track system) {
+                        <span class="system-chip" [class.system-pe]="system === 'sis_pe'">
+                          {{ systemLabel(system) }}
+                        </span>
+                      }
+                    } @else {
+                      <span class="muted">Sin sistema</span>
+                    }
+                  </td>
+                </ng-container>
+
+                <ng-container matColumnDef="estado">
+                  <th mat-header-cell *matHeaderCellDef>Estado</th>
+                  <td mat-cell *matCellDef="let user">
+                    <span class="state-chip" [attr.data-state]="user.estado">
+                      <span class="state-dot" aria-hidden="true"></span>
+                      {{ stateLabel(user.estado) }}
+                    </span>
+                  </td>
+                </ng-container>
+
+                <ng-container matColumnDef="ultimoAcceso">
+                  <th mat-header-cell *matHeaderCellDef>Último acceso</th>
+                  <td mat-cell *matCellDef="let user">
+                    {{ user.last_login ? (user.last_login | date:'dd/MM/yyyy, HH:mm') : 'Nunca' }}
+                  </td>
+                </ng-container>
+
+                <ng-container matColumnDef="acciones">
+                  <th mat-header-cell *matHeaderCellDef>Acciones</th>
+                  <td mat-cell *matCellDef="let user" class="actions-cell">
+                    <button
+                      mat-icon-button
+                      type="button"
+                      matTooltip="Ver detalle"
+                      [attr.aria-label]="'Ver detalle de ' + fullName(user)"
+                      (click)="openDetail(user)"
+                    >
+                      <lucide-angular name="eye" [size]="18" aria-hidden="true"></lucide-angular>
+                    </button>
+                    @if (canChangeUserState) {
+                      <button
+                        mat-icon-button
+                        type="button"
+                        [class.deactivate-action]="user.is_active"
+                        [matTooltip]="user.is_active ? 'Desactivar cuenta' : 'Activar cuenta'"
+                        [attr.aria-label]="(user.is_active ? 'Desactivar ' : 'Activar ') + fullName(user)"
+                        [disabled]="stateChangeUserId !== null"
+                        (click)="toggleUserState(user)"
+                      >
+                        <lucide-angular
+                          [name]="user.is_active ? 'user-round-x' : 'user-round-check'"
+                          [size]="18"
+                          aria-hidden="true"
+                        ></lucide-angular>
+                      </button>
+                    }
+                  </td>
+                </ng-container>
+
+                <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+              </table>
+
+              <mat-paginator
+                [length]="totalUsers"
+                [pageIndex]="pageIndex"
+                [pageSize]="pageSize"
+                [pageSizeOptions]="[pageSize]"
+                [hidePageSize]="true"
+                [showFirstLastButtons]="true"
+                aria-label="Paginación de usuarios"
+                (page)="changePage($event)"
+              ></mat-paginator>
+            </div>
+          }
+
+          @if (!loading && !error && users.length === 0) {
+            <div class="feedback empty-state" role="status">
+              <lucide-angular name="search-x" [size]="36" aria-hidden="true"></lucide-angular>
+              <div>
+                <strong>No hay usuarios para mostrar</strong>
+                <p>Revise los filtros o límpielos para consultar todas las cuentas disponibles.</p>
+              </div>
+              <button mat-stroked-button type="button" (click)="clearFilters()">Limpiar filtros</button>
+            </div>
+          }
+
+          @if (detailLoading) {
+            <div class="detail-loading" role="status" aria-live="polite">
+              Cargando detalle del usuario…
+            </div>
+          }
+
+          @if (selectedUser && !detailLoading) {
+            <mat-card class="detail-card" appearance="outlined">
+              <mat-card-header>
+                <lucide-angular mat-card-avatar name="circle-user-round" [size]="40" aria-hidden="true"></lucide-angular>
+                <mat-card-title>
+                  <h2 #detalleTitulo tabindex="-1">{{ fullName(selectedUser) }}</h2>
+                </mat-card-title>
+                <mat-card-subtitle>{{ selectedUser.email }}</mat-card-subtitle>
+                <button
+                  mat-icon-button
+                  type="button"
+                  class="detail-close"
+                  aria-label="Cerrar detalle"
+                  (click)="closeDetail()"
+                >
+                  <lucide-angular name="x" [size]="18" aria-hidden="true"></lucide-angular>
+                </button>
+              </mat-card-header>
+              <mat-card-content>
+                @if (detailError) {
+                  <div class="detail-error" role="alert">
+                    <span>{{ detailError }}</span>
+                    <button mat-button type="button" (click)="retryDetail()">Reintentar</button>
+                  </div>
+                }
+                <dl class="detail-grid">
+                  <div><dt>Cargo</dt><dd>{{ selectedUser.cargo || 'Sin registro' }}</dd></div>
+                  <div><dt>Estado</dt><dd>{{ stateLabel(selectedUser.estado) }}</dd></div>
+                  <div>
+                    <dt>Roles</dt>
+                    <dd>{{ selectedUser.roles.length ? selectedUser.roles[0].nombre : 'Sin rol' }}</dd>
+                  </div>
+                  <div>
+                    <dt>Sistemas</dt>
+                    <dd>
+                      @for (system of selectedUser.sistemas; track system; let last = $last) {
+                        {{ systemLabel(system) }}{{ last ? '' : ', ' }}
+                      } @empty {
+                        Sin sistema
+                      }
+                    </dd>
+                  </div>
+                  <div class="detail-wide">
+                    <dt>Unidades organizacionales</dt>
+                    <dd>{{ organizationalUnitNames(selectedUser).join(', ') || 'Sin asignación' }}</dd>
+                  </div>
+                  <div class="detail-wide">
+                    <dt>Último acceso</dt>
+                    <dd>
+                      {{ selectedUser.last_login ? (selectedUser.last_login | date:'dd/MM/yyyy, HH:mm') : 'Nunca' }}
+                    </dd>
+                  </div>
+                </dl>
+                <p class="detail-note">
+                  La edición de datos y asignaciones estará disponible en F4b2.
+                </p>
+              </mat-card-content>
+            </mat-card>
+          }
+        </div>
+      </mat-tab>
+    }
+
+    @if (canViewRoles) {
+      <mat-tab label="Roles">
+        <div class="placeholder" role="status">
+          <lucide-angular name="badge" [size]="36" aria-hidden="true"></lucide-angular>
+          <strong>Administración de roles en preparación</strong>
+          <p>La gestión de roles se habilitará en F4c. No se muestran datos simulados.</p>
+        </div>
+      </mat-tab>
+    }
+
+    @if (canViewCapabilities) {
+      <mat-tab label="Permisos">
+        <div class="placeholder" role="status">
+          <lucide-angular name="key-round" [size]="36" aria-hidden="true"></lucide-angular>
+          <strong>Catálogo de permisos en preparación</strong>
+          <p>La consulta y asignación de permisos se habilitará en F4c.</p>
+        </div>
+      </mat-tab>
+    }
+
+    @if (canViewRequests) {
+      <mat-tab label="Solicitudes">
+        <div class="placeholder" role="status">
+          <lucide-angular name="clipboard-clock" [size]="36" aria-hidden="true"></lucide-angular>
+          <strong>Solicitudes en preparación</strong>
+          <p>La bandeja de solicitudes se habilitará en F4c.</p>
+        </div>
+      </mat-tab>
+    }
+  </mat-tab-group>
+</section>

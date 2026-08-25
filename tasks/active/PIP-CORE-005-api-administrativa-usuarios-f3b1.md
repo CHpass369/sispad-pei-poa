@@ -1,4 +1,4 @@
-# TASK PIP-CORE-005: IAM F3b1/F3b2a/F3b2b/F4a
+# TASK PIP-CORE-005: IAM F3b1/F3b2a/F3b2b/F4a/F4b1
 
 ## DOMINIO
 
@@ -6,7 +6,7 @@
 
 ## OBJECTIVE
 
-Exponer en API V2 la administración de usuarios (F3b1), roles personalizados/capacidades (F3b2a), asignaciones atómicas de roles/alcances organizacionales (F3b2b) y el registro público Angular (F4a), respetando capacidades, roles base inmutables y límites SIS-PE/SIS-POA.
+Exponer en API V2 la administración de usuarios (F3b1), roles personalizados/capacidades (F3b2a), asignaciones atómicas de roles/alcances organizacionales (F3b2b), el registro público Angular (F4a) y el listado administrativo Angular de usuarios (F4b1), respetando capacidades, roles base inmutables y límites SIS-PE/SIS-POA.
 
 ## CONTEXT
 
@@ -14,11 +14,11 @@ F3a incorporó el ciclo `PENDIENTE/ACTIVO/INACTIVO`, registro público y aprobac
 
 ## CURRENT BEHAVIOR
 
-F3b1, F3b2a y F3b2b exponen usuarios, roles, capacidades y asignaciones, con límites por sistema centralizados en `accounts.services`. El contrato F3b2b mantiene sincronizados `Usuario.roles` y los `AlcanceOrganizacional` activos, sin permitir reemplazos parciales ni elevación de privilegios por jefaturas. El login Angular no ofrece todavía acceso al registro y no existe un selector público seguro de UO.
+F3b1, F3b2a y F3b2b exponen usuarios, roles, capacidades y asignaciones, con límites por sistema centralizados en `accounts.services`. El contrato F3b2b mantiene sincronizados `Usuario.roles` y los `AlcanceOrganizacional` activos, sin permitir reemplazos parciales ni elevación de privilegios por jefaturas. F4a ya ofrece registro público y un catálogo mínimo de UO. El feature Angular legacy `admin-usuarios` todavía consume API V1, no usa Material ni paginación backend y expone creación, edición y eliminación fuera del contrato F4b1.
 
 ## EXPECTED BEHAVIOR
 
-La API V2 permite consultar y actualizar usuarios dentro del dominio del actor, administrar exclusivamente roles personalizados y reemplazar atómicamente las asignaciones de roles/alcances que el actor puede administrar. Los seis roles base permanecen visibles e inmutables. El catálogo de capacidades es de solo lectura, excluye SIS-PRO y deriva el sistema efectivo desde el prefijo del código. Además, una persona anónima puede elegir una UO activa y vigente, enviar exclusivamente sus datos personales y recibir confirmación sin inicio de sesión ni token.
+La API V2 permite consultar y actualizar usuarios dentro del dominio del actor, administrar exclusivamente roles personalizados y reemplazar atómicamente las asignaciones de roles/alcances que el actor puede administrar. Los seis roles base permanecen visibles e inmutables. El catálogo de capacidades es de solo lectura, excluye SIS-PRO y deriva el sistema efectivo desde el prefijo del código. Además, una persona anónima puede elegir una UO activa y vigente, enviar exclusivamente sus datos personales y recibir confirmación sin inicio de sesión ni token. En F4b1, la única entrada Angular `admin-usuarios` presenta el shell “Usuarios y permisos”, muestra tabs según capacidades y ofrece listado, filtros, paginación, detalle y cambios de estado contra API V2.
 
 ## IN SCOPE
 
@@ -42,12 +42,22 @@ La API V2 permite consultar y actualizar usuarios dentro del dominio del actor, 
 - [x] Enlace desde login hacia el registro público.
 - [x] Endpoint anónimo mínimo de UO activas y vigentes, con búsqueda opcional.
 - [x] Tests focalizados frontend y backend de F4a.
+- [x] Shell único “Usuarios y permisos” sobre el feature Angular existente.
+- [x] Tabs Usuarios, Roles, Permisos y Solicitudes visibles según capacidades.
+- [x] Listado Material de usuarios con filtros y paginación real de backend.
+- [x] Estados de carga, error accionable, vacío y detalle de usuario.
+- [x] Activación e inactivación visibles únicamente con capacidad administrativa.
+- [x] Servicio administrativo V2 y DTOs estrictamente tipados sin `any`.
+- [x] Guard de ruta con acceso por cualquiera de las cuatro capacidades administrativas.
+- [x] Tests focalizados de servicio, tabla, filtros, estados, acciones, tabs y ruta.
 
 ## OUT OF SCOPE
 
 - Creación, edición o desactivación de capacidades.
 - Cambios de modelos o migraciones.
-- Sidebar y gestor administrativo Angular (F4b/F5).
+- Edición de datos personales y asignaciones Angular (F4b2).
+- Implementación funcional de Roles, Permisos y Solicitudes (F4c).
+- Sidebar nuevo o rediseño de navegación (F5).
 - Refactorizaciones ajenas a `accounts`.
 
 ## INVARIANTS
@@ -86,6 +96,18 @@ La API V2 permite consultar y actualizar usuarios dentro del dominio del actor, 
 6. **Pruebas:** cubrir URL/payload del servicio, seguridad del payload, mismatch, éxito sin token, errores API y navegación login→registro; verificar endpoint anónimo, vigencia y campos mínimos.
 7. **Verificación:** ejecutar Karma focalizado con `ChromeHeadlessNoSandbox`, build production, lint disponible, pytest focalizado, Ruff, `makemigrations --check --dry-run` y `git diff --check`.
 
+## F4B1 IMPLEMENTATION PLAN
+
+1. **Dominio:** CORE/accounts en frontend; sin cambios de backend, esquema ni migraciones.
+2. **Reutilización:** extender el feature lazy `admin-usuarios`, mantener su única ruta, reutilizar `CapabilitiesService`, `CapabilityGuard`, `AuthService.listPublicOrganizationalUnits`, Angular Material y tokens `--pip-*`.
+3. **Contrato:** reemplazar el servicio V1 del feature por `HttpClient` sobre `environment.apiUrlV2`; definir DTOs de usuarios y una interfaz paginada canónica compartida sin `any`.
+4. **Ruta:** proteger la entrada con OR de `accounts.usuario.view`, `accounts.rol.view`, `accounts.capacidad.view` y `accounts.solicitud.view`; retirar temporalmente las rutas legacy de creación/edición hasta F4b2.
+5. **Interfaz:** convertir el listado existente en shell Material; cargar Usuarios solo con su capacidad, ocultar tabs no autorizadas y dejar placeholders honestos para F4c.
+6. **Listado:** enviar `search`, `organizational_unit`, `role`, `system`, `state` y `page`; reiniciar la página al aplicar o limpiar filtros y representar datos reales, carga, error, vacío y paginador.
+7. **Acciones:** consultar detalle por API V2 y activar/desactivar solo con `accounts.usuario.activate`; no ofrecer creación, edición, eliminación ni asignaciones.
+8. **Pruebas:** cubrir URLs/query params/paginación, renderizado de columnas y filas, filtros, estados, capacidades, tabs y configuración de ruta.
+9. **Verificación:** ejecutar Karma focalizado con `ChromeHeadlessNoSandbox`, build production, type-check, lint únicamente si existe target funcional y `git diff --check`.
+
 ## DATABASE IMPACT
 
 Ninguno. Se reutilizan `Usuario`, `Rol`, `Capacidad`, sus M2M existentes y `AlcanceOrganizacional`; no hay migraciones esperadas.
@@ -107,7 +129,7 @@ Ninguno. Se reutilizan `Usuario`, `Rol`, `Capacidad`, sus M2M existentes y `Alca
 
 ## FRONTEND IMPACT
 
-F4a agrega la ruta pública `/auth/register`, extiende `AuthService` con contratos V2 y enlaza el login existente. F4b/F5 permanecen fuera de alcance.
+F4a agrega la ruta pública `/auth/register`, extiende `AuthService` con contratos V2 y enlaza el login existente. F4b1 reemplaza el interior legacy de `/admin-usuarios` por el shell único “Usuarios y permisos”, usa exclusivamente `/api/v2/admin/users/`, conserva Roles/Permisos/Solicitudes como placeholders controlados por capacidades y retira las rutas legacy de creación/edición hasta F4b2. F5 permanece fuera de alcance.
 
 ## FILES EXPECTED
 
@@ -139,6 +161,14 @@ F4a agrega la ruta pública `/auth/register`, extiende `AuthService` con contrat
 - `frontend/sispoa/src/app/features/auth/register.component.spec.ts` — comportamiento del registro.
 - `frontend/sispoa/src/app/features/auth/login.component.ts` — enlace a registro.
 - `frontend/sispoa/src/app/features/auth/login.component.spec.ts` — navegación pública.
+- `frontend/sispoa/src/app/core/models/paginado.model.ts` — contrato paginado canónico.
+- `frontend/sispoa/src/app/features/admin-usuarios/admin-usuarios.service.ts` — contrato HTTP V2 tipado F4b1.
+- `frontend/sispoa/src/app/features/admin-usuarios/admin-usuarios.service.spec.ts` — pruebas de URLs, parámetros y paginación.
+- `frontend/sispoa/src/app/features/admin-usuarios/usuarios-lista.component.{ts,html,scss}` — shell, tabs y listado Material.
+- `frontend/sispoa/src/app/features/admin-usuarios/usuarios-lista.component.spec.ts` — pruebas de interacción y capacidades.
+- `frontend/sispoa/src/app/features/admin-usuarios/admin-usuarios-routing.module.ts` — ruta única protegida.
+- `frontend/sispoa/src/app/features/admin-usuarios/admin-usuarios-routing.module.spec.ts` — contrato de guard y capacidades.
+- `frontend/sispoa/src/app/features/admin-usuarios/usuario-form.component.ts` — eliminado por depender de V1 y exponer operaciones fuera de F4b1.
 
 ## DEPENDENCIES
 
@@ -176,6 +206,14 @@ F3a, commit `1eaf906`, y F3b1 implementado en esta tarea.
 - [x] El éxito muestra el mensaje normativo, no almacena token y permite volver al login.
 - [x] Login muestra “¿No tienes una cuenta?” y “Crear cuenta”, que navega a `/auth/register`.
 - [x] Tests focalizados, build production, Ruff, migraciones y diff check pasan; lint fue ejecutado y reportado como no configurado.
+- [x] `/admin-usuarios` conserva una sola entrada y exige al menos una capacidad administrativa mediante `CapabilityGuard`.
+- [x] Cada tab y la acción de estado se ocultan si falta su capacidad; el backend conserva la autoridad final.
+- [x] Usuarios usa tabla y paginador Material con las ocho columnas requeridas y filtros enviados a backend.
+- [x] Aplicar o limpiar filtros reinicia la página; navegar el paginador solicita la página real de API V2.
+- [x] La interfaz representa carga, error con reintento, vacío, detalle y error de transición de estado.
+- [x] El servicio usa `environment.apiUrlV2`, no `ApiService` V1, y no contiene doble prefijo.
+- [x] No se ofrecen creación, edición, eliminación ni asignaciones antes de F4b2.
+- [x] Karma focalizado pasa con 14 tests; build production, typecheck de app/specs y `git diff --check` pasan.
 
 ## TESTS
 
@@ -190,11 +228,15 @@ cd frontend/sispoa; CHROME_BIN=/snap/bin/chromium npm test -- --watch=false --br
 cd frontend/sispoa; npm run build -- --configuration production
 cd frontend/sispoa; npm run lint
 git diff --check
+cd frontend/sispoa; CHROME_BIN=/snap/bin/chromium npm test -- --watch=false --browsers=ChromeHeadlessNoSandbox --include='src/app/features/admin-usuarios/admin-usuarios.service.spec.ts' --include='src/app/features/admin-usuarios/usuarios-lista.component.spec.ts' --include='src/app/features/admin-usuarios/admin-usuarios-routing.module.spec.ts'
+cd frontend/sispoa; npx tsc -p tsconfig.app.json --noEmit
+cd frontend/sispoa; npx tsc -p tsconfig.spec.json --noEmit
+cd frontend/sispoa; npm run build -- --configuration production
 ```
 
 ## RISKS
 
-La derivación de sistema depende de prefijos `sis_pe.`/`sis_poa.`/`accounts.`; el campo legacy `sistema` conserva datos históricos y no es autoridad. Sin un campo de propietario o sistema en `Rol`, un rol personalizado vacío o solo `accounts.*` no pertenece a PE ni POA; F3b2b permite asignarlo únicamente a SUPER_ADMIN. Los solapamientos se validan en API y la fila de usuario serializa escrituras concurrentes, pero no existe todavía un constraint de base de datos que impida duplicados creados fuera de este endpoint. Resolver ambas deudas requiere cambios de modelo fuera del alcance sin migraciones de F3b2b. En F4a, el catálogo público permite enumerar nombres institucionales y devuelve la colección completa; el riesgo se limita a campos no sensibles y al throttling anónimo global, pero convendrá paginar si el catálogo crece significativamente.
+La derivación de sistema depende de prefijos `sis_pe.`/`sis_poa.`/`accounts.`; el campo legacy `sistema` conserva datos históricos y no es autoridad. Sin un campo de propietario o sistema en `Rol`, un rol personalizado vacío o solo `accounts.*` no pertenece a PE ni POA; F3b2b permite asignarlo únicamente a SUPER_ADMIN. Los solapamientos se validan en API y la fila de usuario serializa escrituras concurrentes, pero no existe todavía un constraint de base de datos que impida duplicados creados fuera de este endpoint. Resolver ambas deudas requiere cambios de modelo fuera del alcance sin migraciones de F3b2b. En F4a/F4b1, el catálogo público permite enumerar nombres institucionales y devuelve la colección completa; F4b1 lo reutiliza para el filtro de UO porque no exige una capacidad organizacional adicional. El riesgo se limita a campos no sensibles y al throttling anónimo global, pero convendrá paginarlo si el catálogo crece significativamente. El filtro de rol acepta el código normativo; F4c podrá reemplazarlo por un selector cuando implemente el tab Roles y su catálogo autorizado.
 
 ## ROLLBACK
 
@@ -225,3 +267,10 @@ Revertir únicamente los bloques F3b2a en los archivos listados y eliminar su te
 - `npm run lint` se ejecutó, pero Angular reportó `Cannot find "lint" target for the specified project`; no hay lint configurado. PostgreSQL local en `/tmp/opencode:5433` no respondió, por lo que la corrida focalizada canónica se validó con `config.settings_test_sqlite`.
 - La suite completa `apps/accounts/` con settings SQLite obtuvo 129 tests y 51 subtests aprobados, con 23 fallos preexistentes porque esos settings reemplazan `REST_FRAMEWORK` y eliminan la paginación esperada por F3b1/F3b2a; no se modificaron esos tests fuera de alcance.
 - No hubo migraciones, stage ni commit. F4b queda como siguiente fase para consumir los contratos administrativos existentes sin tocar todavía sidebar/F5.
+- F4b1 convirtió el feature legacy `admin-usuarios` en el shell único “Usuarios y permisos”, sin crear otra entrada ni modificar el sidebar.
+- El tab Usuarios consume paginación y cinco filtros reales de `/api/v2/admin/users/`, muestra detalle y permite activar/desactivar solo con capacidad.
+- Roles, Permisos y Solicitudes muestran placeholders sin datos falsos y solo existen en el DOM cuando su capacidad está presente.
+- Se eliminó el formulario legacy no enrutable porque dependía de API V1 y ofrecía creación, edición y eliminación fuera del alcance.
+- Se agregó un contrato `Paginado<T>` canónico y se evitó `any` en todos los artefactos activos F4b1.
+- Verificación F4b1: 14 tests Karma focalizados pasaron en Chrome Headless 151; build production y typecheck app/specs pasaron sin errores; `git diff --check` pasó. Lint no se ejecutó porque `angular.json` no define target `lint`.
+- No hubo cambios de backend, migraciones, endpoints, stage ni commit. Siguiente: F4b2 para edición de datos personales y asignaciones atómicas.

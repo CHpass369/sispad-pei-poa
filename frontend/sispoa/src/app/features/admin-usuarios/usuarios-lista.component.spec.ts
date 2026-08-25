@@ -1,36 +1,102 @@
-﻿import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { HttpClientTestingModule } from '@angular/common/http/testing';
-import { RouterTestingModule } from '@angular/router/testing';
-import { FormsModule } from '@angular/forms';
-import { of, throwError } from 'rxjs';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { NoopAnimationsModule } from '@angular/platform-browser/animations';
+import { of, Subject, throwError } from 'rxjs';
+import { PublicOrganizationalUnit } from '../../core/models/usuario.model';
+import { AuthService } from '../../core/services/auth.service';
+import { CapabilitiesService } from '../../core/services/capabilities.service';
+import { AdminUsuariosModule } from './admin-usuarios.module';
+import { AdminUser, AdminUsuariosService } from './admin-usuarios.service';
 import { UsuariosListaComponent } from './usuarios-lista.component';
-import { AdminUsuariosService } from './admin-usuarios.service';
-import { Router } from '@angular/router';
 
 describe('UsuariosListaComponent', () => {
   let component: UsuariosListaComponent;
   let fixture: ComponentFixture<UsuariosListaComponent>;
-  let adminServiceSpy: jasmine.SpyObj<AdminUsuariosService>;
-  let routerSpy: jasmine.SpyObj<Router>;
+  let adminUsers: jasmine.SpyObj<AdminUsuariosService>;
+  let auth: jasmine.SpyObj<AuthService>;
+  let capabilities: jasmine.SpyObj<CapabilitiesService>;
+  let granted: Set<string>;
 
-  const mockUsuarios = [
-    { id: 1, email: 'user1@test.com', first_name: 'User', last_name: 'One', is_active: true, rol_nombre: ['Admin'], date_joined: '2024-01-01' },
-    { id: 2, email: 'user2@test.com', first_name: 'User', last_name: 'Two', is_active: false, rol_nombre: ['Técnico'], date_joined: '2024-02-01' },
-  ];
+  const unit: PublicOrganizationalUnit = {
+    id: 'unit-1',
+    codigo: 'DPL',
+    nombre: 'Dirección de Planificación',
+    sigla: 'DPL',
+    padre: null,
+  };
+
+  const activeUser: AdminUser = {
+    id: 'user-1',
+    first_name: 'Ana',
+    last_name: 'Planificadora',
+    email: 'ana@gob.bo',
+    cargo: 'Especialista estratégica',
+    estado: 'ACTIVO',
+    activo: true,
+    is_active: true,
+    last_login: '2026-08-24T10:30:00Z',
+    roles: [{ codigo: 'ANALISTA_PE', nombre: 'Analista PE', sistemas: ['sis_pe'] }],
+    alcances: [{
+      rol: 'ANALISTA_PE',
+      unidad: { id: unit.id, codigo: unit.codigo, nombre: unit.nombre },
+      scope_type: 'DESCENDANTS',
+      fiscal_year: null,
+    }],
+    sistemas: ['sis_pe'],
+  };
+
+  const inactiveUser: AdminUser = {
+    ...activeUser,
+    id: 'user-2',
+    first_name: 'Boris',
+    last_name: 'Operativo',
+    email: 'boris@gob.bo',
+    cargo: 'Analista POA',
+    estado: 'INACTIVO',
+    activo: false,
+    is_active: false,
+    last_login: null,
+    roles: [{ codigo: 'ANALISTA_POA', nombre: 'Analista POA', sistemas: ['sis_poa'] }],
+    sistemas: ['sis_poa'],
+  };
+
+  const page = {
+    count: 2,
+    next: null,
+    previous: null,
+    results: [activeUser, inactiveUser],
+  };
 
   beforeEach(async () => {
-    adminServiceSpy = jasmine.createSpyObj('AdminUsuariosService', ['listarUsuarios', 'eliminarUsuario']);
-    routerSpy = jasmine.createSpyObj('Router', ['navigate']);
-
-    adminServiceSpy.listarUsuarios.and.returnValue(of(mockUsuarios as any));
-    adminServiceSpy.eliminarUsuario.and.returnValue(of(void 0));
+    adminUsers = jasmine.createSpyObj<AdminUsuariosService>(
+      'AdminUsuariosService',
+      ['listUsers', 'getUser', 'activate', 'deactivate'],
+    );
+    auth = jasmine.createSpyObj<AuthService>('AuthService', ['listPublicOrganizationalUnits']);
+    capabilities = jasmine.createSpyObj<CapabilitiesService>('CapabilitiesService', ['tiene']);
+    granted = new Set(['accounts.usuario.view']);
+    capabilities.tiene.and.callFake(code => granted.has(code));
+    adminUsers.listUsers.and.returnValue(of(page));
+    adminUsers.getUser.and.returnValue(of(activeUser));
+    adminUsers.activate.and.returnValue(of({
+      ...inactiveUser,
+      estado: 'ACTIVO',
+      activo: true,
+      is_active: true,
+    }));
+    adminUsers.deactivate.and.returnValue(of({
+      ...activeUser,
+      estado: 'INACTIVO',
+      activo: false,
+      is_active: false,
+    }));
+    auth.listPublicOrganizationalUnits.and.returnValue(of([unit]));
 
     await TestBed.configureTestingModule({
-      declarations: [UsuariosListaComponent],
-      imports: [HttpClientTestingModule, RouterTestingModule, FormsModule],
+      imports: [AdminUsuariosModule, NoopAnimationsModule],
       providers: [
-        { provide: AdminUsuariosService, useValue: adminServiceSpy },
-        { provide: Router, useValue: routerSpy },
+        { provide: AdminUsuariosService, useValue: adminUsers },
+        { provide: AuthService, useValue: auth },
+        { provide: CapabilitiesService, useValue: capabilities },
       ],
     }).compileComponents();
 
@@ -38,75 +104,122 @@ describe('UsuariosListaComponent', () => {
     component = fixture.componentInstance;
   });
 
-  it('should create', () => {
-    expect(component).toBeTruthy();
-  });
-
-  it('should load users on init', () => {
+  it('renders the required columns and backend data', () => {
     fixture.detectChanges();
 
-    expect(adminServiceSpy.listarUsuarios).toHaveBeenCalled();
-    expect(component.usuarios.length).toBe(2);
-    expect(component.cargando).toBeFalse();
+    const text = fixture.nativeElement.textContent as string;
+    for (const heading of [
+      'Usuario', 'Cargo', 'Unidad organizacional', 'Rol', 'Sistema',
+      'Estado', 'Último acceso', 'Acciones',
+    ]) {
+      expect(text).toContain(heading);
+    }
+    expect(text).toContain('Ana Planificadora');
+    expect(text).toContain('Dirección de Planificación');
+    expect(text).toContain('Analista PE');
+    expect(text).toContain('SIS-POA');
   });
 
-  it('should display empty message when no users found', () => {
-    adminServiceSpy.listarUsuarios.and.returnValue(of([] as any));
+  it('sends filters and resets the backend page', () => {
+    fixture.detectChanges();
+    adminUsers.listUsers.calls.reset();
+    component.pageIndex = 3;
+    component.filters = {
+      search: 'Ana',
+      organizational_unit: unit.id,
+      role: 'ANALISTA_PE',
+      system: 'sis_pe',
+      state: 'ACTIVO',
+    };
+
+    component.applyFilters();
+
+    expect(component.pageIndex).toBe(0);
+    expect(adminUsers.listUsers).toHaveBeenCalledOnceWith(component.filters, 1);
+  });
+
+  it('requests the selected backend page', () => {
+    fixture.detectChanges();
+    adminUsers.listUsers.calls.reset();
+
+    component.changePage({ pageIndex: 2, previousPageIndex: 1, pageSize: 25, length: 80 });
+
+    expect(adminUsers.listUsers).toHaveBeenCalledOnceWith(component.filters, 3);
+  });
+
+  it('shows loading while the request is pending', () => {
+    const pending = new Subject<typeof page>();
+    adminUsers.listUsers.and.returnValue(pending.asObservable());
 
     fixture.detectChanges();
 
-    expect(component.usuarios.length).toBe(0);
-    expect(component.cargando).toBeFalse();
+    expect(fixture.nativeElement.textContent).toContain('Cargando usuarios');
+    expect(component.loading).toBeTrue();
   });
 
-  it('should handle error when loading users', () => {
-    adminServiceSpy.listarUsuarios.and.returnValue(throwError(() => new Error('Error')));
+  it('shows an actionable error and retries', () => {
+    adminUsers.listUsers.and.returnValue(throwError(() => new Error('network')));
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('No pudimos consultar los usuarios');
+    expect(fixture.nativeElement.textContent).toContain('Reintentar');
+
+    adminUsers.listUsers.and.returnValue(of(page));
+    component.loadUsers();
+    expect(component.users.length).toBe(2);
+  });
+
+  it('shows the empty state when the backend returns no users', () => {
+    adminUsers.listUsers.and.returnValue(of({ ...page, count: 0, results: [] }));
 
     fixture.detectChanges();
 
-    expect(component.error).toBe('Error al cargar usuarios');
-    expect(component.cargando).toBeFalse();
+    expect(fixture.nativeElement.textContent).toContain('No hay usuarios para mostrar');
+    expect(fixture.nativeElement.textContent).toContain('Limpiar filtros');
   });
 
-  it('should filter users when searching', () => {
+  it('loads user detail from the V2 service', () => {
     fixture.detectChanges();
-    expect(component.usuarios.length).toBe(2);
 
-    component.busqueda = 'user1';
-    adminServiceSpy.listarUsuarios.and.returnValue(of([mockUsuarios[0]] as any));
+    component.openDetail(activeUser);
+    fixture.detectChanges();
 
-    component.cargar();
-
-    expect(adminServiceSpy.listarUsuarios).toHaveBeenCalledWith({ search: 'user1' });
-    expect(component.usuarios.length).toBe(1);
+    expect(adminUsers.getUser).toHaveBeenCalledOnceWith(activeUser.id);
+    expect(fixture.nativeElement.textContent).toContain('La edición de datos y asignaciones estará disponible en F4b2');
   });
 
-  it('should navigate to create user page', () => {
-    component.nuevo();
+  it('hides state actions without activate capability', () => {
+    fixture.detectChanges();
 
-    expect(routerSpy.navigate).toHaveBeenCalledWith(['admin-usuarios/nuevo']);
+    expect(fixture.nativeElement.querySelector('[aria-label="Desactivar Ana Planificadora"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[aria-label="Activar Boris Operativo"]')).toBeNull();
   });
 
-  it('should navigate to edit user page', () => {
-    component.editar(mockUsuarios[0] as any);
-
-    expect(routerSpy.navigate).toHaveBeenCalledWith(['admin-usuarios', 1]);
-  });
-
-  it('should not delete user when confirm is cancelled', () => {
-    spyOn(window, 'confirm').and.returnValue(false);
-
-    component.eliminar(mockUsuarios[0] as any);
-
-    expect(adminServiceSpy.eliminarUsuario).not.toHaveBeenCalled();
-  });
-
-  it('should delete user and reload when confirm is accepted', () => {
+  it('shows and executes activate/deactivate actions with capability', () => {
+    granted.add('accounts.usuario.activate');
     spyOn(window, 'confirm').and.returnValue(true);
-    adminServiceSpy.listarUsuarios.and.returnValue(of(mockUsuarios as any));
+    fixture.detectChanges();
 
-    component.eliminar(mockUsuarios[0] as any);
+    expect(fixture.nativeElement.querySelector('[aria-label="Desactivar Ana Planificadora"]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('[aria-label="Activar Boris Operativo"]')).not.toBeNull();
 
-    expect(adminServiceSpy.eliminarUsuario).toHaveBeenCalledWith(1);
+    component.toggleUserState(activeUser);
+    component.toggleUserState(inactiveUser);
+
+    expect(adminUsers.deactivate).toHaveBeenCalledOnceWith(activeUser.id);
+    expect(adminUsers.activate).toHaveBeenCalledOnceWith(inactiveUser.id);
+  });
+
+  it('shows only tabs backed by granted capabilities', () => {
+    granted.add('accounts.rol.view');
+    granted.add('accounts.capacidad.view');
+    fixture.detectChanges();
+
+    const labels = Array.from(
+      fixture.nativeElement.querySelectorAll('.mdc-tab__text-label'),
+      (element: Element) => element.textContent?.trim(),
+    );
+    expect(labels).toEqual(['Usuarios', 'Roles', 'Permisos']);
+    expect(labels).not.toContain('Solicitudes');
   });
 });

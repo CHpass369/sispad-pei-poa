@@ -1,148 +1,218 @@
-import { Component, OnInit } from '@angular/core';
-import { Router } from '@angular/router';
-import { AdminUsuariosService, AdminUsuario } from './admin-usuarios.service';
+import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+import { PageEvent } from '@angular/material/paginator';
+import { Observable } from 'rxjs';
+import { PublicOrganizationalUnit } from '../../core/models/usuario.model';
+import { AuthService } from '../../core/services/auth.service';
+import { CapabilitiesService } from '../../core/services/capabilities.service';
+import {
+  AdminSystem,
+  AdminUser,
+  AdminUserFilters,
+  AdminUserState,
+  AdminUsuariosService,
+} from './admin-usuarios.service';
 
 @Component({
   standalone: false,
   selector: 'app-usuarios-lista',
-  template: `
-    <div class="page-header">
-      <h2>Gestión de Usuarios</h2>
-      <p class="text-secondary">Administración de usuarios y roles del sistema</p>
-    </div>
-    
-    <div class="acciones-superior">
-      <div class="field">
-        <input [(ngModel)]="busqueda" (keyup.enter)="cargar()" class="form-control"
-          placeholder="Buscar por email o nombre...">
-        </div>
-        <button class="btn btn-primary" (click)="nuevo()">+ Nuevo Usuario</button>
-      </div>
-    
-      @if (!cargando) {
-        <div class="table-container">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Email</th>
-                <th>Nombre</th>
-                <th>Roles</th>
-                <th>Estado</th>
-                <th>Registro</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (u of usuarios; track u) {
-                <tr>
-                  <td>{{ u.email }}</td>
-                  <td>{{ u.first_name }} {{ u.last_name }}</td>
-                  <td>
-                    @for (r of u.rol_nombre; track r) {
-                      <span class="badge badge-info">{{ r }}</span>
-                    }
-                  </td>
-                  <td>
-                    <span class="badge" [class.badge-success]="u.is_active" [class.badge-danger]="!u.is_active">
-                      {{ u.is_active ? 'Activo' : 'Inactivo' }}
-                    </span>
-                  </td>
-                  <td>{{ u.date_joined | date:'dd/MM/yyyy' }}</td>
-                  <td>
-                    <button class="btn btn-sm btn-outline" (click)="editar(u)">Editar</button>
-                    <button class="btn btn-sm btn-danger" (click)="eliminar(u)">Eliminar</button>
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
-          @if (usuarios.length === 0) {
-            <div class="empty">No se encontraron usuarios</div>
-          }
-        </div>
-      }
-    
-      @if (cargando) {
-        <div class="loading">Cargando...</div>
-      }
-    
-      @if (error) {
-        <div class="alert alert-error">{{ error }}</div>
-      }
-    `,
-  styles: [`
-    .page-header { margin-bottom: 1rem; }
-    .page-header h2 { font-size: 1.5rem; margin-bottom: 0.25rem; }
-    .text-secondary { color: var(--text-secondary); font-size: 0.875rem; }
-    .acciones-superior { display: flex; gap: 1rem; margin-bottom: 1.5rem; align-items: center; }
-    .acciones-superior .field { flex: 1; }
-    
-    .data-table { width: 100%; border-collapse: collapse; background: var(--surface); border-radius: 8px; overflow: hidden; }
-
-    .data-table tr:hover td { background: var(--hover, #fafafa); }
-    .badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.75rem; margin-right: 0.25rem; }
-    .badge-info { background: var(--mdc-blue-50); color: var(--mdc-blue-800); }
-    .badge-success { background: var(--mdc-green-50); color: var(--mdc-green-800); }
-    .badge-danger { background: var(--mdc-red-50); color: var(--mdc-red-800); }
-    .btn { display: inline-flex; align-items: center; padding: 0.5rem 1rem; border-radius: 6px; border: none; font-size: 0.875rem; font-weight: 600; cursor: pointer; }
-    .btn-primary { background: var(--primary); color: white; }
-    .btn-primary:hover { background: var(--primary-dark, #303F9F); }
-    .btn-sm { padding: 0.25rem 0.5rem; font-size: 0.8125rem; }
-    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-primary); }
-    .btn-outline:hover { background: var(--hover, var(--neutro-fondo)); }
-    .btn-danger { background: var(--mdc-red-800); color: white; }
-    .btn-danger:hover { background: #B71C1C; }
-    .empty { text-align: center; padding: 2rem; color: var(--text-secondary); }
-    .loading { text-align: center; padding: 2rem; color: var(--text-secondary); }
-    .alert { padding: 0.75rem 1rem; border-radius: 6px; margin-top: 1rem; }
-    .alert-error { background: var(--mdc-red-50); color: var(--warn); }
-  `]
+  templateUrl: './usuarios-lista.component.html',
+  styleUrl: './usuarios-lista.component.scss',
 })
 export class UsuariosListaComponent implements OnInit {
-  usuarios: AdminUsuario[] = [];
-  busqueda = '';
-  cargando = true;
+  @ViewChild('detalleTitulo') private detailHeading?: ElementRef<HTMLHeadingElement>;
+
+  readonly displayedColumns = [
+    'usuario',
+    'cargo',
+    'unidad',
+    'rol',
+    'sistema',
+    'estado',
+    'ultimoAcceso',
+    'acciones',
+  ];
+  readonly pageSize = 25;
+
+  filters: AdminUserFilters = {};
+  users: AdminUser[] = [];
+  organizationalUnits: PublicOrganizationalUnit[] = [];
+  totalUsers = 0;
+  pageIndex = 0;
+  loading = false;
   error = '';
+  catalogError = '';
+  actionError = '';
+  selectedUser: AdminUser | null = null;
+  detailLoading = false;
+  detailError = '';
+  stateChangeUserId: string | null = null;
 
   constructor(
-    private adminService: AdminUsuariosService,
-    private router: Router,
+    private readonly adminUsers: AdminUsuariosService,
+    private readonly auth: AuthService,
+    private readonly capabilities: CapabilitiesService,
   ) {}
 
   ngOnInit(): void {
-    this.cargar();
+    if (this.canViewUsers) {
+      this.loadOrganizationalUnits();
+      this.loadUsers();
+    }
   }
 
-  cargar(): void {
-    this.cargando = true;
+  get canViewUsers(): boolean {
+    return this.capabilities.tiene('accounts.usuario.view');
+  }
+
+  get canViewRoles(): boolean {
+    return this.capabilities.tiene('accounts.rol.view');
+  }
+
+  get canViewCapabilities(): boolean {
+    return this.capabilities.tiene('accounts.capacidad.view');
+  }
+
+  get canViewRequests(): boolean {
+    return this.capabilities.tiene('accounts.solicitud.view');
+  }
+
+  get canChangeUserState(): boolean {
+    return this.capabilities.tiene('accounts.usuario.activate');
+  }
+
+  applyFilters(): void {
+    this.pageIndex = 0;
+    this.loadUsers();
+  }
+
+  clearFilters(): void {
+    this.filters = {};
+    this.pageIndex = 0;
+    this.loadUsers();
+  }
+
+  changePage(event: PageEvent): void {
+    this.pageIndex = event.pageIndex;
+    this.loadUsers();
+  }
+
+  loadUsers(): void {
+    if (!this.canViewUsers) {
+      return;
+    }
+    this.loading = true;
     this.error = '';
-    const params: any = {};
-    if (this.busqueda) params.search = this.busqueda;
-    this.adminService.listarUsuarios(params).subscribe({
-      next: (data: any) => {
-        this.usuarios = data.results || data;
-        this.cargando = false;
+    this.actionError = '';
+    this.adminUsers.listUsers(this.filters, this.pageIndex + 1).subscribe({
+      next: page => {
+        this.users = page.results;
+        this.totalUsers = page.count;
+        this.loading = false;
       },
       error: () => {
-        this.error = 'Error al cargar usuarios';
-        this.cargando = false;
+        this.users = [];
+        this.totalUsers = 0;
+        this.error = 'No se pudo cargar la lista de usuarios. Verifique su conexión e inténtelo nuevamente.';
+        this.loading = false;
       },
     });
   }
 
-  nuevo(): void {
-    this.router.navigate(['admin-usuarios/nuevo']);
+  openDetail(user: AdminUser): void {
+    this.selectedUser = null;
+    this.detailLoading = true;
+    this.detailError = '';
+    this.adminUsers.getUser(user.id).subscribe({
+      next: detail => {
+        this.selectedUser = detail;
+        this.detailLoading = false;
+        setTimeout(() => this.detailHeading?.nativeElement.focus());
+      },
+      error: () => {
+        this.selectedUser = user;
+        this.detailLoading = false;
+        this.detailError = 'No se pudo cargar el detalle actualizado. Inténtelo nuevamente.';
+      },
+    });
   }
 
-  editar(u: AdminUsuario): void {
-    this.router.navigate(['admin-usuarios', u.id]);
+  retryDetail(): void {
+    if (this.selectedUser) {
+      this.openDetail(this.selectedUser);
+    }
   }
 
-  eliminar(u: AdminUsuario): void {
-    if (!confirm(`¿Eliminar usuario ${u.email}?`)) return;
-    this.adminService.eliminarUsuario(u.id!).subscribe({
-      next: () => this.cargar(),
-      error: () => { this.error = 'Error al eliminar usuario'; },
+  closeDetail(): void {
+    this.selectedUser = null;
+    this.detailError = '';
+  }
+
+  toggleUserState(user: AdminUser): void {
+    if (!this.canChangeUserState || this.stateChangeUserId) {
+      return;
+    }
+    const activating = !user.is_active;
+    const action = activating ? 'activar' : 'desactivar';
+    const name = this.fullName(user);
+    if (!window.confirm(`¿Desea ${action} la cuenta de ${name}?`)) {
+      return;
+    }
+
+    this.stateChangeUserId = user.id;
+    this.actionError = '';
+    const request: Observable<AdminUser> = activating
+      ? this.adminUsers.activate(user.id)
+      : this.adminUsers.deactivate(user.id);
+    request.subscribe({
+      next: updated => {
+        this.users = this.users.map(item => item.id === updated.id ? updated : item);
+        if (this.selectedUser?.id === updated.id) {
+          this.selectedUser = updated;
+        }
+        this.stateChangeUserId = null;
+      },
+      error: () => {
+        this.actionError = `No se pudo ${action} la cuenta. Revise sus permisos e inténtelo nuevamente.`;
+        this.stateChangeUserId = null;
+      },
+    });
+  }
+
+  fullName(user: AdminUser): string {
+    return `${user.first_name} ${user.last_name}`.trim() || user.email;
+  }
+
+  organizationalUnitNames(user: AdminUser): string[] {
+    return [...new Set(user.alcances.map(scope => scope.unidad.nombre))];
+  }
+
+  stateLabel(state: AdminUserState): string {
+    const labels: Record<AdminUserState, string> = {
+      PENDIENTE: 'Pendiente',
+      ACTIVO: 'Activo',
+      INACTIVO: 'Inactivo',
+    };
+    return labels[state];
+  }
+
+  systemLabel(system: AdminSystem): string {
+    return system === 'sis_pe' ? 'SIS-PE' : 'SIS-POA';
+  }
+
+  trackUser(_index: number, user: AdminUser): string {
+    return user.id;
+  }
+
+  private loadOrganizationalUnits(): void {
+    this.auth.listPublicOrganizationalUnits().subscribe({
+      next: units => {
+        this.organizationalUnits = units;
+        this.catalogError = '';
+      },
+      error: () => {
+        this.organizationalUnits = [];
+        this.catalogError = 'No se pudo cargar el catálogo de unidades.';
+      },
     });
   }
 }
