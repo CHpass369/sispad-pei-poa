@@ -281,7 +281,7 @@ class UsuarioAdminReadSerializer(serializers.ModelSerializer):
 class RolAdminFilterSerializer(serializers.Serializer):
     search = serializers.CharField(required=False, allow_blank=True)
     system = serializers.ChoiceField(
-        choices=['sis_pe', 'sis_poa'], required=False,
+        choices=['sis_pe', 'sis_poa', 'accounts'], required=False,
     )
     active = serializers.BooleanField(required=False)
     include_deprecated = serializers.BooleanField(required=False, default=False)
@@ -290,7 +290,7 @@ class RolAdminFilterSerializer(serializers.Serializer):
 class CapacidadAdminFilterSerializer(serializers.Serializer):
     search = serializers.CharField(required=False, allow_blank=True)
     system = serializers.ChoiceField(
-        choices=['sis_pe', 'sis_poa'], required=False,
+        choices=['sis_pe', 'sis_poa', 'accounts'], required=False,
     )
     active = serializers.BooleanField(required=False)
 

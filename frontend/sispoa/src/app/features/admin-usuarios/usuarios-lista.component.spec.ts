@@ -73,7 +73,7 @@ describe('UsuariosListaComponent', () => {
   beforeEach(async () => {
     adminUsers = jasmine.createSpyObj<AdminUsuariosService>(
       'AdminUsuariosService',
-      ['listUsers', 'getUser', 'activate', 'deactivate'],
+      ['listUsers', 'getUser', 'activate', 'deactivate', 'listRolesPage', 'listCapabilities'],
     );
     auth = jasmine.createSpyObj<AuthService>('AuthService', ['listPublicOrganizationalUnits']);
     capabilities = jasmine.createSpyObj<CapabilitiesService>('CapabilitiesService', ['tiene']);
@@ -81,6 +81,12 @@ describe('UsuariosListaComponent', () => {
     granted = new Set(['accounts.usuario.view']);
     capabilities.tiene.and.callFake(code => granted.has(code));
     adminUsers.listUsers.and.returnValue(of(page));
+    adminUsers.listRolesPage.and.returnValue(of({
+      count: 0, next: null, previous: null, results: [],
+    }));
+    adminUsers.listCapabilities.and.returnValue(of({
+      count: 0, next: null, previous: null, results: [],
+    }));
     adminUsers.getUser.and.returnValue(of(activeUser));
     adminUsers.activate.and.returnValue(of({
       ...inactiveUser,

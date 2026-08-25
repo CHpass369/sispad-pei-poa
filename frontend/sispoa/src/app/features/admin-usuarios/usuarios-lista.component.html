@@ -334,21 +334,13 @@
 
     @if (canViewRoles) {
       <mat-tab label="Roles">
-        <div class="placeholder" role="status">
-          <lucide-angular name="badge" [size]="36" aria-hidden="true"></lucide-angular>
-          <strong>Administración de roles en preparación</strong>
-          <p>La gestión de roles se habilitará en F4c. No se muestran datos simulados.</p>
-        </div>
+        <app-roles-admin-tab></app-roles-admin-tab>
       </mat-tab>
     }
 
     @if (canViewCapabilities) {
       <mat-tab label="Permisos">
-        <div class="placeholder" role="status">
-          <lucide-angular name="key-round" [size]="36" aria-hidden="true"></lucide-angular>
-          <strong>Catálogo de permisos en preparación</strong>
-          <p>La consulta y asignación de permisos se habilitará en F4c.</p>
-        </div>
+        <app-permissions-admin-tab></app-permissions-admin-tab>
       </mat-tab>
     }
 
@@ -357,7 +349,7 @@
         <div class="placeholder" role="status">
           <lucide-angular name="clipboard-clock" [size]="36" aria-hidden="true"></lucide-angular>
           <strong>Solicitudes en preparación</strong>
-          <p>La bandeja de solicitudes se habilitará en F4c.</p>
+          <p>La bandeja de solicitudes se habilitará en F4c2.</p>
         </div>
       </mat-tab>
     }

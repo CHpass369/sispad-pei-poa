@@ -1,0 +1,93 @@
+<header class="dialog-header">
+  <div>
+    <p class="eyebrow">Matriz de autoridad</p>
+    <h2 mat-dialog-title id="role-capabilities-title" tabindex="-1">Asignar permisos</h2>
+    <p id="role-capabilities-description">{{ data.role.codigo }} · {{ data.role.nombre }}</p>
+  </div>
+  <button mat-icon-button type="button" aria-label="Cerrar asignación de permisos" (click)="close()">
+    <lucide-angular name="x" [size]="19" aria-hidden="true"></lucide-angular>
+  </button>
+</header>
+
+<mat-dialog-content>
+  @if (data.role.es_sistema) {
+    <div class="readonly-notice" role="status">
+      <lucide-angular name="lock-keyhole" [size]="20" aria-hidden="true"></lucide-angular>
+      Los permisos de los roles del sistema son inmutables.
+    </div>
+  } @else {
+    <div class="capability-toolbar">
+      <mat-form-field appearance="outline">
+        <mat-label>Filtrar permisos</mat-label>
+        <lucide-angular matPrefix name="search" [size]="16" aria-hidden="true"></lucide-angular>
+        <input matInput [(ngModel)]="search" placeholder="Código, nombre o descripción" autocomplete="off">
+      </mat-form-field>
+      <span class="selection-count">{{ selectedCount }} seleccionados</span>
+    </div>
+
+    @if (unsupportedAssignedCount) {
+      <p class="catalog-warning" role="status">
+        El rol contiene {{ unsupportedAssignedCount }} permisos fuera del catálogo asignable. Al guardar se retirarán del rol.
+      </p>
+    }
+
+    @if (loading) {
+      <div class="loading-state" role="status" aria-live="polite">
+        <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+        Cargando permisos…
+      </div>
+    }
+
+    @if (loadError && !loading) {
+      <div class="feedback-error" role="alert">
+        <span>{{ loadError }}</span>
+        <button mat-stroked-button type="button" (click)="loadCapabilities()">Reintentar</button>
+      </div>
+    }
+
+    @if (!loading && !loadError) {
+      <div class="capability-groups">
+        @for (group of groups; track group.system) {
+          <section class="capability-group" [attr.data-system]="group.system" [attr.aria-labelledby]="'group-' + group.system">
+            <header>
+              <h3 [id]="'group-' + group.system">{{ group.label }}</h3>
+              <span>{{ group.capabilities.length }} permisos</span>
+            </header>
+            <div class="capability-list">
+              @for (capability of group.capabilities; track trackCapability($index, capability)) {
+                <mat-checkbox
+                  [checked]="isSelected(capability.codigo)"
+                  (change)="toggle(capability.codigo, $event.checked)"
+                >
+                  <span class="capability-code">{{ capability.codigo }}</span>
+                  <span class="capability-name">{{ capability.nombre }}</span>
+                  @if (!capability.activo) {
+                    <span class="inactive-label">Inactivo</span>
+                  }
+                </mat-checkbox>
+              }
+            </div>
+          </section>
+        } @empty {
+          <div class="empty-state" role="status">
+            No hay permisos que coincidan con el filtro.
+          </div>
+        }
+      </div>
+    }
+
+    @if (saveError) {
+      <p class="dialog-error" role="alert">{{ saveError }}</p>
+    }
+  }
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-stroked-button type="button" (click)="close()">Cancelar</button>
+  @if (!data.role.es_sistema) {
+    <button mat-flat-button type="button" [disabled]="saving || loading || !!loadError" (click)="save()">
+      <lucide-angular name="save" [size]="17" aria-hidden="true"></lucide-angular>
+      {{ saving ? 'Guardando…' : 'Reemplazar permisos' }}
+    </button>
+  }
+</mat-dialog-actions>

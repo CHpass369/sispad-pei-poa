@@ -1,0 +1,159 @@
+<div class="catalog-tab">
+  <header class="catalog-header">
+    <div>
+      <p class="catalog-kicker">Roles efectivos</p>
+      <h2>Roles</h2>
+      <p>Administre roles personalizados; los roles base permanecen protegidos.</p>
+    </div>
+    @if (canCreate) {
+      <button mat-flat-button type="button" (click)="openCreate()">
+        <lucide-angular name="plus" [size]="17" aria-hidden="true"></lucide-angular>
+        Crear rol personalizado
+      </button>
+    }
+  </header>
+
+  <form class="catalog-filters" (ngSubmit)="applyFilters()" aria-label="Filtros de roles">
+    <mat-form-field appearance="outline" class="search-field">
+      <mat-label>Buscar</mat-label>
+      <lucide-angular matPrefix name="search" [size]="16" aria-hidden="true"></lucide-angular>
+      <input matInput name="roleSearch" [(ngModel)]="filters.search" placeholder="Código, nombre o descripción" autocomplete="off">
+    </mat-form-field>
+    <mat-form-field appearance="outline">
+      <mat-label>Sistema</mat-label>
+      <mat-select name="roleSystem" [(ngModel)]="filters.system">
+        <mat-option [value]="undefined">Todos los sistemas</mat-option>
+        <mat-option value="sis_pe">SIS-PE</mat-option>
+        <mat-option value="sis_poa">SIS-POA</mat-option>
+        <mat-option value="accounts">Accounts</mat-option>
+      </mat-select>
+    </mat-form-field>
+    <mat-form-field appearance="outline">
+      <mat-label>Estado</mat-label>
+      <mat-select name="roleActive" [(ngModel)]="filters.active">
+        <mat-option [value]="undefined">Todos los estados</mat-option>
+        <mat-option [value]="true">Activo</mat-option>
+        <mat-option [value]="false">Inactivo</mat-option>
+      </mat-select>
+    </mat-form-field>
+    <div class="filter-actions">
+      <button mat-stroked-button type="button" (click)="clearFilters()">Limpiar</button>
+      <button mat-flat-button type="submit">Aplicar filtros</button>
+    </div>
+  </form>
+
+  @if (loading) {
+    <div class="loading-state" role="status" aria-live="polite">
+      <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+      Cargando roles…
+    </div>
+  }
+
+  @if (error && !loading) {
+    <div class="feedback feedback-error" role="alert">
+      <lucide-angular name="cloud-off" [size]="32" aria-hidden="true"></lucide-angular>
+      <div><strong>No pudimos consultar los roles</strong><p>{{ error }}</p></div>
+      <button mat-stroked-button type="button" (click)="loadRoles()">Reintentar</button>
+    </div>
+  }
+
+  @if (!loading && !error && roles.length) {
+    <div class="table-shell">
+      <table mat-table [dataSource]="roles" [trackBy]="trackRole" aria-label="Catálogo de roles">
+        <ng-container matColumnDef="codigo">
+          <th mat-header-cell *matHeaderCellDef>Código</th>
+          <td mat-cell *matCellDef="let role"><code>{{ role.codigo }}</code></td>
+        </ng-container>
+        <ng-container matColumnDef="nombre">
+          <th mat-header-cell *matHeaderCellDef>Nombre</th>
+          <td mat-cell *matCellDef="let role">
+            <strong>{{ role.nombre }}</strong>
+            <span class="row-description">{{ role.descripcion || 'Sin descripción' }}</span>
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="sistemas">
+          <th mat-header-cell *matHeaderCellDef>Sistemas</th>
+          <td mat-cell *matCellDef="let role">
+            @for (system of role.sistemas; track system) {
+              <span class="system-chip" [attr.data-system]="system">{{ systemLabel(system) }}</span>
+            } @empty {
+              <span class="muted">Sin sistema</span>
+            }
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="capacidades">
+          <th mat-header-cell *matHeaderCellDef>Permisos</th>
+          <td mat-cell *matCellDef="let role">
+            <strong>{{ role.capacidades.length }}</strong>
+            @for (code of capabilitySummary(role); track code) {
+              <span class="capability-preview">{{ code }}</span>
+            }
+            @if (role.capacidades.length > 2) {
+              <span class="muted">+{{ role.capacidades.length - 2 }} más</span>
+            }
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="estado">
+          <th mat-header-cell *matHeaderCellDef>Estado</th>
+          <td mat-cell *matCellDef="let role">
+            <span class="status-chip" [class.inactive]="!role.activo">{{ role.activo ? 'Activo' : 'Inactivo' }}</span>
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="tipo">
+          <th mat-header-cell *matHeaderCellDef>Tipo</th>
+          <td mat-cell *matCellDef="let role">
+            <span class="type-chip" [class.system-role]="role.es_sistema">
+              {{ role.es_sistema ? 'Sistema' : 'Personalizado' }}
+            </span>
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="acciones">
+          <th mat-header-cell *matHeaderCellDef>Acciones</th>
+          <td mat-cell *matCellDef="let role" class="actions-cell">
+            @if (role.es_sistema) {
+              <span class="readonly-action" title="Rol protegido">
+                <lucide-angular name="lock-keyhole" [size]="17" aria-hidden="true"></lucide-angular>
+                Solo lectura
+              </span>
+            } @else {
+              @if (canEdit) {
+                <button mat-icon-button type="button" matTooltip="Editar rol" [attr.aria-label]="'Editar rol ' + role.codigo" (click)="openEdit(role)">
+                  <lucide-angular name="pencil" [size]="18" aria-hidden="true"></lucide-angular>
+                </button>
+              }
+              @if (canAssignCapabilities) {
+                <button mat-icon-button type="button" matTooltip="Asignar permisos" [attr.aria-label]="'Asignar permisos a ' + role.codigo" (click)="openCapabilities(role)">
+                  <lucide-angular name="key-round" [size]="18" aria-hidden="true"></lucide-angular>
+                </button>
+              }
+              @if (!canEdit && !canAssignCapabilities) {
+                <span class="muted">Sin acciones</span>
+              }
+            }
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+      </table>
+      <mat-paginator
+        [length]="totalRoles"
+        [pageIndex]="pageIndex"
+        [pageSize]="pageSize"
+        [pageSizeOptions]="[pageSize]"
+        [hidePageSize]="true"
+        [showFirstLastButtons]="true"
+        aria-label="Paginación de roles"
+        (page)="changePage($event)"
+      ></mat-paginator>
+    </div>
+  }
+
+  @if (!loading && !error && !roles.length) {
+    <div class="feedback empty-state" role="status">
+      <lucide-angular name="search-x" [size]="32" aria-hidden="true"></lucide-angular>
+      <div><strong>No hay roles para mostrar</strong><p>Revise o limpie los filtros aplicados.</p></div>
+      <button mat-stroked-button type="button" (click)="clearFilters()">Limpiar filtros</button>
+    </div>
+  }
+</div>

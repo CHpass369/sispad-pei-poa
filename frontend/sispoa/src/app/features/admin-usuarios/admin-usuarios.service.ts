@@ -59,12 +59,12 @@ export interface AdminUserPersonalPatch {
   telefono?: string;
 }
 
-export interface AdminRoleCapability {
+export interface AdminCapability {
   id: string;
   codigo: string;
   nombre: string;
   descripcion: string;
-  sistema: AdminRoleSystem;
+  sistema: string;
   activo: boolean;
   orden: number;
 }
@@ -78,8 +78,32 @@ export interface AdminRole {
   es_sistema: boolean;
   deprecated: boolean;
   orden: number;
-  sistemas: AdminRoleSystem[];
-  capacidades: AdminRoleCapability[];
+  sistemas: string[];
+  capacidades: AdminCapability[];
+}
+
+export interface AdminCatalogFilters {
+  search?: string;
+  system?: AdminRoleSystem;
+  active?: boolean;
+}
+
+export interface AdminRoleCreate {
+  codigo: string;
+  nombre: string;
+  descripcion?: string;
+  activo?: boolean;
+}
+
+export interface AdminRolePatch {
+  nombre?: string;
+  descripcion?: string;
+  activo?: boolean;
+  orden?: number;
+}
+
+export interface AdminRoleCapabilitiesPayload {
+  capability_codes: string[];
 }
 
 export interface AdminAssignmentInput {
@@ -97,6 +121,7 @@ export interface AdminAssignmentsPayload {
 export class AdminUsuariosService {
   private readonly baseUrl = `${environment.apiUrlV2}/admin/users`;
   private readonly rolesUrl = `${environment.apiUrlV2}/admin/roles/`;
+  private readonly capabilitiesUrl = `${environment.apiUrlV2}/admin/capabilities/`;
 
   constructor(private readonly http: HttpClient) {}
 
@@ -143,9 +168,7 @@ export class AdminUsuariosService {
   }
 
   listRoles(): Observable<AdminRole[]> {
-    return this.http.get<Paginado<AdminRole>>(this.rolesUrl, {
-      params: new HttpParams().set('active', 'true'),
-    }).pipe(
+    return this.listRolesPage({ active: true }).pipe(
       expand(page => page.next
         ? this.http.get<Paginado<AdminRole>>(page.next)
         : EMPTY),
@@ -156,11 +179,75 @@ export class AdminUsuariosService {
     );
   }
 
+  listRolesPage(
+    filters: AdminCatalogFilters = {},
+    page = 1,
+  ): Observable<Paginado<AdminRole>> {
+    return this.http.get<Paginado<AdminRole>>(this.rolesUrl, {
+      params: this.catalogParams(filters, page),
+    });
+  }
+
+  getRole(id: string): Observable<AdminRole> {
+    return this.http.get<AdminRole>(`${this.rolesUrl}${id}/`);
+  }
+
+  createRole(data: AdminRoleCreate): Observable<AdminRole> {
+    return this.http.post<AdminRole>(this.rolesUrl, data);
+  }
+
+  patchRole(id: string, data: AdminRolePatch): Observable<AdminRole> {
+    return this.http.patch<AdminRole>(`${this.rolesUrl}${id}/`, data);
+  }
+
+  replaceRoleCapabilities(
+    id: string,
+    data: AdminRoleCapabilitiesPayload,
+  ): Observable<AdminRole> {
+    return this.http.put<AdminRole>(`${this.rolesUrl}${id}/capabilities/`, data);
+  }
+
+  listCapabilities(
+    filters: AdminCatalogFilters = {},
+    page = 1,
+  ): Observable<Paginado<AdminCapability>> {
+    return this.http.get<Paginado<AdminCapability>>(this.capabilitiesUrl, {
+      params: this.catalogParams(filters, page),
+    });
+  }
+
+  listAllCapabilities(): Observable<AdminCapability[]> {
+    return this.listCapabilities().pipe(
+      expand(page => page.next
+        ? this.http.get<Paginado<AdminCapability>>(page.next)
+        : EMPTY),
+      reduce(
+        (capabilities, page) => [...capabilities, ...page.results],
+        [] as AdminCapability[],
+      ),
+    );
+  }
+
   activate(id: string): Observable<AdminUser> {
     return this.http.post<AdminUser>(`${this.baseUrl}/${id}/activate/`, {});
   }
 
   deactivate(id: string): Observable<AdminUser> {
     return this.http.post<AdminUser>(`${this.baseUrl}/${id}/deactivate/`, {});
+  }
+
+  private catalogParams(filters: AdminCatalogFilters, page: number): HttpParams {
+    let params = new HttpParams().set('page', page.toString());
+    const search = filters.search?.trim();
+    if (search) {
+      params = params.set('search', search);
+    }
+    if (filters.system) {
+      params = params.set('system', filters.system);
+    }
+    if (filters.active !== undefined) {
+      params = params.set('active', filters.active.toString());
+    }
+    return params;
   }
 }

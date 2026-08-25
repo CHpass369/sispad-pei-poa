@@ -229,6 +229,14 @@ class RolAdminSuperuserTests(F3b2aTestBase):
             item['capacidades'][0]['sistema'], 'sis_pe',
         )
 
+    def test_filtro_roles_accounts_usa_el_sistema_efectivo(self):
+        response = self.cliente(self.superuser).get(
+            reverse('v2-admin-roles'), {'system': 'accounts'},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn(self.rol_jefe_pe.codigo, self.codigos(response))
+        self.assertNotIn(self.rol_poa.codigo, self.codigos(response))
+
     def test_crea_patch_y_asigna_capacidades_a_rol_personalizado(self):
         client = self.cliente(self.superuser)
         create_response = client.post(
@@ -497,6 +505,10 @@ class CapacidadAdminTests(F3b2aTestBase):
         self.assertTrue({
             self.cap_pe_edit.codigo, self.cap_poa_edit.codigo,
         } <= self.codigos(search))
+
+        accounts = client.get(url, {'system': 'accounts'})
+        self.assertIn(self.cap_accounts_owned.codigo, self.codigos(accounts))
+        self.assertNotIn(self.cap_pe.codigo, self.codigos(accounts))
 
     def test_system_sis_pro_es_invalido(self):
         response = self.cliente(self.superuser).get(

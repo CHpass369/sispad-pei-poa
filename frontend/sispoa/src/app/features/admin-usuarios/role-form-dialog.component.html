@@ -1,0 +1,80 @@
+<header class="dialog-header">
+  <div>
+    <p class="eyebrow">Catálogo de autoridad</p>
+    <h2 mat-dialog-title id="role-form-title" tabindex="-1">
+      {{ isCreate ? 'Crear rol personalizado' : 'Editar rol personalizado' }}
+    </h2>
+    <p id="role-form-description">
+      {{ isCreate ? 'Defina un rol sin capacidades iniciales.' : code }}
+    </p>
+  </div>
+  <button mat-icon-button type="button" aria-label="Cerrar formulario de rol" (click)="close()">
+    <lucide-angular name="x" [size]="19" aria-hidden="true"></lucide-angular>
+  </button>
+</header>
+
+<mat-dialog-content>
+  @if (isSystemRole) {
+    <div class="readonly-notice" role="status">
+      <lucide-angular name="lock-keyhole" [size]="20" aria-hidden="true"></lucide-angular>
+      Los roles del sistema son visibles, pero el backend no permite modificarlos.
+    </div>
+  }
+
+  <form id="role-form" #roleForm="ngForm" (ngSubmit)="submit()">
+    <mat-form-field appearance="outline" class="field-wide">
+      <mat-label>Código</mat-label>
+      <input
+        matInput
+        name="code"
+        [ngModel]="code"
+        (ngModelChange)="normalizeCode($event)"
+        pattern="[A-Z][A-Z0-9_]{2,49}"
+        maxlength="50"
+        required
+        [readonly]="!isCreate"
+        autocomplete="off"
+      >
+      <mat-hint>Mayúsculas, números y guion bajo; mínimo 3 caracteres.</mat-hint>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="field-wide">
+      <mat-label>Nombre</mat-label>
+      <input matInput name="name" [(ngModel)]="name" maxlength="150" required [readonly]="isSystemRole">
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="field-wide">
+      <mat-label>Descripción</mat-label>
+      <textarea matInput name="description" [(ngModel)]="description" rows="3" [readonly]="isSystemRole"></textarea>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Estado</mat-label>
+      <mat-select name="active" [(ngModel)]="active" [disabled]="isSystemRole">
+        <mat-option [value]="true">Activo</mat-option>
+        <mat-option [value]="false">Inactivo</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    @if (!isCreate) {
+      <mat-form-field appearance="outline">
+        <mat-label>Orden</mat-label>
+        <input matInput name="order" type="number" [(ngModel)]="order" [readonly]="isSystemRole">
+      </mat-form-field>
+    }
+  </form>
+
+  @if (error) {
+    <p class="dialog-error" role="alert">{{ error }}</p>
+  }
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-stroked-button type="button" (click)="close()">Cancelar</button>
+  @if (!isSystemRole) {
+    <button mat-flat-button type="submit" form="role-form" [disabled]="saving || !roleForm.valid">
+      <lucide-angular name="save" [size]="17" aria-hidden="true"></lucide-angular>
+      {{ saving ? 'Guardando…' : (isCreate ? 'Crear rol' : 'Guardar cambios') }}
+    </button>
+  }
+</mat-dialog-actions>

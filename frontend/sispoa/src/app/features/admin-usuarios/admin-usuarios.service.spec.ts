@@ -2,6 +2,7 @@ import { HttpClientTestingModule, HttpTestingController } from '@angular/common/
 import { TestBed } from '@angular/core/testing';
 import { environment } from '../../../environments/environment';
 import {
+  AdminCapability,
   AdminAssignmentsPayload,
   AdminRole,
   AdminUser,
@@ -39,6 +40,16 @@ describe('AdminUsuariosService', () => {
     orden: 1,
     sistemas: ['sis_pe'],
     capacidades: [],
+  };
+
+  const capability: AdminCapability = {
+    id: 'capability-1',
+    codigo: 'sis_pe.pad.view',
+    nombre: 'Ver PAD',
+    descripcion: 'Consulta del PAD',
+    sistema: 'sis_pe',
+    activo: true,
+    orden: 1,
   };
 
   beforeEach(() => {
@@ -178,5 +189,103 @@ describe('AdminUsuariosService', () => {
     });
 
     expect(roles.map(item => item.codigo)).toEqual(['CUSTOM_PE', 'CUSTOM_POA']);
+  });
+
+  it('lists a backend role page with search, system, active and page filters', () => {
+    service.listRolesPage({
+      search: '  custom ',
+      system: 'accounts',
+      active: false,
+    }, 2).subscribe();
+
+    const request = http.expectOne(req => req.url === `${environment.apiUrlV2}/admin/roles/`);
+    expect(request.request.method).toBe('GET');
+    expect(request.request.params.get('search')).toBe('custom');
+    expect(request.request.params.get('system')).toBe('accounts');
+    expect(request.request.params.get('active')).toBe('false');
+    expect(request.request.params.get('page')).toBe('2');
+    request.flush({ count: 0, next: null, previous: null, results: [] });
+  });
+
+  it('uses strict role create, detail, patch and atomic capability URLs', () => {
+    service.createRole({
+      codigo: 'CUSTOM_CREATED',
+      nombre: 'Rol creado',
+      descripcion: 'Descripción',
+      activo: true,
+    }).subscribe();
+    const create = http.expectOne(`${environment.apiUrlV2}/admin/roles/`);
+    expect(create.request.method).toBe('POST');
+    expect(create.request.body).toEqual({
+      codigo: 'CUSTOM_CREATED',
+      nombre: 'Rol creado',
+      descripcion: 'Descripción',
+      activo: true,
+    });
+    create.flush(role);
+
+    service.getRole(role.id).subscribe();
+    http.expectOne(`${environment.apiUrlV2}/admin/roles/${role.id}/`).flush(role);
+
+    service.patchRole(role.id, {
+      nombre: 'Actualizado', descripcion: '', activo: false, orden: 8,
+    }).subscribe();
+    const patch = http.expectOne(`${environment.apiUrlV2}/admin/roles/${role.id}/`);
+    expect(patch.request.method).toBe('PATCH');
+    expect(patch.request.body).toEqual({
+      nombre: 'Actualizado', descripcion: '', activo: false, orden: 8,
+    });
+    patch.flush(role);
+
+    service.replaceRoleCapabilities(role.id, {
+      capability_codes: [capability.codigo],
+    }).subscribe();
+    const replace = http.expectOne(
+      `${environment.apiUrlV2}/admin/roles/${role.id}/capabilities/`,
+    );
+    expect(replace.request.method).toBe('PUT');
+    expect(replace.request.body).toEqual({ capability_codes: [capability.codigo] });
+    replace.flush({ ...role, capacidades: [capability] });
+  });
+
+  it('lists a paginated read-only capability catalog with backend filters', () => {
+    service.listCapabilities({
+      search: '  pad ', system: 'sis_pe', active: true,
+    }, 3).subscribe();
+
+    const request = http.expectOne(
+      req => req.url === `${environment.apiUrlV2}/admin/capabilities/`,
+    );
+    expect(request.request.method).toBe('GET');
+    expect(request.request.params.get('search')).toBe('pad');
+    expect(request.request.params.get('system')).toBe('sis_pe');
+    expect(request.request.params.get('active')).toBe('true');
+    expect(request.request.params.get('page')).toBe('3');
+    request.flush({ count: 1, next: null, previous: null, results: [capability] });
+  });
+
+  it('loads every capability page for atomic role assignment', () => {
+    let capabilities: AdminCapability[] = [];
+    service.listAllCapabilities().subscribe(result => capabilities = result);
+
+    const first = http.expectOne(
+      req => req.url === `${environment.apiUrlV2}/admin/capabilities/`,
+    );
+    first.flush({
+      count: 2,
+      next: `${environment.apiUrlV2}/admin/capabilities/?page=2`,
+      previous: null,
+      results: [capability],
+    });
+    http.expectOne(`${environment.apiUrlV2}/admin/capabilities/?page=2`).flush({
+      count: 2,
+      next: null,
+      previous: `${environment.apiUrlV2}/admin/capabilities/`,
+      results: [{ ...capability, id: 'capability-2', codigo: 'accounts.rol.view', sistema: 'accounts' }],
+    });
+
+    expect(capabilities.map(item => item.codigo)).toEqual([
+      'sis_pe.pad.view', 'accounts.rol.view',
+    ]);
   });
 });

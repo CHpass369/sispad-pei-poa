@@ -10,7 +10,6 @@ import {
   AdminAssignmentInput,
   AdminAssignmentScope,
   AdminRole,
-  AdminRoleSystem,
   AdminUser,
   AdminUserPersonalPatch,
   AdminUserScope,
@@ -365,13 +364,13 @@ export class UsuarioEdicionDialogComponent implements OnInit {
     };
   }
 
-  private systemLabel(system: AdminRoleSystem): string {
+  private systemLabel(system: string): string {
     if (system === 'sis_pe') {
       return 'SIS-PE';
     }
     if (system === 'sis_poa') {
       return 'SIS-POA';
     }
-    return 'CORE';
+    return system === 'accounts' ? 'CORE' : system.toUpperCase();
   }
 }
