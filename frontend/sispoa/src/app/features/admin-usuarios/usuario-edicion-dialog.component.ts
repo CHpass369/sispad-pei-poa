@@ -59,6 +59,7 @@ export class UsuarioEdicionDialogComponent implements OnInit {
   personal: PersonalFormValue;
   roles: AdminRole[] = [];
   rows: AssignmentRow[] = [];
+  organizationalUnitQueries: Record<number, PublicOrganizationalUnit | string> = {};
   preservedAssignments: AdminUserScope[] = [];
   organizationalUnits: PublicOrganizationalUnit[];
   fiscalYears: GestionHabilitada[] = [];
@@ -154,6 +155,7 @@ export class UsuarioEdicionDialogComponent implements OnInit {
       scope_type: this.fixedScope(role.codigo) ?? 'SELF',
       fiscal_year_id: null,
     }];
+    this.organizationalUnitQueries[this.rows[this.rows.length - 1].localId] = unit;
     this.assignmentsError = '';
     this.assignmentsSuccess = '';
   }
@@ -163,7 +165,38 @@ export class UsuarioEdicionDialogComponent implements OnInit {
       return;
     }
     this.rows = this.rows.filter(item => item.localId !== row.localId);
+    delete this.organizationalUnitQueries[row.localId];
     this.assignmentsSuccess = '';
+  }
+
+  searchOrganizationalUnits(row: AssignmentRow, value: string): void {
+    this.organizationalUnitQueries[row.localId] = value;
+    row.organizational_unit_id = '';
+    this.assignmentsSuccess = '';
+  }
+
+  selectOrganizationalUnit(row: AssignmentRow, unit: PublicOrganizationalUnit): void {
+    this.organizationalUnitQueries[row.localId] = unit;
+    row.organizational_unit_id = unit.id;
+    this.assignmentsSuccess = '';
+  }
+
+  filteredOrganizationalUnits(row: AssignmentRow): PublicOrganizationalUnit[] {
+    const value = this.organizationalUnitQueries[row.localId] ?? '';
+    const query = typeof value === 'string' ? this.normalizeUnitSearch(value) : '';
+    if (!query) {
+      return this.organizationalUnits;
+    }
+    return this.organizationalUnits.filter(unit => this.normalizeUnitSearch(
+      `${unit.nombre} ${unit.sigla} ${unit.codigo}`,
+    ).includes(query));
+  }
+
+  displayOrganizationalUnit(unit: PublicOrganizationalUnit | string): string {
+    if (typeof unit === 'string') {
+      return unit;
+    }
+    return `${unit.codigo} · ${unit.nombre}`;
   }
 
   roleChanged(row: AssignmentRow): void {
@@ -301,6 +334,12 @@ export class UsuarioEdicionDialogComponent implements OnInit {
       scope_type: this.fixedScope(scope.rol as string) ?? scope.scope_type,
       fiscal_year_id: scope.fiscal_year,
     }));
+    this.organizationalUnitQueries = Object.fromEntries(
+      this.rows.map(row => [
+        row.localId,
+        this.organizationalUnits.find(unit => unit.id === row.organizational_unit_id) ?? '',
+      ]),
+    );
     this.assignmentsBaseline = JSON.stringify(this.assignmentPayload());
   }
 
@@ -354,6 +393,10 @@ export class UsuarioEdicionDialogComponent implements OnInit {
       cargo: user.cargo.trim(),
       telefono: user.telefono.trim(),
     };
+  }
+
+  private normalizeUnitSearch(value: string): string {
+    return value.trim().replace(/\s+/g, ' ').toLowerCase();
   }
 
   private systemLabel(system: string): string {

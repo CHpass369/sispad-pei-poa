@@ -150,16 +150,30 @@
 
                   <mat-form-field appearance="outline">
                     <mat-label>Unidad organizacional</mat-label>
-                    <mat-select
+                    <input
+                      #organizationalUnitInput
+                      matInput
+                      type="text"
                       [name]="'unit-' + row.localId"
-                      [(ngModel)]="row.organizational_unit_id"
+                      [(ngModel)]="organizationalUnitQueries[row.localId]"
+                      [matAutocomplete]="organizationalUnitAutocomplete"
                       [disabled]="!data.canAssign"
-                      (selectionChange)="assignmentsSuccess = ''"
+                      (input)="searchOrganizationalUnits(row, organizationalUnitInput.value)"
+                      autocomplete="off"
                     >
-                      @for (unit of organizationalUnits; track unit.id) {
-                        <mat-option [value]="unit.id">{{ unit.codigo }} · {{ unit.nombre }}</mat-option>
+                    <mat-hint>Escriba el nombre y seleccione una opción.</mat-hint>
+                    <mat-autocomplete
+                      #organizationalUnitAutocomplete="matAutocomplete"
+                      class="admin-users-select-panel register-unit-autocomplete-panel"
+                      [displayWith]="displayOrganizationalUnit"
+                      (optionSelected)="selectOrganizationalUnit(row, $event.option.value)"
+                    >
+                      @for (unit of filteredOrganizationalUnits(row); track unit.id) {
+                        <mat-option [value]="unit">{{ unit.codigo }} · {{ unit.nombre }}</mat-option>
+                      } @empty {
+                        <mat-option disabled>Sin unidades coincidentes</mat-option>
                       }
-                    </mat-select>
+                    </mat-autocomplete>
                   </mat-form-field>
 
                   <mat-form-field appearance="outline">

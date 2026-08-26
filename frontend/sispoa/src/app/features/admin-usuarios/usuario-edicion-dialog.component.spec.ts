@@ -31,6 +31,14 @@ describe('UsuarioEdicionDialogComponent', () => {
     padre: null,
   };
 
+  const otherUnit: PublicOrganizationalUnit = {
+    id: 'unit-2',
+    codigo: 'SMF',
+    nombre: 'Secretaría Municipal Financiera',
+    sigla: 'SMF',
+    padre: null,
+  };
+
   const roles: AdminRole[] = [
     {
       id: 'role-base',
@@ -158,6 +166,38 @@ describe('UsuarioEdicionDialogComponent', () => {
 
     component.removeAssignment(added);
     expect(component.rows.length).toBe(initialLength);
+  });
+
+  it('filters organizational units by normalized, case-insensitive name input', () => {
+    component.organizationalUnits.push(otherUnit);
+    fixture.detectChanges();
+    const row = component.rows[0];
+    const input = fixture.nativeElement.querySelector(
+      '.assignment-row input[matInput]',
+    ) as HTMLInputElement;
+
+    input.value = '  secretaría   MUNICIPAL ';
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    expect(component.filteredOrganizationalUnits(row)).toEqual([otherUnit]);
+    expect(row.organizational_unit_id).toBe('');
+  });
+
+  it('displays the selected organizational unit and preserves its ID in the PUT payload', () => {
+    component.organizationalUnits.push(otherUnit);
+    fixture.detectChanges();
+    const row = component.rows[0];
+
+    component.selectOrganizationalUnit(row, otherUnit);
+    expect(component.displayOrganizationalUnit(component.organizationalUnitQueries[row.localId]))
+      .toBe('SMF · Secretaría Municipal Financiera');
+    expect(row.organizational_unit_id).toBe(otherUnit.id);
+
+    component.saveAssignments();
+
+    expect(adminUsers.putAssignments.calls.mostRecent().args[1].assignments[0])
+      .toEqual(jasmine.objectContaining({ organizational_unit_id: otherUnit.id }));
   });
 
   it('does not load or edit assignments for a pending user', () => {
