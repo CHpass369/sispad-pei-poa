@@ -22,7 +22,7 @@
   margin: 0 0 0.2rem;
   color: var(--pip-green-700);
   font-family: var(--font-mono);
-  font-size: 0.7rem;
+  font-size: 0.9rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -273,6 +273,24 @@ tr.mat-mdc-row:hover td {
 
 .actions-cell {
   white-space: nowrap;
+}
+
+th.mat-column-acciones,
+td.mat-column-acciones {
+  position: sticky;
+  right: 0;
+  z-index: 1;
+  background: var(--pip-card);
+  box-shadow: -0.5rem 0 0.75rem -0.75rem rgb(19 32 25 / 45%);
+}
+
+th.mat-column-acciones {
+  z-index: 2;
+  background: var(--pip-surface);
+}
+
+tr.mat-mdc-row:hover td.mat-column-acciones {
+  background: var(--realce);
 }
 
 .actions-cell button {

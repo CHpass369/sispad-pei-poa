@@ -141,6 +141,25 @@ describe('UsuariosListaComponent', () => {
     expect(text).toContain('SIS-POA');
   });
 
+  it('keeps the actions column visible inside a horizontally overflowing table', () => {
+    granted.add('accounts.usuario.activate');
+    fixture.detectChanges();
+
+    const tableShell = fixture.nativeElement.querySelector('.table-shell') as HTMLElement;
+    const actionsCell = fixture.nativeElement.querySelector('td.mat-column-acciones') as HTMLElement;
+    tableShell.style.width = '480px';
+    tableShell.scrollLeft = 0;
+
+    const actionsStyle = getComputedStyle(actionsCell);
+    const shellBox = tableShell.getBoundingClientRect();
+    const actionsBox = actionsCell.getBoundingClientRect();
+
+    expect(tableShell.scrollWidth).toBeGreaterThan(tableShell.clientWidth);
+    expect(actionsStyle.position).toBe('sticky');
+    expect(actionsStyle.right).toBe('0px');
+    expect(actionsBox.right).toBeLessThanOrEqual(shellBox.right + 1);
+  });
+
   it('uses an opaque, feature-scoped panel for every user filter select', () => {
     fixture.detectChanges();
     const selects = fixture.debugElement.queryAll(By.directive(MatSelect));
@@ -239,19 +258,35 @@ describe('UsuariosListaComponent', () => {
     expect(fixture.nativeElement.querySelector('[aria-label="Activar Boris Operativo"]')).toBeNull();
   });
 
-  it('shows and executes activate/deactivate actions with capability', () => {
+  it('muestra los iconos y ejecuta las acciones de activar y desactivar con permiso', () => {
     granted.add('accounts.usuario.activate');
     spyOn(window, 'confirm').and.returnValue(true);
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('[aria-label="Desactivar Ana Planificadora"]')).not.toBeNull();
-    expect(fixture.nativeElement.querySelector('[aria-label="Activar Boris Operativo"]')).not.toBeNull();
+    const deactivateButton = fixture.nativeElement.querySelector(
+      '[aria-label="Desactivar Ana Planificadora"]',
+    ) as HTMLButtonElement | null;
+    const activateButton = fixture.nativeElement.querySelector(
+      '[aria-label="Activar Boris Operativo"]',
+    ) as HTMLButtonElement | null;
 
-    component.toggleUserState(activeUser);
-    component.toggleUserState(inactiveUser);
+    expect(deactivateButton).not.toBeNull();
+    expect(deactivateButton?.querySelector('svg.lucide-user-round-x')).not.toBeNull();
+    expect(deactivateButton?.disabled).toBeFalse();
+    expect(activateButton).not.toBeNull();
+    expect(activateButton?.querySelector('svg.lucide-user-round-check')).not.toBeNull();
+    expect(activateButton?.disabled).toBeFalse();
+
+    deactivateButton?.click();
+    activateButton?.click();
 
     expect(adminUsers.deactivate).toHaveBeenCalledOnceWith(activeUser.id);
     expect(adminUsers.activate).toHaveBeenCalledOnceWith(inactiveUser.id);
+
+    component.stateChangeUserId = activeUser.id;
+    fixture.detectChanges();
+    expect(deactivateButton?.disabled).toBeTrue();
+    expect(activateButton?.disabled).toBeTrue();
   });
 
   it('shows only tabs backed by granted capabilities', () => {
