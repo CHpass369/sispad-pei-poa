@@ -1,7 +1,11 @@
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ReactiveFormsModule } from '@angular/forms';
-import { MatAutocompleteModule } from '@angular/material/autocomplete';
+import { By } from '@angular/platform-browser';
+import {
+  MatAutocompleteModule,
+  MatAutocompleteTrigger,
+} from '@angular/material/autocomplete';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -147,5 +151,46 @@ describe('RegisterComponent', () => {
       expect(auth.listPublicOrganizationalUnits).toHaveBeenCalledWith('planificación');
       done();
     }, 350);
+  });
+
+  it('opens an opaque, feature-scoped organizational unit autocomplete', () => {
+    component.organizationalUnits = [unit];
+    fixture.detectChanges();
+
+    const trigger = fixture.debugElement
+      .query(By.directive(MatAutocompleteTrigger))
+      .injector.get(MatAutocompleteTrigger);
+    trigger.openPanel();
+    fixture.detectChanges();
+
+    const panel = document.querySelector<HTMLElement>(
+      'div.register-unit-autocomplete-panel.mat-mdc-autocomplete-panel',
+    );
+    expect(panel).not.toBeNull();
+    expect(getComputedStyle(panel!).backgroundColor).toBe('rgb(255, 255, 255)');
+    expect(getComputedStyle(panel!).color).toBe('rgb(19, 32, 25)');
+    expect(getComputedStyle(panel!).boxShadow).not.toBe('none');
+
+    const overlayPane = panel!.closest<HTMLElement>('.cdk-overlay-pane');
+    expect(overlayPane).not.toBeNull();
+    expect(Number(getComputedStyle(overlayPane!).zIndex)).toBeGreaterThan(0);
+
+    trigger.closePanel();
+  });
+
+  it('keeps input values, autocomplete text, and labels away from the field edge', () => {
+    const registerForm = fixture.nativeElement.querySelector('.register-form') as HTMLElement;
+    const inputs = Array.from(
+      registerForm.querySelectorAll<HTMLInputElement>('input[matInput]'),
+    );
+    const labels = Array.from(
+      registerForm.querySelectorAll<HTMLElement>('mat-label'),
+    );
+
+    expect(inputs.length).toBe(7);
+    expect(labels.length).toBe(7);
+    for (const element of [...inputs, ...labels]) {
+      expect(parseFloat(getComputedStyle(element).paddingInlineStart)).toBe(4);
+    }
   });
 });

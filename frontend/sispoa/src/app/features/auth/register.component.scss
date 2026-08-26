@@ -83,6 +83,11 @@ mat-form-field {
   --mdc-outlined-text-field-caret-color: var(--pip-green-700);
 }
 
+.register-form input[matInput],
+.register-form mat-label {
+  padding-inline-start: 0.25rem;
+}
+
 .unit-label {
   display: inline-block;
   min-width: 5.5rem;

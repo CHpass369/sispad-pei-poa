@@ -335,3 +335,54 @@ table.data-table tbody tr:hover td { background: color-mix(in srgb, var(--pip-gr
   padding: 5px 12px; background: var(--pip-green-100); color: var(--pip-green-800);
   white-space: nowrap;
 }
+
+/* MatAutocomplete renders in the global CDK overlay. Its dedicated class keeps
+   the registration surface isolated from every other form. */
+div.register-unit-autocomplete-panel.mat-mdc-autocomplete-panel {
+  --mat-autocomplete-background-color: var(--pip-card);
+  --mat-option-label-text-color: var(--pip-ink);
+  --mat-option-hover-state-layer-color: var(--realce);
+  --mat-option-focus-state-layer-color: var(--pip-green-100);
+  --mat-option-selected-state-layer-color: var(--pip-green-100);
+  --mat-option-selected-state-label-text-color: var(--pip-green-900);
+
+  border: 1px solid var(--pip-line);
+  border-radius: calc(var(--radius) - 2px);
+  background: var(--pip-card);
+  box-shadow:
+    0 12px 32px color-mix(in srgb, var(--pip-ink) 18%, transparent),
+    0 2px 8px color-mix(in srgb, var(--pip-ink) 12%, transparent);
+  color: var(--pip-ink);
+}
+
+.register-unit-autocomplete-panel .mat-mdc-option {
+  font-family: var(--font-body);
+}
+
+.register-unit-autocomplete-panel .mat-mdc-option.mat-mdc-option-active,
+.register-unit-autocomplete-panel .mat-mdc-option:focus-visible {
+  box-shadow: inset 3px 0 0 var(--pip-green-700);
+}
+
+.register-unit-autocomplete-panel .mat-mdc-option.mdc-list-item--selected {
+  color: var(--pip-green-900);
+  font-weight: 650;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  div.register-unit-autocomplete-panel.mat-mdc-autocomplete-panel {
+    animation: none;
+  }
+}
+
+@media (forced-colors: active) {
+  div.register-unit-autocomplete-panel.mat-mdc-autocomplete-panel {
+    border: 2px solid CanvasText;
+  }
+
+  .register-unit-autocomplete-panel .mat-mdc-option.mat-mdc-option-active,
+  .register-unit-autocomplete-panel .mat-mdc-option:focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+}

@@ -12,6 +12,14 @@ Exponer en API V2 la administración de usuarios (F3b1), roles personalizados/ca
 
 F3a incorporó el ciclo `PENDIENTE/ACTIVO/INACTIVO`, registro público y aprobación. F3b1 completó la administración de datos personales y estado. F3b2a reutiliza `Rol`, `Capacidad`, la autorización administrativa y la derivación efectiva por prefijo para administrar roles personalizados sin habilitar edición del catálogo de capacidades. F3b2b reutiliza esos contratos para reemplazar, en una sola transacción, roles y alcances del dominio administrable del actor. F4a lleva el contrato público al frontend y necesita un catálogo anónimo mínimo de UO, porque `/api/v2/core/unidades/` exige autenticación y expone más campos de los necesarios.
 
+### Plan de corrección visual F4a — 2026-08-25
+
+- Dominio: CORE, exclusivamente el registro público Angular.
+- Archivos: plantilla/estilos/spec de `RegisterComponent`, más la regla global acotada al overlay de autocomplete.
+- Dependencias: reutilizar la API `classList` de `MatAutocomplete` y los tokens `--pip-*`; no crear componentes ni estilos genéricos.
+- Impacto: solo presentación y prueba del overlay/campos; sin cambios de base de datos, API, contratos o routing.
+- Verificación: Karma focalizado, typecheck de aplicación y specs, build production y `git diff --check`.
+
 ## CURRENT BEHAVIOR
 
 F3b1, F3b2a y F3b2b exponen usuarios, roles, capacidades y asignaciones con límites centralizados en `accounts.services`. F4a ofrece registro público; F4b1/F4b2 implementan listado, detalle, edición personal y asignaciones. F4c1 activa Roles y Permisos. F4c2 completa Solicitudes con bandeja PENDIENTE, aprobación controlada y refresco coordinado del listado de usuarios. F5 elimina las decisiones por rol del sidebar, limita TRANSVERSAL al gestor IAM y retira la ruta y el chunk lazy de SIS-PRO sin borrar su código fuente.

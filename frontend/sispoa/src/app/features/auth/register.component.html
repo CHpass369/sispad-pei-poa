@@ -80,6 +80,7 @@
             }
             <mat-autocomplete
               #organizationalUnitAutocomplete="matAutocomplete"
+              class="register-unit-autocomplete-panel"
               [displayWith]="displayOrganizationalUnit"
               (optionSelected)="selectOrganizationalUnit($event.option.value)"
             >
