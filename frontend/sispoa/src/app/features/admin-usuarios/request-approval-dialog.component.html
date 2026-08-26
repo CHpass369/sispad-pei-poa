@@ -33,7 +33,7 @@
     <form id="request-approval-form" (ngSubmit)="approve()">
       <mat-form-field appearance="outline" class="field-wide">
         <mat-label>Unidad organizacional</mat-label>
-        <mat-select name="unit" [(ngModel)]="unitId" required>
+        <mat-select name="unit" panelClass="admin-users-select-panel" [(ngModel)]="unitId" required>
           @for (unit of organizationalUnits; track unit.id) {
             <mat-option [value]="unit.id">
               {{ unit.codigo ? unit.codigo + ' · ' : '' }}{{ unit.nombre }}
@@ -45,7 +45,13 @@
 
       <mat-form-field appearance="outline" class="field-wide">
         <mat-label>Rol permitido</mat-label>
-        <mat-select name="role" [(ngModel)]="roleCode" required (selectionChange)="roleChanged()">
+        <mat-select
+          name="role"
+          panelClass="admin-users-select-panel"
+          [(ngModel)]="roleCode"
+          required
+          (selectionChange)="roleChanged()"
+        >
           @for (role of roles; track role.id) {
             <mat-option [value]="role.codigo">{{ role.codigo }} · {{ role.nombre }}</mat-option>
           }
@@ -55,7 +61,13 @@
       @if (showSystemSelector) {
         <mat-form-field appearance="outline">
           <mat-label>Sistema</mat-label>
-          <mat-select name="system" [(ngModel)]="system" required (selectionChange)="systemChanged()">
+          <mat-select
+            name="system"
+            panelClass="admin-users-select-panel"
+            [(ngModel)]="system"
+            required
+            (selectionChange)="systemChanged()"
+          >
             @for (option of availableSystems; track option) {
               <mat-option [value]="option">{{ systemLabel(option) }}</mat-option>
             }
@@ -71,7 +83,7 @@
       @if (showScopeSelector) {
         <mat-form-field appearance="outline">
           <mat-label>Alcance</mat-label>
-          <mat-select name="scope" [(ngModel)]="scope" required>
+          <mat-select name="scope" panelClass="admin-users-select-panel" [(ngModel)]="scope" required>
             @for (option of scopes; track option) {
               <mat-option [value]="option">{{ scopeLabel(option) }}</mat-option>
             }

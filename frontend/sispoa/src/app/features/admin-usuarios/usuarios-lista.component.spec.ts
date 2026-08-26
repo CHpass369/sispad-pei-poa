@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { MatDialog, MatDialogRef } from '@angular/material/dialog';
+import { MatSelect } from '@angular/material/select';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { of, Subject, throwError } from 'rxjs';
 import { PublicOrganizationalUnit } from '../../core/models/usuario.model';
@@ -138,6 +139,29 @@ describe('UsuariosListaComponent', () => {
     expect(text).toContain('Dirección de Planificación');
     expect(text).toContain('Analista PE');
     expect(text).toContain('SIS-POA');
+  });
+
+  it('uses an opaque, feature-scoped panel for every user filter select', () => {
+    fixture.detectChanges();
+    const selects = fixture.debugElement.queryAll(By.directive(MatSelect));
+
+    expect(selects.length).toBe(3);
+    for (const select of selects) {
+      expect((select.componentInstance as MatSelect).panelClass).toBe('admin-users-select-panel');
+    }
+
+    const firstSelect = selects[0].componentInstance as MatSelect;
+    firstSelect.open();
+    fixture.detectChanges();
+
+    const panel = document.querySelector<HTMLElement>(
+      'div.admin-users-select-panel.mat-mdc-select-panel',
+    );
+    expect(panel).not.toBeNull();
+    expect(getComputedStyle(panel!).backgroundColor).toBe('rgb(255, 255, 255)');
+    expect(getComputedStyle(panel!).color).toBe('rgb(19, 32, 25)');
+
+    firstSelect.close();
   });
 
   it('sends filters and resets the backend page', () => {

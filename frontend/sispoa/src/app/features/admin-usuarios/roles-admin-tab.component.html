@@ -21,7 +21,7 @@
     </mat-form-field>
     <mat-form-field appearance="outline">
       <mat-label>Sistema</mat-label>
-      <mat-select name="roleSystem" [(ngModel)]="filters.system">
+      <mat-select name="roleSystem" panelClass="admin-users-select-panel" [(ngModel)]="filters.system">
         <mat-option [value]="undefined">Todos los sistemas</mat-option>
         <mat-option value="sis_pe">SIS-PE</mat-option>
         <mat-option value="sis_poa">SIS-POA</mat-option>
@@ -30,7 +30,7 @@
     </mat-form-field>
     <mat-form-field appearance="outline">
       <mat-label>Estado</mat-label>
-      <mat-select name="roleActive" [(ngModel)]="filters.active">
+      <mat-select name="roleActive" panelClass="admin-users-select-panel" [(ngModel)]="filters.active">
         <mat-option [value]="undefined">Todos los estados</mat-option>
         <mat-option [value]="true">Activo</mat-option>
         <mat-option [value]="false">Inactivo</mat-option>

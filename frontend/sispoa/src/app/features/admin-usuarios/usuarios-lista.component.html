@@ -37,7 +37,11 @@
 
             <mat-form-field appearance="outline">
               <mat-label>Unidad organizacional</mat-label>
-              <mat-select name="organizational_unit" [(ngModel)]="filters.organizational_unit">
+              <mat-select
+                name="organizational_unit"
+                panelClass="admin-users-select-panel"
+                [(ngModel)]="filters.organizational_unit"
+              >
                 <mat-option [value]="undefined">Todas las unidades</mat-option>
                 @for (unit of organizationalUnits; track unit.id) {
                   <mat-option [value]="unit.id">{{ unit.codigo }} · {{ unit.nombre }}</mat-option>
@@ -61,7 +65,7 @@
 
             <mat-form-field appearance="outline">
               <mat-label>Sistema</mat-label>
-              <mat-select name="system" [(ngModel)]="filters.system">
+              <mat-select name="system" panelClass="admin-users-select-panel" [(ngModel)]="filters.system">
                 <mat-option [value]="undefined">Todos los sistemas</mat-option>
                 <mat-option value="sis_pe">SIS-PE</mat-option>
                 <mat-option value="sis_poa">SIS-POA</mat-option>
@@ -70,7 +74,7 @@
 
             <mat-form-field appearance="outline">
               <mat-label>Estado</mat-label>
-              <mat-select name="state" [(ngModel)]="filters.state">
+              <mat-select name="state" panelClass="admin-users-select-panel" [(ngModel)]="filters.state">
                 <mat-option [value]="undefined">Todos los estados</mat-option>
                 <mat-option value="PENDIENTE">Pendiente</mat-option>
                 <mat-option value="ACTIVO">Activo</mat-option>

@@ -137,6 +137,7 @@
                     <mat-label>Rol</mat-label>
                     <mat-select
                       [name]="'role-' + row.localId"
+                      panelClass="admin-users-select-panel"
                       [(ngModel)]="row.role_code"
                       [disabled]="!data.canAssign"
                       (selectionChange)="roleChanged(row)"
@@ -165,6 +166,7 @@
                     <mat-label>Alcance</mat-label>
                     <mat-select
                       [name]="'scope-' + row.localId"
+                      panelClass="admin-users-select-panel"
                       [(ngModel)]="row.scope_type"
                       [disabled]="!data.canAssign || fixedScope(row.role_code) !== null"
                       (selectionChange)="assignmentsSuccess = ''"
@@ -183,6 +185,7 @@
                       <mat-label>Gestión fiscal</mat-label>
                       <mat-select
                         [name]="'fiscal-year-' + row.localId"
+                        panelClass="admin-users-select-panel"
                         [(ngModel)]="row.fiscal_year_id"
                         [disabled]="!data.canAssign"
                         (selectionChange)="assignmentsSuccess = ''"
