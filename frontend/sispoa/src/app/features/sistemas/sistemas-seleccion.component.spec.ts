@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { RouterTestingModule } from '@angular/router/testing';
-import { LucideAngularModule, Target, LayoutDashboard, FolderKanban } from 'lucide-angular';
+import { LucideAngularModule, Target, LayoutDashboard } from 'lucide-angular';
 import { SistemasSeleccionComponent } from './sistemas-seleccion.component';
 import { PermissionsService } from '../../core/services/permissions.service';
 
@@ -16,7 +16,7 @@ describe('SistemasSeleccionComponent', () => {
       declarations: [SistemasSeleccionComponent],
       imports: [
         RouterTestingModule,
-        LucideAngularModule.pick({ Target, LayoutDashboard, FolderKanban }),
+        LucideAngularModule.pick({ Target, LayoutDashboard }),
       ],
       providers: [
         { provide: PermissionsService, useValue: permissionsSpy },
@@ -31,24 +31,25 @@ describe('SistemasSeleccionComponent', () => {
     expect(component).toBeTruthy();
   });
 
-  it('shows the three systems when the user has all capabilities', () => {
+  it('shows only SIS-PE and SIS-POA when the user has all capabilities', () => {
     permissionsSpy.hasAnyCapability.and.returnValue(true);
     fixture.detectChanges();
 
-    expect(component.sistemas.length).toBe(3);
+    expect(component.sistemas.length).toBe(2);
     const siglas = component.sistemas.map(s => s.sigla);
-    expect(siglas).toEqual(['SIS-PE', 'SIS-POA', 'SIS-PRO']);
+    expect(siglas).toEqual(['SIS-PE', 'SIS-POA']);
+    expect(component.sistemas.some(s => s.ruta.startsWith('/sis-pro'))).toBeFalse();
     expect(component.sinAcceso).toBeFalse();
   });
 
   it('filters systems by capability', () => {
     permissionsSpy.hasAnyCapability.and.callFake(
-      (capacidades: string[]) => capacidades.includes('sis_pro.project.read'),
+      (capacidades: string[]) => capacidades.includes('sis_pe.instrumento.read'),
     );
     fixture.detectChanges();
 
     expect(component.sistemas.length).toBe(1);
-    expect(component.sistemas[0].sigla).toBe('SIS-PRO');
+    expect(component.sistemas[0].sigla).toBe('SIS-PE');
   });
 
   it('flags no access when the user lacks all capabilities', () => {

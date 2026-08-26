@@ -1,7 +1,10 @@
 import { Component, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { FormBuilder, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
+import { catchError, forkJoin, of, switchMap } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
+import { CapabilitiesService } from '../../core/services/capabilities.service';
+import { GestionHabilitadaService } from '../../core/services/gestion-habilitada.service';
 
 @Component({
   standalone: false,
@@ -94,6 +97,8 @@ export class LoginComponent {
   constructor(
     private fb: FormBuilder,
     private auth: AuthService,
+    private capabilities: CapabilitiesService,
+    private fiscalManagement: GestionHabilitadaService,
     private router: Router,
     private cdr: ChangeDetectorRef,
   ) {}
@@ -107,7 +112,12 @@ export class LoginComponent {
     this.auth.login({
       email: credentials.email ?? '',
       password: credentials.password ?? '',
-    }).subscribe({
+    }).pipe(
+      switchMap(() => forkJoin([
+        this.capabilities.cargar().pipe(catchError(() => of(null))),
+        this.fiscalManagement.cargar().pipe(catchError(() => of(null))),
+      ])),
+    ).subscribe({
       next: () => this.router.navigate(['/sistemas']),
       error: (err) => {
         this.error = err.message || 'Credenciales inválidas';

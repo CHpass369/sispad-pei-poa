@@ -1,7 +1,7 @@
 import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Routes } from '@angular/router';
-import { LucideAngularModule, Target, LayoutDashboard, FolderKanban } from 'lucide-angular';
+import { LucideAngularModule, Target, LayoutDashboard } from 'lucide-angular';
 import { CapabilityGuard } from '../../core/guards/capability.guard';
 import { SistemasSeleccionComponent } from './sistemas-seleccion.component';
 
@@ -18,7 +18,7 @@ const routes: Routes = [
   imports: [
     CommonModule,
     RouterModule.forChild(routes),
-    LucideAngularModule.pick({ Target, LayoutDashboard, FolderKanban }),
+    LucideAngularModule.pick({ Target, LayoutDashboard }),
   ],
 })
 export class SistemasModule {}

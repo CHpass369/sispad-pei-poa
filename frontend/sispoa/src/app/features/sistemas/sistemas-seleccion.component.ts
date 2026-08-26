@@ -106,7 +106,6 @@ interface Sistema {
     }
     .system-card.pe::before { background: #4A9FD8; }
     .system-card.poa::before { background: var(--pip-green-500); }
-    .system-card.pro::before { background: #D9704F; }
     .system-top {
       display: flex; justify-content: space-between; align-items: center;
       margin-bottom: 10px;
@@ -125,7 +124,6 @@ interface Sistema {
     .progress i { display: block; height: 100%; border-radius: 20px; background: var(--pip-green-700); }
     .system-card.pe .progress i { background: #4A9FD8; }
     .system-card.poa .progress i { background: var(--pip-green-500); }
-    .system-card.pro .progress i { background: #D9704F; }
     .progress-caption {
       display: flex; justify-content: space-between;
       font-size: 11px; color: var(--pip-ink-soft); margin-top: 5px;
@@ -187,20 +185,6 @@ export class SistemasSeleccionComponent implements OnInit {
         meta: 'PEI → POA → POAU → Presupuesto',
         caption: 'Techo cargado · en revisión',
         modulos: ['POA', 'POAU', 'Recursos', 'Techos', 'Presupuesto', 'Seguimiento'],
-      },
-      {
-        codigo: 'sis-pro',
-        sigla: 'SIS-PRO',
-        nombre: 'Ciclo del Proyecto',
-        descripcion: 'Cartera, condiciones previas, preinversión, formulación, costos, contratación, ejecución, supervisión y cierre.',
-        icono: 'folder-kanban',
-        ruta: '/sis-pro/dashboard',
-        capacidades: ['sis_pro.project.read'],
-        color: 'pro',
-        progress: 41,
-        meta: 'ITCP → EDTP → Contratación → Ejecución',
-        caption: 'Ciclo de proyectos',
-        modulos: ['Cartera', 'Preinversión', 'Formulación', 'Contratación', 'Ejecución'],
       },
     ];
     this.sistemas = config.filter(sis =>
