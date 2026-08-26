@@ -1,4 +1,26 @@
 {
+  "/pip/api": {
+    "target": "http://localhost:8000",
+    "secure": false,
+    "changeOrigin": true,
+    "pathRewrite": {
+      "^/pip": ""
+    }
+  },
+  "/pip/media": {
+    "target": "http://localhost:8000",
+    "secure": false,
+    "pathRewrite": {
+      "^/pip": ""
+    }
+  },
+  "/pip/static": {
+    "target": "http://localhost:8000",
+    "secure": false,
+    "pathRewrite": {
+      "^/pip": ""
+    }
+  },
   "/api": {
     "target": "http://localhost:8000",
     "secure": false,
