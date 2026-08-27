@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.utils import timezone
 
 from .models import (
     ActaPriorizacion, EstadosActa, ProyectoCatalogo, ProyectoPriorizado,
@@ -34,18 +35,27 @@ class ActaPriorizacionSerializer(serializers.ModelSerializer):
     monto_total = serializers.DecimalField(max_digits=18, decimal_places=2,
                                            read_only=True)
     esta_completa = serializers.BooleanField(read_only=True)
+    fecha_hora_registro = serializers.DateTimeField(
+        source='created_at', read_only=True
+    )
 
     class Meta:
         model = ActaPriorizacion
         fields = ['id', 'gestion', 'numero', 'distrito', 'distrito_nombre', 'otb',
                   'unidad_territorial', 'presidente', 'responsable_registro',
-                  'fecha', 'estado', 'estado_display', 'observacion',
+                  'fecha', 'fecha_hora_registro', 'es_pavimento', 'estado',
+                  'estado_display', 'observacion',
                   'monto_total', 'esta_completa', 'proyectos']
-        read_only_fields = ['estado', 'observacion']
+        read_only_fields = ['fecha', 'estado', 'observacion']
 
     def create(self, validated_data):
         proyectos = validated_data.pop('proyectos', [])
-        acta = ActaPriorizacion.objects.create(**validated_data)
+        # La fecha la fija el servidor con la zona horaria oficial.
+        # La hora exacta de registro queda almacenada en created_at.
+        acta = ActaPriorizacion.objects.create(
+            fecha=timezone.localdate(),
+            **validated_data,
+        )
         self._guardar_proyectos(acta, proyectos)
         return acta
 

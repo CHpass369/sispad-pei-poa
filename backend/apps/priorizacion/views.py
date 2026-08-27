@@ -280,8 +280,9 @@ class ActaPriorizacionViewSet(CandadoSisPoaMixin, viewsets.ModelViewSet):
             'anio_letras': anio_en_letras(fecha.year),
             'gestion': acta.gestion, 'total': f'{total:,.0f}',
         })
-        valores = {'presidente': acta.presidente,
-                   'responsable': acta.responsable_registro}
+        # El acta oficial solo incorpora las firmas vigentes.
+        # Responsable del registro es un dato interno y no se imprime.
+        valores = {'presidente': acta.presidente}
         return {
             **textos,
             'acta_id': str(acta.id),
@@ -290,6 +291,7 @@ class ActaPriorizacionViewSet(CandadoSisPoaMixin, viewsets.ModelViewSet):
             'otb': acta.otb,
             'presidente': acta.presidente,
             'fecha': acta.fecha.isoformat(),
+            'es_pavimento': acta.es_pavimento,
             'proyectos': [{
                 'nro': p.orden, 'descripcion': p.nombre,
                 'monto': float(p.monto or 0),
@@ -297,9 +299,14 @@ class ActaPriorizacionViewSet(CandadoSisPoaMixin, viewsets.ModelViewSet):
                 'categoria_programatica': p.categoria_programatica,
             } for p in proyectos],
             'total': float(total),
-            'firmas': [{'rol': f.get('rol', ''),
-                        'nombre': valores.get(f.get('campo', ''), '')}
-                       for f in (plantilla.firmas or [])],
+            'firmas': [
+                {
+                    'rol': f.get('rol', ''),
+                    'nombre': valores.get(f.get('campo', ''), ''),
+                }
+                for f in (plantilla.firmas or [])
+                if f.get('campo') != 'responsable'
+            ],
         }
 
     @action(detail=True, methods=['get'], url_path='acta-oficial')
