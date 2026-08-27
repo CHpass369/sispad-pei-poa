@@ -375,14 +375,14 @@ def generar_acta_pdf(datos, generado_en=None):
     if datos.get('es_pavimento'):
 
         texto_pavimento = (
-            '<b>CONDICIÓN PARA PROYECTOS DE PAVIMENTO FLEXIBLE POR ADMINISTRACIÓN DIRECTA</b><br/>'
+            '<b>CONDICIÓN PARA LA EJECUCIÓN DE PROYECTO DE PAVIMENTO FLEXIBLE POR ADM. DIRECTA</b><br/>'
             'Se aclara que, para la ejecución de proyectos de pavimento '
             'flexible bajo la modalidad de administración directa, la '
             'composición del presupuesto priorizado se distribuirá de la '
             'siguiente manera: <b>75% destinado a materiales e insumos '
             'y 25% destinado a la ejecución del proyecto</b>, '
             'comprendiendo este último componente el uso de equipo pesado, '
-            'planta de asfalto, logística, combustible y personal.'
+            'logística, combustible y personal.'
         )
 
         cuadro_pavimento = Table(

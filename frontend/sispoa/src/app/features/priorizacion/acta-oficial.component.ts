@@ -193,7 +193,7 @@ import { PriorizacionService } from './priorizacion.service';
           *ngIf="acta.es_pavimento">
 
           <div class="titulo-pavimento">
-            CONDICIÓN PARA PROYECTOS DE PAVIMENTO FLEXIBLE POR ADMINISTRACIÓN DIRECTA
+            CONDICIÓN PARA LA EJECUCIÓN DE PROYECTO DE PAVIMENTO FLEXIBLE POR ADM. DIRECTA
           </div>
 
           <p>
@@ -202,8 +202,7 @@ import { PriorizacionService } from './priorizacion.service';
             composición del presupuesto priorizado se distribuirá de la
             siguiente manera: <strong>75% destinado a materiales e insumos
             y 25% destinado a la ejecución del proyecto</strong>,
-            comprendiendo este último componente el uso de equipo pesado,
-            planta de asfalto, logística, combustible y personal.
+            comprendiendo este último componente el uso de equipo pesado, logística, combustible y personal.
           </p>
 
         </section>
