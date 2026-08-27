@@ -1,4 +1,4 @@
-"""Emisión del acta de priorización en PDF, tamaño oficio.
+"""Emisión del acta de priorización en PDF, tamaño carta.
 
 El PDF lo arma el servidor y no el navegador: `window.print()` deja la medida en
 manos del diálogo de impresión y basta con que el usuario tenga carta o A4 por
@@ -20,8 +20,8 @@ from reportlab.platypus import (
     Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle,
 )
 
-# Oficio: 21,6 x 33 cm. No es el Legal norteamericano, que mide 21,6 x 35,6.
-OFICIO = (216 * mm, 330 * mm)
+# Carta: 21,6 x 27,9 cm.
+CARTA = (216 * mm, 279 * mm)
 
 
 def hash_acta(datos):
@@ -288,10 +288,10 @@ def _dibujar_qr_fijo(canvas, doc, datos, huella, generado_en):
 
     # Dentro del margen superior de 40 mm.
     # 25 mm desde el borde derecho.
-    x = OFICIO[0] - 25 * mm - lado
+    x = CARTA[0] - 25 * mm - lado
 
     # 10 mm desde el borde superior.
-    y = OFICIO[1] - 10 * mm - lado
+    y = CARTA[1] - 10 * mm - lado
 
     canvas.saveState()
 
@@ -317,6 +317,37 @@ def _dibujar_qr_fijo(canvas, doc, datos, huella, generado_en):
     canvas.restoreState()
 
 
+def _dibujar_pie_fijo(canvas, doc, datos, huella, generado_en):
+    """Hash e identificación institucional fijos al margen inferior."""
+    ancho_pagina = CARTA[0]
+
+    canvas.saveState()
+
+    canvas.setFillColor(colors.HexColor('#555555'))
+
+    # Hash
+    canvas.setFont('Helvetica', 5.5)
+    canvas.drawCentredString(
+        ancho_pagina / 2,
+        10 * mm,
+        huella
+    )
+
+    # Identificación institucional y fecha de generación
+    canvas.setFont('Helvetica', 6.0)
+    canvas.drawCentredString(
+        ancho_pagina / 2,
+        6.5 * mm,
+        (
+            f'Gobierno Autónomo Municipal de Sacaba · '
+            f'POA {datos["gestion"]} · '
+            f'Generado el {generado_en.strftime("%d/%m/%Y %H:%M")}'
+        )
+    )
+
+    canvas.restoreState()
+
+
 def generar_acta_pdf(datos, generado_en=None):
     """Devuelve (bytes del PDF, huella del contenido)."""
     huella = hash_acta(datos)
@@ -325,7 +356,7 @@ def generar_acta_pdf(datos, generado_en=None):
     salida = io.BytesIO()
     # Márgenes amplios y parejos: el bloque queda centrado en la hoja.
     doc = SimpleDocTemplate(
-        salida, pagesize=OFICIO,
+        salida, pagesize=CARTA,
         leftMargin=25 * mm, rightMargin=25 * mm,
         topMargin=40 * mm, bottomMargin=20 * mm,
         title=f"Acta de priorización {datos['otb']}",
@@ -425,29 +456,6 @@ def generar_acta_pdf(datos, generado_en=None):
             ),
         ]
 
-    firmas = datos.get('firmas') or []
-    if firmas:
-        piezas.append(Spacer(1, 16 * mm))
-        celdas = [[Paragraph('_' * 26, est['firma_rol']) for _ in firmas],
-                  [Paragraph(f['nombre'] or ' ', est['firma']) for f in firmas],
-                  [Paragraph(f['rol'], est['firma_rol']) for f in firmas]]
-        tabla_firmas = Table(celdas, colWidths=[ancho / len(firmas)] * len(firmas))
-        tabla_firmas.setStyle(TableStyle([
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('TOPPADDING', (0, 0), (-1, -1), 1),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
-        ]))
-        piezas.append(tabla_firmas)
-
-    piezas += [
-        Spacer(1, 12 * mm),
-        # Mas grande que el minimo: el QR lleva seis lineas y con 26 mm los
-        # modulos quedan demasiado finos para un lector de ventanilla.
-        Paragraph(huella, est['qr']),
-        Paragraph(f'{ENTIDAD} · POA {datos["gestion"]} · '
-                  f'generada el {generado_en.strftime("%d/%m/%Y %H:%M")}',
-                  est['qr']),
-    ]
 
     def primera_pagina(canvas, documento):
         _dibujar_qr_fijo(
@@ -458,8 +466,26 @@ def generar_acta_pdf(datos, generado_en=None):
             generado_en
         )
 
+        _dibujar_pie_fijo(
+            canvas,
+            documento,
+            datos,
+            huella,
+            generado_en
+        )
+
+    def paginas_siguientes(canvas, documento):
+        _dibujar_pie_fijo(
+            canvas,
+            documento,
+            datos,
+            huella,
+            generado_en
+        )
+
     doc.build(
         piezas,
-        onFirstPage=primera_pagina
+        onFirstPage=primera_pagina,
+        onLaterPages=paginas_siguientes
     )
     return salida.getvalue(), huella

@@ -228,38 +228,6 @@ import { PriorizacionService } from './priorizacion.service';
 
 
 
-        <!-- FIRMA -->
-        <section
-          class="firmas"
-          *ngIf="firmasVisibles().length">
-
-          <div
-            class="firma"
-            *ngFor="let f of firmasVisibles()">
-
-            <div class="linea"></div>
-
-            <div class="nombre">
-              {{ f.nombre }}
-            </div>
-
-            <div class="rol">
-              {{ f.rol }}
-            </div>
-
-            <div class="dato-firma">
-              C.I.: ____________________
-            </div>
-
-            <div class="dato-firma">
-              Fecha: __________________
-            </div>
-
-          </div>
-
-        </section>
-
-
         <!-- VERIFICACIÓN -->
         <section
           class="huella"
@@ -269,24 +237,19 @@ import { PriorizacionService } from './priorizacion.service';
             QR
           </span>
 
-          <div class="huella-texto">
-
-            <span>
-              Código de verificación:
-            </span>
-
-            <code>
-              {{ acta.huella }}
-            </code>
-
-          </div>
-
         </section>
 
 
-        <footer>
-          Gobierno Autónomo Municipal de Sacaba ·
-          POA {{ acta.gestion }}
+        <footer *ngIf="acta">
+          <div class="pie-hash" *ngIf="acta.huella">
+            {{ acta.huella }}
+          </div>
+
+          <div class="pie-institucional">
+            Gobierno Autónomo Municipal de Sacaba ·
+            POA {{ acta.gestion }} ·
+            Generado el {{ fechaGeneracion }}
+          </div>
         </footer>
 
       </article>
@@ -306,7 +269,7 @@ import { PriorizacionService } from './priorizacion.service';
       box-sizing: border-box;
 
       width: 216mm;
-      min-height: 330mm;
+      min-height: 279mm;
 
       /*
        * IMPORTANTE:
@@ -669,13 +632,33 @@ import { PriorizacionService } from './priorizacion.service';
 
 
     footer {
-      margin-top: 2mm;
+      position: absolute;
+
+      left: 25mm;
+      right: 25mm;
+      bottom: 6mm;
+
+      margin: 0;
 
       text-align: center;
 
-      font-size: 0.53rem;
+      font-size: 0.50rem;
+      line-height: 1.25;
 
       color: #555;
+    }
+
+    .pie-hash {
+      margin-bottom: 1mm;
+
+      font-family: monospace;
+      font-size: 0.46rem;
+
+      word-break: break-all;
+    }
+
+    .pie-institucional {
+      white-space: normal;
     }
 
 
@@ -785,7 +768,7 @@ import { PriorizacionService } from './priorizacion.service';
     /* ========================================================== */
 
     @page {
-      size: 216mm 330mm;
+      size: 216mm 279mm;
 
       margin:
         40mm
@@ -850,6 +833,17 @@ import { PriorizacionService } from './priorizacion.service';
 export class ActaOficialComponent implements OnInit {
 
   acta: any = null;
+
+  fechaGeneracion = new Intl.DateTimeFormat(
+    'es-BO',
+    {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    }
+  ).format(new Date());
 
   documentos: any[] = [];
 
