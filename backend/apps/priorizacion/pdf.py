@@ -375,12 +375,14 @@ def generar_acta_pdf(datos, generado_en=None):
     if datos.get('es_pavimento'):
 
         texto_pavimento = (
-            '<b>CONDICIÓN PARA PROYECTOS DE PAVIMENTACIÓN</b><br/>'
-            'Debido a la coyuntura derivada del incremento de los precios '
-            'de los carburantes, del presupuesto priorizado para pavimentos '
-            'se destinará el <b>25% para la adquisición de combustible</b>, '
-            'destinado a la ejecución del proyecto, sujeto a la disponibilidad '
-            'presupuestaria y a la normativa vigente.'
+            '<b>CONDICIÓN PARA PROYECTOS DE PAVIMENTO FLEXIBLE POR ADMINISTRACIÓN DIRECTA</b><br/>'
+            'Se aclara que, para la ejecución de proyectos de pavimento '
+            'flexible bajo la modalidad de administración directa, la '
+            'composición del presupuesto priorizado se distribuirá de la '
+            'siguiente manera: <b>75% destinado a materiales e insumos '
+            'y 25% destinado a la ejecución del proyecto</b>, '
+            'comprendiendo este último componente el uso de equipo pesado, '
+            'planta de asfalto, logística, combustible y personal.'
         )
 
         cuadro_pavimento = Table(
