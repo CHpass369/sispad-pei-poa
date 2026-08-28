@@ -98,6 +98,7 @@ describe('AuthService', () => {
       email: 'ana.perez@sacaba.gob.bo',
       cargo: 'Analista',
       unidad_organizacional_id: 'b41aec54-c047-438c-b5df-a32d47f0ee65',
+      es_encargado_unidad: false,
       password: 'Clave.Segura.2026',
       password_confirm: 'Clave.Segura.2026',
     };

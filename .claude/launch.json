@@ -9,8 +9,11 @@
     },
     {
       "name": "sispoa-frontend",
-      "runtimeExecutable": "frontend/sispoa/node_modules/.bin/ng",
-      "runtimeArgs": ["serve", "--project", "sispoa"],
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "cd frontend/sispoa && exec node_modules/.bin/ng serve --project sispoa"
+      ],
       "port": 4200
     }
   ]

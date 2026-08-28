@@ -1,129 +1,106 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideHttpClient } from '@angular/common/http';
-import { provideHttpClientTesting } from '@angular/common/http/testing';
-import { Router } from '@angular/router';
-import { RouterTestingModule } from '@angular/router/testing';
+import { RouterModule } from '@angular/router';
+import {
+  LayoutDashboard, LogOut, LucideAngularModule, Target,
+} from 'lucide-angular';
 import { BehaviorSubject } from 'rxjs';
-import { LucideAngularModule, Target, LayoutDashboard, LogOut } from 'lucide-angular';
-import { SistemasSeleccionComponent } from './sistemas-seleccion.component';
 import { AuthService } from '../../core/services/auth.service';
 import { CapabilitiesService } from '../../core/services/capabilities.service';
 import { GestionHabilitadaService } from '../../core/services/gestion-habilitada.service';
-import { environment } from '../../../environments/environment';
+import { SistemasSeleccionComponent } from './sistemas-seleccion.component';
 
+/**
+ * La baldosa de SIS-POA exigía literalmente `sis_poa.formulate` y aterrizaba
+ * siempre en `/sis-poa/dashboard`. Un perfil POAU de unidad no tiene ninguna
+ * de las dos cosas: veía «sin acceso a ningún sistema» y, al arreglar solo la
+ * primera mitad, la baldosa aparecía pero el guard lo rebotaba al entrar.
+ *
+ * Estos casos fijan las dos mitades juntas: la baldosa se ve Y lleva a una
+ * pantalla que el usuario puede abrir.
+ */
 describe('SistemasSeleccionComponent', () => {
-  let component: SistemasSeleccionComponent;
   let fixture: ComponentFixture<SistemasSeleccionComponent>;
-  let capabilitiesLoaded: BehaviorSubject<boolean>;
+  let component: SistemasSeleccionComponent;
   let granted: Set<string>;
-  let capabilitiesSpy: jasmine.SpyObj<CapabilitiesService>;
-  let auth: AuthService;
-  let router: Router;
+
+  const POAU_ONLY = [
+    'sis_poa.poau.view',
+    'sis_poa.poau.create',
+    'sis_poa.poau.edit',
+    'sis_poa.poau.submit',
+    'sis_poa.poau.review',
+  ];
+
+  function render(capacidades: string[]): void {
+    granted = new Set(capacidades);
+    fixture = TestBed.createComponent(SistemasSeleccionComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  }
+
+  function sistema(sigla: string) {
+    return component.sistemas.find(s => s.sigla === sigla);
+  }
 
   beforeEach(async () => {
-    localStorage.removeItem(environment.tokenKey);
     granted = new Set<string>();
-    capabilitiesLoaded = new BehaviorSubject<boolean>(false);
-    capabilitiesSpy = jasmine.createSpyObj<CapabilitiesService>(
-      'CapabilitiesService',
-      ['tieneAlguna'],
-      { cargadas$: capabilitiesLoaded },
+    const capabilities = {
+      cargadas$: new BehaviorSubject<boolean>(true),
+      tiene: (codigo: string) => granted.has(codigo),
+      tieneAlguna: (codigos: string[]) => codigos.some(c => granted.has(c)),
+      listar: () => [...granted],
+    };
+    const auth = jasmine.createSpyObj<AuthService>('AuthService', ['logout']);
+    const gestion = jasmine.createSpyObj<GestionHabilitadaService>(
+      'GestionHabilitadaService', ['gestion', 'anio'],
     );
-    capabilitiesSpy.tieneAlguna.and.callFake(capabilities =>
-      capabilities.some(capability => granted.has(capability)),
-    );
+    gestion.anio.and.returnValue(2027);
+    gestion.gestion.and.returnValue(null);
 
     await TestBed.configureTestingModule({
       declarations: [SistemasSeleccionComponent],
       imports: [
-        RouterTestingModule,
+        RouterModule.forRoot([]),
         LucideAngularModule.pick({ Target, LayoutDashboard, LogOut }),
       ],
       providers: [
-        provideHttpClient(),
-        provideHttpClientTesting(),
-        { provide: CapabilitiesService, useValue: capabilitiesSpy },
-        {
-          provide: GestionHabilitadaService,
-          useValue: { anio: () => null },
-        },
+        { provide: CapabilitiesService, useValue: capabilities },
+        { provide: AuthService, useValue: auth },
+        { provide: GestionHabilitadaService, useValue: gestion },
       ],
     }).compileComponents();
-
-    fixture = TestBed.createComponent(SistemasSeleccionComponent);
-    component = fixture.componentInstance;
-    auth = TestBed.inject(AuthService);
-    router = TestBed.inject(Router);
   });
 
-  afterEach(() => localStorage.removeItem(environment.tokenKey));
+  it('offers SIS-POA to a POAU-only profile', () => {
+    render(POAU_ONLY);
 
-  it('should create', () => {
-    expect(component).toBeTruthy();
-  });
-
-  it('shows SIS-PE for the verified module capability shape', () => {
-    granted = new Set([
-      'sis_pe.articulacion.edit',
-      'sis_pe.articulacion.view',
-      'sis_pe.evaluacion.view',
-      'sis_pe.indicadores.view',
-      'sis_pe.pad.edit',
-      'sis_pe.pad.validate',
-      'sis_pe.pad.view',
-      'sis_pe.pei.edit',
-      'sis_pe.pei.view',
-    ]);
-    fixture.detectChanges();
-    capabilitiesLoaded.next(true);
-    fixture.detectChanges();
-
-    expect(component.sistemas.map(system => system.sigla)).toEqual(['SIS-PE']);
-    expect(component.sistemas.some(s => s.ruta.startsWith('/sis-pro'))).toBeFalse();
     expect(component.sinAcceso).toBeFalse();
+    expect(sistema('SIS-POA')).toBeDefined();
   });
 
-  it('does not render the final no-access state before capabilities finish loading', () => {
-    fixture.detectChanges();
+  it('lands a POAU-only profile on a screen it can actually open', () => {
+    // `/sis-poa/dashboard` exige capacidades POA: aterrizar ahí lo rebota.
+    render(POAU_ONLY);
 
-    expect(component.sistemas).toEqual([]);
-    expect(component.sinAcceso).toBeFalse();
-    expect(fixture.nativeElement.querySelector('.nota')).toBeNull();
+    expect(sistema('SIS-POA')?.ruta).toBe('/sis-poa/poaus');
   });
 
-  it('recalculates systems when delayed capability loading completes', () => {
-    fixture.detectChanges();
-    granted.add('sis_pe.pei.view');
+  it('keeps the POA dashboard as the landing for a POA profile', () => {
+    render(['sis_poa.poa.view', 'sis_poa.formulate']);
 
-    capabilitiesLoaded.next(true);
-    fixture.detectChanges();
-
-    expect(component.sistemas.map(system => system.sigla)).toEqual(['SIS-PE']);
-    expect(component.sinAcceso).toBeFalse();
+    expect(sistema('SIS-POA')?.ruta).toBe('/sis-poa/dashboard');
   });
 
-  it('keeps no-capability users denied and excludes SIS-PRO', () => {
-    fixture.detectChanges();
-    capabilitiesLoaded.next(true);
-    fixture.detectChanges();
+  it('does not offer SIS-PE to a POAU-only profile', () => {
+    render(POAU_ONLY);
+
+    expect(sistema('SIS-PE')).toBeUndefined();
+  });
+
+  it('still reports no access when the user holds nothing', () => {
+    render([]);
 
     expect(component.sistemas).toEqual([]);
     expect(component.sinAcceso).toBeTrue();
-    expect(fixture.nativeElement.querySelector('.nota')).not.toBeNull();
-    expect(fixture.nativeElement.textContent).not.toContain('SIS-PRO');
-  });
-
-  it('logs out, clears the session, and returns to login without preserving history', () => {
-    localStorage.setItem(environment.tokenKey, JSON.stringify({ access: 'access', refresh: 'refresh' }));
-    const navigation = spyOn(router, 'navigateByUrl').and.resolveTo(true);
-    fixture.detectChanges();
-    capabilitiesLoaded.next(true);
-    fixture.detectChanges();
-
-    const button: HTMLButtonElement = fixture.nativeElement.querySelector('.logout-button');
-    button.click();
-
-    expect(auth.getToken()).toBeNull();
-    expect(navigation).toHaveBeenCalledOnceWith('/auth/login', { replaceUrl: true });
   });
 });

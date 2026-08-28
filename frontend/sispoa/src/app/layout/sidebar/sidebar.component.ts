@@ -5,6 +5,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { CapabilitiesService } from '../../core/services/capabilities.service';
 import { GestionHabilitadaService } from '../../core/services/gestion-habilitada.service';
 import { LEGACY_MENU_VISIBLE } from '../../core/config/cutover.config';
+import { POAU_CAPABILITIES } from '../../core/config/poau-capabilities';
 
 interface NavItem {
   route: string;
@@ -87,14 +88,7 @@ const SIS_PE_ACCESS_CAPABILITIES = [
   ...SIS_PE_EVALUACION_CAPABILITIES,
 ];
 
-const SIS_POA_POAU_CAPABILITIES = [
-  'sis_poa.poau.view',
-  'sis_poa.poau.create',
-  'sis_poa.poau.edit',
-  'sis_poa.poau.submit',
-  'sis_poa.poau.review',
-  'sis_poa.poau.approve',
-];
+const SIS_POA_POAU_CAPABILITIES = POAU_CAPABILITIES;
 const SIS_POA_POA_CAPABILITIES = [
   'sis_poa.poa.view',
   'sis_poa.poa.edit',
@@ -121,6 +115,19 @@ const SIS_POA_PROGRAMACION_CAPABILITIES = [
   'sis_poa.programacion.view',
   'sis_poa.programacion.edit',
   'sis_poa.formulate',
+];
+// Las tres pantallas POAU de una unidad se gobiernan por capacidades POAU y no
+// por `sis_poa.formulate` / `distribuciones.*`: esas listas también encienden
+// Presupuesto, Dashboard POA, Priorización y POA, y un encargado o validador de
+// POAU no debe verlos. Se conservan las listas originales para que ningún rol
+// existente pierda el acceso que ya tenía.
+const SIS_POA_POAU_FISICO_CAPABILITIES = [
+  ...SIS_POA_PROGRAMACION_CAPABILITIES,
+  ...POAU_CAPABILITIES,
+];
+const SIS_POA_POAU_RECURSOS_CAPABILITIES = [
+  ...SIS_POA_DISTRIBUCIONES_CAPABILITIES,
+  ...POAU_CAPABILITIES,
 ];
 const SIS_POA_SEGUIMIENTO_CAPABILITIES = [
   'sis_poa.seguimiento.view',
@@ -330,8 +337,8 @@ export class SidebarComponent implements OnInit, OnDestroy {
         { route: '/priorizacion/actas', label: 'Priorización POA', icon: 'clipboard-list', capacidades: SIS_POA_POA_CAPABILITIES, v1: true },
         { route: '/sis-poa/poas', label: 'POA', icon: 'calendar-days', capacidades: SIS_POA_POA_CAPABILITIES, legacy: true },
         { route: '/sis-poa/poaus', label: 'POAU', icon: 'list-tree', capacidades: SIS_POA_POAU_CAPABILITIES, v1: true },
-        { route: '/poau', label: 'POAU (Físico)', icon: 'list-todo', capacidades: SIS_POA_PROGRAMACION_CAPABILITIES, legacy: true },
-        { route: '/poau_recursos', label: 'POAU (Recursos)', icon: 'boxes', capacidades: SIS_POA_DISTRIBUCIONES_CAPABILITIES, legacy: true },
+        { route: '/poau', label: 'POAU (Físico)', icon: 'list-todo', capacidades: SIS_POA_POAU_FISICO_CAPABILITIES, legacy: true },
+        { route: '/poau_recursos', label: 'POAU (Recursos)', icon: 'boxes', capacidades: SIS_POA_POAU_RECURSOS_CAPABILITIES, legacy: true },
         { route: '/sis-poa/seguimiento', label: 'Seguimiento y Evaluación', icon: 'activity', capacidades: SIS_POA_SEGUIMIENTO_CAPABILITIES, beta: true },
       ],
     },

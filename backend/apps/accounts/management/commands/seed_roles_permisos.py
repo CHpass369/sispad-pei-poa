@@ -1,4 +1,4 @@
-"""Seed F1 (ADR-003): 6 roles base del sistema + capacidades mínimas viables.
+"""Seed F1 (ADR-003): roles base del sistema + capacidades mínimas viables.
 
 Uso: python manage.py seed_roles_permisos
 
@@ -93,6 +93,25 @@ CAPACIDADES_FORMULADOR = [
     'sis_poa.poau.submit',
 ]
 
+# Perfiles derivados de la encargatura declarada en el registro publico. Ambos
+# formulan y envian el POAU de su unidad; solo el encargado lo aprueba. El
+# limite territorial lo aplica SCOPES_FIJOS_ROLES_SISTEMA (SELF).
+#
+# Deliberadamente SIN `sis_poa.formulate`: esa capacidad tambien abre
+# Presupuesto de Gastos, Presupuesto de Recursos, el Dashboard POA,
+# Priorizacion POA y el POA completo. Estos dos perfiles solo deben alcanzar
+# las tres pantallas POAU de su unidad, que se gobiernan por `sis_poa.poau.*`.
+CAPACIDADES_VALIDADOR_POAU = [
+    'sis_poa.poau.view',
+    'sis_poa.poau.create',
+    'sis_poa.poau.edit',
+    'sis_poa.poau.submit',
+    'sis_poa.poau.review',
+]
+CAPACIDADES_ENCARGADO_UO = CAPACIDADES_VALIDADOR_POAU + [
+    'sis_poa.poau.approve',
+]
+
 # codigo -> (nombre visible, prefijos de capacidad, capacidades explicitas)
 ROLES = {
     'SUPER_ADMIN': (
@@ -125,11 +144,21 @@ ROLES = {
         (),
         tuple(CAPACIDADES_FORMULADOR),
     ),
+    'VALIDADOR_POAU': (
+        'Validador POAU de unidad',
+        (),
+        tuple(CAPACIDADES_VALIDADOR_POAU),
+    ),
+    'ENCARGADO_UO': (
+        'Encargado de Unidad Organizacional',
+        (),
+        tuple(CAPACIDADES_ENCARGADO_UO),
+    ),
 }
 
 
 class Command(BaseCommand):
-    help = 'Siembra los 6 roles base del sistema y las capacidades F1 (ADR-003).'
+    help = 'Siembra los roles base del sistema y las capacidades F1 (ADR-003).'
 
     @transaction.atomic
     def handle(self, *args, **options):
@@ -158,7 +187,7 @@ class Command(BaseCommand):
                     'orden': orden,
                 },
             )
-            # Invariante del seed: los 6 roles base son de sistema (no
+            # Invariante del seed: los roles base son de sistema (no
             # editables desde UI). Se refuerza aunque el rol ya existiera.
             if not rol.es_sistema:
                 rol.es_sistema = True

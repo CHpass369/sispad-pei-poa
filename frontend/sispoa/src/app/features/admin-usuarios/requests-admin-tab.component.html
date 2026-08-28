@@ -44,6 +44,13 @@
           <th mat-header-cell *matHeaderCellDef>UO solicitada</th>
           <td mat-cell *matCellDef="let request">{{ requestedUnit(request) }}</td>
         </ng-container>
+        <ng-container matColumnDef="encargatura">
+          <th mat-header-cell *matHeaderCellDef>Encargatura declarada</th>
+          <td mat-cell *matCellDef="let request">
+            {{ declaredLeadership(request) }}
+            <span class="secondary-value">Rol sugerido: {{ request.rol_sugerido }}</span>
+          </td>
+        </ng-container>
         <ng-container matColumnDef="fecha">
           <th mat-header-cell *matHeaderCellDef>Fecha de solicitud</th>
           <td mat-cell *matCellDef="let request">

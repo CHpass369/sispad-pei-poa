@@ -51,6 +51,15 @@ export class ErrorInterceptor implements HttpInterceptor {
     if (typeof errores !== 'object' || errores === null) {
       return salida;
     }
+    // DRF devuelve `{error: ["texto"]}` en varias vistas. Sin esta rama el
+    // `Object.entries` de abajo indexa el array y produce «0: texto».
+    if (Array.isArray(errores)) {
+      const textos = errores.filter(item => typeof item === 'string');
+      if (textos.length) {
+        salida.message = textos.join(' ');
+      }
+      return salida;
+    }
     if (typeof errores.code === 'string') {
       salida.code = errores.code;
     }

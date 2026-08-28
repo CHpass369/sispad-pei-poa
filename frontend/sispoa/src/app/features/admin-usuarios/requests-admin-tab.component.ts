@@ -22,7 +22,7 @@ export class RequestsAdminTabComponent implements OnInit {
   @Output() readonly requestApproved = new EventEmitter<string>();
 
   readonly displayedColumns = [
-    'usuario', 'cargo', 'unidad', 'fecha', 'estado', 'acciones',
+    'usuario', 'cargo', 'unidad', 'encargatura', 'fecha', 'estado', 'acciones',
   ];
   readonly pageSize = 25;
 
@@ -118,6 +118,12 @@ export class RequestsAdminTabComponent implements OnInit {
 
   requestedUnit(request: AdminRegistrationRequest): string {
     return request.unidad_solicitada?.nombre ?? 'Sin unidad solicitada';
+  }
+
+  declaredLeadership(request: AdminRegistrationRequest): string {
+    return request.solicita_encargado_unidad
+      ? 'Declara ser encargado'
+      : 'No declara encargatura';
   }
 
   trackRequest(_index: number, request: AdminRegistrationRequest): string {

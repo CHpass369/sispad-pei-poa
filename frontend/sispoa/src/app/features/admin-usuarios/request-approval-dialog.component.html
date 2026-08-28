@@ -43,6 +43,13 @@
         <mat-hint>Se preseleccionó la unidad pedida durante el registro.</mat-hint>
       </mat-form-field>
 
+      <div class="derived-field field-wide">
+        <span>Encargatura declarada</span>
+        <strong>
+          {{ data.request.solicita_encargado_unidad ? 'Declara ser encargado de la unidad' : 'No declara encargatura' }}
+        </strong>
+      </div>
+
       <mat-form-field appearance="outline" class="field-wide">
         <mat-label>Rol permitido</mat-label>
         <mat-select
@@ -56,6 +63,9 @@
             <mat-option [value]="role.codigo">{{ role.codigo }} · {{ role.nombre }}</mat-option>
           }
         </mat-select>
+        <mat-hint>
+          Sugerido por la declaración: {{ data.request.rol_sugerido }}. Puede cambiarlo.
+        </mat-hint>
       </mat-form-field>
 
       @if (showSystemSelector) {

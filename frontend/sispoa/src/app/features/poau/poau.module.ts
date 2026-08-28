@@ -3,6 +3,9 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, Routes } from '@angular/router';
 import { SharedModule } from '../../shared/shared.module';
+import { POAU_CAPABILITIES } from '../../core/config/poau-capabilities';
+import { CapabilityGuard } from '../../core/guards/capability.guard';
+import { GestionHabilitadaGuard } from '../../core/guards/gestion-habilitada.guard';
 import { PoauWizardComponent } from './formulacion/poau-wizard.component';
 import { PoauMatrizViewerComponent } from './formulacion/poau-matriz-viewer.component';
 
@@ -14,7 +17,14 @@ import { PoauMatrizViewerComponent } from './formulacion/poau-matriz-viewer.comp
  * mensual. En consonancia con los asistentes de PAD, PEI y POA.
  */
 const routes: Routes = [
-  { path: '', component: PoauWizardComponent },
+  {
+    // Antes esta ruta no tenía guard: cualquier sesión autenticada entraba
+    // por URL, sin importar su rol.
+    path: '',
+    component: PoauWizardComponent,
+    canActivate: [CapabilityGuard, GestionHabilitadaGuard],
+    data: { capacidades: POAU_CAPABILITIES },
+  },
 ];
 
 @NgModule({

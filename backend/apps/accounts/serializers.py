@@ -13,6 +13,7 @@ from .services import (
     SCOPES_FIJOS_ROLES_SISTEMA,
     SISTEMAS_CAPACIDADES_ASIGNABLES,
     puede_administrar_asignacion_rol,
+    rol_sugerido_por_declaracion,
     sistema_efectivo_capacidad,
     sistemas_administrables,
     sistemas_de_rol,
@@ -75,6 +76,9 @@ class RegistroPublicoSerializer(serializers.Serializer):
     email = serializers.EmailField()
     cargo = serializers.CharField(max_length=200, required=False, allow_blank=True)
     unidad_organizacional_id = serializers.UUIDField()
+    # Declaración de encargatura: se persiste tal cual y solo sugiere el rol
+    # por defecto al aprobar. Marcarla no otorga ninguna capacidad.
+    es_encargado_unidad = serializers.BooleanField(required=False, default=False)
     password = serializers.CharField(write_only=True)
     password_confirm = serializers.CharField(write_only=True)
 
@@ -150,13 +154,19 @@ class SolicitudSerializer(serializers.ModelSerializer):
     """Fila del listado de solicitudes PENDIENTE (sin datos sensibles)."""
 
     unidad_solicitada = serializers.SerializerMethodField()
+    rol_sugerido = serializers.SerializerMethodField()
 
     class Meta:
         model = Usuario
         fields = [
             'id', 'email', 'first_name', 'last_name', 'cargo',
-            'date_joined', 'unidad_solicitada',
+            'date_joined', 'unidad_solicitada', 'solicita_encargado_unidad',
+            'rol_sugerido',
         ]
+
+    def get_rol_sugerido(self, obj):
+        """Rol que el administrador verá preseleccionado, no uno concedido."""
+        return rol_sugerido_por_declaracion(obj.solicita_encargado_unidad)
 
     def get_unidad_solicitada(self, obj):
         """UO pedida en el registro (alcance-trazo rol=None, activo=False)."""

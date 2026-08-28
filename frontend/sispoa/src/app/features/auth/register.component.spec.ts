@@ -7,6 +7,7 @@ import {
   MatAutocompleteTrigger,
 } from '@angular/material/autocomplete';
 import { MatButtonModule } from '@angular/material/button';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -46,6 +47,7 @@ describe('RegisterComponent', () => {
         ReactiveFormsModule,
         MatAutocompleteModule,
         MatButtonModule,
+        MatCheckboxModule,
         MatFormFieldModule,
         MatInputModule,
         MatProgressSpinnerModule,
@@ -68,6 +70,7 @@ describe('RegisterComponent', () => {
       email: 'ana.perez@sacaba.gob.bo',
       cargo: 'Analista',
       unidad_organizacional_id: unit.id,
+      es_encargado_unidad: false,
       password: 'Clave.Segura.2026',
       password_confirm: 'Clave.Segura.2026',
     });
@@ -94,6 +97,7 @@ describe('RegisterComponent', () => {
     expect(Object.keys(payload).sort()).toEqual([
       'cargo',
       'email',
+      'es_encargado_unidad',
       'first_name',
       'last_name',
       'password',
@@ -104,6 +108,26 @@ describe('RegisterComponent', () => {
     expect('sistema' in payload).toBeFalse();
     expect('permisos' in payload).toBeFalse();
     expect('scope' in payload).toBeFalse();
+  });
+
+  it('declares organizational-unit leadership without claiming authority', () => {
+    auth.register.and.returnValue(of({ detail: component.successMessage }));
+    completeForm();
+    component.registerForm.controls.es_encargado_unidad.setValue(true);
+
+    component.onSubmit();
+
+    const payload = auth.register.calls.mostRecent().args[0];
+    expect(payload.es_encargado_unidad).toBeTrue();
+    // The checkbox is a declaration: it must not smuggle in any grant.
+    expect('rol' in payload).toBeFalse();
+    expect('sistema' in payload).toBeFalse();
+    expect('permisos' in payload).toBeFalse();
+    expect('scope' in payload).toBeFalse();
+  });
+
+  it('leaves leadership unchecked by default', () => {
+    expect(component.registerForm.controls.es_encargado_unidad.value).toBeFalse();
   });
 
   it('shows success without storing a token', () => {

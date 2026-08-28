@@ -39,6 +39,11 @@ export interface RegistrationRequest {
   email: string;
   cargo: string;
   unidad_organizacional_id: string;
+  /**
+   * Declared, not granted: checking it only preselects ENCARGADO_UO for the
+   * administrator who approves the request. It grants no capability by itself.
+   */
+  es_encargado_unidad: boolean;
   password: string;
   password_confirm: string;
 }

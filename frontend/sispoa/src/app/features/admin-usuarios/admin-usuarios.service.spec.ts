@@ -64,6 +64,8 @@ describe('AdminUsuariosService', () => {
     cargo: 'Analista',
     date_joined: '2026-08-25T10:00:00Z',
     unidad_solicitada: { id: 'unit-1', nombre: 'Planificación' },
+    solicita_encargado_unidad: false,
+    rol_sugerido: 'VALIDADOR_POAU',
   };
 
   beforeEach(() => {

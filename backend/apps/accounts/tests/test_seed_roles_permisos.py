@@ -116,6 +116,11 @@ def test_seed_and_0015_describe_the_same_authorization_baseline():
     migration = import_module(
         'apps.accounts.migrations.0015_access_authorization_baseline',
     )
+    # 0016 extends the same baseline with the unit-leadership roles, so the
+    # operational seed must equal the union of both migrations, not 0015 alone.
+    leadership = import_module(
+        'apps.accounts.migrations.0016_encargado_unidad_organizacional',
+    )
     from apps.accounts.management.commands.seed_roles_permisos import (
         CAPACIDADES_BASE,
         CAPACIDADES_NUEVAS,
@@ -124,7 +129,11 @@ def test_seed_and_0015_describe_the_same_authorization_baseline():
 
     operational = set(CAPACIDADES_BASE + CAPACIDADES_NUEVAS)
     assert operational == set(migration.BASE_CAPABILITIES)
-    assert ROLES == migration.BASE_ROLES
+    assert ROLES == {**migration.BASE_ROLES, **leadership.BASE_ROLES}
+    # 0016 grants nothing that 0015 did not already define.
+    base_codes = {code for code, _, _ in migration.BASE_CAPABILITIES}
+    for _, _, explicit in leadership.BASE_ROLES.values():
+        assert set(explicit) <= base_codes
 
     call_command('seed_roles_permisos', stdout=StringIO())
     formulator = Rol.objects.get(codigo='FORMULADOR_POAU')

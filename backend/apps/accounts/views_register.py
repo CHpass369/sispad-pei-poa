@@ -15,9 +15,13 @@ Decisiones:
   (`AlcanceOrganizacional` con rol=None, activo=False): nunca es vigente
   (ScopeResolver filtra activo=True y exige usuario.activo) y sirve para
   mostrar `unidad_solicitada` en el listado de solicitudes.
+- `es_encargado_unidad` es una DECLARACIÓN, no una concesión: este endpoint es
+  público, así que marcar la casilla no otorga `sis_poa.poau.approve`. Se
+  guarda en `Usuario.solicita_encargado_unidad` y solo alimenta el
+  `rol_sugerido` que el administrador ve (y confirma) al aprobar.
 - Un administrador no puede aprobarse a sí mismo (403).
-- Los seis roles base usan el scope normativo compartido; los roles
-  personalizados usan el `scope_type` del payload.
+- Los roles base usan el scope normativo compartido; los roles personalizados
+  usan el `scope_type` del payload.
 """
 import logging
 
@@ -76,6 +80,7 @@ class RegistroPublicoView(APIView):
             first_name=data['first_name'],
             last_name=data['last_name'],
             cargo=data.get('cargo', ''),
+            solicita_encargado_unidad=data.get('es_encargado_unidad', False),
             estado=Usuario.ESTADO_PENDIENTE,  # save() fuerza activo=False
             is_active=False,
             is_staff=False,
