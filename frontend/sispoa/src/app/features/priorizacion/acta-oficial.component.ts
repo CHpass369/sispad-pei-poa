@@ -15,7 +15,6 @@ import { PriorizacionService } from './priorizacion.service';
           <h2>Acta oficial</h2>
           <p class="sub">
             Documento oficial de priorización POA.
-            Formato oficio 21,6 × 33 cm.
           </p>
         </div>
 
