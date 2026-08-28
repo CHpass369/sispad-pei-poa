@@ -636,7 +636,7 @@ import { PriorizacionService } from './priorizacion.service';
 
       left: 25mm;
       right: 25mm;
-      bottom: 6mm;
+      bottom: 30mm;
 
       margin: 0;
 

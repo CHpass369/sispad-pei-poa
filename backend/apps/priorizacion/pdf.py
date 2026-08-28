@@ -329,7 +329,7 @@ def _dibujar_pie_fijo(canvas, doc, datos, huella, generado_en):
     canvas.setFont('Helvetica', 5.5)
     canvas.drawCentredString(
         ancho_pagina / 2,
-        10 * mm,
+        34 * mm,
         huella
     )
 
@@ -337,7 +337,7 @@ def _dibujar_pie_fijo(canvas, doc, datos, huella, generado_en):
     canvas.setFont('Helvetica', 6.0)
     canvas.drawCentredString(
         ancho_pagina / 2,
-        6.5 * mm,
+        30 * mm,
         (
             f'Gobierno Autónomo Municipal de Sacaba · '
             f'POA {datos["gestion"]} · '
@@ -358,7 +358,7 @@ def generar_acta_pdf(datos, generado_en=None):
     doc = SimpleDocTemplate(
         salida, pagesize=CARTA,
         leftMargin=25 * mm, rightMargin=25 * mm,
-        topMargin=40 * mm, bottomMargin=20 * mm,
+        topMargin=40 * mm, bottomMargin=35 * mm,
         title=f"Acta de priorización {datos['otb']}",
         author='Gobierno Autónomo Municipal de Sacaba',
     )
