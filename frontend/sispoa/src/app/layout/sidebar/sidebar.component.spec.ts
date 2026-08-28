@@ -166,21 +166,54 @@ describe('SidebarComponent', () => {
     expect(rutasVisibles()).toContain('/admin-usuarios');
   });
 
-  it('shows FORMULADOR_POAU only the canonical POAU tool in SIS-POA', () => {
+  it('shows the three POAU screens to whoever holds only POAU capabilities', () => {
+    // Contrato de ENCARGADO_UO / VALIDADOR_POAU: las tres pantallas POAU de su
+    // unidad y NADA más. Antes estas capacidades solo abrían la Matriz, y
+    // llegar a POAU (Físico) / (Recursos) exigía `sis_poa.formulate` o
+    // `distribuciones.*` — que de paso abren Presupuesto, Dashboard,
+    // Priorización y el POA completo.
     granted = new Set([
       'sis_poa.poau.view',
       'sis_poa.poau.create',
       'sis_poa.poau.edit',
       'sis_poa.poau.submit',
+      'sis_poa.poau.review',
     ]);
 
     navegarA('/sis-poa/poaus');
 
     expect(seccion('SIS-POA')?.items.map(item => [item.label, item.route]))
-      .toEqual([['POAU', '/sis-poa/poaus']]);
+      .toEqual([
+        ['POAU', '/sis-poa/poaus'],
+        ['POAU (Físico)', '/poau'],
+        ['POAU (Recursos)', '/poau_recursos'],
+      ]);
     expect(seccion('TRANSVERSAL')).toBeUndefined();
-    expect(rutasVisibles()).not.toContain('/sis-poa/dashboard');
-    expect(rutasVisibles()).not.toContain('/sis-poa/poas');
+  });
+
+  it('never leaks budget or POA screens to a POAU-only profile', () => {
+    granted = new Set([
+      'sis_poa.poau.view',
+      'sis_poa.poau.create',
+      'sis_poa.poau.edit',
+      'sis_poa.poau.submit',
+      'sis_poa.poau.review',
+      'sis_poa.poau.approve',
+    ]);
+
+    navegarA('/sis-poa/poaus');
+
+    for (const ruta of [
+      '/sis-poa/dashboard',
+      '/sis-poa/poas',
+      '/sis-poa/presupuesto-gastos',
+      '/sis-poa/presupuesto-recursos',
+      '/sis-poa/budget/gestion-fiscal',
+      '/priorizacion/actas',
+      '/sis-poa/seguimiento',
+    ]) {
+      expect(rutasVisibles()).not.toContain(ruta);
+    }
   });
 
   it('shows JEFE_PE only SIS-PE modules and optional user administration', () => {

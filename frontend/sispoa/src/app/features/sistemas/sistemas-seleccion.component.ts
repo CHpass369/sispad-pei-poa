@@ -2,10 +2,20 @@ import { Component, DestroyRef, OnInit, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { filter } from 'rxjs';
-import { SIS_PE_CAPABILITIES } from '../../core/config/modules.config';
+import {
+  SIS_PE_CAPABILITIES,
+  SIS_POA_CAPABILITIES,
+} from '../../core/config/modules.config';
 import { AuthService } from '../../core/services/auth.service';
 import { CapabilitiesService } from '../../core/services/capabilities.service';
 import { GestionHabilitadaService } from '../../core/services/gestion-habilitada.service';
+import { POAU_CAPABILITIES } from '../../core/config/poau-capabilities';
+
+/** Destino candidato de una baldosa, con la capacidad que lo habilita. */
+interface Destino {
+  ruta: string;
+  capacidades: string[];
+}
 
 interface Sistema {
   codigo: string;
@@ -188,6 +198,14 @@ export class SistemasSeleccionComponent implements OnInit {
     void this.router.navigateByUrl('/auth/login', { replaceUrl: true });
   }
 
+  /** Primer destino cuyas capacidades tiene el usuario. */
+  private primerDestinoAlcanzable(destinos: Destino[]): string {
+    const alcanzable = destinos.find(
+      destino => this.capabilities.tieneAlguna(destino.capacidades),
+    );
+    return (alcanzable ?? destinos[0]).ruta;
+  }
+
   private recalcularSistemas(): void {
     const config = [
       {
@@ -196,7 +214,9 @@ export class SistemasSeleccionComponent implements OnInit {
         nombre: 'Planificación Estratégica',
         descripcion: 'Instrumentos y metodologías, marco nacional, PAD, PEI, articulación estratégica, indicadores, territorialización y evaluación.',
         icono: 'target',
-        ruta: '/sis-pe/dashboard',
+        destinos: [
+          { ruta: '/sis-pe/dashboard', capacidades: SIS_PE_CAPABILITIES },
+        ],
         capacidades: SIS_PE_CAPABILITIES,
         color: 'pe',
         progress: 68,
@@ -210,8 +230,19 @@ export class SistemasSeleccionComponent implements OnInit {
         nombre: 'Planificación Operativa Anual',
         descripcion: 'POA institucional y POAU, acciones de corto plazo, operaciones, actividades, tareas, techos, presupuesto y seguimiento.',
         icono: 'layout-dashboard',
-        ruta: '/sis-poa/dashboard',
-        capacidades: ['sis_poa.formulate'],
+        // El dashboard exige capacidades POA. Un perfil POAU de unidad no las
+        // tiene, así que entrar por ahí lo rebotaba al dashboard general: la
+        // baldosa aparecía y no llevaba a ninguna parte. Cada destino declara
+        // qué lo habilita y se aterriza en el primero alcanzable.
+        destinos: [
+          { ruta: '/sis-poa/dashboard', capacidades: ['sis_poa.poa.view', 'sis_poa.poa.edit', 'sis_poa.formulate', 'sis_poa.approve'] },
+          { ruta: '/sis-poa/poaus', capacidades: POAU_CAPABILITIES },
+        ],
+        // Derivado del registro de módulos, como SIS-PE. Antes exigía
+        // literalmente `sis_poa.formulate`: un perfil POAU de unidad
+        // —que trabaja dentro de SIS-POA— veía «sin acceso a ningún
+        // sistema» y no podía ni entrar.
+        capacidades: SIS_POA_CAPABILITIES,
         color: 'poa',
         progress: 54,
         meta: 'PEI → POA → POAU → Presupuesto',
@@ -219,9 +250,12 @@ export class SistemasSeleccionComponent implements OnInit {
         modulos: ['POA', 'POAU', 'Recursos', 'Techos', 'Presupuesto', 'Seguimiento'],
       },
     ];
-    this.sistemas = config.filter(sis =>
-      this.capabilities.tieneAlguna(sis.capacidades),
-    );
+    this.sistemas = config
+      .filter(sis => this.capabilities.tieneAlguna(sis.capacidades))
+      .map(({ destinos, ...sis }) => ({
+        ...sis,
+        ruta: this.primerDestinoAlcanzable(destinos),
+      }));
     this.sinAcceso = this.sistemas.length === 0;
   }
 }

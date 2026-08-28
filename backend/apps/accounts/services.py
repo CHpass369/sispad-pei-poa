@@ -16,6 +16,11 @@ SISTEMAS_POR_ROL = {
     'JEFE_POA': {'sis_poa'},
     'SUPER_ADMIN': SISTEMAS_ADMINISTRABLES,
 }
+# Roles derivados de la declaración de encargatura hecha en el registro
+# público: el encargado aprueba los POAU de su unidad, el resto los valida.
+ROL_ENCARGADO_UO = 'ENCARGADO_UO'
+ROL_VALIDADOR_POAU = 'VALIDADOR_POAU'
+
 CODIGOS_ROLES_BASE = {
     'SUPER_ADMIN',
     'SECRETARIO_MUNICIPAL',
@@ -23,6 +28,8 @@ CODIGOS_ROLES_BASE = {
     'JEFE_POA',
     'JEFE_PE',
     'FORMULADOR_POAU',
+    ROL_ENCARGADO_UO,
+    ROL_VALIDADOR_POAU,
 }
 SCOPES_FIJOS_ROLES_SISTEMA = {
     'SUPER_ADMIN': AlcanceOrganizacional.SCOPE_GLOBAL,
@@ -31,7 +38,22 @@ SCOPES_FIJOS_ROLES_SISTEMA = {
     'SECRETARIO_MUNICIPAL': AlcanceOrganizacional.SCOPE_DESCENDANTS,
     'DIRECTOR': AlcanceOrganizacional.SCOPE_DESCENDANTS,
     'FORMULADOR_POAU': AlcanceOrganizacional.SCOPE_SELF,
+    # Ambos ven y operan solo su propia UO: nunca las dependientes.
+    ROL_ENCARGADO_UO: AlcanceOrganizacional.SCOPE_SELF,
+    ROL_VALIDADOR_POAU: AlcanceOrganizacional.SCOPE_SELF,
 }
+
+
+def rol_sugerido_por_declaracion(solicita_encargado_unidad):
+    """Rol POAU que corresponde a la declaración hecha en el registro.
+
+    Es una sugerencia para la aprobación administrativa, no una concesión: el
+    registro público es AllowAny y un administrador sigue confirmando el rol.
+    """
+    return (
+        ROL_ENCARGADO_UO if solicita_encargado_unidad
+        else ROL_VALIDADOR_POAU
+    )
 
 
 def unidades_organizacionales_disponibles_registro():

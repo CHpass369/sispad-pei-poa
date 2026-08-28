@@ -27,6 +27,20 @@ export interface ProyectoPriorizado {
   par_financiamiento?: string;
 }
 
+/** Fila del padrón maestro de organizaciones sociales territoriales. */
+export interface OrganizacionTerritorial {
+  id: string;
+  codigo: string;
+  nombre: string;
+  tipo: string;
+  tipo_display: string;
+  distrito: string;
+  distrito_codigo: string;
+  dirigente: string;
+  cargo: string;
+  telefono: string;
+}
+
 export interface ActaPriorizacion {
   id?: string;
   gestion: number;
@@ -34,6 +48,7 @@ export interface ActaPriorizacion {
   distrito: string;
   distrito_nombre?: string;
   otb: string;
+  unidad_territorial?: string | null;
   presidente: string;
   responsable_registro: string;
   fecha: string | null;
@@ -134,5 +149,18 @@ export class PriorizacionService {
 
   distritos(): Observable<any> {
     return this.http.get(`${environment.apiUrl}/distritos/`);
+  }
+
+  /**
+   * Padrón de organizaciones con su dirigente vigente. Es el dominio que llena
+   * «OTB / Junta vecinal» y «Presidente» en el acta. Sin distrito trae el
+   * padrón entero: el formulario lo filtra en memoria, así que no hay una
+   * consulta por tecla.
+   */
+  organizaciones(distritoId = ''): Observable<any> {
+    let params = new HttpParams();
+    if (distritoId) { params = params.set('distrito', distritoId); }
+    return this.http.get(`${environment.apiUrl}/unidades-territoriales/dominio/`,
+                         { params });
   }
 }

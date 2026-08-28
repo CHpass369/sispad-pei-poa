@@ -1,0 +1,6081 @@
+{
+ "version": 1,
+ "generado": "2026-08-28T08:40:08.660313+00:00",
+ "organizaciones": [
+  {
+   "distrito": "D1",
+   "codigo": "D1-001",
+   "nombre": "JUNTA VECINAL TACOLOMA ALTA",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "JOSE RONALD ALMARAZ CALANI",
+     "cargo": "PRESIDENTE",
+     "telefono": "65376999",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D1",
+   "codigo": "D1-002",
+   "nombre": "OTB ULINCATE CENTRO",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "GROVER COSSIO ORELLANA",
+     "cargo": "PRESIDENTE",
+     "telefono": "72210053",
+     "vigente": true,
+     "observacion": "SU SELLO LO TENIA SU VICEPRESIDENTE"
+    }
+   ]
+  },
+  {
+   "distrito": "D1",
+   "codigo": "D1-003",
+   "nombre": "OTB TACOLOMA BAJA",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "WILLIAN MENDOZA ARRAZOLA",
+     "cargo": "PRESIDENTE",
+     "telefono": "62730444",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D1",
+   "codigo": "D1-004",
+   "nombre": "OTB CIUDAD NUEVA",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "JHANETH PATZI MAMANI",
+     "cargo": "PRESIDENTE",
+     "telefono": "67402373",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D1",
+   "codigo": "D1-005",
+   "nombre": "COMUNIDAD LAICACOTA",
+   "tipo": "comunidad",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "GUIDO ESPINOZA HINOJOSA",
+     "cargo": "PRESIDENTE",
+     "telefono": "69546699",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D1",
+   "codigo": "D1-006",
+   "nombre": "OTB JV VIDA NUEVA",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "SAUL FREDDY TERAN ORTUÑO",
+     "cargo": "PRESIDENTE",
+     "telefono": "70708762",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D1",
+   "codigo": "D1-007",
+   "nombre": "OTB CHIMBOCO ALTO",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "JOSE MAMANI GALLARDO",
+     "cargo": "PRESIDENTE",
+     "telefono": "72784846",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D1",
+   "codigo": "D1-008",
+   "nombre": "OTB 23 DE MARZO",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "IVER ROJAS GARCIA",
+     "cargo": "PRESIDENTE",
+     "telefono": "70342662",
+     "vigente": true,
+     "observacion": "indica que lntregara el lunes 27 de julio"
+    }
+   ]
+  },
+  {
+   "distrito": "D1",
+   "codigo": "D1-009",
+   "nombre": "OTB LIBERTADOR SIMON BOLIVAR",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "VICENTE NELSON SANCHEZ LEDEZMA",
+     "cargo": "PRESIDENTE",
+     "telefono": "72224245",
+     "vigente": true,
+     "observacion": "LE FALTA SU SELLO"
+    }
+   ]
+  },
+  {
+   "distrito": "D1",
+   "codigo": "D1-010",
+   "nombre": "JUNTA VECINAL MIRAFLORES SUD",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "ESTEBAN CLAROS",
+     "cargo": "PRESIDENTE",
+     "telefono": "63942472",
+     "vigente": true,
+     "observacion": "no respondes"
+    }
+   ]
+  },
+  {
+   "distrito": "D1",
+   "codigo": "D1-011",
+   "nombre": "OTB EL MORRO",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "RICHARD CAPRIROLO VARGAS",
+     "cargo": "PRESIDENTE",
+     "telefono": "60782863",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D1",
+   "codigo": "D1-012",
+   "nombre": "OTB LINDE BAJO",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "PABLO ANTONIO MOLINA",
+     "cargo": "PRESIDENTE",
+     "telefono": "71499497",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D1",
+   "codigo": "D1-013",
+   "nombre": "OTB CHIMBOCO",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "RUBEN AREVALO VALENCIA",
+     "cargo": "PRESIDENTE",
+     "telefono": "71744282",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D1",
+   "codigo": "D1-014",
+   "nombre": "JUNTA VECINAL MOSOJ LLAJTA",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "LUCAS CCONDORI GONZALES",
+     "cargo": "PRESIDENTE",
+     "telefono": "72213415",
+     "vigente": true,
+     "observacion": "SE ENCONTRABA DE VIAJE"
+    }
+   ]
+  },
+  {
+   "distrito": "D1",
+   "codigo": "D1-015",
+   "nombre": "OTB CURUBAMBA BAJA II",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "ORLANDO HEREDIA ASCUI",
+     "cargo": "PRESIDENTE",
+     "telefono": "63790506",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D1",
+   "codigo": "D1-016",
+   "nombre": "OTB CURUBAMBA BAJA",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "JHONNY CESPEDES CARBALLO",
+     "cargo": "PRESIDENTE",
+     "telefono": "76966545",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D1",
+   "codigo": "D1-017",
+   "nombre": "OTB SAN PEDRO",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "ALFONSO CALISAYA BAUTISTA",
+     "cargo": "PRESIDENTE",
+     "telefono": "67411800",
+     "vigente": true,
+     "observacion": "no responde"
+    }
+   ]
+  },
+  {
+   "distrito": "D1",
+   "codigo": "D1-018",
+   "nombre": "OTB SAN RAFAEL DE LINDE",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "VICTOR JIMENES",
+     "cargo": "PRESIDENTE",
+     "telefono": "72916988",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D1",
+   "codigo": "D1-019",
+   "nombre": "OTB ORONCOTA",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "JOSE ANTONIO MONTAÑO ZABALAGA",
+     "cargo": "PRESIDENTE",
+     "telefono": "71709708",
+     "vigente": true,
+     "observacion": "no quizo llenar"
+    }
+   ]
+  },
+  {
+   "distrito": "D1",
+   "codigo": "D1-020",
+   "nombre": "COMUNIDAD SIETE ESQUINAS",
+   "tipo": "comunidad",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "MARIO DANIEL HERRERA ROMERO",
+     "cargo": "PRESIDENTE",
+     "telefono": "75999996",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D1",
+   "codigo": "D1-021",
+   "nombre": "COMUNIDAD CAMPESINA MAICA",
+   "tipo": "comunidad",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "SANDRA SOLIS LOPEZ",
+     "cargo": "PRESIDENTE",
+     "telefono": "77968038",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D1",
+   "codigo": "D1-022",
+   "nombre": "COMUNIDAD QUINTO ULINCATE",
+   "tipo": "comunidad",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "LUIS FERNANDO ARNEZ VASQUEZ",
+     "cargo": "PRESIDENTE",
+     "telefono": "72791040",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D1",
+   "codigo": "D1-023",
+   "nombre": "OTB NUEVA CAANAN",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "ANAHI ROMERO VARGAS",
+     "cargo": "PRESIDENTE",
+     "telefono": "62611160",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D1",
+   "codigo": "D1-024",
+   "nombre": "OTB CIRCUNVALACION SUD",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "LUPE FIORILO ORELLANA",
+     "cargo": "PRESIDENTE",
+     "telefono": "72214552",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D1",
+   "codigo": "D1-025",
+   "nombre": "OTB PORVENIR",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "PEDRO RODRIGUEZ ARRATIA",
+     "cargo": "PRESIDENTE",
+     "telefono": "72739068",
+     "vigente": true,
+     "observacion": "no responde"
+    }
+   ]
+  },
+  {
+   "distrito": "D1",
+   "codigo": "D1-026",
+   "nombre": "OTB MIRAFLORES NORTE",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "ELICEO VAZQUEZ DIAZ",
+     "cargo": "PRESIDENTE",
+     "telefono": "76435505",
+     "vigente": true,
+     "observacion": "LE FALTA SU SELLO"
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-001",
+   "nombre": "O.T.B. AMANCAYAS NORTE",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "CESAR LUIS HELGUERO ARANDIA",
+     "cargo": "PRESIDENTE",
+     "telefono": "70346296",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-002",
+   "nombre": "O.T.B. AMISTAD DEL VALLE",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "MARCELO LARA BALDERRAMA",
+     "cargo": "PRESIDENTE",
+     "telefono": "72240575",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-003",
+   "nombre": "O.T.B. ARCO PUNKU",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "OSCAR VALERIANO",
+     "cargo": "PRESIDENTE",
+     "telefono": "71480718",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-004",
+   "nombre": "O.T.B. AROCAGUA",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "DAVID ESPINOZA VAQUINA",
+     "cargo": "PRESIDENTE",
+     "telefono": "75990616",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-005",
+   "nombre": "O.T.B. AROCAGUA CENTRAL",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "KAREN SUARES MAMANI",
+     "cargo": "PRESIDENTE",
+     "telefono": "68462537",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-006",
+   "nombre": "O.T.B. AROCAGUA NORTE CHILIJCHI",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "RICARDO JUAN PEÑARRIETA QUIROGA",
+     "cargo": "PRESIDENTE",
+     "telefono": "69205062",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-007",
+   "nombre": "O.T.B. BELLA VISTA",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "JHIMMY SHAER",
+     "cargo": "PRESIDENTE",
+     "telefono": "65343344",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-008",
+   "nombre": "O.T.B. BOLIVIA",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "TITO CRECENCIO RIVEROS AGUILAR",
+     "cargo": "PRESIDENTE",
+     "telefono": "65340927",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-009",
+   "nombre": "O.T.B. CASSEGURAL UNCIA",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "ALBERTO VEIZAGA MAIDA",
+     "cargo": "PRESIDENTE",
+     "telefono": "65730045",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-010",
+   "nombre": "O.T.B. CHACACOLLO GRANDE",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "JOSE ALBERTO FLORES GUZMAN",
+     "cargo": "PRESIDENTE",
+     "telefono": "71430031",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-011",
+   "nombre": "O.T.B. CHACACOLLO LOS PINOS",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "PATRICIA BLOOMFIEL",
+     "cargo": "PRESIDENTE",
+     "telefono": "77408552",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-012",
+   "nombre": "O.T.B. CHACACOLLO OESTE",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "RAMIRO DIAZ DIAZ",
+     "cargo": "PRESIDENTE",
+     "telefono": "72719160",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-013",
+   "nombre": "O.T.B. COLAYPATO",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "MAURICIO ZAMORA",
+     "cargo": "PRESIDENTE",
+     "telefono": "63968499",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-014",
+   "nombre": "O.T.B. CONCORDIA",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "MARIA LUISA DEL BARCO DE OVANDO",
+     "cargo": "PRESIDENTE",
+     "telefono": "71768072",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-015",
+   "nombre": "O.T.B. EDEN",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "PAZ CARITAS CUSSI",
+     "cargo": "PRESIDENTE",
+     "telefono": "67504556",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-016",
+   "nombre": "O.T.B. EL CASTILLO",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "HENRY OLMOS REJAS- LUIS BERNARDO MORALES",
+     "cargo": "PRESIDENTE",
+     "telefono": "62739967",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-017",
+   "nombre": "O.T.B. EL VERGEL",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "MILTON ELQUIADES MARIN",
+     "cargo": "PRESIDENTE",
+     "telefono": "72744057",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-018",
+   "nombre": "O.T.B. FABRIL 27 DE MAYO",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "JAVIER ALCOCER CLAURE- MARCELO VARGAS VALDEZ",
+     "cargo": "PRESIDENTE",
+     "telefono": "70303388",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-019",
+   "nombre": "OT.B. KAMI",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "CONSTANTINO CHOQUE CUBA",
+     "cargo": "PRESIDENTE",
+     "telefono": "69444435",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-020",
+   "nombre": "O.T.B. LIBERTAD",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "JUAN CARLOS CHAVEZ RODRIGUEZ",
+     "cargo": "PRESIDENTE",
+     "telefono": "72724359",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-021",
+   "nombre": "O.T.B. LOS OLIVOS",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "MARIA ZAMBRANA CASTRO",
+     "cargo": "PRESIDENTE",
+     "telefono": "70706060",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-022",
+   "nombre": "O.T.B. MARAVILLAS",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "OMAR JOSUE SAMCA MONTAÑO",
+     "cargo": "PRESIDENTE",
+     "telefono": "72232146",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-023",
+   "nombre": "O.T.B. OLIVOS 3",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "FELIX IVAN TAPIA MONTAÑO",
+     "cargo": "PRESIDENTE",
+     "telefono": "68582568",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-024",
+   "nombre": "O.T.B. OLIVOS NORTE",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "LUIS ALBERTO RODRIGUEZ CASTELLON",
+     "cargo": "PRESIDENTE",
+     "telefono": "60351351",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-025",
+   "nombre": "O.T.B. ORIENTAL",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "MARIA JULIA MONTAÑO MERIDA",
+     "cargo": "PRESIDENTE",
+     "telefono": "76449026",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-026",
+   "nombre": "O.T.B. PARAISO",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "LUIS ALEJANDRO TAPIA GONZALES",
+     "cargo": "PRESIDENTE",
+     "telefono": "67444988",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-027",
+   "nombre": "O.T.B. PLAN 72 AMANCAYAS",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "CONSUELO SORIA",
+     "cargo": "PRESIDENTE",
+     "telefono": "70739391",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-028",
+   "nombre": "O.T.B. PUCARA",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "RODRIGO VALENCIA BAZOALTO",
+     "cargo": "PRESIDENTE",
+     "telefono": "69537322",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-029",
+   "nombre": "O.T.B. PUNTITI CENTRAL",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "SONIA FUENTES VELARDE",
+     "cargo": "PRESIDENTE",
+     "telefono": "77937200",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-030",
+   "nombre": "O.T.B. PUNTITI CHICO",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "NOEMI CORRALES SANDOVAL",
+     "cargo": "PRESIDENTE",
+     "telefono": "60381004",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-031",
+   "nombre": "O.T.B. PUNTITI CHICO NORTE",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "CLAUDIO AREVALO",
+     "cargo": "PRESIDENTE",
+     "telefono": "70724665",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-032",
+   "nombre": "O.T.B. PUNTITI GRANDE",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "MAURICIO CLAROS RIVERO",
+     "cargo": "PRESIDENTE",
+     "telefono": "65754727",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-033",
+   "nombre": "O.T.B. QUINTANILLA CENTRAL",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "JOSE FIDEL RODRIGUEZ CESPEDES",
+     "cargo": "PRESIDENTE",
+     "telefono": "71764532",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-034",
+   "nombre": "O.T.B. QUINTANILLA ESTE",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "MARIO ZAMBRANA",
+     "cargo": "PRESIDENTE",
+     "telefono": "70720365",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-035",
+   "nombre": "O.T.B. QUINTANILLA OESTE",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "RICHARD LUIZAGA SOLIZ",
+     "cargo": "PRESIDENTE",
+     "telefono": "72731929",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-036",
+   "nombre": "O.T.B. QUINTANILLA SUD",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "OSCAR CARLOS ALMENDRAS RIVERO",
+     "cargo": "PRESIDENTE",
+     "telefono": "60384324",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-037",
+   "nombre": "O.T.B. SAN JOSE DE AROCAGUA",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "ZULEMA ELIZABETH CHOQUE",
+     "cargo": "PRESIDENTE",
+     "telefono": "79781692",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-038",
+   "nombre": "O.T.B. SAN JOSE DE KORIPILA",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "LIZETH SHIRLEY CUBA",
+     "cargo": "PRESIDENTE",
+     "telefono": "72787789",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-039",
+   "nombre": "O.T.B. SAN PEDRO DE AROCAGUA NORTE",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "MAURICIO VALENCIA ROMERO",
+     "cargo": "PRESIDENTE",
+     "telefono": "70761057",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-040",
+   "nombre": "O.T.B. SAN PEDRO MAGISTERIO",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "LORENA ZURITA ZARATE",
+     "cargo": "PRESIDENTE",
+     "telefono": "70736335",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-041",
+   "nombre": "O.T.B. SAN PEDRO NORTE",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "FILIBERTO ROCHA TORRICO",
+     "cargo": "PRESIDENTE",
+     "telefono": "72290187",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-042",
+   "nombre": "O.T.B. SANTA MARIA",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "FRANSISCO LARA CLAROS",
+     "cargo": "PRESIDENTE",
+     "telefono": "63834986",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-043",
+   "nombre": "O.T.B. SIDUMS B - AMANCAYAS",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "VALENTINA PEREZ",
+     "cargo": "PRESIDENTE",
+     "telefono": "71721030",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-044",
+   "nombre": "O.T.B. SIDUMS NORTE PLAN A",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "FERNANDO BORDA ZAMBRANA",
+     "cargo": "PRESIDENTE",
+     "telefono": "70751969",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-045",
+   "nombre": "O.T.B. SIDUMS NORTE PLAN B",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "ESPERANZA DEL CARMEN SANJINEZ",
+     "cargo": "PRESIDENTE",
+     "telefono": "70728381",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-046",
+   "nombre": "O.T.B. SIDUMS SUD",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "JOSE EDUARDO RODRIGUEZ ROCHA",
+     "cargo": "PRESIDENTE",
+     "telefono": "70399946",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-047",
+   "nombre": "O.T.B. SIGLO XX",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "RAQUEL ANTONIO SALVATIERRA",
+     "cargo": "PRESIDENTE",
+     "telefono": "67500041",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-048",
+   "nombre": "O.T.B. SUMAJ HUASI",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "ESLIZABETH DEZA",
+     "cargo": "PRESIDENTE",
+     "telefono": "65300214",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-049",
+   "nombre": "O.T.B. TRIANGULO",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "JAIME CARMONA MIRANDA",
+     "cargo": "PRESIDENTE",
+     "telefono": "72053722",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D2",
+   "codigo": "D2-050",
+   "nombre": "O.T.B. VILLA ANIMAS",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "MARIO VILLARROEL ZEBALLOS",
+     "cargo": "PRESIDENTE",
+     "telefono": "67576057",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D3",
+   "codigo": "D3-001",
+   "nombre": "OTB AMANECER",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "JUAN CARLOS CHOQUE",
+     "cargo": "PRESIDENTE",
+     "telefono": "75475137",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D3",
+   "codigo": "D3-002",
+   "nombre": "OTB COLOMI",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "CAROLA RITA AREQUIPA ALVARADO",
+     "cargo": "PRESIDENTE",
+     "telefono": "70302821",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D3",
+   "codigo": "D3-003",
+   "nombre": "OTB GUADALQUIVIR",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "EULALIA LUIZAGA AREVALO",
+     "cargo": "PRESIDENTE",
+     "telefono": "72266858",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D3",
+   "codigo": "D3-004",
+   "nombre": "OTB LOS HUERTOS",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "LOURDES VELASCO DE TERAN",
+     "cargo": "PRESIDENTE",
+     "telefono": "70388732",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D3",
+   "codigo": "D3-005",
+   "nombre": "OTB PLAN 60-25",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "GETTISBURG SHIGUEKO PANCA AYALA",
+     "cargo": "PRESIDENTE",
+     "telefono": "71754332",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D3",
+   "codigo": "D3-006",
+   "nombre": "OTB. PRIMAVERA",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "REYNA CHOQUE",
+     "cargo": "PRESIDENTE",
+     "telefono": "73787495",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D3",
+   "codigo": "D3-007",
+   "nombre": "OTB SENAC",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "DINA GUZMAN CARO",
+     "cargo": "PRESIDENTE",
+     "telefono": "71748849",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D3",
+   "codigo": "D3-008",
+   "nombre": "OTB TACKOLOMA",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "ROGELIO FERNANDEZ FLORES",
+     "cargo": "PRESIDENTE",
+     "telefono": "70747831",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D3",
+   "codigo": "D3-009",
+   "nombre": "OTB VILLA ESPERANZA",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "JUAN LUIS FORONDA COSSIO",
+     "cargo": "PRESIDENTE",
+     "telefono": "79982124",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D3",
+   "codigo": "D3-010",
+   "nombre": "OTB.VILLA GRACIELA BAJA",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "JULIAN AMPUERO SAHONERO",
+     "cargo": "PRESIDENTE",
+     "telefono": "76913214",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D3",
+   "codigo": "D3-011",
+   "nombre": "OTB VILLA FATIMA",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "GERALDINE GUISBERT R.",
+     "cargo": "PRESIDENTE",
+     "telefono": "70730602",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D3",
+   "codigo": "D3-012",
+   "nombre": "OTB. VILLA BARRIENTOS",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "RAFAEL TERAN CASTRO",
+     "cargo": "PRESIDENTE",
+     "telefono": "71775594",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D3",
+   "codigo": "D3-013",
+   "nombre": "OTB. VILLA DEL MAR",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "TEÓFILO COAQUIRA POMA",
+     "cargo": "PRESIDENTE",
+     "telefono": "79718423",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D3",
+   "codigo": "D3-014",
+   "nombre": "OTB VIRGEN DE LUJAN",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "CARLOS JESUS TORRICO DELGADO",
+     "cargo": "PRESIDENTE",
+     "telefono": "71460948",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D3",
+   "codigo": "D3-015",
+   "nombre": "OTB. COLINAS DE ANDALUCIA",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "MARIA CECILIA GUZMAN",
+     "cargo": "PRESIDENTE",
+     "telefono": "77439133",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D3",
+   "codigo": "D3-016",
+   "nombre": "OTB. 4 DE AGOSTO",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "AMPARO VILLEGAS",
+     "cargo": "PRESIDENTE",
+     "telefono": "70303621",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D3",
+   "codigo": "D3-017",
+   "nombre": "OTB. RETAMAS",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "JUAN JOSE LEON GUARAYO",
+     "cargo": "PRESIDENTE",
+     "telefono": "60350453",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D3",
+   "codigo": "D3-018",
+   "nombre": "OTB. 14 DE SEPTIEMBRE",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "MARCELINO FORONDA",
+     "cargo": "PRESIDENTE",
+     "telefono": "76480330",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D3",
+   "codigo": "D3-019",
+   "nombre": "OTB. 27 DE MAYO",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "EUSTAQUIO LIMA BLANCO",
+     "cargo": "PRESIDENTE",
+     "telefono": "73795152",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D3",
+   "codigo": "D3-020",
+   "nombre": "OTB. ESCALERANI",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "RENE CARDONA USTARIZ",
+     "cargo": "PRESIDENTE",
+     "telefono": "72270023",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D3",
+   "codigo": "D3-021",
+   "nombre": "OTB VERTIENTE",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "JOSE GUEVARA",
+     "cargo": "PRESIDENTE",
+     "telefono": "72711102",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D3",
+   "codigo": "D3-022",
+   "nombre": "OTB. WARA WARA",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "ESTEBAN AGUILAR CHOQUE",
+     "cargo": "PRESIDENTE",
+     "telefono": "76924793",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D3",
+   "codigo": "D3-023",
+   "nombre": "SINDICATO AGRARIO RODEO PAMPA",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "OSCAR MONTAÑO",
+     "cargo": "PRESIDENTE",
+     "telefono": "71665755",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D3",
+   "codigo": "D3-024",
+   "nombre": "OTB. HUERTA MAYU",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "NICOLAS ALMENDRAS GUTIERREZ",
+     "cargo": "PRESIDENTE",
+     "telefono": "78358025",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D3",
+   "codigo": "D3-025",
+   "nombre": "OTB. PARAISO",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "ROSA VILLEGAS",
+     "cargo": "PRESIDENTE",
+     "telefono": "65347855",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D3",
+   "codigo": "D3-026",
+   "nombre": "OTB 10 DICIEMBRE",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "CARLA AMELIA OXA RAMOS",
+     "cargo": "PRESIDENTE ADOC",
+     "telefono": "69506463",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D3",
+   "codigo": "D3-027",
+   "nombre": "JUNTA VECINAL URB. COLORADOS PACATA",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "OSCAR GUTIERREZ YUJRA",
+     "cargo": "PRESIDENTE",
+     "telefono": "77902323",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D3",
+   "codigo": "D3-028",
+   "nombre": "OTB PEDREGAL BALLIVIAN",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "NELSON GUZMAN",
+     "cargo": "PRESIDENTE",
+     "telefono": "67572486",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D3",
+   "codigo": "D3-029",
+   "nombre": "OTB FLORIDA",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "RICHARD YUCRA",
+     "cargo": "PRESIDENTE",
+     "telefono": "7999972",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D3",
+   "codigo": "D3-030",
+   "nombre": "OTB VILLA GRACIELA",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "RAUL ROCHA ESCOBAR",
+     "cargo": "PRESIDENTE",
+     "telefono": "72266011",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D4",
+   "codigo": "D4-001",
+   "nombre": "HUAYLLANI GRANDE",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "CRISTIAN BORIS MALDONADO",
+     "cargo": "PRESIDENTE",
+     "telefono": "63847167",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D4",
+   "codigo": "D4-002",
+   "nombre": "VILLA ENTRE RIOS",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "ELMER RODRIGUEZ JALDIN",
+     "cargo": "PRESIDENTE",
+     "telefono": "76495911",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D4",
+   "codigo": "D4-003",
+   "nombre": "SAN JACINTO",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "GROVER CORRALES ZURITA",
+     "cargo": "PRESIDENTE",
+     "telefono": "63910149",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D4",
+   "codigo": "D4-004",
+   "nombre": "HUAYLLANI CHICO",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "HONORATO OVIDIO VARGAS",
+     "cargo": "PRESIDENTE",
+     "telefono": "76922815",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D4",
+   "codigo": "D4-005",
+   "nombre": "LLOYD AEREO BOLIVIANO",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "JOSE ELIAZAR FLORES",
+     "cargo": "PRESIDENTE",
+     "telefono": "75913137 \n 4711779",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D4",
+   "codigo": "D4-006",
+   "nombre": "CANAL MAYU",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "RENE JUAREZ MARMOL",
+     "cargo": "PRESIDENTE",
+     "telefono": "71729211",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D4",
+   "codigo": "D4-007",
+   "nombre": "HUAYLLANI OESTE",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "JOSUE RIVERA ENCINAS",
+     "cargo": "PRESIDENTE",
+     "telefono": "74352313",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D4",
+   "codigo": "D4-008",
+   "nombre": "ESMERALDA NORTE",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "JUAN CARLOS CAMACHO TERRAZAS",
+     "cargo": "PRESIDENTE",
+     "telefono": "65375021",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D4",
+   "codigo": "D4-009",
+   "nombre": "URBANIZACION UNIDAD SANITARIA MAG. UNCIA",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "CARLOTA MALDONADO DE NAVIA",
+     "cargo": "PRESIDENTE",
+     "telefono": "79789351",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D4",
+   "codigo": "D4-010",
+   "nombre": "INCA RANCHO",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "CIRILO LEDEZMA BAZOALTO",
+     "cargo": "PRESIDENTE",
+     "telefono": "79791537",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D4",
+   "codigo": "D4-011",
+   "nombre": "HUAYLLANI SUD",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "OSCAR ZELADA SOLIS",
+     "cargo": "PRESIDENTE",
+     "telefono": "71440520",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D4",
+   "codigo": "D4-012",
+   "nombre": "URBANIZACION MAGISTERIO URBANO GUADALUPE",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "OCTAVIA JIMENEZ ALVARES",
+     "cargo": "PRESIDENTE",
+     "telefono": "76420991",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D4",
+   "codigo": "D4-013",
+   "nombre": "CHACACOLLO CHICO",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "FERNANDO ZENSANO ORELLANO",
+     "cargo": "PRESIDENTE",
+     "telefono": "76427007",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D4",
+   "codigo": "D4-014",
+   "nombre": "ESMERALDA SUD",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "JOSE ALVARO TRUJILLO LOZADA",
+     "cargo": "PRESIDENTE",
+     "telefono": "60733841",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D4",
+   "codigo": "D4-015",
+   "nombre": "SAN JUAN DE DIOS",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "SHIRLEY BUSTAMANTE CASTELLANOS",
+     "cargo": "PRESIDENTE",
+     "telefono": "68581920",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D4",
+   "codigo": "D4-016",
+   "nombre": "URIOSTE",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "CASIMIRO AGUILAR RIVERA",
+     "cargo": "PRESIDENTE",
+     "telefono": "73557347",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D4",
+   "codigo": "D4-017",
+   "nombre": "COMUNIDAD GUADALUPE",
+   "tipo": "comunidad",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "ROSMERY CLAROS",
+     "cargo": "PRESIDENTE",
+     "telefono": "75376545",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D4",
+   "codigo": "D4-018",
+   "nombre": "HUAYLLANI",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "GERMAN CALLEJAS ALMARAZ",
+     "cargo": "PRESIDENTE",
+     "telefono": "69477337 \n 76493937",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D4",
+   "codigo": "D4-019",
+   "nombre": "CHULLPA MOKO",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "VICENTE SEJAS MALDONADO",
+     "cargo": "PRESIDENTE",
+     "telefono": "76404672",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D4",
+   "codigo": "D4-020",
+   "nombre": "VIRGEN DE GUADALUPE",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "JUAN PABLO ARROYO CHOQUE",
+     "cargo": "PRESIDENTE",
+     "telefono": "70308262",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D4",
+   "codigo": "D4-021",
+   "nombre": "HUAYLLANI CHICO NORTE",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "FELIPE JUAN CORDOVA",
+     "cargo": "PRESIDENTE",
+     "telefono": "71483014",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D4",
+   "codigo": "D4-022",
+   "nombre": "URBANIZACION SENAC",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "LEONOR REQUE PEREZ",
+     "cargo": "PRESIDENTE",
+     "telefono": "79734141",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D4",
+   "codigo": "D4-023",
+   "nombre": "FABRIL HUAYLLANI",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "JARLIN COCA OROZCO",
+     "cargo": "PRESIDENTE",
+     "telefono": "67402224",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D4",
+   "codigo": "D4-024",
+   "nombre": "PUCARITA CHICA",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "ERMINIA VELARDE OVANDO",
+     "cargo": "PRESIDENTE",
+     "telefono": "70725220",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D4",
+   "codigo": "D4-025",
+   "nombre": "INTEGRACION",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "VICTOR VILLEGAS",
+     "cargo": "PRESIDENTE",
+     "telefono": "72210514",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D4",
+   "codigo": "D4-026",
+   "nombre": "CHAUPISUYU",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "MELITON MERIDA O.",
+     "cargo": "PRESIDENTE",
+     "telefono": "77942455",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D4",
+   "codigo": "D4-027",
+   "nombre": "URIOSTE NORTE",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "AGUSTIN CARBALLO OVIDIO",
+     "cargo": "PRESIDENTE",
+     "telefono": "74806686",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D4",
+   "codigo": "D4-028",
+   "nombre": "GUADALUPE CENTRO",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "SAMUEL SOLIS GUEVARA",
+     "cargo": "PRESIDENTE",
+     "telefono": "77981428",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D4",
+   "codigo": "D4-029",
+   "nombre": "VANGUARDIA SOLIDARIA",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "GERMAN CUTILE LA TORRE",
+     "cargo": "PRESIDENTE",
+     "telefono": "62980209",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D4",
+   "codigo": "D4-030",
+   "nombre": "VIRGEN DE ASUNCION",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "JUAN CARLOS LEDEZMA MONTAÑO",
+     "cargo": "PRESIDENTE",
+     "telefono": "72255125",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D4",
+   "codigo": "D4-031",
+   "nombre": "DIN LA PAZ",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "JACKELINE MARIA CUBA GUZMAN",
+     "cargo": "PRESIDENTE",
+     "telefono": "76983536",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D4",
+   "codigo": "D4-032",
+   "nombre": "JUNTA VECINAL EL BOSQUECILLO",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "OSCAR REYNALDO ROCHA DIEGO",
+     "cargo": "PRESIDENTE",
+     "telefono": "65317224",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D4",
+   "codigo": "D4-033",
+   "nombre": "URB. FERROVIARIOS RED OCCIDENTAL HUAYLLANI SECTOR OESTE",
+   "tipo": "zona",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "ADELA LAZARO DE MONTOYA",
+     "cargo": "PRESIDENTE",
+     "telefono": "72479872",
+     "vigente": true,
+     "observacion": "No se encuentra registrado al Distrito 4"
+    }
+   ]
+  },
+  {
+   "distrito": "D4",
+   "codigo": "D4-034",
+   "nombre": "JUNTA VECINAL ASCINALSS",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "CARLA PATRICIA BALLON GUZMAN",
+     "cargo": "PRESIDENTE",
+     "telefono": "79711280",
+     "vigente": true,
+     "observacion": "No se encuentra registrado al Distrito 4"
+    }
+   ]
+  },
+  {
+   "distrito": "D4",
+   "codigo": "D4-035",
+   "nombre": "URB. FERROVIARIOS RED OCCIDENTAL HUAYLLANI SECTOR ESTE",
+   "tipo": "zona",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "ELOY TORREZ",
+     "cargo": "PRESIDENTE",
+     "telefono": "77994242",
+     "vigente": true,
+     "observacion": "No se encuentra registrado al Distrito 4"
+    }
+   ]
+  },
+  {
+   "distrito": "D4",
+   "codigo": "D4-036",
+   "nombre": "JUNTA VECINAL ENTRE RIOS SUD",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "LENNY ALVARADO ORELLANA",
+     "cargo": "PRESIDENTE",
+     "telefono": "76441608",
+     "vigente": true,
+     "observacion": "No se encuentra registrado al Distrito 4"
+    }
+   ]
+  },
+  {
+   "distrito": "D4",
+   "codigo": "D4-037",
+   "nombre": "JUNTA VECINAL ENTRE RIOS NORTE",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "LELIS DONAIRE YUFRA",
+     "cargo": "PRESIDENTE",
+     "telefono": "72748698",
+     "vigente": true,
+     "observacion": "No se encuentra registrado al Distrito 4"
+    }
+   ]
+  },
+  {
+   "distrito": "D5",
+   "codigo": "D5-001",
+   "nombre": "SINDICATO AGRARIO LARATY GRANDE",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "FACUNDO GARCIA OVIDIO",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "71413030",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D5",
+   "codigo": "D5-002",
+   "nombre": "SINDICATO AGRARIO LARATY CENTRO",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "RAMIRO ENCINAS TERRAZAS",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "73766613",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D5",
+   "codigo": "D5-003",
+   "nombre": "SINDICATO AGRARIO LARATY CHICO",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "LUCIO ZAMBRANA CARBALLO",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "68482123",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D5",
+   "codigo": "D5-004",
+   "nombre": "SINDICATO AGRARIO LARATY LAGUNILLAS",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "SABINO CARBALLO ZAMBRANA",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D5",
+   "codigo": "D5-005",
+   "nombre": "SINDICATO AGRARIO LLACHOJMAYU",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "GREGORIA CRUZ CESPEDEZ",
+     "cargo": "SECRETARIA GENERAL",
+     "telefono": "74657247",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D5",
+   "codigo": "D5-006",
+   "nombre": "SINDICATO AGRARIO SUYKU PUJIO",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "RENE ALMARAS PEREDO",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "72275383",
+     "vigente": true,
+     "observacion": "PLANO GEOREFERENCIADO"
+    }
+   ]
+  },
+  {
+   "distrito": "D5",
+   "codigo": "D5-007",
+   "nombre": "SINDICATO AGRARIO LARATY BAJA",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "PEDRO HEREDIA TERRAZAS",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "63899022",
+     "vigente": true,
+     "observacion": "PLANO GEOREFERENCIADO"
+    }
+   ]
+  },
+  {
+   "distrito": "D5",
+   "codigo": "D5-008",
+   "nombre": "SINDICATO AGRARIO SAPANANI CENTRO",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "FORTUNATO ARRAZOLA USTARIZ",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "68487489",
+     "vigente": true,
+     "observacion": "NO CONTESTA EL DIRIGENTE"
+    }
+   ]
+  },
+  {
+   "distrito": "D5",
+   "codigo": "D5-009",
+   "nombre": "SINDICATO AGRARIO SAPANANI ALTO",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "ANGEL USTARIZ ROJAS",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "76976339",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D5",
+   "codigo": "D5-010",
+   "nombre": "SINDICATO AGRARIO CHAKI QHOCHA",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "HONORATO OVIO VARGAS",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "76922815",
+     "vigente": true,
+     "observacion": "PLANO GEOREFERENCIADO"
+    }
+   ]
+  },
+  {
+   "distrito": "D5",
+   "codigo": "D5-011",
+   "nombre": "SINDICATO AGRARIO PAJCHA WASA",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "JUAN MIGUEL SOLIZ GARCIA",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "71453416",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D5",
+   "codigo": "D5-012",
+   "nombre": "SINDICATO AGRARIO 6 DE ENERO LLUSTA",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "WILSON CARBALLO VASQUEZ",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "77498859",
+     "vigente": true,
+     "observacion": "PLANO GEOREFERENCIADO"
+    }
+   ]
+  },
+  {
+   "distrito": "D5",
+   "codigo": "D5-013",
+   "nombre": "SINDICATO AGRARIO MOJON PAMPA",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "EMETERIO PEREZ MATEO",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "72629025",
+     "vigente": true,
+     "observacion": "PLANO GEOREFERENCIADO"
+    }
+   ]
+  },
+  {
+   "distrito": "D5",
+   "codigo": "D5-014",
+   "nombre": "SINDICATO AGRARIO TRANCA",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "DOMINGO VALENCIA",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "62635052",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D5",
+   "codigo": "D5-015",
+   "nombre": "SINDICATO AGRARIO TRANCA CENTRO",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "MILTON GARCIA ESPINOZA",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "77440887",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D5",
+   "codigo": "D5-016",
+   "nombre": "SINDICATO AGRARIO KHULULY",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "TODORICO ROJAS CARBALLO",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "67519273",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D5",
+   "codigo": "D5-017",
+   "nombre": "SINDICATO AGRARIO KHULULYU CENTRO",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "REMBERTO QUINTEROS TERRAZAS",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "71477432",
+     "vigente": true,
+     "observacion": "No tiene Personeria ni plano, solo titulo en global"
+    }
+   ]
+  },
+  {
+   "distrito": "D5",
+   "codigo": "D5-018",
+   "nombre": "SINDICATO AGRARIO WILLCAPUJIO",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "PEDRO CARBALLO ARISPE",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "74358710",
+     "vigente": true,
+     "observacion": "No tiene Personaria ni plano, solo titulo en global"
+    }
+   ]
+  },
+  {
+   "distrito": "D5",
+   "codigo": "D5-019",
+   "nombre": "SINDICATO AGRARIO KEWIÑAL",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "POCIANO TERRAZAS",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "67417126",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D5",
+   "codigo": "D5-020",
+   "nombre": "SINDICATO AGRARIO LLACHOJMAYU ALTO",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "TEODOCIO HUANCA PACCI",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "71781595",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D5",
+   "codigo": "D5-021",
+   "nombre": "SINDICATO AGRARIO KEWIÑAL PALAMIANA",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "ELUETERIO LLANOS NINA",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "68526016",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D6",
+   "codigo": "D6-001",
+   "nombre": "10 DE FEBRERO",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "D6",
+   "codigo": "D6-002",
+   "nombre": "ABRA BAJA",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "D6",
+   "codigo": "D6-003",
+   "nombre": "ABRA CENTRAL",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "D6",
+   "codigo": "D6-004",
+   "nombre": "CHAUPISUYO",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "D6",
+   "codigo": "D6-005",
+   "nombre": "CHOCAMOLLE",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "D6",
+   "codigo": "D6-006",
+   "nombre": "EL CEIBO",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "D6",
+   "codigo": "D6-007",
+   "nombre": "GEMA VERDE",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "D6",
+   "codigo": "D6-008",
+   "nombre": "J.V. VILLA 14 DE SEPTIEMBRE",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "D6",
+   "codigo": "D6-009",
+   "nombre": "J.V. BELLA HORTENCIA",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "D6",
+   "codigo": "D6-010",
+   "nombre": "J.V. CAPILLA FONVIS",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "D6",
+   "codigo": "D6-011",
+   "nombre": "J.V. CAPILLA II",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "D6",
+   "codigo": "D6-012",
+   "nombre": "J.V. CAPILLA III",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "D6",
+   "codigo": "D6-013",
+   "nombre": "J.V. CAPILLA NORTE",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "D6",
+   "codigo": "D6-014",
+   "nombre": "J.V. EL PARAISO",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "D6",
+   "codigo": "D6-015",
+   "nombre": "J.V. EL POLIGONO",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "D6",
+   "codigo": "D6-016",
+   "nombre": "J.V. GUARDIA NACIONAL",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "D6",
+   "codigo": "D6-017",
+   "nombre": "J.V. ALTO LIBERTADOR",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "D6",
+   "codigo": "D6-018",
+   "nombre": "J.V. LOMAS 14 DE AGOSTO",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "D6",
+   "codigo": "D6-019",
+   "nombre": "J.V. NUEVA CANAN",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "D6",
+   "codigo": "D6-020",
+   "nombre": "J.V. RAUL QUIROGA",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "D6",
+   "codigo": "D6-021",
+   "nombre": "J.V. SAN JUAN DE DIOS",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "D6",
+   "codigo": "D6-022",
+   "nombre": "J.V. SAN MIGUEL",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "D6",
+   "codigo": "D6-023",
+   "nombre": "J.V. SEÑOR DE MAYO",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "D6",
+   "codigo": "D6-024",
+   "nombre": "J.V. VIRGEN DEL CARMEN",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "D6",
+   "codigo": "D6-025",
+   "nombre": "LA ISLA",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "D6",
+   "codigo": "D6-026",
+   "nombre": "LA VIÑA",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "D6",
+   "codigo": "D6-027",
+   "nombre": "LUIS ESPINAL",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "D6",
+   "codigo": "D6-028",
+   "nombre": "NUEVA BETANIA",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "D6",
+   "codigo": "D6-029",
+   "nombre": "NUEVA FORTALEZA",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "D6",
+   "codigo": "D6-030",
+   "nombre": "VILLA UNION",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "D6",
+   "codigo": "D6-031",
+   "nombre": "VIÑA CENTRAL",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "D6",
+   "codigo": "D6-032",
+   "nombre": "J.V. VIÑA CENTRAL NORTE",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "D6",
+   "codigo": "D6-033",
+   "nombre": "J.V. EL MANANTIAL",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "D6",
+   "codigo": "D6-034",
+   "nombre": "VIRGEN DE CANDELARIA",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "D7",
+   "codigo": "D7-001",
+   "nombre": "O.T.B. VILLA OBRAJES",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "EDGAR RAUL PEREDO MORALES",
+     "cargo": "PRESIDENTE",
+     "telefono": "69492481",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D7",
+   "codigo": "D7-002",
+   "nombre": "SINDICATO AGRARIO CURUBAMBA ALTA",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "EDWARD FLORES SEJAS",
+     "cargo": "PRESIDENTE",
+     "telefono": "72210174",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D7",
+   "codigo": "D7-003",
+   "nombre": "JUNTA VECINAL CATACHILLA BAJA",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "BASILIO GUTIERREZ GERONIMO",
+     "cargo": "PRESIDENTE",
+     "telefono": "76459740",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D7",
+   "codigo": "D7-004",
+   "nombre": "JUNTA VECINAL VILLA ANTOFAGASTA",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "ROLANDO ROMERO INOCENTE",
+     "cargo": "PRESIDENTE",
+     "telefono": "74330204",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D7",
+   "codigo": "D7-005",
+   "nombre": "O.T.B. VILLA CLOTILDE",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "FABIO LEONARDO NUÑEZ PEREZ",
+     "cargo": "PRESIDENTE",
+     "telefono": "71772229",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D7",
+   "codigo": "D7-006",
+   "nombre": "SINDICATO AGRARIO CURUBAMBA CENTRO",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "FANOR LOPEZ INTURIAS",
+     "cargo": "PRESIDENTE",
+     "telefono": "71478838",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D7",
+   "codigo": "D7-007",
+   "nombre": "O.T.B. MOLLE MOLLE",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "CONSTANCIO LOPEZ INTURIAS",
+     "cargo": "PRESIDENTE",
+     "telefono": "71468757",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D7",
+   "codigo": "D7-008",
+   "nombre": "O.T.B. ALTO OBRAJES",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "ZACARIAS MAMANI GARCIA",
+     "cargo": "PRESIDENTE",
+     "telefono": "71001587",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D7",
+   "codigo": "D7-009",
+   "nombre": "O.T.B. SAN LUIS",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "JHONNY CORRALES PEREDO",
+     "cargo": "PRESIDENTE",
+     "telefono": "67417082",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D7",
+   "codigo": "D7-010",
+   "nombre": "O.T.B. VILLA PARAISO",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "PEDRO SONGO SANCHEZ",
+     "cargo": "PRESIDENTE",
+     "telefono": "76485522",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D7",
+   "codigo": "D7-011",
+   "nombre": "O.T.B. ALTO PARAISO",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "JAVIER MAMANI GUTIERREZ",
+     "cargo": "PRESIDENTE",
+     "telefono": "72276081",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D7",
+   "codigo": "D7-012",
+   "nombre": "JUNTA VECINAL EL PUEBLITO",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "VICTOR LOZA LOVERA",
+     "cargo": "PRESIDENTE",
+     "telefono": "73786655",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "D7",
+   "codigo": "D7-013",
+   "nombre": "JUNTA VECINAL VILLA FLORES",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "GUALBERTO CESPEDES POMA",
+     "cargo": "PRESIDENTE",
+     "telefono": "68556698",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DA",
+   "codigo": "DA-001",
+   "nombre": "SINDICATO AVAROA",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "EMILIO PAREDES",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "72261547",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DA",
+   "codigo": "DA-002",
+   "nombre": "SINDICATO AGUIRRE PRIMERO",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "FEDERICO ARISPE MERINO",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "72740213",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DA",
+   "codigo": "DA-003",
+   "nombre": "SINDICATO AGRARIO ALTO AGUIRRE",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "BENEDICTO ZAPATA ARNEZ",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "71754598",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DA",
+   "codigo": "DA-004",
+   "nombre": "SINDICATO AGRARIO AGUIRRE CONTO",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "ALEJANDRO GODOY ORELLANA",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "75725159",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DA",
+   "codigo": "DA-005",
+   "nombre": "SINDICATO BARRIENTOS",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "SIMON REVOLLO",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "74305967",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DA",
+   "codigo": "DA-006",
+   "nombre": "SINDICATO AGRARIO 16 DE JULIO",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "ANTONIO VELAZQUES",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "64903440",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DA",
+   "codigo": "DA-007",
+   "nombre": "SINDICATO AGRARIO AGUIRRE SEGUNDO",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "BAUTISTA HINOJOSA",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "71457920",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DA",
+   "codigo": "DA-008",
+   "nombre": "SINDICATO AGRARIO RODEO CHICO",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "FELIPE OROSCO",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "63897098",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DA",
+   "codigo": "DA-009",
+   "nombre": "SINDICATO WALLCHA MAYU",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "CRISPIN ACOSTA MORALES",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "74359822",
+     "vigente": true,
+     "observacion": "NO TIENE PERSONERIA JURIDICA, NI TITULO DE INRA"
+    }
+   ]
+  },
+  {
+   "distrito": "DCH",
+   "codigo": "DCH-001",
+   "nombre": "PATATI GRANDE",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "MARIA BLANCA PEREDO AGUILAR",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "71493478",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DCH",
+   "codigo": "DCH-002",
+   "nombre": "PATATI ALTO",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "PÁNFILO PEREDO PREDO",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "67435157",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DCH",
+   "codigo": "DCH-003",
+   "nombre": "PATATI CHICO",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "JOSÉ ÁLVARO FERNANDEZ",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "68499940",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DCH",
+   "codigo": "DCH-004",
+   "nombre": "MESA PATA",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "LUCIANO",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "77446519",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DCH",
+   "codigo": "DCH-005",
+   "nombre": "PAJCHA",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "FELIX INTURIAS GONZALES",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "68528717",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DCH",
+   "codigo": "DCH-006",
+   "nombre": "COMUNIDAD CHIÑATA",
+   "tipo": "comunidad",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "JOSE RICHARD DIAZ",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "76920807",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DCH",
+   "codigo": "DCH-007",
+   "nombre": "CATACHILLA CENTRO",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "BENEDICTO PÉREZ FELIPEZ",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "67555550",
+     "vigente": true,
+     "observacion": "SOLO SELLO EL FORMULARIO, PERO SE ADJUNTA MAPA REFERENCIAL"
+    }
+   ]
+  },
+  {
+   "distrito": "DCH",
+   "codigo": "DCH-008",
+   "nombre": "CATACHILLA ALTA",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "ÁLVARO CARBALLO SÁNCHEZ",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "75484843",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DCH",
+   "codigo": "DCH-009",
+   "nombre": "CHOQUECHAMPI",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "RIONY VILLARROEL LEDEZMA",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "75989109",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DCH",
+   "codigo": "DCH-010",
+   "nombre": "MOLINO BLANCO",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "SABINO NOGALES OLMOS",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "69547294",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DCH",
+   "codigo": "DCH-011",
+   "nombre": "MAYU MOLINO",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "JOSÉ JULIÁN GARCÍA",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "75939131",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DCH",
+   "codigo": "DCH-012",
+   "nombre": "JULLUPAMPA",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "GREGORIO ARNÉS FUENTES",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "72295474",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DCH",
+   "codigo": "DCH-013",
+   "nombre": "QUINSA MAYU MALDONADO",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "BRAULIO SEJAS",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "69538845",
+     "vigente": true,
+     "observacion": "SE ADJUNTA MAPA REFERENCIAL, EL DIRIGENTE NO QUIERE PRESENTAR SU PERSONERIA."
+    }
+   ]
+  },
+  {
+   "distrito": "DCH",
+   "codigo": "DCH-014",
+   "nombre": "QUINSA MAYU QUIROGA",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "JULIAN…..",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "67500246",
+     "vigente": true,
+     "observacion": "SE ADJUNTA MAPA REFERENCIAL, EL DIRIGENTE NO CONTESTA ESTA DE VIAJE."
+    }
+   ]
+  },
+  {
+   "distrito": "DCH",
+   "codigo": "DCH-015",
+   "nombre": "LAQUIÑA BAJA",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "CASTO RÍOS",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "74340825",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-001",
+   "nombre": "SUBCENTRAL LAVA LAVA ALTO (SECTOR ALTO)",
+   "tipo": "subcentral",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "JHONNY CAMACHO",
+     "cargo": "",
+     "telefono": "72776667",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-002",
+   "nombre": "SUBCENTRAL LAVA LAVA ALTO (SECTOR LOPEZ RANCHO)",
+   "tipo": "subcentral",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "ALEXANDER VILLARROEL",
+     "cargo": "",
+     "telefono": "77431912",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-003",
+   "nombre": "SUBCENTRAL LAVA LAVA (PARTE CENTRO)",
+   "tipo": "subcentral",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "HERNAN VALENCIA",
+     "cargo": "",
+     "telefono": "67527177",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-004",
+   "nombre": "SUBCENTRAL U.T.C. TEMPORAL BAJO \"A\"",
+   "tipo": "subcentral",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "HUMBERTO FLORES",
+     "cargo": "",
+     "telefono": "79362923",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-005",
+   "nombre": "SUBCENTRAL U.T.C. TEMPORAL BAJO",
+   "tipo": "subcentral",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "EDWIN CESPEDES",
+     "cargo": "",
+     "telefono": "62610053",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-006",
+   "nombre": "AGUADA",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "JHONNY CAMACHO",
+     "cargo": "",
+     "telefono": "63960509",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-007",
+   "nombre": "LAVA LAVA ALTA",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "MARTIN SANDOVAL",
+     "cargo": "",
+     "telefono": "76956779",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-008",
+   "nombre": "LAVA LAVA CENTRO",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "ANGEL VARGAS",
+     "cargo": "",
+     "telefono": "77408035",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-009",
+   "nombre": "LAVA LAVA BAJA",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "WILSON DIAZ",
+     "cargo": "",
+     "telefono": "76928861",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-010",
+   "nombre": "CHURITIA",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "ROBERTO CARIRI",
+     "cargo": "",
+     "telefono": "74818860",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-011",
+   "nombre": "CARRASCO",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "SACARIAS JAILITA",
+     "cargo": "",
+     "telefono": "71468271",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-012",
+   "nombre": "DOS DE JUNIO",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-013",
+   "nombre": "ALTO MIRADOR",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-014",
+   "nombre": "J.V BONANZA",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "MAX ROMERO",
+     "cargo": "",
+     "telefono": "72776667",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-015",
+   "nombre": "J.V LOPEZ RACHO ALTO",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "ELISEO SANCHEZ",
+     "cargo": "",
+     "telefono": "72798636",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-016",
+   "nombre": "TACOPOCA",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "WILLIAN ALMENDRAS",
+     "cargo": "",
+     "telefono": "79785680",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-017",
+   "nombre": "OTB LOPEZ RANCHO",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "ALEXANDER VILLARROEL",
+     "cargo": "",
+     "telefono": "71716545",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-018",
+   "nombre": "J.V THAGOPAMPA",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "MARCELINO PEÑARIETA",
+     "cargo": "",
+     "telefono": "68005165",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-019",
+   "nombre": "J.V. URB. LOS PINOS",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "TANIA AMPUERO",
+     "cargo": "",
+     "telefono": "62324438",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-020",
+   "nombre": "J.V. 1º DE MAYO",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "LILIANA LOPEZ",
+     "cargo": "",
+     "telefono": "73763503",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-021",
+   "nombre": "J.V 8 DE OCTUBRE",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "JUAN MAMANI",
+     "cargo": "",
+     "telefono": "64904731",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-022",
+   "nombre": "J.V. PARAISO",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "FAUSTO VILLARROEL",
+     "cargo": "",
+     "telefono": "79368852",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-023",
+   "nombre": "SINDICATO AGRARIO PIUSILLA",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "FREDDY REVOLLO",
+     "cargo": "",
+     "telefono": "79742198",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-024",
+   "nombre": "SINDICATO AGRARIO ALALAY",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "FLORENCIO CHOQUE",
+     "cargo": "",
+     "telefono": "72254509",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-025",
+   "nombre": "BUENA VISTA",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "JOSE SANDOVAL",
+     "cargo": "",
+     "telefono": "69468825",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-026",
+   "nombre": "BUENA VISTA BAJA",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "ZENON",
+     "cargo": "",
+     "telefono": "77971682",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-027",
+   "nombre": "OTB CANAL PATA",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "ARIEL REVOLLO",
+     "cargo": "",
+     "telefono": "76993034",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-028",
+   "nombre": "CANAL PATA CENTRO",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "REMI MACHACA",
+     "cargo": "",
+     "telefono": "71770078",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-029",
+   "nombre": "CORRALONES",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "EDGAR GARCIA",
+     "cargo": "",
+     "telefono": "72718637",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-030",
+   "nombre": "J.V. ALALAY ALTO",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "MIRIAN",
+     "cargo": "",
+     "telefono": "77495933",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-031",
+   "nombre": "MOLLOCOTA ALTA",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "WILSON AREBALO",
+     "cargo": "",
+     "telefono": "71408282",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-032",
+   "nombre": "TACOPOCA ALTA",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "MARCELINO VARGAS",
+     "cargo": "",
+     "telefono": "71493955",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-033",
+   "nombre": "PORVENIR I",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "HERNAN VALENCIA",
+     "cargo": "",
+     "telefono": "67527177",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-034",
+   "nombre": "CANAL PATA BAJO",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "ZENON",
+     "cargo": "",
+     "telefono": "77971682",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-035",
+   "nombre": "KORIHUMA",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "PEDRO RIOS",
+     "cargo": "",
+     "telefono": "71710782",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-036",
+   "nombre": "KORIHUMA2",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "JUAN LIMA",
+     "cargo": "",
+     "telefono": "72277182",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-037",
+   "nombre": "TUSCAPUJIO ALTO",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "GERMAN COLQUE",
+     "cargo": "",
+     "telefono": "71400044",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-038",
+   "nombre": "TUSCAPUJIO CENTRO",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "JOSE LUIS RAMIREZ",
+     "cargo": "",
+     "telefono": "68910093",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-039",
+   "nombre": "TUSCAPUJIO BAJO",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-040",
+   "nombre": "MOLLOCOTA",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "EDDY VEIZAGA",
+     "cargo": "",
+     "telefono": "67435913",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-041",
+   "nombre": "URB. TUSCAPUJIO COVIPOL",
+   "tipo": "zona",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "ELENA",
+     "cargo": "",
+     "telefono": "76988906",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-042",
+   "nombre": "TUSCAPUJIO NORTE",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "SANTIAGO ZENTENO",
+     "cargo": "",
+     "telefono": "76415176",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-043",
+   "nombre": "ALTO SACABA",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "EULOGIO CARIRI",
+     "cargo": "",
+     "telefono": "73396522",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-044",
+   "nombre": "TUSCAPUJIO YUGO MOLLE",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "CRISOLOGO GARCIA",
+     "cargo": "",
+     "telefono": "72734704",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-045",
+   "nombre": "KORIHUMA CENTRO",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "JOSE LUIS QUINTANA",
+     "cargo": "",
+     "telefono": "68455475",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-046",
+   "nombre": "GALILEA TUSCAPUJIO",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "LEONCIO ANDRADE",
+     "cargo": "",
+     "telefono": "77903873",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-047",
+   "nombre": "FANEGADA",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "MINERVA NICOLAS",
+     "cargo": "",
+     "telefono": "67404404",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-048",
+   "nombre": "GLORIETA CENTRO",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "EUFRACIO ATAHUCHI",
+     "cargo": "",
+     "telefono": "71414733",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-049",
+   "nombre": "SAN ANTONIO",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "LINO",
+     "cargo": "",
+     "telefono": "77954262",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-050",
+   "nombre": "J.V.BUSTAMANTE",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "CIRILO",
+     "cargo": "",
+     "telefono": "67568880",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-051",
+   "nombre": "TUSCAPUJIO ALTO AGRARIO",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "FREDDY MORALES",
+     "cargo": "",
+     "telefono": "71429788",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-052",
+   "nombre": "SAN ANTONIO GLORIETA",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-053",
+   "nombre": "ALEJANDRO ANDRADE",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "JUSTINO BLANCO",
+     "cargo": "",
+     "telefono": "71466562",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-054",
+   "nombre": "KORIHUMA AKTO",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "MARIO CALANI",
+     "cargo": "",
+     "telefono": "68498303",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-055",
+   "nombre": "J.V. CIPRES",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "GUIDO SALAZAR",
+     "cargo": "",
+     "telefono": "72212494",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-056",
+   "nombre": "URB. LA CAMPIÑA",
+   "tipo": "zona",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-057",
+   "nombre": "URB. TUSCAPUJIO",
+   "tipo": "zona",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-058",
+   "nombre": "URB. CONSORCIO MADEREROS",
+   "tipo": "zona",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "MELQUIADEZ",
+     "cargo": "",
+     "telefono": "72754829",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-059",
+   "nombre": "J.V. LA FLORIDA 1",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "AUSBERTO GARCIA",
+     "cargo": "",
+     "telefono": "76350408",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-060",
+   "nombre": "J.V EL PUEBLITO",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "WILFREDO ANTONIO",
+     "cargo": "",
+     "telefono": "77900514",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-061",
+   "nombre": "J.V . LA FLORIDA 2",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "EMILIANO GARCIA",
+     "cargo": "",
+     "telefono": "68521055",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-062",
+   "nombre": "J.V LA VICTORIA",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "VICTORIANO FERNANDEZ",
+     "cargo": "",
+     "telefono": "71788501",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-063",
+   "nombre": "J.V. TUSCAPUJIO CENTRO",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "PEDRO QUINTEROS",
+     "cargo": "",
+     "telefono": "62607671",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-064",
+   "nombre": "J.V EL BOSQUE",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-065",
+   "nombre": "J.V BOLIVAR BUSTILLOS",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "TORIBIO ORDOÑEZ",
+     "cargo": "",
+     "telefono": "69467116",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-066",
+   "nombre": "J,V GLORITA LAS LOMAS",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "VERONICA CESPEDES",
+     "cargo": "",
+     "telefono": "69499181",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-067",
+   "nombre": "J.V VILLA CONCEPCION",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "LEONARDO PADILLA",
+     "cargo": "",
+     "telefono": "71473426",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-068",
+   "nombre": "J.V MIRAFLORES",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "SERAPIO GARCIA",
+     "cargo": "",
+     "telefono": "77924441",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-069",
+   "nombre": "J.V VALLE PARAISO",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "CIRILO VILLCA",
+     "cargo": "",
+     "telefono": "73774405",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-070",
+   "nombre": "J.V GUADALUPE SUD",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "FELIPE CRUZ",
+     "cargo": "",
+     "telefono": "72705096",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-071",
+   "nombre": "J.V LOS PINOS",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "NELSON",
+     "cargo": "",
+     "telefono": "63897334",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-072",
+   "nombre": "J.V SAN ANTONIO GLORIETA",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "DLL",
+   "codigo": "DLL-073",
+   "nombre": "J.V TUSCAPUJIO BAJO",
+   "tipo": "junta_vecinal",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "DAVID PARDO",
+     "cargo": "",
+     "telefono": "71448536",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DP",
+   "codigo": "DP-001",
+   "nombre": "APILLA",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "DAVID GONZALES SOLIZ",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "77993844",
+     "vigente": true,
+     "observacion": "EL DIRIGENTE NO CONTESTA"
+    }
+   ]
+  },
+  {
+   "distrito": "DP",
+   "codigo": "DP-002",
+   "nombre": "PALCA GRANDE",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "DP",
+   "codigo": "DP-003",
+   "nombre": "ATOC WACHANA MOLINOS",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "MILTON ARMAS CLAROS",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "72212273",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DP",
+   "codigo": "DP-004",
+   "nombre": "KALUYO GRANDE",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "JACOB SOLIZ TRUJILLO",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "72778295",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DP",
+   "codigo": "DP-005",
+   "nombre": "KALUYO CHICO",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "EDWIN CORRALES VEIZAGA",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "68525811",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DP",
+   "codigo": "DP-006",
+   "nombre": "CHURO",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "BENITO OROSCO CLAROS",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "64916338",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DP",
+   "codigo": "DP-007",
+   "nombre": "PALCA CHICO",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "JOSE LUIS TRUJILLO HINOJOSA",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "67421374",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DP",
+   "codigo": "DP-008",
+   "nombre": "ICHUQHULLO",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "EBER RODRIGUES FLORES",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "71476986",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DP",
+   "codigo": "DP-009",
+   "nombre": "PISLY",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "LUIS HUANCA SOLIS",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "63918766",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DP",
+   "codigo": "DP-010",
+   "nombre": "QUEWIÑAL",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "CRESENCIO",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "68521298",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DP",
+   "codigo": "DP-011",
+   "nombre": "INKA MAYU KALUYO GRANDE",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "TRIFONIA HINOJOSA MARQUINA",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "63372438",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DP",
+   "codigo": "DP-012",
+   "nombre": "APAZA",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "JAIME AREBALO",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "79759065",
+     "vigente": true,
+     "observacion": "EL DIRIGENTE NO CONTESTA"
+    }
+   ]
+  },
+  {
+   "distrito": "DP",
+   "codigo": "DP-013",
+   "nombre": "CHALLVIRI",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "INDALICIO",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "63998821",
+     "vigente": true,
+     "observacion": "EL DIRIGENTE NO CONTESTA"
+    }
+   ]
+  },
+  {
+   "distrito": "DP",
+   "codigo": "DP-014",
+   "nombre": "MAYCA MAYU",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "ROLANDO RODRIGUES FLORES",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "63975776",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DP",
+   "codigo": "DP-015",
+   "nombre": "YANAQAGA",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "VICTORIANO PERALTA",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "72763030",
+     "vigente": true,
+     "observacion": "EL DIRIGENTE NO CONTESTA"
+    }
+   ]
+  },
+  {
+   "distrito": "DP",
+   "codigo": "DP-016",
+   "nombre": "BATEON 8 DE JUNIO",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "VICTOR",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "71787060",
+     "vigente": true,
+     "observacion": "EL DIRIGENTE NO CONTESTA"
+    }
+   ]
+  },
+  {
+   "distrito": "DP",
+   "codigo": "DP-017",
+   "nombre": "BATEYAYOJ",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "HONORATO SARABIA",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "74339115",
+     "vigente": true,
+     "observacion": "EL DIRIGENTE NO CONTESTA"
+    }
+   ]
+  },
+  {
+   "distrito": "DP",
+   "codigo": "DP-018",
+   "nombre": "KEWIÑAL",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "INDALICIO",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "63998821",
+     "vigente": true,
+     "observacion": "EL DIRIGENTE NO CONTESTA"
+    }
+   ]
+  },
+  {
+   "distrito": "DP",
+   "codigo": "DP-019",
+   "nombre": "KELAMAYU KALUYO GRANDE",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "FELIX TORRICO MENESES",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "63459429",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DU",
+   "codigo": "DU-001",
+   "nombre": "SIONDICATO AGRARIO LLOQUEMAYU",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "FILOMON LEDEZMA ROJAS",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "62997662",
+     "vigente": true,
+     "observacion": "ESTA EN TRAMITE"
+    }
+   ]
+  },
+  {
+   "distrito": "DU",
+   "codigo": "DU-002",
+   "nombre": "COMUNIDA DE LAQUIÑA",
+   "tipo": "otro",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "ALEX QUISPE FERNADEZ",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "71772864",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DU",
+   "codigo": "DU-003",
+   "nombre": "SINDICATO AGRARIO CESAR LOMA",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "ALBERTO LUIS TERRAZAS",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "62636079",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DU",
+   "codigo": "DU-004",
+   "nombre": "SINDICATO AGRARIO INCA CORRAL",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "MARIBEL MARQUINA GONZALES",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "67581890",
+     "vigente": true,
+     "observacion": "ESTA EN TRAMITE"
+    }
+   ]
+  },
+  {
+   "distrito": "DU",
+   "codigo": "DU-005",
+   "nombre": "SINDICATO AGRARIO VIRGEN DEL CARMEN",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "FEDERICO CARBALLO FUENTES",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "71710302",
+     "vigente": true,
+     "observacion": "ESTA EN TRAMITE"
+    }
+   ]
+  },
+  {
+   "distrito": "DU",
+   "codigo": "DU-006",
+   "nombre": "SINDICATO AGRARIO TUTIMAYU ALTO",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "GERMAN VILLARROEL PEREDO",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "76482460",
+     "vigente": true,
+     "observacion": "ESTA EN TRAMITE"
+    }
+   ]
+  },
+  {
+   "distrito": "DU",
+   "codigo": "DU-007",
+   "nombre": "SINDICATO AGRARIO CRUZ LOMA",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "DU",
+   "codigo": "DU-008",
+   "nombre": "SINDICATO AGRARIO TEMPORAL CENTRO",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "ANGEL REVOLLO LEDEZMA",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "76474737",
+     "vigente": true,
+     "observacion": "ESTA EN TRAMITE"
+    }
+   ]
+  },
+  {
+   "distrito": "DU",
+   "codigo": "DU-009",
+   "nombre": "SINDICATO AGRARIO 29 DE DICIEMBRE",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "WENSESLAO HIDALGO VEIZAGA",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "71463524",
+     "vigente": true,
+     "observacion": "ESTA EN TRAMITE"
+    }
+   ]
+  },
+  {
+   "distrito": "DU",
+   "codigo": "DU-010",
+   "nombre": "SINDICATO AGRARIO TEMPORAL MILLU MAYU",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "DU",
+   "codigo": "DU-011",
+   "nombre": "SINDICATO AGRARIO ALTO MIRADOR",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "MARIA PONCE ROYANO",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "72713304",
+     "vigente": true,
+     "observacion": "EN TRAMITE"
+    }
+   ]
+  },
+  {
+   "distrito": "DU",
+   "codigo": "DU-012",
+   "nombre": "SINDICATO AGRARIO TUSCA MAYU",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "DU",
+   "codigo": "DU-013",
+   "nombre": "OTB SANTA RITA",
+   "tipo": "otb",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "WILSON CASTRO LAZARTE",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "71444347",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DU",
+   "codigo": "DU-014",
+   "nombre": "SINDICATO AGRARIO SANTA RITA",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "MARIBEL ROJAS ROPJAS",
+     "cargo": "SECRETARIO DE RELACIONES",
+     "telefono": "71411528",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DU",
+   "codigo": "DU-015",
+   "nombre": "SINDICATO AGRARIO DIAZ RANCHO",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "VICENTE HERBAS CESPEDEZ",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "67407505",
+     "vigente": true,
+     "observacion": "ESTA EN TRAMITE"
+    }
+   ]
+  },
+  {
+   "distrito": "DU",
+   "codigo": "DU-016",
+   "nombre": "SINDICATO AGRARIO CALVARIO",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "AMELIA BALDERRAMA ACOSTA",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "76430242",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DU",
+   "codigo": "DU-017",
+   "nombre": "SINDICATO AGRARIO RODEO CENTRO",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "REYNALDO VALENCIA RODRIGUEZ",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "74833029",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DU",
+   "codigo": "DU-018",
+   "nombre": "SINDICATO AGRARIO RODEO KUCHULOMA",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "DANIEL VELEZ FLORES",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "63965899",
+     "vigente": true,
+     "observacion": "ESTA EN ACTUALIZACION"
+    }
+   ]
+  },
+  {
+   "distrito": "DU",
+   "codigo": "DU-019",
+   "nombre": "SINDICATO AGRARIO CHAUPI MELGA",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "MAXIMO BALDERRAMA CASTRO",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "67522074",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DU",
+   "codigo": "DU-020",
+   "nombre": "SINDICATO AGRARIO COLLPANA",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "WILLIANS CASTRO ACOSTA",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "71417482",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DU",
+   "codigo": "DU-021",
+   "nombre": "SINDICATO AGRARIO TUTI MELGA",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "JULIO VALENCIA SEJAS",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "68455537",
+     "vigente": true,
+     "observacion": "EL DIRIGENTE INDICA QUE TIEN SU PERSONERIA PERO NO PRESENTO"
+    }
+   ]
+  },
+  {
+   "distrito": "DU",
+   "codigo": "DU-022",
+   "nombre": "SINDICATO AGRARIO LOMA 1RO DE MAYO",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "BLANCA CASTRO ROJAS",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "76457013",
+     "vigente": true,
+     "observacion": "ESTA EN TRAMITE"
+    }
+   ]
+  },
+  {
+   "distrito": "DU",
+   "codigo": "DU-023",
+   "nombre": "SINDICATO AGRARIO POTRERO",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "MILTON JIMENES ROJAS",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "72435473",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DU",
+   "codigo": "DU-024",
+   "nombre": "SINDICATO AGRARIO CONDOR PUÑUNA",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "SONIA BALDERRAMA PEREDO",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "74306492",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DU",
+   "codigo": "DU-025",
+   "nombre": "SINDICATO AGRARIO SAN MIGUEL",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "PRIMITIVO FLORES ARIAS",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "63372859",
+     "vigente": true,
+     "observacion": "ESTA EN TRAMITE"
+    }
+   ]
+  },
+  {
+   "distrito": "DU",
+   "codigo": "DU-026",
+   "nombre": "SINDICATO AGRARIO UTURUNQUILLO",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "SILVIA ROJAS LEDEZMA",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "67490457",
+     "vigente": true,
+     "observacion": "ESTA EN ACTUALIZACION"
+    }
+   ]
+  },
+  {
+   "distrito": "DU",
+   "codigo": "DU-027",
+   "nombre": "SINDICATO AGRARIO 8 DE SEPTIEMBRE",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "SENON CALIZAYA ESTALLA",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "67426418",
+     "vigente": true,
+     "observacion": "ESTA EN TRAMITE LA PERSONERIA"
+    }
+   ]
+  },
+  {
+   "distrito": "DU",
+   "codigo": "DU-028",
+   "nombre": "SINDICATO AGRARIO 1RO DE MAYO",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "SABINO OLIVERA BALDERRAMA",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "71705589",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DU",
+   "codigo": "DU-029",
+   "nombre": "SINDICATO AGRARIO UCUCHI ALTO",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "MARINA PORCO ARO",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "77411402",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DU",
+   "codigo": "DU-030",
+   "nombre": "SINDICATO AGRARIO QUEWIÑA PAMPA",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": []
+  },
+  {
+   "distrito": "DU",
+   "codigo": "DU-031",
+   "nombre": "SINDICATO AGRARIO WARACHI",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "WILLY ROJAS MEJIA",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "68523808",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DU",
+   "codigo": "DU-032",
+   "nombre": "SINDICATO AGRARIO CENTRO UCUCHI",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "PROTASIO SANCHEZ",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "71450512",
+     "vigente": true,
+     "observacion": "EL DIRIGENTE INDICA QUE TIEN SU PERSONERIA PERO NO PRESENTO"
+    }
+   ]
+  },
+  {
+   "distrito": "DU",
+   "codigo": "DU-033",
+   "nombre": "COMUNIDAD DE PILANCHO",
+   "tipo": "comunidad",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "SERVANDO PERDO ROJAS",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "71400427",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  },
+  {
+   "distrito": "DU",
+   "codigo": "DU-034",
+   "nombre": "SINDICATO AGRARIO SAN ISIDRO",
+   "tipo": "sindicato",
+   "activa": true,
+   "observacion": "",
+   "dirigentes": [
+    {
+     "gestion": 2027,
+     "nombre": "JAVIER ACOSTA VALENCIA",
+     "cargo": "SECRETARIO GENERAL",
+     "telefono": "63931345",
+     "vigente": true,
+     "observacion": ""
+    }
+   ]
+  }
+ ]
+}

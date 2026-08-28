@@ -27,6 +27,8 @@ describe('RequestsAdminTabComponent', () => {
     cargo: 'Analista',
     date_joined: '2026-08-25T10:30:00Z',
     unidad_solicitada: { id: 'unit-1', nombre: 'Dirección de Planificación' },
+    solicita_encargado_unidad: true,
+    rol_sugerido: 'ENCARGADO_UO',
     estado: 'PENDIENTE',
   };
   const notPending: AdminRegistrationRequest = {
@@ -127,6 +129,29 @@ describe('RequestsAdminTabComponent', () => {
     expect(action).not.toBeNull();
     action.click();
     expect(dialog.open).toHaveBeenCalled();
+  });
+
+  it('guards the dialog while saving but lets a finished approval close', () => {
+    // El otro lado del abrazo mortal: el predicado bloquea el cierre mientras
+    // `saving` sea true. El spec del diálogo fija que el camino de éxito baja
+    // `saving` ANTES de cerrar; este fija que el predicado, entonces, deja
+    // cerrar. Sin los dos juntos el diálogo se queda en «Aprobando…».
+    canApprove = true;
+    dialog.open.and.returnValue({
+      afterClosed: () => of(undefined),
+    } as MatDialogRef<RequestApprovalDialogComponent>);
+    fixture.detectChanges();
+
+    component.openApproval(pending);
+
+    const config = dialog.open.calls.mostRecent().args[1];
+    const closePredicate = config?.closePredicate;
+    expect(closePredicate).toBeDefined();
+
+    const enVuelo = { saving: true } as RequestApprovalDialogComponent;
+    const terminado = { saving: false } as RequestApprovalDialogComponent;
+    expect(closePredicate!(undefined, config!, enVuelo)).toBeFalse();
+    expect(closePredicate!(undefined, config!, terminado)).toBeTrue();
   });
 
   it('removes and reloads the request and emits refresh after approval', () => {

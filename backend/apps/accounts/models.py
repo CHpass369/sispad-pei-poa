@@ -191,6 +191,12 @@ class Usuario(AbstractUser):
     )
     debe_cambiar_password = models.BooleanField(default=True)
     activo = models.BooleanField(default=True)
+    # Declaración hecha en el registro público: el solicitante afirma ser
+    # encargado de la UO pedida. NO otorga autoridad por sí sola — el registro
+    # es AllowAny. Solo sugiere el rol por defecto en la aprobación
+    # administrativa (ENCARGADO_UO vs VALIDADOR_POAU) y queda como evidencia
+    # de lo que el usuario declaró.
+    solicita_encargado_unidad = models.BooleanField(default=False)
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []

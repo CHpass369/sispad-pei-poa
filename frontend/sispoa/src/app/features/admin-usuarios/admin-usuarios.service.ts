@@ -117,6 +117,10 @@ export interface AdminRegistrationRequest {
     id: string;
     nombre: string;
   } | null;
+  /** What the applicant declared at registration. Grants nothing on its own. */
+  solicita_encargado_unidad: boolean;
+  /** Role the backend suggests for that declaration; the admin still confirms. */
+  rol_sugerido: string;
   estado?: AdminUserState;
 }
 

@@ -102,6 +102,16 @@
             <p class="unit-state unit-error full-width" role="alert">{{ organizationalUnitsError }}</p>
           }
 
+          <div class="unit-lead full-width">
+            <mat-checkbox formControlName="es_encargado_unidad">
+              Soy encargado de esta unidad organizacional
+            </mat-checkbox>
+            <p class="unit-lead-hint">
+              El encargado aprueba los POAU de su unidad; el resto los formula y valida.
+              La designación queda sujeta a la revisión administrativa.
+            </p>
+          </div>
+
           <mat-form-field appearance="outline">
             <mat-label>Contraseña</mat-label>
             <input matInput formControlName="password" type="password" autocomplete="new-password">

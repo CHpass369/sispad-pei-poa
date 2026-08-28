@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, Routes } from '@angular/router';
 import { SharedModule } from '../../shared/shared.module';
+import { POAU_CAPABILITIES } from '../../core/config/poau-capabilities';
 import { CapabilityGuard } from '../../core/guards/capability.guard';
 import { GestionHabilitadaGuard } from '../../core/guards/gestion-habilitada.guard';
 import { modulosPendientes } from '../sistemas/modulos-pendientes';
@@ -41,13 +42,13 @@ const routes: Routes = [
     path: 'poaus/editar/:accion',
     loadChildren: () => import('../poau/poau.module').then(m => m.PoauModule),
     canActivate: [CapabilityGuard, GestionHabilitadaGuard],
-    data: { capacidades: ['sis_poa.formulate'] },
+    data: { capacidades: POAU_CAPABILITIES },
   },
   {
     path: 'poaus',
     component: MatrizPoauComponent,
     canActivate: [CapabilityGuard, GestionHabilitadaGuard],
-    data: { capacidades: ['sis_poa.formulate'] },
+    data: { capacidades: POAU_CAPABILITIES },
   },
   {
     path: 'presupuesto-gastos',

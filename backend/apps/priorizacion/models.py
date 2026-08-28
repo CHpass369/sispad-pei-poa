@@ -4,26 +4,19 @@ Un acta por OTB, con hasta siete proyectos priorizados y su monto. De ahí salen
 dos cosas: el acta oficial que firma el presidente, y las matrices acumulativas
 que consolidan por distrito lo priorizado.
 """
-import re
 import uuid
 
 from django.db import models
 
 from apps.catalogos.models import FuenteFinanciamiento, OrganismoFinanciador
 from apps.core.models import TimeStampedModel
+# `normalizar` vive en core y se reexporta acá: la usan tanto este módulo como
+# el comando de importación del catálogo.
+from apps.core.texto import normalizar
 from apps.territorio.models import Distrito, UnidadTerritorial
 
-
-def normalizar(texto):
-    """Clave de búsqueda: sin tildes, sin puntuación y en mayúsculas.
-
-    El buscador del nombre de proyecto compara por palabras sueltas, y los
-    nombres llegan escritos de mil formas —`ADQ.`, `ADQ`, `Adquisición`—.
-    """
-    texto = str(texto or '').upper()
-    for original, plano in zip('ÁÉÍÓÚÜÑ', 'AEIOUUN'):
-        texto = texto.replace(original, plano)
-    return re.sub(r'\s+', ' ', re.sub(r'[^A-Z0-9 ]', ' ', texto)).strip()
+__all__ = ['normalizar', 'OrigenProyecto', 'ProyectoCatalogo', 'EstadosActa',
+           'ActaPriorizacion', 'ProyectoPriorizado', 'PlantillaActa']
 
 
 class OrigenProyecto(models.TextChoices):

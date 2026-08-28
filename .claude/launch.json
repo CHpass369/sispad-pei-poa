@@ -4,13 +4,20 @@
     {
       "name": "pip-backend",
       "runtimeExecutable": ".venv/bin/python",
-      "runtimeArgs": ["backend/manage.py", "runserver", "8000"],
+      "runtimeArgs": [
+        "backend/manage.py",
+        "runserver",
+        "8000"
+      ],
       "port": 8000
     },
     {
       "name": "sispoa-frontend",
-      "runtimeExecutable": "frontend/sispoa/node_modules/.bin/ng",
-      "runtimeArgs": ["serve", "--project", "sispoa"],
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "cd frontend/sispoa && exec ./node_modules/.bin/ng serve --project sispoa"
+      ],
       "port": 4200
     }
   ]

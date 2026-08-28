@@ -11,12 +11,15 @@ tabla —las columnas tienen que seguir alineadas— sin perder el árbol.
 El cronograma mensual viaja como doce columnas más el total anual.
 """
 from rest_framework import viewsets
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 
 import re
 
 from django.shortcuts import get_object_or_404
 
+from apps.accounts.permissions import TieneCapacidad
+from apps.accounts.services_scope import GLOBAL_SCOPE, ScopeResolver
 from apps.gestion.mixins import gestion_del_candado
 
 from .models import AccionPOA, OperacionPOAU
@@ -68,7 +71,43 @@ def catalogo_categorias(gestion):
 
 
 class MatrizPOAUViewSet(viewsets.ViewSet):
-    """GET /matriz-poau/?gestion=2027&unidad=EM-DJR-01"""
+    """GET /matriz-poau/?gestion=2027&unidad=EM-DJR-01
+
+    Acotado por alcance organizacional (ADR-003). Antes era un ViewSet sin
+    capacidad ni scope: `?unidad=` era libre y la respuesta traía el catálogo
+    completo de UO, así que cualquiera podía leer —y elegir— la matriz de una
+    unidad ajena. Ahora:
+
+    - exige `sis_poa.poau.view`;
+    - las filas se limitan a las UO efectivas del usuario;
+    - el catálogo `unidades` que alimenta el selector del frontend sale de esas
+      mismas UO, para que el desplegable no ofrezca lo que no puede abrir.
+
+    Un alcance GLOBAL (SUPER_ADMIN, jefaturas) sigue viendo todo: el
+    filtrado solo muerde a quien tiene alcance acotado.
+    """
+
+    def get_permissions(self):
+        # Patrón del proyecto: instancias desde get_permissions.
+        return [TieneCapacidad('sis_poa.poau.view')]
+
+    @staticmethod
+    def _codigos_en_alcance(request):
+        """Códigos de UO que el usuario puede leer, o None si es GLOBAL."""
+        if request.user.is_superuser:
+            return None
+        unidades = ScopeResolver.unidades_efectivas(
+            request.user, gestion_del_candado(request).id,
+        )
+        if GLOBAL_SCOPE in unidades:
+            return None
+        from apps.organizacion.models import UnidadOrganizacional
+
+        return set(
+            UnidadOrganizacional.objects
+            .filter(pk__in=unidades)
+            .values_list('codigo', flat=True)
+        )
 
     def _fila(self, nivel, clave, padre, **campos):
         fila = {
@@ -131,6 +170,9 @@ class MatrizPOAUViewSet(viewsets.ViewSet):
         # `?gestion=`, la matriz mezclaba las acciones de todos los años.
         gestion = gestion_del_candado(request).anio
         unidad = request.query_params.get('unidad')
+        # El alcance manda sobre `?unidad=`: pedir una UO fuera del alcance no
+        # devuelve la matriz ajena, devuelve vacío.
+        en_alcance = self._codigos_en_alcance(request)
 
         operaciones = (
             OperacionPOAU.objects
@@ -141,6 +183,9 @@ class MatrizPOAUViewSet(viewsets.ViewSet):
                       'accion_poa__codigo_accion', 'codigo_operacion')
             .filter(accion_poa__gestion=gestion)
         )
+        if en_alcance is not None:
+            operaciones = operaciones.filter(
+                accion_poa__unidad_responsable__codigo__in=en_alcance)
         if unidad:
             operaciones = operaciones.filter(
                 accion_poa__unidad_responsable__codigo=unidad)
@@ -229,11 +274,33 @@ class MatrizPOAUViewSet(viewsets.ViewSet):
 
         return Response({
             'gestion': int(gestion) if gestion else None,
-            'unidades': [{'codigo': c, 'nombre': n}
-                         for c, n in sorted(unidades.items())],
+            'unidades': self._catalogo_unidades(gestion, en_alcance),
             'total_filas': len(filas),
             'filas': filas,
         })
+
+    @staticmethod
+    def _catalogo_unidades(gestion, en_alcance):
+        """Unidades que el selector puede ofrecer.
+
+        Se calcula sobre la gestión completa y no sobre las filas ya
+        filtradas: con `?unidad=` aplicado, `unidades` quedaría reducido a esa
+        sola UO y el desplegable se vaciaría al primer filtro.
+        """
+        catalogo = (
+            AccionPOA.objects
+            .filter(gestion=gestion, unidad_responsable__isnull=False)
+            .values_list('unidad_responsable__codigo',
+                         'unidad_responsable__nombre')
+            .distinct()
+        )
+        if en_alcance is not None:
+            catalogo = catalogo.filter(
+                unidad_responsable__codigo__in=en_alcance)
+        return [
+            {'codigo': codigo, 'nombre': nombre}
+            for codigo, nombre in sorted(set(catalogo))
+        ]
 
     def retrieve(self, request, pk=None):
         """GET /matriz-poau/<accion_id>/ — la acción cargada para el wizard.
@@ -250,6 +317,18 @@ class MatrizPOAUViewSet(viewsets.ViewSet):
             .filter(gestion=gestion_del_candado(request).anio),
             pk=pk,
         )
+        # Sin esto, adivinar un UUID abría la acción de cualquier unidad: el
+        # filtro del listado no protege el detalle.
+        en_alcance = self._codigos_en_alcance(request)
+        if en_alcance is not None:
+            codigo = (
+                accion.unidad_responsable.codigo
+                if accion.unidad_responsable else None
+            )
+            if codigo not in en_alcance:
+                raise PermissionDenied(
+                    'Unidad organizacional fuera de su alcance.',
+                )
         producto = accion.producto_pei
 
         def indicador(obj):

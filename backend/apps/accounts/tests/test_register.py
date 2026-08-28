@@ -32,6 +32,8 @@ from rest_framework.throttling import SimpleRateThrottle
 from apps.accounts.models import (
     AlcanceOrganizacional, Capacidad, Rol, Usuario,
 )
+from apps.accounts.permissions import listar_capacidades
+from apps.accounts.services_scope import ScopeResolver
 from apps.gestion.models import GestionFiscal
 from apps.organizacion.models import (
     AsignacionUsuarioUnidad,
@@ -706,3 +708,127 @@ class SolicitudesListTests(F3aTestBase):
         for solicitud in self.resultados(response):
             for campo in ('roles', 'is_staff', 'is_superuser', 'password'):
                 self.assertNotIn(campo, solicitud)
+
+
+class EncargaturaDeclaradaTests(F3aTestBase):
+    """F. Casilla «soy encargado» del registro público.
+
+    La declaración es pública, así que la premisa que se verifica acá es que
+    marcarla NO otorga nada: solo se guarda y sugiere el rol que el
+    administrador confirma al aprobar.
+    """
+
+    def usuario_registrado(self, email, **overrides):
+        response = self.registrar(email, **overrides)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        return Usuario.objects.get(email=email)
+
+    def test_sin_casilla_no_declara_encargatura(self):
+        usuario = self.usuario_registrado('f3a-enc-omitido@test.gob.bo')
+        self.assertFalse(usuario.solicita_encargado_unidad)
+
+    def test_casilla_marcada_persiste_la_declaracion(self):
+        usuario = self.usuario_registrado(
+            'f3a-enc-marcado@test.gob.bo', es_encargado_unidad=True,
+        )
+        self.assertTrue(usuario.solicita_encargado_unidad)
+
+    def test_declarar_encargatura_no_otorga_rol_ni_alcance_vigente(self):
+        usuario = self.usuario_registrado(
+            'f3a-enc-sin-poder@test.gob.bo', es_encargado_unidad=True,
+        )
+        self.assertEqual(usuario.estado, Usuario.ESTADO_PENDIENTE)
+        self.assertFalse(usuario.roles.exists())
+        self.assertFalse(
+            usuario.alcances_organizacionales.filter(activo=True).exists(),
+        )
+        self.assertNotIn(
+            'sis_poa.poau.approve', listar_capacidades(usuario),
+        )
+
+    def test_listado_expone_declaracion_y_rol_sugerido(self):
+        self.usuario_registrado(
+            'f3a-enc-listado@test.gob.bo', es_encargado_unidad=True,
+        )
+        response = self.cliente(self.super_admin).get(
+            reverse('v2-admin-solicitudes'),
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        solicitud = next(
+            s for s in response.data['results']
+            if s['email'] == 'f3a-enc-listado@test.gob.bo'
+        )
+        self.assertTrue(solicitud['solicita_encargado_unidad'])
+        self.assertEqual(solicitud['rol_sugerido'], 'ENCARGADO_UO')
+
+    def test_sin_declaracion_el_rol_sugerido_es_validador(self):
+        self.usuario_registrado('f3a-enc-validador@test.gob.bo')
+        response = self.cliente(self.super_admin).get(
+            reverse('v2-admin-solicitudes'),
+        )
+        solicitud = next(
+            s for s in response.data['results']
+            if s['email'] == 'f3a-enc-validador@test.gob.bo'
+        )
+        self.assertFalse(solicitud['solicita_encargado_unidad'])
+        self.assertEqual(solicitud['rol_sugerido'], 'VALIDADOR_POAU')
+
+    def test_rol_sugerido_no_depende_del_scope_type_del_payload(self):
+        """El alcance normativo del rol gana sobre lo que pida el admin."""
+        usuario = self.usuario_registrado(
+            'f3a-enc-scope@test.gob.bo', es_encargado_unidad=True,
+        )
+        response = self.aprobar(
+            self.super_admin, usuario,
+            rol_codigo='ENCARGADO_UO',
+            scope_type=AlcanceOrganizacional.SCOPE_GLOBAL,
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        alcance = usuario.alcances_organizacionales.get(
+            rol__codigo='ENCARGADO_UO',
+        )
+        self.assertEqual(alcance.scope_type, AlcanceOrganizacional.SCOPE_SELF)
+        self.assertEqual(alcance.unidad_id, self.dir_catastro.id)
+
+    def test_encargado_aprobado_puede_aprobar_poau(self):
+        usuario = self.usuario_registrado(
+            'f3a-enc-aprobador@test.gob.bo', es_encargado_unidad=True,
+        )
+        response = self.aprobar(
+            self.super_admin, usuario, rol_codigo='ENCARGADO_UO',
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        usuario.refresh_from_db()
+        capacidades = listar_capacidades(usuario)
+        self.assertIn('sis_poa.poau.approve', capacidades)
+        self.assertIn('sis_poa.poau.review', capacidades)
+
+    def test_validador_aprobado_revisa_pero_no_aprueba(self):
+        usuario = self.usuario_registrado('f3a-enc-revisor@test.gob.bo')
+        response = self.aprobar(
+            self.super_admin, usuario, rol_codigo='VALIDADOR_POAU',
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        usuario.refresh_from_db()
+        capacidades = listar_capacidades(usuario)
+        self.assertIn('sis_poa.poau.review', capacidades)
+        self.assertIn('sis_poa.poau.create', capacidades)
+        self.assertNotIn('sis_poa.poau.approve', capacidades)
+
+    def test_encargado_solo_alcanza_su_propia_unidad(self):
+        """SELF: ni siquiera ve las UO de las que su unidad depende."""
+        usuario = self.usuario_registrado(
+            'f3a-enc-alcance@test.gob.bo', es_encargado_unidad=True,
+        )
+        self.aprobar(self.super_admin, usuario, rol_codigo='ENCARGADO_UO')
+        usuario.refresh_from_db()
+
+        efectivas = ScopeResolver.unidades_efectivas(usuario)
+        self.assertEqual(efectivas, {self.dir_catastro.id})
+        self.assertTrue(
+            ScopeResolver.puede_operar(usuario, self.dir_catastro.id),
+        )
+        self.assertFalse(ScopeResolver.puede_operar(usuario, self.gams.id))
+        self.assertFalse(
+            ScopeResolver.puede_operar(usuario, self.secretaria.id),
+        )

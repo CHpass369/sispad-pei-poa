@@ -4,16 +4,19 @@ BORRADOR → VALIDADO → APROBADO, con vuelta por OBSERVADO. Se revisa registro
 por registro —operación, actividad y tarea— porque las unidades presentan su
 programación en momentos distintos.
 """
+from datetime import date
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from apps.accounts.models import Rol
+from apps.accounts.models import AlcanceOrganizacional, Rol
 from apps.gestion.testing import habilitar_gestion_para_tests
 from apps.articulacion.models import (
     AccionPOA, ActividadPOAU, OperacionPOAU, ProductoPEI, ResultadoPEI, TareaPOAU,
 )
+from apps.organizacion.models import TipoUnidad, UnidadOrganizacional
 
 User = get_user_model()
 API = '/api/v1/articulacion'
@@ -23,8 +26,20 @@ class RevisionPOAUTests(TestCase):
     def setUp(self):
         # El POAU vive dentro del candado: sin gestión habilitada los
         # endpoints de SIS-POA responden 409 (ADR-007).
-        habilitar_gestion_para_tests(2027)
+        gestion = habilitar_gestion_para_tests(2027)
         self.client = APIClient()
+        # La cadena POAU se filtra por alcance organizacional: quien revisa
+        # necesita uno. Estos dos perfiles revisan la programación de todas las
+        # unidades, así que su alcance es GLOBAL — el circuito que se prueba
+        # acá es el de estados, no el territorial.
+        tipo, _ = TipoUnidad.objects.get_or_create(
+            codigo='REV-POAU-TIPO',
+            defaults={'nombre': 'Tipo revisión POAU', 'nivel': 1},
+        )
+        self.unidad = UnidadOrganizacional.objects.create(
+            codigo='REV-POAU-UO', nombre='Unidad de revisión', tipo=tipo,
+            gestion=gestion, fecha_vigencia_desde=date(2027, 1, 1),
+        )
         self.tecnico = User.objects.create_user(
             email='tecnico@test.com', password='tecnico123',
         )
@@ -40,6 +55,14 @@ class RevisionPOAUTests(TestCase):
             codigo='jefe_poa', defaults={'nombre': 'Jefatura POA'},
         )
         self.jefatura.roles.add(rol_jefe)
+
+        for usuario, rol in ((self.tecnico, rol_tecnico),
+                             (self.jefatura, rol_jefe)):
+            AlcanceOrganizacional.objects.create(
+                usuario=usuario, unidad=self.unidad, rol=rol,
+                scope_type=AlcanceOrganizacional.SCOPE_GLOBAL,
+                fiscal_year=gestion,
+            )
 
         resultado = ResultadoPEI.objects.create(
             codigo_resultado='1312.1', denominacion='Resultado institucional',

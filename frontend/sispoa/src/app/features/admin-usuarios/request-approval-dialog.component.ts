@@ -110,7 +110,7 @@ export class RequestApprovalDialogComponent implements OnInit {
           this.unitId = this.organizationalUnits[0]?.id ?? '';
         }
         if (!this.roleCode) {
-          this.roleCode = this.roles[0]?.codigo ?? '';
+          this.roleCode = this.suggestedRoleCode() ?? this.roles[0]?.codigo ?? '';
         }
         this.roleChanged();
         if (!this.roles.length || !this.organizationalUnits.length) {
@@ -176,10 +176,19 @@ export class RequestApprovalDialogComponent implements OnInit {
       this.data.request.id,
       this.approvalPayload(),
     ).subscribe({
-      next: () => this.dialogRef.close({
-        approved: true,
-        requestId: this.data.request.id,
-      }),
+      next: () => {
+        // `closePredicate` (requests-admin-tab) bloquea el cierre mientras
+        // `saving` sea true, para que ni ESC ni el backdrop interrumpan una
+        // aprobación en vuelo. Cerrar sin bajarlo primero es un abrazo mortal:
+        // el predicado rechaza el cierre, `close()` retorna en silencio y el
+        // diálogo queda en «Aprobando…» para siempre aunque el backend
+        // respondió 200.
+        this.saving = false;
+        this.dialogRef.close({
+          approved: true,
+          requestId: this.data.request.id,
+        });
+      },
       error: error => {
         this.approvalError = adminApiErrorMessage(
           error,
@@ -199,6 +208,16 @@ export class RequestApprovalDialogComponent implements OnInit {
   fullName(): string {
     const request = this.data.request;
     return `${request.first_name} ${request.last_name}`.trim() || request.email;
+  }
+
+  /**
+   * The role the applicant's declaration points to, only if it is actually
+   * assignable by this administrator. Falls back to null so the dialog keeps
+   * its previous first-role default instead of preselecting something denied.
+   */
+  private suggestedRoleCode(): string | null {
+    const suggested = this.data.request.rol_sugerido;
+    return this.roles.some(role => role.codigo === suggested) ? suggested : null;
   }
 
   private businessSystems(role?: AdminRole): AdminSystem[] {

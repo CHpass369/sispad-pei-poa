@@ -46,6 +46,8 @@ describe('RequestApprovalDialogComponent', () => {
     cargo: 'Analista',
     date_joined: '2026-08-25T10:00:00Z',
     unidad_solicitada: { id: requestedUnit.id, nombre: requestedUnit.nombre },
+    solicita_encargado_unidad: false,
+    rol_sugerido: 'VALIDADOR_POAU',
   };
   const baseRole: AdminRole = {
     id: 'role-base',
@@ -128,6 +130,31 @@ describe('RequestApprovalDialogComponent', () => {
     expect(component.approvalPayload().scope_type).toBe('GLOBAL');
   });
 
+  it('preselects the role the applicant declaration points to', () => {
+    const validator: AdminRole = {
+      ...baseRole,
+      id: 'role-validator',
+      codigo: 'VALIDADOR_POAU',
+      nombre: 'Validador POAU de unidad',
+      sistemas: ['sis_poa'],
+    };
+    adminUsers.listRoles.and.returnValue(of([baseRole, validator]));
+
+    fixture.detectChanges();
+
+    expect(component.roleCode).toBe('VALIDADOR_POAU');
+    expect(component.fixedScope).toBe('SELF');
+    expect(component.approvalPayload().scope_type).toBe('SELF');
+  });
+
+  it('falls back to the first role when the suggestion is not assignable', () => {
+    // The suggestion is advisory: an administrator who cannot assign that role
+    // must not end up with it preselected.
+    fixture.detectChanges();
+
+    expect(component.roleCode).toBe('JEFE_PE');
+  });
+
   it('offers only valid systems and selectable scope for a custom multi-system role', () => {
     fixture.detectChanges();
     component.roleCode = customMultiRole.codigo;
@@ -140,6 +167,34 @@ describe('RequestApprovalDialogComponent', () => {
     component.scope = 'DESCENDANTS';
     expect(component.approvalPayload().scope_type).toBe('DESCENDANTS');
     expect(component.approvalPayload().fiscal_year_id).toBe('fiscal-2027');
+  });
+
+  it('clears `saving` BEFORE closing, so closePredicate cannot deadlock it', () => {
+    // requests-admin-tab abre este diálogo con
+    // `closePredicate: () => !instance.saving` para que ni ESC ni el backdrop
+    // corten una aprobación en vuelo. Si el camino de éxito cierra con
+    // `saving` todavía en true, el predicado rechaza el cierre y `close()`
+    // retorna en silencio: el diálogo queda en «Aprobando…» para siempre
+    // aunque el backend haya respondido 200.
+    fixture.detectChanges();
+    let savingAlCerrar: boolean | null = null;
+    dialogRef.close.and.callFake(() => {
+      savingAlCerrar = component.saving;
+    });
+    adminUsers.approveRequest.and.returnValue(of({
+      id: request.id,
+      email: request.email,
+      first_name: request.first_name,
+      last_name: request.last_name,
+      estado: 'ACTIVO',
+      activo: true,
+      roles: [baseRole.codigo],
+    }));
+
+    component.approve();
+
+    expect(dialogRef.close).toHaveBeenCalled();
+    expect(savingAlCerrar).toBeFalse();
   });
 
   it('posts the exact approval payload and never adds privilege fields', () => {

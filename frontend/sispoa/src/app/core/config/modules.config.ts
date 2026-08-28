@@ -135,4 +135,5 @@ function systemCapabilities(system: ModuleSystem): string[] {
 
 /** Canonical UI aggregates derived from module metadata. */
 export const SIS_PE_CAPABILITIES = systemCapabilities('sis_pe');
+export const SIS_POA_CAPABILITIES = systemCapabilities('sis_poa');
 export const SIS_PE_PEI_CAPABILITIES = moduleCapabilities('sis_pe', 'pei');

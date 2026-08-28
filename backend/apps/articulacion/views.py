@@ -32,6 +32,11 @@ from apps.gestion import candado
 from apps.gestion.mixins import CandadoSisPoaMixin, GestionHabilitadaFilterMixin
 
 from .revision_poau import EstadosPOAU, RevisionPOAUMixin
+from .scope_poau import (
+    ScopeAccionPOAMixin,
+    ScopeActividadPOAUMixin,
+    ScopeOperacionPOAUMixin,
+)
 from .permissions import ArticulacionPermisos, permisos_revision_matriz
 from .services import (
     construir_matriz_a,
@@ -270,7 +275,10 @@ class IndicadorCadenaViewSet(viewsets.ModelViewSet):
     ordering_fields = ['nivel_indicador', 'indicador']
 
 
-class AccionPOAViewSet(CandadoSisPoaMixin, EstadoActionsMixin, viewsets.ModelViewSet):
+class AccionPOAViewSet(
+    ScopeAccionPOAMixin, CandadoSisPoaMixin, EstadoActionsMixin,
+    viewsets.ModelViewSet,
+):
     """Acciones de corto plazo de la gestión habilitada (ADR-007)."""
 
     queryset = AccionPOA.objects.all()
@@ -282,7 +290,8 @@ class AccionPOAViewSet(CandadoSisPoaMixin, EstadoActionsMixin, viewsets.ModelVie
 
 
 class OperacionPOAUViewSet(
-    GestionHabilitadaFilterMixin, RevisionPOAUMixin, viewsets.ModelViewSet,
+    ScopeOperacionPOAUMixin, GestionHabilitadaFilterMixin, RevisionPOAUMixin,
+    viewsets.ModelViewSet,
 ):
     # La operación no lleva gestión propia: la hereda de su acción de corto
     # plazo, y por ahí la acota el candado.
@@ -297,7 +306,8 @@ class OperacionPOAUViewSet(
 
 
 class ActividadPOAUViewSet(
-    GestionHabilitadaFilterMixin, RevisionPOAUMixin, viewsets.ModelViewSet,
+    ScopeActividadPOAUMixin, GestionHabilitadaFilterMixin, RevisionPOAUMixin,
+    viewsets.ModelViewSet,
 ):
     campo_gestion = 'operacion__accion_poa__gestion'
 
