@@ -33,7 +33,6 @@ PLANTILLA = {
                'documento los siguientes:'),
     'firmas': [
         {'rol': 'Presidente de la OTB', 'campo': 'presidente'},
-        {'rol': 'Responsable del registro', 'campo': 'responsable'},
     ],
 }
 

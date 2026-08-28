@@ -44,11 +44,32 @@ import {
           <label>Presidente
             <input class="form-control" [(ngModel)]="acta.presidente">
           </label>
+
+          <label class="pavimento-check">
+            <span>Pavimentos</span>
+
+            <div class="check-pavimento">
+              <input
+                type="checkbox"
+                [(ngModel)]="acta.es_pavimento"
+              >
+
+              <span>
+                Incluir condición especial de combustible en el acta
+              </span>
+            </div>
+          </label>
           <label>Responsable del registro
             <input class="form-control" [(ngModel)]="acta.responsable_registro">
           </label>
-          <label>Fecha de la priorización
-            <input class="form-control" type="date" [(ngModel)]="acta.fecha">
+          <label>Fecha y hora de registro
+            <input
+              class="form-control"
+              type="text"
+              [value]="fechaHoraMostrada()"
+              readonly
+              title="La fecha y hora se asignan automáticamente al registrar el acta"
+            >
           </label>
         </div>
       </div>
@@ -165,7 +186,7 @@ import {
           {{ guardando ? 'Guardando…' : (id ? 'Guardar cambios' : 'Registrar acta') }}
         </button>
         <span class="aviso" *ngIf="!valido()">
-          Faltan distrito, OTB, presidente o fecha.
+          Faltan distrito, OTB o presidente.
         </span>
       </div>
     </div>
@@ -213,6 +234,47 @@ import {
     .saldo { display: block; font-size: 0.625rem; color: var(--text-secondary); }
     .saldo.negativo { color: #B3261E; font-weight: 700; }
     .num { text-align: right; }
+    .pavimento-check {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .check-pavimento {
+      min-height: 38px;
+
+      display: flex;
+      align-items: center;
+
+      gap: 0.55rem;
+
+      padding: 0.45rem 0.65rem;
+
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+
+      background: var(--surface);
+
+      font-size: 0.78rem;
+
+      cursor: pointer;
+    }
+
+    .check-pavimento input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+
+      margin: 0;
+
+      flex: 0 0 auto;
+
+      cursor: pointer;
+    }
+
+    .check-pavimento span {
+      line-height: 1.25;
+    }
+
     .pie-acciones { display: flex; gap: var(--e-2); align-items: center; margin-top: var(--e-2); }
     .aviso { font-size: 0.75rem; color: var(--text-secondary); }
     .msg-box.error {
@@ -226,7 +288,9 @@ export class ActaFormComponent implements OnInit {
   acta: ActaPriorizacion = {
     // La gestión sale del candado (ADR-007); el backend rechaza cualquier otra.
     gestion: 0, distrito: '', otb: '', presidente: '',
-    responsable_registro: '', fecha: null, proyectos: [],
+    responsable_registro: '', fecha: null,
+    es_pavimento: false,
+    proyectos: [],
   };
   distritos: any[] = [];
   categorias: any[] = [];
@@ -375,9 +439,28 @@ export class ActaFormComponent implements OnInit {
     this.cdr.markForCheck();
   }
 
+  fechaHoraMostrada(): string {
+    const valor = this.acta.fecha_hora_registro;
+    const fecha = valor ? new Date(valor) : new Date();
+
+    return fecha.toLocaleString('es-BO', {
+      timeZone: 'America/La_Paz',
+      hour12: false,
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  }
+
   valido(): boolean {
-    return !!(this.acta.distrito && this.acta.otb.trim()
-              && this.acta.presidente.trim() && this.acta.fecha);
+    return !!(
+      this.acta.distrito &&
+      this.acta.otb.trim() &&
+      this.acta.presidente.trim()
+    );
   }
 
   guardar(): void {

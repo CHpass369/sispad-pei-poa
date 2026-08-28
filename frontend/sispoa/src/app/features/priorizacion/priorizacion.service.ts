@@ -37,6 +37,8 @@ export interface ActaPriorizacion {
   presidente: string;
   responsable_registro: string;
   fecha: string | null;
+  es_pavimento?: boolean;
+  fecha_hora_registro?: string;
   estado?: string;
   estado_display?: string;
   observacion?: string;
