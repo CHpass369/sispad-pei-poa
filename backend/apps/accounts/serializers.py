@@ -456,6 +456,18 @@ class AsignacionCapacidadesRolSerializer(
 # --- F3b2b: asignaciones atómicas de roles y alcances -----------------------
 
 
+def validar_gestion_fiscal_asignacion(rol, unidad, fiscal_year):
+    """Apply fiscal-year rules derived from the role's effective capabilities."""
+    if 'sis_poa' in sistemas_efectivos_de_rol(rol) and fiscal_year is None:
+        raise serializers.ValidationError(
+            'La gestión fiscal es obligatoria para asignaciones SIS-POA.',
+        )
+    if fiscal_year is not None and unidad.gestion_id != fiscal_year.pk:
+        raise serializers.ValidationError(
+            'La unidad organizacional no pertenece a la gestión fiscal.',
+        )
+
+
 class AsignacionUsuarioItemSerializer(
     _StrictFieldsSerializerMixin, serializers.Serializer,
 ):
@@ -580,10 +592,7 @@ class AsignacionesUsuarioSerializer(
             unidad = unidades[item['organizational_unit_id']]
             fiscal_year_id = item.get('fiscal_year_id')
             gestion = gestiones.get(fiscal_year_id)
-            if gestion is not None and unidad.gestion_id != gestion.pk:
-                raise serializers.ValidationError(
-                    'La unidad organizacional no pertenece a la gestión fiscal.',
-                )
+            validar_gestion_fiscal_asignacion(rol, unidad, gestion)
             if scope_type == AlcanceOrganizacional.SCOPE_GLOBAL:
                 unidad = self._raiz(unidad)
 
@@ -602,6 +611,11 @@ class AsignacionesUsuarioSerializer(
             )
             efectivas = self._unidades_efectivas(asignacion)
             anteriores = por_rol_gestion.setdefault(clave, [])
+            if asignacion['rol'].codigo == 'FORMULADOR_POAU' and anteriores:
+                raise serializers.ValidationError(
+                    'A POAU formulator can have only one SELF organizational '
+                    'unit per fiscal year.'
+                )
             for previas in anteriores:
                 if efectivas is None or previas is None or efectivas & previas:
                     raise serializers.ValidationError(
@@ -611,3 +625,44 @@ class AsignacionesUsuarioSerializer(
             anteriores.append(efectivas)
 
         return normalizadas
+
+
+class PreviewAccessRequestSerializer(
+    _StrictFieldsSerializerMixin, serializers.Serializer,
+):
+    user_id = serializers.UUIDField()
+    assignments = serializers.JSONField(required=False, default=list)
+
+    def validate_assignments(self, value):
+        nested = AsignacionesUsuarioSerializer(
+            data={'assignments': value}, context=self.context,
+        )
+        nested.is_valid(raise_exception=True)
+        return nested.validated_data['assignments']
+
+
+class PreviewCapabilitySerializer(serializers.ModelSerializer):
+    sistema = serializers.SerializerMethodField()
+    modulo = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Capacidad
+        fields = ['codigo', 'nombre', 'sistema', 'modulo']
+
+    def get_sistema(self, obj):
+        return sistema_efectivo_capacidad(obj)
+
+    def get_modulo(self, obj):
+        return obj.codigo.split('.')[1]
+
+
+class PreviewUnidadSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UnidadOrganizacional
+        fields = ['id', 'codigo', 'nombre']
+
+
+class PreviewAccessResponseSerializer(serializers.Serializer):
+    capabilities = PreviewCapabilitySerializer(many=True)
+    effective_uos = PreviewUnidadSerializer(many=True)
+    modules = serializers.ListField(child=serializers.DictField())

@@ -49,6 +49,8 @@ import { RoleFormDialogComponent } from './role-form-dialog.component';
 import { RoleCapabilitiesDialogComponent } from './role-capabilities-dialog.component';
 import { RequestsAdminTabComponent } from './requests-admin-tab.component';
 import { RequestApprovalDialogComponent } from './request-approval-dialog.component';
+import { AssignmentFlowComponent } from './assignment-flow.component';
+import { PreviewPanelComponent } from './preview-panel.component';
 
 @NgModule({
   declarations: [
@@ -60,6 +62,8 @@ import { RequestApprovalDialogComponent } from './request-approval-dialog.compon
     RoleCapabilitiesDialogComponent,
     RequestsAdminTabComponent,
     RequestApprovalDialogComponent,
+    AssignmentFlowComponent,
+    PreviewPanelComponent,
   ],
   imports: [
     CommonModule,

@@ -4,6 +4,7 @@ import logging
 
 from django.db import transaction
 from django.db.models import Prefetch, Q
+from django.http import Http404
 from rest_framework import generics, status
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.pagination import PageNumberPagination
@@ -23,6 +24,8 @@ from apps.accounts.serializers import (
     AsignacionesUsuarioSerializer,
     CapacidadAdminFilterSerializer,
     CapacidadAdminReadSerializer,
+    PreviewAccessRequestSerializer,
+    PreviewAccessResponseSerializer,
     RolAdminCreateSerializer,
     RolAdminFilterSerializer,
     RolAdminReadSerializer,
@@ -39,6 +42,11 @@ from apps.accounts.services import (
     puede_administrar_asignacion_rol,
     roles_con_sistema,
     usuarios_con_sistema,
+)
+from apps.accounts.services_scope import evaluar_acceso_efectivo
+from apps.organizacion.services import (
+    FORMULATOR_ROLE_CODE,
+    synchronize_legacy_from_formulator_scopes,
 )
 
 logger = logging.getLogger(__name__)
@@ -202,6 +210,21 @@ def _objetivos_asignaciones(administrador):
     )
 
 
+def _roles_reemplazables(usuario, administrador):
+    capacidades = Prefetch(
+        'capacidades', queryset=Capacidad.objects.order_by('codigo'),
+        to_attr='capacidades_admin',
+    )
+    roles = Rol.objects.filter(
+        Q(usuarios=usuario)
+        | Q(alcances__usuario=usuario, alcances__activo=True),
+    ).prefetch_related(capacidades).distinct()
+    return roles, {
+        rol.pk for rol in roles
+        if puede_administrar_asignacion_rol(administrador, rol)
+    }
+
+
 class AsignacionesUsuarioView(APIView):
     authentication_classes = [JWTAuthentication]
 
@@ -262,27 +285,32 @@ class AsignacionesUsuarioView(APIView):
         serializer.is_valid(raise_exception=True)
         asignaciones = serializer.validated_data['assignments']
 
-        capacidades = Prefetch(
-            'capacidades',
-            queryset=Capacidad.objects.order_by('codigo'),
-            to_attr='capacidades_admin',
+        roles_actuales, roles_reemplazables = _roles_reemplazables(
+            usuario, request.user,
         )
-        roles_actuales = (
-            Rol.objects.filter(
-                Q(usuarios=usuario)
-                | Q(
-                    alcances__usuario=usuario,
-                    alcances__activo=True,
-                ),
-            )
-            .prefetch_related(capacidades)
-            .distinct()
+        formulator_years = set(
+            AlcanceOrganizacional.objects.filter(
+                usuario=usuario,
+                activo=True,
+                rol_id__in=roles_reemplazables,
+                rol__codigo=FORMULATOR_ROLE_CODE,
+            ).values_list('fiscal_year_id', flat=True)
         )
-        roles_reemplazables = {
-            rol.pk
+        formulator_years.update(
+            assignment['fiscal_year'].pk
+            for assignment in asignaciones
+            if assignment['rol'].codigo == FORMULATOR_ROLE_CODE
+        )
+        if any(
+            rol.pk in roles_reemplazables
+            and rol.codigo == FORMULATOR_ROLE_CODE
             for rol in roles_actuales
-            if puede_administrar_asignacion_rol(request.user, rol)
-        }
+        ):
+            formulator_years.update(
+                usuario.asignaciones_unidad.filter(activo=True).values_list(
+                    'gestion_id', flat=True,
+                )
+            )
 
         AlcanceOrganizacional.objects.filter(
             usuario=usuario,
@@ -307,6 +335,7 @@ class AsignacionesUsuarioView(APIView):
         )
         roles_nuevos = {asignacion['rol'].pk for asignacion in asignaciones}
         usuario.roles.set(roles_preservados | roles_nuevos)
+        synchronize_legacy_from_formulator_scopes(usuario, formulator_years)
 
         actualizado = _queryset_usuario_admin().get(pk=usuario.pk)
         logger.info(
@@ -315,6 +344,37 @@ class AsignacionesUsuarioView(APIView):
             request.user.email,
         )
         return Response(UsuarioAdminReadSerializer(actualizado).data)
+
+
+class PreviewAccessView(APIView):
+    authentication_classes = [JWTAuthentication]
+
+    def get_permissions(self):
+        return [TieneCapacidad('accounts.alcance.assign')]
+
+    def get(self, request):
+        serializer = PreviewAccessRequestSerializer(
+            data=request.query_params, context={'request': request},
+        )
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        try:
+            usuario = _objetivos_asignaciones(request.user).get(pk=data['user_id'])
+        except Usuario.DoesNotExist:
+            return AsignacionesUsuarioView._usuario_no_encontrado()
+        if respuesta := AsignacionesUsuarioView._rechazar_pendiente(usuario):
+            return respuesta
+
+        assignments = data['assignments']
+        reemplazables = ()
+        if assignments:
+            _, reemplazables = _roles_reemplazables(usuario, request.user)
+        resultado = evaluar_acceso_efectivo(
+            usuario,
+            assignments if assignments else None,
+            reemplazables,
+        )
+        return Response(PreviewAccessResponseSerializer(resultado).data)
 
 
 def _queryset_rol_admin():
@@ -392,14 +452,14 @@ class RolAdminListCreateView(generics.ListCreateAPIView):
         )
 
 
-class RolAdminDetailView(generics.RetrieveUpdateAPIView):
+class RolAdminDetailView(generics.RetrieveUpdateDestroyAPIView):
     authentication_classes = [JWTAuthentication]
-    http_method_names = ['get', 'patch', 'head', 'options']
+    http_method_names = ['get', 'patch', 'delete', 'head', 'options']
 
     def get_permissions(self):
         capacidad = (
             'accounts.rol.edit'
-            if self.request.method == 'PATCH'
+            if self.request.method in {'PATCH', 'DELETE'}
             else 'accounts.rol.view'
         )
         return [TieneCapacidad(capacidad)]
@@ -414,8 +474,6 @@ class RolAdminDetailView(generics.RetrieveUpdateAPIView):
 
     def patch(self, request, *args, **kwargs):
         rol = self.get_object()
-        if rol.es_sistema:
-            raise PermissionDenied('Los roles del sistema son inmutables.')
         serializer = self.get_serializer(
             rol, data=request.data, partial=True,
         )
@@ -423,6 +481,32 @@ class RolAdminDetailView(generics.RetrieveUpdateAPIView):
         serializer.save()
         actualizado = _queryset_rol_admin().get(pk=rol.pk)
         return Response(RolAdminReadSerializer(actualizado).data)
+
+    @transaction.atomic
+    def delete(self, request, *args, **kwargs):
+        visible = self.get_object()
+        try:
+            rol = Rol.objects.select_for_update().get(pk=visible.pk)
+        except Rol.DoesNotExist as exc:
+            raise Http404 from exc
+        references = {
+            'users': rol.usuarios.count(),
+            'organizational_scopes': rol.alcances.count(),
+        }
+        if any(references.values()):
+            return Response(
+                {
+                    'code': 'role_in_use',
+                    'error': (
+                        'El rol está asignado o conserva alcances organizacionales. '
+                        'Retire primero las asignaciones de usuarios y alcances.'
+                    ),
+                    'references': references,
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+        rol.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class AsignarCapacidadesRolView(APIView):
@@ -443,9 +527,6 @@ class AsignarCapacidadesRolView(APIView):
                 {'error': 'Rol no encontrado.'},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        if rol.es_sistema:
-            raise PermissionDenied('Los roles del sistema son inmutables.')
-
         serializer = AsignacionCapacidadesRolSerializer(
             data=request.data, context={'request': request},
         )

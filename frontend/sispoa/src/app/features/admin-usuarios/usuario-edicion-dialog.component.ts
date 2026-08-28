@@ -160,6 +160,15 @@ export class UsuarioEdicionDialogComponent implements OnInit {
     this.assignmentsSuccess = '';
   }
 
+  saveFlowAssignment(assignment: AdminAssignmentInput): void {
+    const unit = this.organizationalUnits.find(item => item.id === assignment.organizational_unit_id);
+    this.rows = [...this.rows, { ...assignment, localId: this.nextRowId++ }];
+    if (unit) {
+      this.organizationalUnitQueries[this.rows[this.rows.length - 1].localId] = unit;
+    }
+    this.saveAssignments();
+  }
+
   removeAssignment(row: AssignmentRow): void {
     if (!this.data.canAssign) {
       return;
@@ -272,6 +281,10 @@ export class UsuarioEdicionDialogComponent implements OnInit {
     this.assignmentsSuccess = '';
     if (this.rows.some(row => !row.role_code || !row.organizational_unit_id)) {
       this.assignmentsError = 'Cada asignación debe tener rol y unidad organizacional.';
+      return;
+    }
+    if (this.rows.some(row => this.requiresFiscalYear(row) && !row.fiscal_year_id)) {
+      this.assignmentsError = 'Las asignaciones de SIS-POA requieren una gestión fiscal.';
       return;
     }
 
@@ -396,7 +409,13 @@ export class UsuarioEdicionDialogComponent implements OnInit {
   }
 
   private normalizeUnitSearch(value: string): string {
-    return value.trim().replace(/\s+/g, ' ').toLowerCase();
+    return value.trim().replace(/\s+/g, ' ').toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  }
+
+  private requiresFiscalYear(row: AssignmentRow): boolean {
+    return this.roles.find(role => role.codigo === row.role_code)?.capacidades
+      .some(capability => capability.codigo.startsWith('sis_poa.')) ?? false;
   }
 
   private systemLabel(system: string): string {

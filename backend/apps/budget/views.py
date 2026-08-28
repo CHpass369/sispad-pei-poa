@@ -61,6 +61,7 @@ from .models import (
     AsignacionObjetoGastoTecho,
     GastoObligatorio,
     CategoriaProgramaticaTecho,
+    RangoProgramaDirectriz,
     Reforma,
     Reserva,
     AsignacionTerritorial,
@@ -748,27 +749,80 @@ class PresupuestoGastosViewSet(viewsets.ViewSet):
                 fila[clave] = fila.get(clave, Decimal('0')) + f.monto
             return fila
 
-        # Arbol por programa y subprograma, deducido de la categoria.
+        # Arbol por programa y subprograma, leido del codigo de la categoria.
+        #
+        # El programa NO se deduce subiendo por `parent`. Se lee de los tres
+        # primeros digitos del codigo oficial `PPP S AAA`, que es donde la RM
+        # 271/2026 lo define. La razon es que el arbol guardado tiene dos formas
+        # incompatibles para lo mismo:
+        #
+        #   - actividad -> subprograma -> programa            (`131 0 016` bajo
+        #     el subprograma `131`, que cuelga del rango `130-139`);
+        #   - actividad -> programa                           (`210 0 001` bajo
+        #     el programa `210 0 000`, sin subprograma intermedio).
+        #
+        # Subir por `parent` asumiendo tres niveles hacia arriba mandaba a «SIN
+        # PROGRAMA» a 126 de 133 filas —272 de 276 millones—: en la segunda
+        # forma tomaba el programa como si fuera el subprograma y despues le
+        # buscaba un abuelo que no existe. Y arreglar solo eso dejaba el mismo
+        # programa dos veces, como `131` y como `131 0 000`, que es justo la
+        # confusion que hay que sacar de la pantalla.
+        #
+        # Leyendo el codigo hay una sola forma posible y los duplicados se
+        # funden solos. Los rangos del Anexo VI (`130-139`) dejan de ser nodos
+        # del arbol y vuelven a su papel: dar finalidad y sector al programa
+        # cuyo numero cae dentro.
+        rangos = list(
+            RangoProgramaDirectriz.objects.filter(gestion=int(anio))
+            .order_by('desde')
+        )
+
+        def rango_de(numero):
+            for r in rangos:
+                if r.desde <= numero <= r.hasta:
+                    return r
+            return None
+
+        def denominacion_de(cod_prog):
+            """Nombre del programa, del nodo que lo declare en cualquiera de las dos formas."""
+            nodo = (
+                CategoriaProgramaticaTecho.objects
+                .filter(codigo=f'{cod_prog} 0 000').first()
+                or CategoriaProgramaticaTecho.objects
+                .filter(codigo=cod_prog).first()
+            )
+            if nodo:
+                return nodo.denominacion
+            rango = rango_de(int(cod_prog))
+            return rango.denominacion if rango else 'Sin programa'
+
         programas: dict[str, dict] = {}
+        nombres: dict[str, str] = {}
         for apertura in aperturas:
             categoria = apertura.categoria
             if categoria is None:
                 continue
+            partes = categoria.codigo.split()
+            cod_prog = partes[0] if partes and partes[0].isdigit() else 'SIN PROGRAMA'
+
             subprograma = categoria if categoria.nivel == NivelCategoria.SUBPROGRAMA \
                 else categoria.parent
-            programa = subprograma.parent if subprograma else None
-            cod_prog = programa.codigo if programa else 'SIN PROGRAMA'
             cod_sub = subprograma.codigo if subprograma else 'SIN SUBPROGRAMA'
 
-            rango = programa.rango_directriz if programa else None
+            if cod_prog not in nombres:
+                nombres[cod_prog] = (
+                    denominacion_de(cod_prog)
+                    if cod_prog != 'SIN PROGRAMA' else 'Sin programa'
+                )
+            rango = rango_de(int(cod_prog)) if cod_prog != 'SIN PROGRAMA' else None
             p_nodo = programas.setdefault(cod_prog, {
                 'codigo': cod_prog,
-                'denominacion': programa.denominacion if programa else 'Sin programa',
-                # Del Anexo VI: el programa se codifica con el rango, y de ahí
-                # salen su finalidad y su sector.
+                'denominacion': nombres[cod_prog],
+                # Del Anexo VI: el rango que cubre el numero de programa aporta
+                # su finalidad y su sector.
                 'finalidad_funcion': rango.finalidad_funcion if rango else '',
                 'sector_economico': rango.sector_economico if rango else '',
-                'desde': rango.desde if rango else 10 ** 6,
+                'desde': int(cod_prog) if cod_prog != 'SIN PROGRAMA' else 10 ** 6,
                 'subprogramas': {},
             })
             s_nodo = p_nodo['subprogramas'].setdefault(cod_sub, {
@@ -824,8 +878,9 @@ class PresupuestoGastosViewSet(viewsets.ViewSet):
                 total_general[clave] = total_general.get(clave, Decimal('0')) + monto
             salida.append(p_nodo)
 
-        # El programa se codifica con el rango del Anexo VI (`170-179`), asi que
-        # ordenar por texto pondria `170-179` antes que `97`.
+        # Orden numerico por numero de programa: por texto, `097` iria despues
+        # de `1000` y el listado quedaria en un orden que no es el del
+        # clasificador. «SIN PROGRAMA», si llegara a haberlo, cae al final.
         salida.sort(key=lambda p: p.pop('desde'))
 
         # Techo por FF/OF: sale del Presupuesto General de Recursos. Es el

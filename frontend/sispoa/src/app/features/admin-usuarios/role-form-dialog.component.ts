@@ -46,16 +46,12 @@ export class RoleFormDialogComponent {
     return this.data.mode === 'create';
   }
 
-  get isSystemRole(): boolean {
-    return Boolean(this.data.role?.es_sistema);
-  }
-
   normalizeCode(value: string): void {
     this.code = value.toUpperCase().replace(/[^A-Z0-9_]/g, '');
   }
 
   submit(): void {
-    if (this.saving || this.isSystemRole) {
+    if (this.saving) {
       return;
     }
     this.error = '';
@@ -70,7 +66,7 @@ export class RoleFormDialogComponent {
           error,
           this.isCreate
             ? 'No se pudo crear el rol personalizado.'
-            : 'No se pudo actualizar el rol personalizado.',
+            : 'No se pudo actualizar el rol.',
         );
         this.saving = false;
       },

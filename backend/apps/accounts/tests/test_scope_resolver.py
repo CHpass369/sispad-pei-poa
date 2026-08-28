@@ -91,6 +91,7 @@ class ScopeTestBase(TestCase):
         )
 
     def crear_alcance(self, usuario, unidad, **kwargs):
+        kwargs.setdefault('fiscal_year', unidad.gestion)
         return AlcanceOrganizacional.objects.create(
             usuario=usuario, unidad=unidad, **kwargs,
         )
@@ -164,13 +165,29 @@ class AlcancesYUnidadesEfectivasTests(ScopeTestBase):
             {self.uo_catastro.id},
         )
 
-    def test_alcance_sin_gestion_aplica_a_toda_gestion(self):
-        """`fiscal_year` NULL = alcance transversal (compat. pre-F1.5)."""
-        u = self.crear_usuario('sin-gestion@test.gob.bo')
-        self.crear_alcance(u, self.uo_catastro)  # fiscal_year=None
+    def test_alcance_sis_pe_sin_gestion_permanece_resoluble(self):
+        u = self.crear_usuario('sis-pe-sin-gestion@test.gob.bo')
+        capacidad_pe = Capacidad.objects.create(
+            codigo='sis_pe.test.yearless',
+            nombre='Capacidad SIS-PE sin gestión',
+            sistema='sis_pe',
+        )
+        rol_pe = Rol.objects.create(
+            codigo='TEST-F2A-PE-YEARLESS',
+            nombre='Rol SIS-PE sin gestión',
+        )
+        rol_pe.capacidades.add(capacidad_pe)
+        alcance = self.crear_alcance(
+            u, self.uo_catastro, rol=rol_pe, fiscal_year=None,
+        )
+
+        alcance.refresh_from_db()
+        self.assertIsNone(alcance.fiscal_year_id)
         self.assertEqual(
-            ScopeResolver.unidades_efectivas(u, gestion_id=self.gestion.id),
-            {self.uo_catastro.id},
+            ScopeResolver.alcances_vigentes(u).get(pk=alcance.pk), alcance,
+        )
+        self.assertEqual(
+            ScopeResolver.unidades_efectivas(u), {self.uo_catastro.id},
         )
 
     def test_multi_rol_une_alcances(self):

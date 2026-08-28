@@ -3,6 +3,133 @@ from django.db import transaction
 from .models import UnidadOrganizacional, UnidadEjecutora, DireccionAdministrativa, AsignacionUsuarioUnidad
 
 
+FORMULATOR_ROLE_CODE = 'FORMULADOR_POAU'
+
+
+class FormulatorAssignmentConflict(ValueError):
+    pass
+
+
+def _formulator_models():
+    from apps.accounts.models import AlcanceOrganizacional, Rol, Usuario
+
+    return AlcanceOrganizacional, Rol, Usuario
+
+
+@transaction.atomic
+def synchronize_formulator_scopes_from_legacy(pairs):
+    """Make formulator SELF scopes mirror legacy assignments for user/year pairs."""
+    pairs = set(pairs)
+    if not pairs:
+        return
+
+    AlcanceOrganizacional, Rol, Usuario = _formulator_models()
+    list(Usuario.objects.select_for_update().filter(
+        pk__in={user_id for user_id, _ in pairs},
+    ).order_by('pk').values_list('pk', flat=True))
+    role = Rol.objects.filter(codigo=FORMULATOR_ROLE_CODE, activo=True).first()
+    if role is None:
+        return
+
+    for user_id, fiscal_year_id in sorted(pairs, key=lambda pair: tuple(map(str, pair))):
+        if not Usuario.roles.through.objects.filter(
+            usuario_id=user_id, rol_id=role.pk,
+        ).exists():
+            continue
+        assignments = list(
+            AsignacionUsuarioUnidad.objects.filter(
+                usuario_id=user_id,
+                gestion_id=fiscal_year_id,
+                activo=True,
+            ).order_by('pk')
+        )
+        if len(assignments) > 1:
+            raise FormulatorAssignmentConflict(
+                'A POAU formulator can have only one organizational unit '
+                'per fiscal year.'
+            )
+
+        scopes = AlcanceOrganizacional.objects.filter(
+            usuario_id=user_id,
+            fiscal_year_id=fiscal_year_id,
+            rol=role,
+        )
+        AlcanceOrganizacional.objects.filter(
+            usuario_id=user_id,
+            fiscal_year_id=fiscal_year_id,
+            rol__isnull=True,
+            scope_type=AlcanceOrganizacional.SCOPE_SELF,
+        ).delete()
+        if not assignments:
+            scopes.delete()
+            continue
+
+        assignment = assignments[0]
+        scopes.exclude(unidad_id=assignment.unidad_id).delete()
+        AlcanceOrganizacional.objects.update_or_create(
+            usuario_id=user_id,
+            rol=role,
+            unidad_id=assignment.unidad_id,
+            fiscal_year_id=fiscal_year_id,
+            defaults={
+                'scope_type': AlcanceOrganizacional.SCOPE_SELF,
+                'activo': True,
+            },
+        )
+
+
+@transaction.atomic
+def synchronize_legacy_from_formulator_scopes(usuario, fiscal_year_ids):
+    """Make legacy assignments mirror formulator SELF scopes for given years."""
+    fiscal_year_ids = set(fiscal_year_ids)
+    if not fiscal_year_ids:
+        return
+
+    AlcanceOrganizacional, Rol, Usuario = _formulator_models()
+    Usuario.objects.select_for_update().get(pk=usuario.pk)
+    role = Rol.objects.filter(codigo=FORMULATOR_ROLE_CODE).first()
+    if role is None:
+        return
+
+    for fiscal_year_id in sorted(fiscal_year_ids, key=str):
+        scopes = list(AlcanceOrganizacional.objects.filter(
+            usuario=usuario,
+            rol=role,
+            fiscal_year_id=fiscal_year_id,
+            activo=True,
+        ).order_by('pk'))
+        if len(scopes) > 1 or any(
+            scope.scope_type != AlcanceOrganizacional.SCOPE_SELF
+            for scope in scopes
+        ):
+            raise FormulatorAssignmentConflict(
+                'A POAU formulator can have only one SELF organizational unit '
+                'per fiscal year.'
+            )
+
+        legacy = AsignacionUsuarioUnidad.objects.filter(
+            usuario=usuario, gestion_id=fiscal_year_id,
+        )
+        AlcanceOrganizacional.objects.filter(
+            usuario=usuario,
+            fiscal_year_id=fiscal_year_id,
+            rol__isnull=True,
+            scope_type=AlcanceOrganizacional.SCOPE_SELF,
+        ).delete()
+        if not scopes:
+            legacy.delete()
+            continue
+
+        scope = scopes[0]
+        legacy.exclude(unidad_id=scope.unidad_id).delete()
+        AsignacionUsuarioUnidad.objects.update_or_create(
+            usuario=usuario,
+            unidad_id=scope.unidad_id,
+            gestion_id=fiscal_year_id,
+            defaults={'activo': True},
+        )
+
+
 def crear_estructura(gestion, unidades_data, da_data=None):
     resultado = {'da': None, 'unidades': []}
 

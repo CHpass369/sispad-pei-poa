@@ -10,8 +10,13 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 
-from apps.accounts.permissions import CapacidadConScope
+from apps.accounts.permissions import (
+    CapacidadConScope,
+    GESTION_INVALIDA,
+    resolver_gestion_id,
+)
 from apps.accounts.services_scope import GLOBAL_SCOPE, ScopeResolver
+from apps.gestion.models import GestionFiscal
 from apps.poau.migration_v2 import resumen_presupuesto, validar_techo
 from apps.poau.models_v2 import (
     AccionCortoPlazo,
@@ -32,6 +37,48 @@ CAPACIDADES_POR_VIEWSET = {
     'TareaViewSet': ('sis_poa.poau.view', 'sis_poa.poau.edit'),
     'ProgramacionViewSet': ('sis_poa.poau.view', 'sis_poa.poau.edit'),
 }
+
+_GESTION_REQUEST_ATTR = '_poau_gestion_fiscal'
+
+
+def _gestion_fiscal(request):
+    """Resolve and cache the canonical fiscal year for this request."""
+    if hasattr(request, _GESTION_REQUEST_ATTR):
+        return getattr(request, _GESTION_REQUEST_ATTR)
+    gestion_id = resolver_gestion_id(request)
+    if gestion_id in (None, GESTION_INVALIDA):
+        gestion = GESTION_INVALIDA
+    else:
+        gestion = GestionFiscal.objects.filter(pk=gestion_id).only('id', 'anio').first()
+        if gestion is None:
+            gestion = GESTION_INVALIDA
+    setattr(request, _GESTION_REQUEST_ATTR, gestion)
+    return gestion
+
+
+class CapacidadConGestionFiscal(CapacidadConScope):
+    """Require a real fiscal year before capability or superuser evaluation."""
+
+    def _gestion_id(self, request, view):
+        gestion = _gestion_fiscal(request)
+        return GESTION_INVALIDA if gestion is GESTION_INVALIDA else gestion.pk
+
+    def has_permission(self, request, view):
+        if _gestion_fiscal(request) is GESTION_INVALIDA:
+            return False
+        return super().has_permission(request, view)
+
+
+def _queryset_fiscal(request, queryset, year_lookup):
+    """Filter effective scopes and records with the same fiscal context."""
+    gestion = _gestion_fiscal(request)
+    if gestion is GESTION_INVALIDA:
+        return queryset.none(), set()
+    queryset = queryset.filter(**{year_lookup: gestion.anio})
+    if request.user.is_superuser:
+        return queryset, None
+    unidades = ScopeResolver.unidades_efectivas(request.user, gestion.pk)
+    return queryset, None if GLOBAL_SCOPE in unidades else unidades
 
 
 class PoASerializer(serializers.ModelSerializer):
@@ -108,23 +155,7 @@ def _permisos_para_viewset(viewset_cls, action):
     """
     cap_view, cap_edit = CAPACIDADES_POR_VIEWSET[viewset_cls.__name__]
     codigo = cap_edit if action in ('create', 'update', 'partial_update', 'destroy') else cap_view
-    return [CapacidadConScope(codigo)]
-
-
-def _unidades_efectivas_o_none(user):
-    """Set de UOs efectivas del usuario, o None si GLOBAL/superuser (sin filtro).
-
-    Devuelve `None` para indicar "sin restricción" — distinto de `set()`
-    (restricción total).
-    """
-    if not user or not user.is_authenticated:
-        return set()
-    if user.is_superuser:
-        return None
-    unidades = ScopeResolver.unidades_efectivas(user)
-    if GLOBAL_SCOPE in unidades:
-        return None
-    return unidades
+    return [CapacidadConGestionFiscal(codigo, gestion_id_param='gestion_id')]
 
 
 def _autorizar_uo_destino(user, unidad_id):
@@ -157,15 +188,17 @@ class PoAViewSet(viewsets.ModelViewSet):
         return _permisos_para_viewset(PoAViewSet, self.action)
 
     def get_queryset(self):
-        unidades = _unidades_efectivas_o_none(self.request.user)
+        queryset, unidades = _queryset_fiscal(
+            self.request, self.queryset, 'gestion',
+        )
         if unidades is None:
-            return self.queryset.all()
+            return queryset
         if not unidades:
-            return self.queryset.none()
+            return queryset.none()
         # PoA: filtro EXISTS sobre sus AccionCortoPlazo.unidad.
         # detail exige TODAS las acciones en alcance (`has_object_permission`
         # en CapacidadConScope ya lo valida).
-        return self.queryset.filter(acciones__unidad_id__in=unidades).distinct()
+        return queryset.filter(acciones__unidad_id__in=unidades).distinct()
 
     @action(detail=True, methods=['get'])
     def acciones(self, request, pk=None):
@@ -231,12 +264,14 @@ class AccionViewSet(viewsets.ModelViewSet):
         return _permisos_para_viewset(AccionViewSet, self.action)
 
     def get_queryset(self):
-        unidades = _unidades_efectivas_o_none(self.request.user)
+        queryset, unidades = _queryset_fiscal(
+            self.request, self.queryset, 'poa__gestion',
+        )
         if unidades is None:
-            return self.queryset.all()
+            return queryset
         if not unidades:
-            return self.queryset.none()
-        return self.queryset.filter(unidad_id__in=unidades)
+            return queryset.none()
+        return queryset.filter(unidad_id__in=unidades)
 
     def perform_create(self, serializer):
         unidad = serializer.validated_data.get('unidad')
@@ -260,14 +295,16 @@ class OperacionViewSet(viewsets.ModelViewSet):
         return _permisos_para_viewset(OperacionViewSet, self.action)
 
     def get_queryset(self):
-        unidades = _unidades_efectivas_o_none(self.request.user)
+        queryset, unidades = _queryset_fiscal(
+            self.request, self.queryset, 'accion__poa__gestion',
+        )
         if unidades is None:
-            return self.queryset.all()
+            return queryset
         if not unidades:
-            return self.queryset.none()
+            return queryset.none()
         # Operacion.unidad es nullable: si tiene UO propia filtra por ella;
         # si no, cae a la UO de la Accion padre.
-        return self.queryset.filter(
+        return queryset.filter(
             Q(unidad_id__in=unidades)
             | Q(unidad_id__isnull=True, accion__unidad_id__in=unidades)
         )
@@ -293,13 +330,15 @@ class ActividadViewSet(viewsets.ModelViewSet):
         return _permisos_para_viewset(ActividadViewSet, self.action)
 
     def get_queryset(self):
-        unidades = _unidades_efectivas_o_none(self.request.user)
+        queryset, unidades = _queryset_fiscal(
+            self.request, self.queryset, 'operacion__accion__poa__gestion',
+        )
         if unidades is None:
-            return self.queryset.all()
+            return queryset
         if not unidades:
-            return self.queryset.none()
+            return queryset.none()
         # Actividad no tiene UO propia: sube por operacion → accion → unidad.
-        return self.queryset.filter(
+        return queryset.filter(
             operacion__accion__unidad_id__in=unidades
         )
 
@@ -313,12 +352,16 @@ class TareaViewSet(viewsets.ModelViewSet):
         return _permisos_para_viewset(TareaViewSet, self.action)
 
     def get_queryset(self):
-        unidades = _unidades_efectivas_o_none(self.request.user)
+        queryset, unidades = _queryset_fiscal(
+            self.request,
+            self.queryset,
+            'actividad__operacion__accion__poa__gestion',
+        )
         if unidades is None:
-            return self.queryset.all()
+            return queryset
         if not unidades:
-            return self.queryset.none()
-        return self.queryset.filter(
+            return queryset.none()
+        return queryset.filter(
             actividad__operacion__accion__unidad_id__in=unidades
         )
 
@@ -332,11 +375,15 @@ class ProgramacionViewSet(viewsets.ModelViewSet):
         return _permisos_para_viewset(ProgramacionViewSet, self.action)
 
     def get_queryset(self):
-        unidades = _unidades_efectivas_o_none(self.request.user)
+        queryset, unidades = _queryset_fiscal(
+            self.request,
+            self.queryset,
+            'actividad__operacion__accion__poa__gestion',
+        )
         if unidades is None:
-            return self.queryset.all()
+            return queryset
         if not unidades:
-            return self.queryset.none()
-        return self.queryset.filter(
+            return queryset.none()
+        return queryset.filter(
             actividad__operacion__accion__unidad_id__in=unidades
         )

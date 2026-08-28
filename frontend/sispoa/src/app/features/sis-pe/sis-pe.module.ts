@@ -3,6 +3,10 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, Routes } from '@angular/router';
 import { SharedModule } from '../../shared/shared.module';
+import {
+  SIS_PE_CAPABILITIES,
+  SIS_PE_PEI_CAPABILITIES,
+} from '../../core/config/modules.config';
 import { CapabilityGuard } from '../../core/guards/capability.guard';
 import { modulosPendientes } from '../sistemas/modulos-pendientes';
 import { PeiMatrizViewerComponent } from './pei/pei-matriz-viewer.component';
@@ -18,12 +22,14 @@ import { PeiRegistrosComponent } from './pei/pei-registros.component';
  * matrix. The remaining routes still resolve to the "module in development"
  * placeholder.
  */
-const routes: Routes = [
+const SIS_PE_INSTRUMENT_CAPABILITIES = ['sis_pe.instrumento.read'];
+
+export const SIS_PE_ROUTES: Routes = [
   { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
   {
     path: 'pei',
     canActivate: [CapabilityGuard],
-    data: { capacidades: ['sis_pe.instrumento.read'] },
+    data: { capacidades: SIS_PE_PEI_CAPABILITIES },
     children: [
       { path: '', component: PeiHomeComponent },
       { path: 'nuevo', component: PeiWizardComponent },
@@ -32,15 +38,20 @@ const routes: Routes = [
     ],
   },
   ...modulosPendientes(
+    [{ ruta: 'dashboard', nombre: 'Dashboard PE' }],
+    'SIS-PE',
+    '/sistemas',
+    SIS_PE_CAPABILITIES,
+  ),
+  ...modulosPendientes(
     [
-      { ruta: 'dashboard', nombre: 'Dashboard PE' },
       { ruta: 'instrumentos', nombre: 'Instrumentos' },
       { ruta: 'diagnostico', nombre: 'Diagnóstico Integral' },
       { ruta: 'seguimiento-evaluacion', nombre: 'Seguimiento y Evaluación' },
     ],
     'SIS-PE',
     '/sistemas',
-    ['sis_pe.instrumento.read'],
+    SIS_PE_INSTRUMENT_CAPABILITIES,
   ),
 ];
 
@@ -51,6 +62,6 @@ const routes: Routes = [
     PeiRegistrosComponent,
     PeiMatrizViewerComponent,
   ],
-  imports: [CommonModule, FormsModule, SharedModule, RouterModule.forChild(routes)],
+  imports: [CommonModule, FormsModule, SharedModule, RouterModule.forChild(SIS_PE_ROUTES)],
 })
 export class SisPeModule {}

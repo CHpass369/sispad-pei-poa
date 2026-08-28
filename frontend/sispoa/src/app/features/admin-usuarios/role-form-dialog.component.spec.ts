@@ -101,6 +101,16 @@ describe('RoleFormDialogComponent', () => {
     });
   });
 
+  it('edits a system role through the existing PATCH form', () => {
+    data.mode = 'edit';
+    data.role = { ...role, codigo: 'SUPER_ADMIN', es_sistema: true };
+    createComponent();
+
+    component.submit();
+
+    expect(adminUsers.patchRole).toHaveBeenCalledOnceWith(data.role.id, jasmine.any(Object));
+  });
+
   function createComponent(): void {
     fixture = TestBed.createComponent(RoleFormDialogComponent);
     component = fixture.componentInstance;

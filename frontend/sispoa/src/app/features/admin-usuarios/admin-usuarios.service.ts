@@ -149,12 +149,43 @@ export interface AdminAssignmentsPayload {
   assignments: AdminAssignmentInput[];
 }
 
+export interface AdminPreviewAccessRequest {
+  user_id: string;
+  assignments?: AdminAssignmentInput[];
+}
+
+export interface AdminPreviewCapability {
+  codigo: string;
+  nombre: string;
+  sistema: AdminSystem;
+  modulo: string;
+}
+
+export interface AdminPreviewOrganizationalUnit {
+  id: string;
+  codigo: string;
+  nombre: string;
+}
+
+export interface AdminPreviewModule {
+  codigo: string;
+  sistema: AdminSystem;
+  visible: boolean;
+}
+
+export interface AdminAccessPreviewResponse {
+  capabilities: AdminPreviewCapability[];
+  effective_uos: AdminPreviewOrganizationalUnit[];
+  modules: AdminPreviewModule[];
+}
+
 @Injectable()
 export class AdminUsuariosService {
   private readonly baseUrl = `${environment.apiUrlV2}/admin/users`;
   private readonly rolesUrl = `${environment.apiUrlV2}/admin/roles/`;
   private readonly capabilitiesUrl = `${environment.apiUrlV2}/admin/capabilities/`;
   private readonly requestsUrl = `${environment.apiUrlV2}/admin/solicitudes/`;
+  private readonly previewAccessUrl = `${environment.apiUrlV2}/admin/preview-access/`;
 
   constructor(private readonly http: HttpClient) {}
 
@@ -200,6 +231,16 @@ export class AdminUsuariosService {
     return this.http.put<AdminUser>(`${this.baseUrl}/${id}/assignments/`, data);
   }
 
+  previewAccess(
+    request: AdminPreviewAccessRequest,
+  ): Observable<AdminAccessPreviewResponse> {
+    let params = new HttpParams().set('user_id', request.user_id);
+    if (request.assignments !== undefined) {
+      params = params.set('assignments', JSON.stringify(request.assignments));
+    }
+    return this.http.get<AdminAccessPreviewResponse>(this.previewAccessUrl, { params });
+  }
+
   listRoles(): Observable<AdminRole[]> {
     return this.listRolesPage({ active: true }).pipe(
       expand(page => page.next
@@ -231,6 +272,10 @@ export class AdminUsuariosService {
 
   patchRole(id: string, data: AdminRolePatch): Observable<AdminRole> {
     return this.http.patch<AdminRole>(`${this.rolesUrl}${id}/`, data);
+  }
+
+  deleteRole(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.rolesUrl}${id}/`);
   }
 
   replaceRoleCapabilities(

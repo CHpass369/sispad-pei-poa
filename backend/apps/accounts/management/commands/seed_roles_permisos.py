@@ -22,6 +22,14 @@ from django.db import transaction
 
 from apps.accounts.models import Capacidad, Rol
 
+# Capacidad requerida por el baseline, aunque ya la crea una migracion
+# historica. Mantenerla aqui hace que el seed operativo converja en una DB
+# instalada parcialmente.
+CAPACIDADES_BASE = [
+    ('sis_poa.formulate', 'Formular POA/POAU', 'sis-poa'),
+    ('sis_poa.poau.edit', 'Editar POAU', 'sis-poa'),
+]
+
 # Capacidades NUEVAS de F1 (las que aun no existen en migraciones 0002-0007).
 # (codigo, nombre, sistema)
 CAPACIDADES_NUEVAS = [
@@ -78,6 +86,7 @@ CAPACIDADES_USUARIO = [
 ]
 
 CAPACIDADES_FORMULADOR = [
+    'sis_poa.formulate',
     'sis_poa.poau.view',
     'sis_poa.poau.create',
     'sis_poa.poau.edit',  # ya existe (0002, sistema 'sis-poa')
@@ -88,7 +97,7 @@ CAPACIDADES_FORMULADOR = [
 ROLES = {
     'SUPER_ADMIN': (
         'Superadministrador',
-        ('sis_pe.', 'sis_poa.'),
+        ('sis_pe.', 'sis_poa.', 'accounts.'),
         (),
     ),
     'SECRETARIO_MUNICIPAL': (
@@ -125,7 +134,9 @@ class Command(BaseCommand):
     @transaction.atomic
     def handle(self, *args, **options):
         creadas = 0
-        for orden, (codigo, nombre, sistema) in enumerate(CAPACIDADES_NUEVAS, start=100):
+        for orden, (codigo, nombre, sistema) in enumerate(
+            CAPACIDADES_BASE + CAPACIDADES_NUEVAS, start=100,
+        ):
             _, created = Capacidad.objects.get_or_create(
                 codigo=codigo,
                 defaults={
@@ -168,8 +179,24 @@ class Command(BaseCommand):
             if faltantes:
                 rol.capacidades.add(*faltantes)
 
+        # La migración IAM 0002 define `superadmin` como el rol legado con
+        # todas las capacidades. Se conserva para instalaciones existentes y
+        # se reconcilia aquí porque las capacidades F1 se crean después de esa
+        # migración y no pueden incorporarse automáticamente al M2M histórico.
+        superadmin = Rol.objects.filter(codigo='superadmin').first()
+        if superadmin:
+            actuales = set(
+                superadmin.capacidades.values_list('codigo', flat=True)
+            )
+            faltantes = list(
+                Capacidad.objects.exclude(codigo__in=actuales)
+            )
+            if faltantes:
+                superadmin.capacidades.add(*faltantes)
+
         self.stdout.write(self.style.SUCCESS(
             f'Seed F1 completado: {creadas} capacidades nuevas creadas '
-            f'(de {len(CAPACIDADES_NUEVAS)} definidas); {len(ROLES)} roles '
+            f'(de {len(CAPACIDADES_BASE) + len(CAPACIDADES_NUEVAS)} definidas); '
+            f'{len(ROLES)} roles '
             f'base verificados.'
         ))

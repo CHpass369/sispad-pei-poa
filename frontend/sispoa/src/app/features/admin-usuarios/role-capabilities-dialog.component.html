@@ -10,20 +10,14 @@
 </header>
 
 <mat-dialog-content>
-  @if (data.role.es_sistema) {
-    <div class="readonly-notice" role="status">
-      <lucide-angular name="lock-keyhole" [size]="20" aria-hidden="true"></lucide-angular>
-      Los permisos de los roles del sistema son inmutables.
-    </div>
-  } @else {
-    <div class="capability-toolbar">
+  <div class="capability-toolbar">
       <mat-form-field appearance="outline">
         <mat-label>Filtrar permisos</mat-label>
         <lucide-angular matPrefix name="search" [size]="16" aria-hidden="true"></lucide-angular>
         <input matInput [(ngModel)]="search" placeholder="Código, nombre o descripción" autocomplete="off">
       </mat-form-field>
       <span class="selection-count">{{ selectedCount }} seleccionados</span>
-    </div>
+  </div>
 
     @if (unsupportedAssignedCount) {
       <p class="catalog-warning" role="status">
@@ -79,15 +73,12 @@
     @if (saveError) {
       <p class="dialog-error" role="alert">{{ saveError }}</p>
     }
-  }
 </mat-dialog-content>
 
 <mat-dialog-actions align="end">
   <button mat-stroked-button type="button" (click)="close()">Cancelar</button>
-  @if (!data.role.es_sistema) {
-    <button mat-flat-button type="button" [disabled]="saving || loading || !!loadError" (click)="save()">
-      <lucide-angular name="save" [size]="17" aria-hidden="true"></lucide-angular>
-      {{ saving ? 'Guardando…' : 'Reemplazar permisos' }}
-    </button>
-  }
+  <button mat-flat-button type="button" [disabled]="saving || loading || !!loadError" (click)="save()">
+    <lucide-angular name="save" [size]="17" aria-hidden="true"></lucide-angular>
+    {{ saving ? 'Guardando…' : 'Reemplazar permisos' }}
+  </button>
 </mat-dialog-actions>

@@ -113,3 +113,7 @@ Cerrada 2026-08-16.
 **Riesgos:** medio — la suite en CI creará N test DBs vía template PostGIS (mismo comportamiento que local); tiempos de build mitigados con cache pip/npm.
 
 **Deuda detectada:** (1) ruff sin versionar → gate lint ausente (proponer tarea: agregar ruff + config y habilitar job); (2) sin deploy automático por diseño (OUT OF SCOPE); (3) revisar si se desean secrets reales para la DB de CI a futuro.
+
+---
+
+**Corrección posterior (2026-08-21).** El dato de Python de esta tarea era incorrecto. Se leyó `backend/.venv`, que era un venv huérfano: el `Makefile` y `.claude/launch.json` siempre usaron el de la raíz (`../.venv/bin/python`). El intérprete real del repo es **CPython 3.14.4** (`.venv/pyvenv.cfg`), así que la suposición original de 3.14 era la correcta y la "corrección" a 3.13 la invirtió. `ci.yml` quedó fijando `python-version: '3.13'` durante cinco días, testeando en una versión distinta a la de desarrollo. Corregido a `'3.14'`; `backend/.venv` fue eliminado.

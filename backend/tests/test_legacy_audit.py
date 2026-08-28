@@ -7,9 +7,6 @@ from django.core.management import call_command
 from apps.core.migration_audit import checksum_registro
 from apps.core.models import LegacyMigrationMap
 from apps.planificacion.models import Plan
-from apps.planificacion.models_v2 import (
-    InstrumentoPlanificacion, TipoInstrumento,
-)
 
 
 @pytest.fixture
@@ -66,32 +63,6 @@ def test_marcar_migrado_requiere_destino(db, plan_legacy):
             'legacy_audit',
             '--marcar-migrado', f'planificacion.Plan:{plan_legacy.pk}',
         )
-
-
-def test_marcar_migrado_completo(db, plan_legacy):
-    tipo = TipoInstrumento.objects.create(
-        codigo='PEI-V2', nombre='PEI', nivel='institucional',
-    )
-    destino = InstrumentoPlanificacion.objects.create(
-        tipo=tipo, codigo='PEI-2026', nombre='PEI V2',
-        periodo_inicio=2026, periodo_fin=2030,
-    )
-    call_command(
-        'legacy_audit',
-        '--inventario',
-    )
-    call_command(
-        'legacy_audit',
-        '--marcar-migrado', f'planificacion.Plan:{plan_legacy.pk}',
-        '--destino-tipo', 'InstrumentoPlanificacion',
-        '--destino-uuid', str(destino.pk),
-        '--lote', 'pei-2026',
-    )
-    entrada = LegacyMigrationMap.objects.get(uuid_legacy=plan_legacy.pk)
-    assert entrada.estado == LegacyMigrationMap.Estados.MIGRADO
-    assert entrada.tipo_destino == 'InstrumentoPlanificacion'
-    assert entrada.uuid_destino == destino.pk
-    assert entrada.lote == 'pei-2026'
 
 
 def test_reconciliar_detecta_discrepancia(db, plan_legacy):

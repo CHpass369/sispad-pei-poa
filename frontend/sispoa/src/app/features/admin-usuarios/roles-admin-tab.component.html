@@ -3,7 +3,7 @@
     <div>
       <p class="catalog-kicker">Roles efectivos</p>
       <h2>Roles</h2>
-      <p>Administre roles personalizados; los roles base permanecen protegidos.</p>
+      <p>Administre el ciclo de vida y los permisos de todos los roles.</p>
     </div>
     @if (canCreate) {
       <button mat-flat-button type="button" (click)="openCreate()">
@@ -41,6 +41,10 @@
       <button mat-flat-button type="submit">Aplicar filtros</button>
     </div>
   </form>
+
+  @if (actionError) {
+    <div class="feedback feedback-error" role="alert">{{ actionError }}</div>
+  }
 
   @if (loading) {
     <div class="loading-state" role="status" aria-live="polite">
@@ -110,25 +114,23 @@
         <ng-container matColumnDef="acciones">
           <th mat-header-cell *matHeaderCellDef>Acciones</th>
           <td mat-cell *matCellDef="let role" class="actions-cell">
-            @if (role.es_sistema) {
-              <span class="readonly-action" title="Rol protegido">
-                <lucide-angular name="lock-keyhole" [size]="17" aria-hidden="true"></lucide-angular>
-                Solo lectura
-              </span>
-            } @else {
-              @if (canEdit) {
-                <button mat-icon-button type="button" matTooltip="Editar rol" [attr.aria-label]="'Editar rol ' + role.codigo" (click)="openEdit(role)">
-                  <lucide-angular name="pencil" [size]="18" aria-hidden="true"></lucide-angular>
-                </button>
-              }
-              @if (canAssignCapabilities) {
-                <button mat-icon-button type="button" matTooltip="Asignar permisos" [attr.aria-label]="'Asignar permisos a ' + role.codigo" (click)="openCapabilities(role)">
-                  <lucide-angular name="key-round" [size]="18" aria-hidden="true"></lucide-angular>
-                </button>
-              }
-              @if (!canEdit && !canAssignCapabilities) {
-                <span class="muted">Sin acciones</span>
-              }
+            @if (canEdit) {
+              <button mat-icon-button type="button" matTooltip="Editar rol" [attr.aria-label]="'Editar rol ' + role.codigo" (click)="openEdit(role)">
+                <lucide-angular name="pencil" [size]="18" aria-hidden="true"></lucide-angular>
+              </button>
+            }
+            @if (canAssignCapabilities) {
+              <button mat-icon-button type="button" matTooltip="Asignar permisos" [attr.aria-label]="'Asignar permisos a ' + role.codigo" (click)="openCapabilities(role)">
+                <lucide-angular name="key-round" [size]="18" aria-hidden="true"></lucide-angular>
+              </button>
+            }
+            @if (canEdit) {
+              <button mat-icon-button type="button" matTooltip="Eliminar rol" [attr.aria-label]="'Eliminar rol ' + role.codigo" (click)="deleteRole(role)">
+                <lucide-angular name="trash-2" [size]="18" aria-hidden="true"></lucide-angular>
+              </button>
+            }
+            @if (!canEdit && !canAssignCapabilities) {
+              <span class="muted">Sin acciones</span>
             }
           </td>
         </ng-container>

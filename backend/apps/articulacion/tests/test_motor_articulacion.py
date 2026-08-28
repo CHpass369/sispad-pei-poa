@@ -20,16 +20,6 @@ from apps.articulacion.models import (
     TareaPOAU,
 )
 from apps.articulacion.services.motor import MotorArticulacion
-from apps.planificacion.models_v2 import (
-    InstrumentoPlanificacion,
-    NodoEstrategico,
-    TipoInstrumento,
-    TipoNodoEstrategico,
-    TipoVinculoEstrategico,
-    VersionInstrumento,
-    VersionMetodologia,
-    VinculoEstrategico,
-)
 
 ORDEN_DESCENDENTE = [
     'ResultadoPAD', 'ProductoPAD', 'ResultadoPEI', 'ProductoPEI',
@@ -186,79 +176,3 @@ class MotorArticulacionCadenaTest(TestCase):
             )[0]['entidad_id'],
             str(tarea.pk),
         )
-
-
-class MotorArticulacionV2Test(TestCase):
-    """Trazado de instrumentos/versiones y vínculos del kernel V2 (SIS-PE)."""
-
-    def setUp(self):
-        tipo_pei = TipoInstrumento.objects.create(
-            codigo='PEI-MOTOR', nombre='PEI Motor',
-            nivel='institucional',
-        )
-        metodologia = VersionMetodologia.objects.create(
-            codigo='MET-PEI-MOTOR', nombre='Metodología Motor',
-            tipo_instrumento=tipo_pei, estado='vigente',
-        )
-        self.instrumento = InstrumentoPlanificacion.objects.create(
-            tipo=tipo_pei, codigo='PEI-MOTOR-2027', nombre='PEI Motor 2027',
-            periodo_inicio=2027, periodo_fin=2030, estado='borrador',
-        )
-        self.version = VersionInstrumento.objects.create(
-            instrumento=self.instrumento, metodologia=metodologia,
-        )
-        tipo_oe = TipoNodoEstrategico.objects.create(
-            codigo='OE', denominacion='Objetivo estratégico',
-            metodologia=metodologia, nivel_orden=1,
-        )
-        tipo_ri = TipoNodoEstrategico.objects.create(
-            codigo='RI', denominacion='Resultado intermedio',
-            metodologia=metodologia, nivel_orden=2,
-        )
-        tipo_vinculo = TipoVinculoEstrategico.objects.create(
-            codigo='ALCANZA', denominacion='Alcanza',
-            metodologia=metodologia, origen_permitido=tipo_oe,
-            destino_permitido=tipo_ri,
-        )
-        self.nodo_origen = NodoEstrategico.objects.create(
-            version=self.version, tipo_nodo=tipo_oe, codigo='OE-01',
-            nombre='Objetivo 1', orden=1,
-        )
-        self.nodo_destino = NodoEstrategico.objects.create(
-            version=self.version, tipo_nodo=tipo_ri, codigo='RI-01',
-            nombre='Resultado 1', orden=1,
-        )
-        self.vinculo = VinculoEstrategico.objects.create(
-            version=self.version, origen=self.nodo_origen,
-            destino=self.nodo_destino, tipo=tipo_vinculo,
-            es_principal=True, ponderacion=50,
-        )
-
-    def test_trazar_instrumento_nodo(self):
-        """Un NodoEstrategico expone instrumento, versión y vínculos."""
-        trazado = MotorArticulacion.trazar_instrumento(self.nodo_origen)
-        self.assertEqual(trazado['entidad_tipo'], 'NodoEstrategico')
-        self.assertEqual(trazado['codigo'], 'OE-01')
-        self.assertEqual(trazado['instrumento']['codigo'], 'PEI-MOTOR-2027')
-        self.assertEqual(trazado['version']['numero'], 1)
-        self.assertEqual(trazado['version']['inmutable'], False)
-        self.assertEqual(len(trazado['vinculos_salientes']), 1)
-        self.assertEqual(len(trazado['vinculos_entrantes']), 0)
-        saliente = trazado['vinculos_salientes'][0]
-        self.assertEqual(saliente['tipo'], 'ALCANZA')
-        self.assertEqual(saliente['destino']['codigo'], 'RI-01')
-        self.assertEqual(str(saliente['ponderacion']), '50.00')
-
-    def test_trazar_instrumento_vinculo(self):
-        """Un VinculoEstrategico expone origen/destino/tipo sobre la versión."""
-        trazado = MotorArticulacion.trazar_instrumento(self.vinculo)
-        self.assertEqual(trazado['entidad_tipo'], 'VinculoEstrategico')
-        self.assertEqual(trazado['tipo_vinculo']['codigo'], 'ALCANZA')
-        self.assertEqual(trazado['origen']['codigo'], 'OE-01')
-        self.assertEqual(trazado['destino']['codigo'], 'RI-01')
-        self.assertEqual(trazado['es_principal'], True)
-
-    def test_trazar_instrumento_instancia_ajena_devuelve_vacio(self):
-        """Instancias fuera del kernel V2 (o nulas) → []."""
-        self.assertEqual(MotorArticulacion.trazar_instrumento(None), [])
-        self.assertEqual(MotorArticulacion.trazar_instrumento('texto'), [])

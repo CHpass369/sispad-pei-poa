@@ -7,10 +7,10 @@ from django.core.management.base import CommandError
 
 from apps.accounts.models import Usuario
 from apps.budget.models import (
-    CeilingResource,
-    DirectiveCeiling,
-    DirectiveCeilingVersion,
-    MandatoryExpense,
+    RecursoTecho,
+    TechoDirectivo,
+    TechoVersion,
+    GastoObligatorio,
 )
 from apps.budget.services import (
     aprobar,
@@ -42,7 +42,7 @@ def test_carga_techo_sigep_completo(db):
 
     call_command('importar_techo_sigep', gestion=2027)
 
-    ceiling = DirectiveCeiling.objects.get(gestion=gestion)
+    ceiling = TechoDirectivo.objects.get(gestion=gestion)
     assert ceiling.estado == 'BORRADOR'
     assert ceiling.version_actual == 1
 
@@ -55,13 +55,13 @@ def test_carga_techo_sigep_completo(db):
         codigo__in=['19211', '19212'], gestion__anio=2027
     ).count() == 2
 
-    recursos = list(CeilingResource.objects.filter(version=version))
+    recursos = list(RecursoTecho.objects.filter(version=version))
     assert len(recursos) == 5
     assert all(r.origen == 'SIGEP' for r in recursos)
     total_recursos = sum((r.monto for r in recursos), Decimal('0.00'))
     assert total_recursos == Decimal('245290497.00')
 
-    obligatorios = list(MandatoryExpense.objects.filter(version=version))
+    obligatorios = list(GastoObligatorio.objects.filter(version=version))
     assert len(obligatorios) == 3
     total_obligatorios = sum((g.monto for g in obligatorios), Decimal('0.00'))
     assert total_obligatorios == Decimal('6464396.00')
@@ -81,9 +81,9 @@ def test_idempotente(db):
     call_command('importar_techo_sigep', gestion=2027)
     call_command('importar_techo_sigep', gestion=2027)
 
-    assert DirectiveCeiling.objects.count() == 1
-    assert DirectiveCeilingVersion.objects.count() == 1
-    ceiling = DirectiveCeiling.objects.get(gestion__anio=2027)
+    assert TechoDirectivo.objects.count() == 1
+    assert TechoVersion.objects.count() == 1
+    ceiling = TechoDirectivo.objects.get(gestion__anio=2027)
     version = ceiling.versiones.get(numero=1)
     assert version.recursos.count() == 5
     assert version.gastos_obligatorios.count() == 3
@@ -101,7 +101,7 @@ def test_gestion_no_habilitada_se_habilita(db):
     gestion.refresh_from_db()
     assert gestion.estado == GestionFiscal.Estado.HABILITADA
     assert gestion.fecha_apertura is not None
-    assert DirectiveCeiling.objects.filter(gestion=gestion).exists()
+    assert TechoDirectivo.objects.filter(gestion=gestion).exists()
 
 
 def test_no_edita_techo_fijado(db):
@@ -109,7 +109,7 @@ def test_no_edita_techo_fijado(db):
     _habilitar_gestion_2027()
     call_command('importar_techo_sigep', gestion=2027)
 
-    ceiling = DirectiveCeiling.objects.get(gestion__anio=2027)
+    ceiling = TechoDirectivo.objects.get(gestion__anio=2027)
     version = ceiling.versiones.get(numero=1)
     admin = Usuario.objects.create_superuser(
         email='admin@techo.test', password='test2026'

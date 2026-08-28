@@ -141,7 +141,7 @@ describe('RoleCapabilitiesDialogComponent', () => {
     expect(dialogRef.close).not.toHaveBeenCalled();
   });
 
-  it('does not load or mutate a system role', () => {
+  it('loads and replaces capabilities for a system role', () => {
     data.role = { ...role, es_sistema: true };
     adminUsers.listAllCapabilities.calls.reset();
     adminUsers.replaceRoleCapabilities.calls.reset();
@@ -151,8 +151,9 @@ describe('RoleCapabilitiesDialogComponent', () => {
 
     component.save();
 
-    expect(adminUsers.listAllCapabilities).not.toHaveBeenCalled();
-    expect(adminUsers.replaceRoleCapabilities).not.toHaveBeenCalled();
-    expect(fixture.nativeElement.textContent).toContain('roles del sistema son inmutables');
+    expect(adminUsers.listAllCapabilities).toHaveBeenCalled();
+    expect(adminUsers.replaceRoleCapabilities).toHaveBeenCalledOnceWith(
+      data.role.id, { capability_codes: [peCapability.codigo] },
+    );
   });
 });

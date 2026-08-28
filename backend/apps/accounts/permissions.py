@@ -10,22 +10,26 @@ from rest_framework import permissions
 from apps.accounts.services_scope import ScopeResolver
 
 
-def listar_capacidades(usuario):
+def listar_capacidades(usuario, roles=None):
     """Códigos de capacidad efectivos del usuario (superusuario: todas)."""
+    from apps.accounts.models import Capacidad
+
     if not usuario or not usuario.is_authenticated:
         return []
-    if usuario.is_superuser:
-        from apps.accounts.models import Capacidad
+    if usuario.is_superuser and roles is None:
         return list(
             Capacidad.objects.filter(activo=True)
             .values_list('codigo', flat=True)
         )
+    roles = usuario.roles.all() if roles is None else roles
+    role_ids = [rol.pk for rol in roles]
     return list(
-        usuario.roles
-        .filter(activo=True, capacidades__activo=True)
-        .values_list('capacidades__codigo', flat=True)
+        Capacidad.objects.filter(
+            roles__pk__in=role_ids, roles__activo=True, activo=True,
+        )
+        .values_list('codigo', flat=True)
         .distinct()
-        .order_by('capacidades__codigo')
+        .order_by('codigo')
     )
 
 
@@ -74,10 +78,26 @@ class TieneAlgunaCapacidad(permissions.BasePermission):
 
 # Sentinel: el parámetro de gestión venía en la request pero no es un UUID
 # válido. Se distingue de None (ausente → sin filtro) para fallar cerrado.
-_GESTION_INVALIDA = object()
+GESTION_INVALIDA = object()
 
 
-def _resolve_unidad_id(obj):
+def resolver_gestion_id(request, view=None, param='gestion_id'):
+    kwargs = getattr(view, 'kwargs', None) or {}
+    valor = kwargs.get(param)
+    if valor is None:
+        query = getattr(request, 'query_params', None)
+        if query is None:
+            query = getattr(request, 'GET', {})
+        valor = query.get(param)
+    if valor is None:
+        return None
+    try:
+        return uuid.UUID(str(valor))
+    except (ValueError, AttributeError, TypeError):
+        return GESTION_INVALIDA
+
+
+def resolve_unidad_id(obj):
     """UO de un objeto del dominio por convención (F2a), por duck typing.
 
     Sin imports de apps de negocio: CORE no depende de SIS-POA. Orden de
@@ -101,6 +121,7 @@ def _resolve_unidad_id(obj):
             getattr(nodo, 'actividad', None)
             or getattr(nodo, 'operacion', None)
             or getattr(nodo, 'accion', None)
+            or getattr(nodo, 'poau', None)
         )
     return None
 
@@ -117,7 +138,7 @@ def _unidades_de_objeto(obj):
     acciones = getattr(obj, 'acciones', None)
     if acciones is not None and hasattr(acciones, 'values_list'):
         return set(acciones.values_list('unidad_id', flat=True)) - {None}
-    unidad_id = _resolve_unidad_id(obj)
+    unidad_id = resolve_unidad_id(obj)
     return {unidad_id} if unidad_id is not None else set()
 
 
@@ -130,27 +151,18 @@ class CapacidadConScope(permissions.BasePermission):
     por esa gestión.
     """
 
-    def __init__(self, codigo_capacidad, gestion_id_param=None):
+    def __init__(
+        self, codigo_capacidad, gestion_id_param=None, allow_empty_list=False,
+    ):
         self.codigo_capacidad = codigo_capacidad
         self.gestion_id_param = gestion_id_param
+        self.allow_empty_list = allow_empty_list
 
     def _gestion_id(self, request, view):
         """UUID de gestión de la request, None si ausente, sentinel si inválido."""
         if not self.gestion_id_param:
             return None
-        kwargs = getattr(view, 'kwargs', None) or {}
-        valor = kwargs.get(self.gestion_id_param)
-        if valor is None:
-            query = getattr(request, 'query_params', None)
-            if query is None:
-                query = getattr(request, 'GET', {})
-            valor = query.get(self.gestion_id_param)
-        if valor is None:
-            return None
-        try:
-            return uuid.UUID(str(valor))
-        except (ValueError, AttributeError, TypeError):
-            return _GESTION_INVALIDA
+        return resolver_gestion_id(request, view, self.gestion_id_param)
 
     def _bypass_superuser(self, request):
         """Bypass para superusuarios Django (decisión F2b pre).
@@ -169,11 +181,16 @@ class CapacidadConScope(permissions.BasePermission):
             return False
         # 3. Filtro opcional por gestión (kwarg de URL o query param).
         gestion_id = self._gestion_id(request, view)
-        if gestion_id is _GESTION_INVALIDA:
+        if gestion_id is GESTION_INVALIDA:
             return False
         # list/create: no hay objeto aún; basta con que exista alguna UO
         # efectiva (set vacío = no puede operar en ninguna).
-        return bool(ScopeResolver.unidades_efectivas(request.user, gestion_id))
+        unidades = ScopeResolver.unidades_efectivas(request.user, gestion_id)
+        if unidades:
+            return True
+        return self.allow_empty_list and getattr(view, 'action', None) in (
+            'list', 'por_unidad',
+        )
 
     def has_object_permission(self, request, view, obj):
         if self._bypass_superuser(request):
@@ -181,7 +198,7 @@ class CapacidadConScope(permissions.BasePermission):
         if not tiene_capacidad(request.user, self.codigo_capacidad):
             return False
         gestion_id = self._gestion_id(request, view)
-        if gestion_id is _GESTION_INVALIDA:
+        if gestion_id is GESTION_INVALIDA:
             return False
         unidades = _unidades_de_objeto(obj)
         if not unidades:

@@ -230,8 +230,13 @@ const NUMERICAS = new Set(['linea_base', 'meta', 'meta_actual', 'ponderacion',
         <span>Cargando la matriz POAU…</span>
       </div>
 
-      <div class="tabla-caja" *ngIf="!cargando">
-        <table class="tabla tabla-compacta mz" #tabla>
+       <div class="poau-empty-state" *ngIf="mostrarEstadoVacio" role="status">
+         <strong>Esta unidad todavía no tiene registros POAU.</strong>
+         <p>Puede volver más tarde o consultar al responsable de la unidad para iniciar la formulación.</p>
+       </div>
+
+       <div class="tabla-caja" *ngIf="!cargando && !mostrarEstadoVacio">
+         <table class="tabla tabla-compacta mz" #tabla>
           <colgroup>
             <col style="width:34px">
             <ng-container *ngFor="let b of bloques">
@@ -416,10 +421,15 @@ const NUMERICAS = new Set(['linea_base', 'meta', 'meta_actual', 'ponderacion',
     }
     .btn-excel { background: #1B5E20; color: #fff; border: none; }
     .btn-pdf { background: #B3261E; color: #fff; border: none; }
-    .msg-box.error {
+     .msg-box.error {
       background: var(--error-fondo); color: var(--error-tinta);
-      padding: 0.7rem 0.9rem; border-radius: var(--radius); margin-bottom: var(--e-2);
-    }
+       padding: 0.7rem 0.9rem; border-radius: var(--radius); margin-bottom: var(--e-2);
+     }
+     .poau-empty-state {
+       padding: var(--e-4); border: 1px dashed var(--pip-line); border-radius: var(--radius);
+       background: var(--pip-card); color: var(--pip-ink-soft); text-align: center;
+     }
+     .poau-empty-state p { margin: .35rem 0 0; }
   `],
 })
 export class MatrizPoauComponent implements OnInit, AfterViewInit, OnDestroy {
@@ -499,6 +509,10 @@ export class MatrizPoauComponent implements OnInit, AfterViewInit, OnDestroy {
 
   get totalColumnas(): number {
     return this.bloques.reduce((n, b) => n + b.columnas.length, 0);
+  }
+
+  get mostrarEstadoVacio(): boolean {
+    return !this.cargando && !this.error && Boolean(this.unidad) && this.filas.length === 0;
   }
 
   porId = (_: number, f: any) => f.id;

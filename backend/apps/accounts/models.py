@@ -115,7 +115,7 @@ class AlcanceOrganizacional(models.Model):
     fiscal_year = models.ForeignKey(
         'gestion.GestionFiscal',
         null=True, blank=True,
-        on_delete=models.SET_NULL,
+        on_delete=models.PROTECT,
         related_name='alcances_organizacionales',
     )
     vigente_desde = models.DateField(null=True, blank=True)
@@ -128,6 +128,13 @@ class AlcanceOrganizacional(models.Model):
         verbose_name = 'Alcance organizacional'
         verbose_name_plural = 'Alcances organizacionales'
         ordering = ['usuario', 'unidad']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['usuario', 'rol', 'unidad', 'fiscal_year'],
+                name='uniq_alcance_usuario_rol_unidad_gestion',
+                nulls_distinct=False,
+            ),
+        ]
 
     def __str__(self):
         return f'{self.usuario} → {self.unidad}'

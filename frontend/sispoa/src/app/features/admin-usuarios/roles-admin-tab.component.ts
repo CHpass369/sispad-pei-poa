@@ -9,6 +9,7 @@ import {
 } from './admin-usuarios.service';
 import { RoleCapabilitiesDialogComponent } from './role-capabilities-dialog.component';
 import { RoleFormDialogComponent } from './role-form-dialog.component';
+import { adminApiErrorMessage } from './admin-api-error';
 
 @Component({
   standalone: false,
@@ -28,6 +29,7 @@ export class RolesAdminTabComponent implements OnInit {
   pageIndex = 0;
   loading = false;
   error = '';
+  actionError = '';
 
   constructor(
     private readonly adminUsers: AdminUsuariosService,
@@ -106,7 +108,7 @@ export class RolesAdminTabComponent implements OnInit {
   }
 
   openEdit(role: AdminRole): void {
-    if (!this.canEdit || role.es_sistema) {
+    if (!this.canEdit) {
       return;
     }
     this.dialog.open(RoleFormDialogComponent, {
@@ -125,7 +127,7 @@ export class RolesAdminTabComponent implements OnInit {
   }
 
   openCapabilities(role: AdminRole): void {
-    if (!this.canAssignCapabilities || role.es_sistema) {
+    if (!this.canAssignCapabilities) {
       return;
     }
     this.dialog.open(RoleCapabilitiesDialogComponent, {
@@ -141,6 +143,23 @@ export class RolesAdminTabComponent implements OnInit {
       if (updated) {
         this.updateRole(updated);
       }
+    });
+  }
+
+  deleteRole(role: AdminRole): void {
+    if (!this.canEdit || !window.confirm(
+      `¿Eliminar el rol ${role.codigo}? Esta acción no se puede deshacer.`,
+    )) {
+      return;
+    }
+    this.actionError = '';
+    this.adminUsers.deleteRole(role.id).subscribe({
+      next: () => this.loadRoles(),
+      error: error => {
+        this.actionError = adminApiErrorMessage(
+          error, 'No se pudo eliminar el rol.',
+        );
+      },
     });
   }
 

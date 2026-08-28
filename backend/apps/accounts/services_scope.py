@@ -13,9 +13,8 @@ Decisiones documentadas:
 
 - Sin alcances vigentes NO hay GLOBAL implícito: `unidades_efectivas`
   devuelve un set vacío y `puede_operar` deniega.
-- Un alcance con `fiscal_year` NULL aplica a toda gestión: al filtrar por
-  `gestion_id` se incluyen los alcances de esa gestión y los sin gestión.
-  Mantiene operativos los alcances pre-F1.5 (que no tenían gestión).
+- Los alcances SIS-PE pueden ser transversales (`fiscal_year` NULL). Un filtro
+  explícito por `gestion_id` es SIS-POA y solo admite esa gestión.
 - Los superusuarios NO reciben GLOBAL implícito: el scope es siempre
   explícito vía `AlcanceOrganizacional`. Los roles admin que lo requieran
   deben sembrar un alcance GLOBAL (relevante para F2b).
@@ -25,10 +24,74 @@ import uuid
 
 from django.db.models import Q
 
-from apps.accounts.models import AlcanceOrganizacional
+from apps.accounts.models import AlcanceOrganizacional, Capacidad
 from apps.organizacion.models import UnidadOrganizacional
 
 GLOBAL_SCOPE = '__GLOBAL__'
+
+
+def evaluar_acceso_efectivo(
+    usuario, asignaciones=None, roles_reemplazables=(),
+):
+    """Evaluate persisted or hypothetical access without writing assignments."""
+    from apps.accounts.permissions import listar_capacidades
+
+    if asignaciones is None:
+        codigos = listar_capacidades(usuario)
+        alcances = ScopeResolver.alcances_vigentes(usuario)
+    else:
+        reemplazables = set(roles_reemplazables)
+        roles = list(usuario.roles.filter(activo=True).exclude(pk__in=reemplazables))
+        roles.extend(item['rol'] for item in asignaciones)
+        codigos = listar_capacidades(usuario, roles=roles)
+        alcances = list(
+            ScopeResolver.alcances_vigentes(usuario).exclude(
+                rol_id__in=reemplazables,
+            )
+        ) + asignaciones
+
+    capacidades = list(
+        Capacidad.objects.filter(codigo__in=codigos, activo=True)
+        .exclude(Q(codigo__istartswith='sis_pro.') | Q(
+            codigo__istartswith='sis-pro.',
+        ))
+        .order_by('codigo')
+    )
+    unidades = set()
+    for alcance in alcances:
+        if isinstance(alcance, dict):
+            scope_type = alcance['scope_type']
+            unidad = alcance['unidad']
+            fiscal_year = alcance['fiscal_year']
+        else:
+            scope_type = alcance.scope_type
+            unidad = alcance.unidad
+            fiscal_year = alcance.fiscal_year
+        if scope_type == AlcanceOrganizacional.SCOPE_GLOBAL:
+            globales = UnidadOrganizacional.objects.filter(activo=True)
+            if fiscal_year is not None:
+                globales = globales.filter(gestion=fiscal_year)
+            unidades.update(globales.values_list('pk', flat=True))
+        elif scope_type == AlcanceOrganizacional.SCOPE_DESCENDANTS:
+            unidades.update(ScopeResolver._descendants(unidad.pk))
+        else:
+            unidades.add(unidad.pk)
+
+    unidades = UnidadOrganizacional.objects.filter(pk__in=unidades).order_by(
+        'codigo', 'pk',
+    )
+    modulos = sorted({
+        (capacidad.codigo.split('.')[0], capacidad.codigo.split('.')[1])
+        for capacidad in capacidades if capacidad.codigo.count('.') >= 2
+    })
+    return {
+        'capabilities': capacidades,
+        'effective_uos': unidades,
+        'modules': [
+            {'sistema': sistema, 'codigo': modulo, 'visible': True}
+            for sistema, modulo in modulos
+        ],
+    }
 
 
 class ScopeResolver:
@@ -38,10 +101,9 @@ class ScopeResolver:
     def alcances_vigentes(usuario, gestion_id=None):
         """Alcances activos del usuario.
 
-        Si `gestion_id` se pasa, filtra por `fiscal_year_id`; los alcances
-        sin gestión (`fiscal_year` NULL) aplican a toda gestión y se
-        incluyen. La UNION es inherente: todos los alcances del usuario
-        (vengan del rol que vengan) se consideran juntos.
+        Si `gestion_id` se pasa, filtra estrictamente por `fiscal_year_id`.
+        La UNION es inherente: todos los alcances del usuario (vengan del rol
+        que vengan) se consideran juntos.
 
         Un usuario inactivo o no autenticado no tiene alcances vigentes.
         """
@@ -51,9 +113,7 @@ class ScopeResolver:
             return AlcanceOrganizacional.objects.none()
         qs = AlcanceOrganizacional.objects.filter(usuario=usuario, activo=True)
         if gestion_id is not None:
-            qs = qs.filter(
-                Q(fiscal_year_id=gestion_id) | Q(fiscal_year__isnull=True)
-            )
+            qs = qs.filter(fiscal_year_id=gestion_id)
         return qs
 
     @staticmethod

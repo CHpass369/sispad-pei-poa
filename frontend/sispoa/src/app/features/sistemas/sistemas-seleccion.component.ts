@@ -1,5 +1,10 @@
-import { Component, OnInit } from '@angular/core';
-import { PermissionsService } from '../../core/services/permissions.service';
+import { Component, DestroyRef, OnInit, inject } from '@angular/core';
+import { Router } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { filter } from 'rxjs';
+import { SIS_PE_CAPABILITIES } from '../../core/config/modules.config';
+import { AuthService } from '../../core/services/auth.service';
+import { CapabilitiesService } from '../../core/services/capabilities.service';
 import { GestionHabilitadaService } from '../../core/services/gestion-habilitada.service';
 
 interface Sistema {
@@ -51,9 +56,13 @@ interface Sistema {
         }
       </main>
 
-      @if (sinAcceso) {
+      @if (capacidadesCargadas && sinAcceso) {
         <div class="nota">
           <p>No tienes acceso a ningún sistema. Contacta al administrador.</p>
+          <button type="button" class="btn btn-outline logout-button" (click)="cerrarSesion()">
+            <lucide-angular name="log-out" [size]="16"></lucide-angular>
+            Cerrar sesión y volver al inicio
+          </button>
         </div>
       }
 
@@ -131,6 +140,8 @@ interface Sistema {
     .progress-caption strong { color: var(--pip-ink); font-family: var(--font-display); }
 
     .nota { text-align: center; margin: 1.5rem 0; color: var(--pip-warn); font-size: 0.875rem; }
+    .nota p { margin-bottom: 0.75rem; }
+    .logout-button { margin: 0 auto; }
 
     .foot {
       margin-top: auto; padding-top: 16px;
@@ -146,17 +157,38 @@ interface Sistema {
   `],
 })
 export class SistemasSeleccionComponent implements OnInit {
+  private readonly destroyRef = inject(DestroyRef);
   sistemas: (Sistema & { modulos: string[] })[] = [];
+  capacidadesCargadas = false;
   sinAcceso = false;
 
-  constructor(private permissions: PermissionsService,
-              private gestionActiva: GestionHabilitadaService) {}
+  constructor(
+    private capabilities: CapabilitiesService,
+    private auth: AuthService,
+    private router: Router,
+    private gestionActiva: GestionHabilitadaService,
+  ) {}
 
   /** El pie mostraba «Gestión 2027 · RM N° 271/2026» fijo: al cambiar de
    *  gestión anunciaba la anterior, y la RM tampoco la seguía. */
   get gestionAnio(): number | null { return this.gestionActiva.anio(); }
 
   ngOnInit(): void {
+    this.capabilities.cargadas$.pipe(
+      filter(cargadas => cargadas),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe(() => {
+      this.capacidadesCargadas = true;
+      this.recalcularSistemas();
+    });
+  }
+
+  cerrarSesion(): void {
+    this.auth.logout();
+    void this.router.navigateByUrl('/auth/login', { replaceUrl: true });
+  }
+
+  private recalcularSistemas(): void {
     const config = [
       {
         codigo: 'sis-pe',
@@ -165,7 +197,7 @@ export class SistemasSeleccionComponent implements OnInit {
         descripcion: 'Instrumentos y metodologías, marco nacional, PAD, PEI, articulación estratégica, indicadores, territorialización y evaluación.',
         icono: 'target',
         ruta: '/sis-pe/dashboard',
-        capacidades: ['sis_pe.instrumento.read'],
+        capacidades: SIS_PE_CAPABILITIES,
         color: 'pe',
         progress: 68,
         meta: 'PGDESA → PDESA → PAD → PEI',
@@ -188,7 +220,7 @@ export class SistemasSeleccionComponent implements OnInit {
       },
     ];
     this.sistemas = config.filter(sis =>
-      this.permissions.hasAnyCapability(sis.capacidades),
+      this.capabilities.tieneAlguna(sis.capacidades),
     );
     this.sinAcceso = this.sistemas.length === 0;
   }

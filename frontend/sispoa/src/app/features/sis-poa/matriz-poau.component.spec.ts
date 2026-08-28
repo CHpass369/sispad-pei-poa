@@ -74,6 +74,14 @@ describe('MatrizPoauComponent', () => {
     expect(componente.unidades.length).toBe(1);
   });
 
+  it('exposes a non-error empty state for a selected authorized unit', () => {
+    componente.unidad = 'EM-DJR-01';
+    componente.cargando = false;
+    componente.filas = [];
+    componente.error = '';
+    expect(componente.mostrarEstadoVacio).toBeTrue();
+  });
+
   it('cada nivel tiene color propio y una columna donde escribe', () => {
     for (const n of componente.niveles) {
       expect(componente.colorNivel[n]).toMatch(/^#[0-9A-F]{6}$/i);

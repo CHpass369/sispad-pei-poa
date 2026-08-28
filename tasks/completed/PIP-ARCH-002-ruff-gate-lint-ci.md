@@ -123,3 +123,7 @@ Pendiente de cierre vía `/task-close`.
 1. **2375/284 errores de lint pre-existentes** (detalle: 223 F401 unused-import en 132 archivos; más E402 en settings/management commands, F841, F811, F821…). Corregir = tarea futura de pago de deuda (propuesta: ampliar `select`/recortar `ignore` por oleadas, empezando por las reglas con fixes seguros tipo F401/F541).
 2. `make format` sigue degradado (`docker compose exec backend ruff format . || echo "ruff no instalado"`); fuera de scope de esta tarea, replicar el mismo tratamiento en tarea futura.
 3. Ruff no está en la imagen Docker del backend (solo en requirements.txt); `docker compose exec backend ruff ...` no funcionará hasta rebuild/install — el target lint ya no lo usa, pero `format` sí.
+
+---
+
+**Corrección posterior (2026-08-21).** Ruff estaba instalado en `backend/.venv`, un venv huérfano que el `Makefile` nunca usó: el target `lint` corre `cd backend && ../.venv/bin/python -m ruff check .`, contra el venv de la raíz, donde ruff **no** estaba. `make lint` no funcionaba localmente desde el cierre de esta tarea. `backend/.venv` fue eliminado y `ruff==0.16.3` (junto con `pytest-xdist`, `docxtpl` y `python-docx`, también ausentes) se instaló en el venv de la raíz desde `requirements.txt`. Gate verificado: `All checks passed!`. `target-version` actualizado de `py313` a `py314`.

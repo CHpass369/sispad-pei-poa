@@ -53,13 +53,14 @@ describe('RolesAdminTabComponent', () => {
 
   beforeEach(async () => {
     adminUsers = jasmine.createSpyObj<AdminUsuariosService>(
-      'AdminUsuariosService', ['listRolesPage'],
+      'AdminUsuariosService', ['listRolesPage', 'deleteRole'],
     );
     capabilities = jasmine.createSpyObj<CapabilitiesService>('CapabilitiesService', ['tiene']);
     dialog = jasmine.createSpyObj<MatDialog>('MatDialog', ['open']);
     granted = new Set();
     capabilities.tiene.and.callFake(code => granted.has(code));
     adminUsers.listRolesPage.and.returnValue(of(page));
+    adminUsers.deleteRole.and.returnValue(of(void 0));
     dialog.open.and.returnValue({
       afterClosed: () => of(undefined),
     } as unknown as MatDialogRef<unknown>);
@@ -77,7 +78,7 @@ describe('RolesAdminTabComponent', () => {
     component = fixture.componentInstance;
   });
 
-  it('renders backend roles and keeps system roles read-only', () => {
+  it('renders all lifecycle actions for system and custom roles when authorized', () => {
     granted.add('accounts.rol.edit');
     granted.add('accounts.capacidad.assign');
     fixture.detectChanges();
@@ -87,11 +88,62 @@ describe('RolesAdminTabComponent', () => {
     expect(text).toContain('CUSTOM_PE');
     expect(text).toContain('Sistema');
     expect(text).toContain('Personalizado');
-    expect(text).toContain('Solo lectura');
-    expect(fixture.nativeElement.querySelector('[aria-label="Editar rol JEFE_PE"]')).toBeNull();
-    expect(fixture.nativeElement.querySelector('[aria-label="Asignar permisos a JEFE_PE"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[aria-label="Editar rol JEFE_PE"]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('[aria-label="Asignar permisos a JEFE_PE"]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('[aria-label="Eliminar rol JEFE_PE"]')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('[aria-label="Editar rol CUSTOM_PE"]')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('[aria-label="Asignar permisos a CUSTOM_PE"]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('[aria-label="Eliminar rol CUSTOM_PE"]')).not.toBeNull();
+  });
+
+  it('passes a system role to the existing edit and capability dialogs', () => {
+    granted.add('accounts.rol.edit');
+    granted.add('accounts.capacidad.assign');
+    fixture.detectChanges();
+
+    component.openEdit(systemRole);
+    component.openCapabilities(systemRole);
+
+    expect(dialog.open.calls.argsFor(0)[1]?.data).toEqual({ mode: 'edit', role: systemRole });
+    expect(dialog.open.calls.argsFor(1)[1]?.data).toEqual({ role: systemRole });
+  });
+
+  it('deletes after confirmation and refreshes the current role page', () => {
+    granted.add('accounts.rol.edit');
+    spyOn(window, 'confirm').and.returnValue(true);
+    fixture.detectChanges();
+    adminUsers.listRolesPage.calls.reset();
+
+    component.deleteRole(systemRole);
+
+    expect(adminUsers.deleteRole).toHaveBeenCalledOnceWith(systemRole.id);
+    expect(adminUsers.listRolesPage).toHaveBeenCalledOnceWith(component.filters, 1);
+  });
+
+  it('does nothing when role deletion is cancelled', () => {
+    granted.add('accounts.rol.edit');
+    spyOn(window, 'confirm').and.returnValue(false);
+    fixture.detectChanges();
+
+    component.deleteRole(systemRole);
+
+    expect(adminUsers.deleteRole).not.toHaveBeenCalled();
+  });
+
+  it('surfaces an assigned-role conflict from the backend', () => {
+    granted.add('accounts.rol.edit');
+    spyOn(window, 'confirm').and.returnValue(true);
+    adminUsers.deleteRole.and.returnValue(throwError(() => ({
+      status: 409,
+      error: { code: 'role_in_use', error: 'Retire primero las asignaciones del rol.' },
+    })));
+    fixture.detectChanges();
+
+    component.deleteRole(systemRole);
+    fixture.detectChanges();
+
+    expect(component.actionError).toContain('Retire primero las asignaciones');
+    expect(fixture.nativeElement.textContent).toContain('Retire primero las asignaciones');
   });
 
   it('sends role filters and the selected backend page', () => {

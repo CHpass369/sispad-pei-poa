@@ -44,8 +44,11 @@ from apps.accounts.serializers import (
     RegistroPublicoSerializer,
     SolicitudSerializer,
     UnidadOrganizacionalPublicaSerializer,
+    validar_gestion_fiscal_asignacion,
 )
 from apps.accounts.views import LoginThrottle
+from apps.gestion.models import GestionFiscal
+from apps.organizacion.models import UnidadOrganizacional
 
 logger = logging.getLogger(__name__)
 Usuario = get_user_model()
@@ -82,11 +85,15 @@ class RegistroPublicoView(APIView):
         usuario.save()
 
         # Trazo de la UO solicitada: inactivo y sin rol → nunca vigente.
+        unidad_solicitada = UnidadOrganizacional.objects.only(
+            'gestion_id',
+        ).get(pk=data['unidad_organizacional_id'])
         AlcanceOrganizacional.objects.create(
             usuario=usuario,
-            unidad_id=data['unidad_organizacional_id'],
+            unidad=unidad_solicitada,
             rol=None,
             scope_type=AlcanceOrganizacional.SCOPE_SELF,
+            fiscal_year_id=unidad_solicitada.gestion_id,
             activo=False,
         )
         logger.info('Registro público recibido: %s', usuario.email)
@@ -191,16 +198,26 @@ class AprobarUsuarioView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        unidad = UnidadOrganizacional.objects.get(
+            pk=data['unidad_organizacional_id'],
+        )
+        fiscal_year_id = data.get('fiscal_year_id')
+        fiscal_year = (
+            GestionFiscal.objects.get(pk=fiscal_year_id)
+            if fiscal_year_id is not None else None
+        )
+        validar_gestion_fiscal_asignacion(rol, unidad, fiscal_year)
+
         alcance_scope = SCOPES_FIJOS_ROLES_SISTEMA.get(
             rol.codigo, data['scope_type'],
         )
 
         AlcanceOrganizacional.objects.create(
             usuario=usuario,
-            unidad_id=data['unidad_organizacional_id'],
+            unidad=unidad,
             rol=rol,
             scope_type=alcance_scope,
-            fiscal_year_id=data.get('fiscal_year_id'),
+            fiscal_year=fiscal_year,
         )
         usuario.roles.set([rol])
         usuario.estado = Usuario.ESTADO_ACTIVO

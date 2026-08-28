@@ -50,9 +50,7 @@ export class RoleCapabilitiesDialogComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    if (!this.data.role.es_sistema) {
-      this.loadCapabilities();
-    }
+    this.loadCapabilities();
   }
 
   get groups(): CapabilityGroup[] {
@@ -114,7 +112,7 @@ export class RoleCapabilitiesDialogComponent implements OnInit {
   }
 
   save(): void {
-    if (this.saving || this.data.role.es_sistema) {
+    if (this.saving) {
       return;
     }
     this.saving = true;

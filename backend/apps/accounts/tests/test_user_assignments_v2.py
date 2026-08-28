@@ -14,7 +14,11 @@ from apps.accounts.models import (
     Usuario,
 )
 from apps.gestion.models import GestionFiscal
-from apps.organizacion.models import TipoUnidad, UnidadOrganizacional
+from apps.organizacion.models import (
+    AsignacionUsuarioUnidad,
+    TipoUnidad,
+    UnidadOrganizacional,
+)
 
 
 PASSWORD = 'Clave-Assignments.Segura.2026'
@@ -191,12 +195,14 @@ class F3b2bTestBase(TestCase):
             rol=cls.rol_pe,
             unidad=cls.unidad_pe,
             scope_type=AlcanceOrganizacional.SCOPE_SELF,
+            fiscal_year=cls.gestion,
         )
         AlcanceOrganizacional.objects.create(
             usuario=cls.usuario_poa,
             rol=cls.rol_poa,
             unidad=cls.unidad_poa,
             scope_type=AlcanceOrganizacional.SCOPE_SELF,
+            fiscal_year=cls.gestion,
         )
 
     @staticmethod
@@ -295,6 +301,7 @@ class UserAssignmentsAuthorizationTests(F3b2bTestBase):
                 rol=role,
                 unidad=self.raiz,
                 scope_type=AlcanceOrganizacional.SCOPE_GLOBAL,
+                fiscal_year=self.gestion,
             )
             with self.subTest(actor=actor.email):
                 response = self.put(actor, actor, [self.assignment(
@@ -394,6 +401,75 @@ class UserAssignmentsReplacementTests(F3b2bTestBase):
             original,
         )
 
+    def test_formulator_create_update_delete_synchronizes_legacy_assignment(self):
+        first = self.assignment(
+            self.rol_formulador.codigo, self.unidad_pe,
+        )
+        response = self.put(self.superuser, self.usuario_mixto, [first])
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(AsignacionUsuarioUnidad.objects.filter(
+            usuario=self.usuario_mixto,
+            unidad=self.unidad_pe,
+            gestion=self.gestion,
+            activo=True,
+        ).exists())
+
+        updated = self.assignment(
+            self.rol_formulador.codigo, self.unidad_poa,
+        )
+        for _ in range(2):
+            response = self.put(
+                self.superuser, self.usuario_mixto, [updated],
+            )
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            AsignacionUsuarioUnidad.objects.filter(
+                usuario=self.usuario_mixto,
+                gestion=self.gestion,
+                activo=True,
+            ).count(),
+            1,
+        )
+        self.assertTrue(AsignacionUsuarioUnidad.objects.filter(
+            usuario=self.usuario_mixto,
+            unidad=self.unidad_poa,
+            gestion=self.gestion,
+            activo=True,
+        ).exists())
+
+        response = self.put(self.superuser, self.usuario_mixto, [])
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(AsignacionUsuarioUnidad.objects.filter(
+            usuario=self.usuario_mixto,
+            gestion=self.gestion,
+            activo=True,
+        ).exists())
+
+    def test_formulator_delete_removes_migration_bridge_rows(self):
+        self.usuario_mixto.roles.add(self.rol_formulador)
+        AsignacionUsuarioUnidad.objects.create(
+            usuario=self.usuario_mixto,
+            unidad=self.unidad_pe,
+            gestion=self.gestion,
+        )
+        AlcanceOrganizacional.objects.create(
+            usuario=self.usuario_mixto,
+            rol=None,
+            unidad=self.unidad_pe,
+            scope_type=AlcanceOrganizacional.SCOPE_SELF,
+            fiscal_year=self.gestion,
+        )
+
+        response = self.put(self.superuser, self.usuario_mixto, [])
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(AsignacionUsuarioUnidad.objects.filter(
+            usuario=self.usuario_mixto, gestion=self.gestion,
+        ).exists())
+        self.assertFalse(AlcanceOrganizacional.objects.filter(
+            usuario=self.usuario_mixto, rol__isnull=True,
+            fiscal_year=self.gestion,
+        ).exists())
+
 
 class UserAssignmentsScopeTests(F3b2bTestBase):
     def test_all_six_system_roles_reject_a_contradictory_scope(self):
@@ -450,20 +526,28 @@ class UserAssignmentsScopeTests(F3b2bTestBase):
 
 
 class UserAssignmentsValidationTests(F3b2bTestBase):
+    @staticmethod
+    def assignment_state(usuario):
+        return {
+            'roles': tuple(usuario.roles.order_by('pk').values_list('pk', flat=True)),
+            'scopes': tuple(
+                usuario.alcances_organizacionales.order_by('pk').values_list(
+                    'pk', 'rol_id', 'unidad_id', 'scope_type',
+                    'fiscal_year_id', 'activo',
+                )
+            ),
+            'legacy': tuple(
+                usuario.asignaciones_unidad.order_by('pk').values_list(
+                    'pk', 'unidad_id', 'gestion_id', 'activo',
+                )
+            ),
+        }
+
     def assert_invalid_without_changes(self, assignment):
-        role_ids = set(self.usuario_mixto.roles.values_list('pk', flat=True))
-        scope_ids = set(self.active_scopes(self.usuario_mixto).values_list(
-            'pk', flat=True,
-        ))
+        original = self.assignment_state(self.usuario_mixto)
         response = self.put(self.superuser, self.usuario_mixto, [assignment])
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(
-            set(self.usuario_mixto.roles.values_list('pk', flat=True)), role_ids,
-        )
-        self.assertEqual(
-            set(self.active_scopes(self.usuario_mixto).values_list('pk', flat=True)),
-            scope_ids,
-        )
+        self.assertEqual(self.assignment_state(self.usuario_mixto), original)
 
     def test_rejects_missing_inactive_deprecated_and_sis_pro_roles(self):
         for role_code in (
@@ -486,6 +570,43 @@ class UserAssignmentsValidationTests(F3b2bTestBase):
         for assignment in (invalid_unit, invalid_year, mismatched_year):
             with self.subTest(assignment=assignment):
                 self.assert_invalid_without_changes(assignment)
+
+    def test_rejects_sis_poa_assignment_without_fiscal_year_before_writes(self):
+        missing_year = self.assignment(self.rol_poa.codigo)
+        missing_year.pop('fiscal_year_id')
+        null_year = self.assignment(self.rol_poa.codigo, fiscal_year=None)
+
+        for assignment in (missing_year, null_year):
+            with self.subTest(assignment=assignment):
+                self.assert_invalid_without_changes(assignment)
+
+    def test_accepts_multiple_yearless_sis_pe_self_assignments(self):
+        omitted = self.assignment(self.rol_pe_nuevo.codigo, self.unidad_pe)
+        omitted.pop('fiscal_year_id')
+        explicit_null = self.assignment(
+            self.rol_pe_nuevo.codigo, self.unidad_poa, fiscal_year=None,
+        )
+
+        response = self.put(
+            self.superuser, self.usuario_mixto, [omitted, explicit_null],
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        scopes = self.active_scopes(self.usuario_mixto).filter(
+            rol=self.rol_pe_nuevo,
+        )
+        self.assertEqual(scopes.count(), 2)
+        self.assertEqual(
+            set(scopes.values_list('fiscal_year_id', flat=True)), {None},
+        )
+
+    def test_rejects_poau_unit_year_mismatch_without_any_write(self):
+        assignment = self.assignment(
+            self.rol_formulador.codigo,
+            self.unidad_pe,
+            fiscal_year=str(self.otra_gestion.pk),
+        )
+        self.assert_invalid_without_changes(assignment)
 
     def test_rejects_exact_and_semantically_overlapping_duplicates(self):
         exact = self.assignment(self.rol_custom.codigo)
@@ -516,6 +637,17 @@ class UserAssignmentsValidationTests(F3b2bTestBase):
             self.active_scopes(self.usuario_mixto).filter(
                 rol=self.rol_custom,
             ).count(),
+            2,
+        )
+
+    def test_rejects_second_formulator_self_unit_in_same_year(self):
+        response = self.put(self.superuser, self.usuario_mixto, [
+            self.assignment(self.rol_formulador.codigo, self.unidad_pe),
+            self.assignment(self.rol_formulador.codigo, self.unidad_poa),
+        ])
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            self.active_scopes(self.usuario_mixto).count(),
             2,
         )
 

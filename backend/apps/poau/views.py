@@ -1,11 +1,18 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Prefetch
+from django.shortcuts import get_object_or_404
 
-from apps.gestion.mixins import CandadoSisPoaMixin
+from apps.accounts.permissions import (
+    CapacidadConScope, GESTION_INVALIDA, resolve_unidad_id,
+    resolver_gestion_id,
+)
+from apps.accounts.services_scope import GLOBAL_SCOPE, ScopeResolver
+from apps.gestion.mixins import CandadoSisPoaMixin, gestion_del_candado
+from apps.organizacion.models import UnidadOrganizacional
 
 from .models import POAU, POAUActividad, EjecucionFisica, EjecucionFinanciera
 from .serializers import (
@@ -14,11 +21,83 @@ from .serializers import (
 )
 
 
-class POAUViewSet(CandadoSisPoaMixin, viewsets.ModelViewSet):
+CAPACIDADES_POR_ACCION = {
+    'create': 'sis_poa.poau.create',
+    'update': 'sis_poa.poau.edit',
+    'partial_update': 'sis_poa.poau.edit',
+    'destroy': 'sis_poa.poau.edit',
+    'enviar': 'sis_poa.poau.submit',
+    'aprobar': 'sis_poa.poau.approve',
+    'rechazar': 'sis_poa.poau.review',
+}
+
+
+def _unidades_efectivas_o_none(request):
+    user = request.user
+    if user.is_superuser:
+        return None
+    gestion_id = resolver_gestion_id(request)
+    if gestion_id is GESTION_INVALIDA:
+        return set()
+    unidades = ScopeResolver.unidades_efectivas(user, gestion_id)
+    return None if GLOBAL_SCOPE in unidades else unidades
+
+
+def _autorizar_objetivo(request, objetivo):
+    if request.user.is_superuser:
+        return
+    unidad_id = objetivo.pk if isinstance(
+        objetivo, UnidadOrganizacional,
+    ) else resolve_unidad_id(objetivo)
+    gestion_id = resolver_gestion_id(request)
+    if (
+        unidad_id is None or gestion_id is GESTION_INVALIDA
+        or not ScopeResolver.puede_operar(request.user, unidad_id, gestion_id)
+    ):
+        raise PermissionDenied('Unidad organizacional fuera de su alcance.')
+
+
+class ScopePOAUMixin:
+    scope_lookup = 'unidad_id'
+    scope_target_field = 'unidad'
+
+    def get_permissions(self):
+        codigo = CAPACIDADES_POR_ACCION.get(
+            self.action, 'sis_poa.poau.view',
+        )
+        return [CapacidadConScope(
+            codigo, gestion_id_param='gestion_id', allow_empty_list=True,
+        )]
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        unidades = _unidades_efectivas_o_none(self.request)
+        if unidades is None:
+            return queryset
+        if not unidades:
+            return queryset.none()
+        return queryset.filter(**{f'{self.scope_lookup}__in': unidades})
+
+    def _objetivo(self, serializer):
+        return serializer.validated_data.get(
+            self.scope_target_field,
+            getattr(serializer.instance, self.scope_target_field, None),
+        )
+
+    def perform_create(self, serializer):
+        _autorizar_objetivo(self.request, self._objetivo(serializer))
+        serializer.save()
+
+    def perform_update(self, serializer):
+        _autorizar_objetivo(self.request, self._objetivo(serializer))
+        serializer.save()
+
+
+class POAUViewSet(ScopePOAUMixin, CandadoSisPoaMixin, viewsets.ModelViewSet):
     """POAU por unidad, acotado a la gestión habilitada (ADR-007)."""
 
     queryset = POAU.objects.select_related(
-        'unidad', 'producto_territorial', 'responsable',
+        'unidad', 'responsable',
     ).prefetch_related(
         Prefetch(
             'actividades',
@@ -43,6 +122,12 @@ class POAUViewSet(CandadoSisPoaMixin, viewsets.ModelViewSet):
         if self.action == 'list':
             return POAUListSerializer
         return POAUSerializer
+
+    def _workflow_object(self, request, pk):
+        gestion = gestion_del_candado(request)
+        poau = get_object_or_404(self.queryset, pk=pk, gestion=gestion.anio)
+        self.check_object_permissions(request, poau)
+        return poau
 
     @action(detail=False, methods=['get'])
     def por_unidad(self, request):
@@ -78,7 +163,7 @@ class POAUViewSet(CandadoSisPoaMixin, viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def enviar(self, request, pk=None):
         """Cambia estado a 'enviado'"""
-        poau = self.get_object()
+        poau = self._workflow_object(request, pk)
         if poau.estado != 'borrador':
             return Response(
                 {'error': f'No se puede enviar un POAU en estado "{poau.estado}"'},
@@ -91,7 +176,7 @@ class POAUViewSet(CandadoSisPoaMixin, viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def aprobar(self, request, pk=None):
         """Cambia estado a 'aprobado'"""
-        poau = self.get_object()
+        poau = self._workflow_object(request, pk)
         if poau.estado != 'enviado':
             return Response(
                 {'error': f'No se puede aprobar un POAU en estado "{poau.estado}"'},
@@ -109,7 +194,7 @@ class POAUViewSet(CandadoSisPoaMixin, viewsets.ModelViewSet):
                 {'error': 'Se requiere el campo "observaciones" para rechazar'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        poau = self.get_object()
+        poau = self._workflow_object(request, pk)
         if poau.estado != 'enviado':
             return Response(
                 {'error': f'No se puede rechazar un POAU en estado "{poau.estado}"'},
@@ -120,7 +205,12 @@ class POAUViewSet(CandadoSisPoaMixin, viewsets.ModelViewSet):
         return Response(POAUSerializer(poau).data)
 
 
-class POAUActividadViewSet(viewsets.ModelViewSet):
+class POAUActividadViewSet(
+    ScopePOAUMixin, CandadoSisPoaMixin, viewsets.ModelViewSet,
+):
+    campo_gestion = 'poau__gestion'
+    scope_lookup = 'poau__unidad_id'
+    scope_target_field = 'poau'
     queryset = POAUActividad.objects.select_related(
         'poau', 'objeto_gasto',
     ).prefetch_related(
@@ -137,7 +227,12 @@ class POAUActividadViewSet(viewsets.ModelViewSet):
     ordering_fields = ['poau', 'codigo']
 
 
-class EjecucionFisicaViewSet(viewsets.ModelViewSet):
+class EjecucionFisicaViewSet(
+    ScopePOAUMixin, CandadoSisPoaMixin, viewsets.ModelViewSet,
+):
+    campo_gestion = 'actividad__poau__gestion'
+    scope_lookup = 'actividad__poau__unidad_id'
+    scope_target_field = 'actividad'
     queryset = EjecucionFisica.objects.select_related(
         'actividad__poau',
     ).all()
@@ -147,7 +242,12 @@ class EjecucionFisicaViewSet(viewsets.ModelViewSet):
     ordering_fields = ['periodo', 'actividad']
 
 
-class EjecucionFinancieraViewSet(viewsets.ModelViewSet):
+class EjecucionFinancieraViewSet(
+    ScopePOAUMixin, CandadoSisPoaMixin, viewsets.ModelViewSet,
+):
+    campo_gestion = 'actividad__poau__gestion'
+    scope_lookup = 'actividad__poau__unidad_id'
+    scope_target_field = 'actividad'
     queryset = EjecucionFinanciera.objects.select_related(
         'actividad__poau',
     ).all()

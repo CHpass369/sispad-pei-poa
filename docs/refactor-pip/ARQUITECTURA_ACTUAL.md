@@ -8,7 +8,7 @@
 
 | Componente | Versión | Verificación |
 |---|---|---|
-| Python | 3.13.11 (venv en `backend/.venv`) | venv local |
+| Python | 3.14.4 (venv en `.venv`, raíz del repo) | `.venv/pyvenv.cfg`, verificado 2026-08-21 |
 | Django | **6.0.7** | `pip show django` (el prompt de contexto sugería 5.x; es 6.0.7) |
 | Django REST Framework | 3.17.1 | `pip show djangorestframework` |
 | django-extensions | 4.1 | requirements |

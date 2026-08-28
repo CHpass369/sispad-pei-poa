@@ -156,18 +156,21 @@ class F3b1TestBase(TestCase):
             rol=cls.rol_poa,
             unidad=cls.unidad_poa,
             scope_type=AlcanceOrganizacional.SCOPE_SELF,
+            fiscal_year=cls.gestion,
         )
         AlcanceOrganizacional.objects.create(
             usuario=cls.usuario_poa_inactivo,
             rol=cls.rol_poa,
             unidad=cls.unidad_poa,
             scope_type=AlcanceOrganizacional.SCOPE_SELF,
+            fiscal_year=cls.gestion,
         )
         AlcanceOrganizacional.objects.create(
             usuario=cls.usuario_super_admin,
             rol=cls.rol_super_admin,
             unidad=cls.unidad_pe,
             scope_type=AlcanceOrganizacional.SCOPE_GLOBAL,
+            fiscal_year=cls.gestion,
         )
 
     def cliente(self, usuario=None):

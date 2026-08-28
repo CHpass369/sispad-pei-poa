@@ -184,6 +184,16 @@ describe('UsuarioEdicionDialogComponent', () => {
     expect(row.organizational_unit_id).toBe('');
   });
 
+  it('matches accents without losing the selected canonical unit ID', () => {
+    component.organizationalUnits.push({ ...otherUnit, nombre: 'Secretaría Municipal Financiera' });
+    fixture.detectChanges();
+    const row = component.rows[0];
+    component.searchOrganizationalUnits(row, 'SECRETARIA MUNICIPAL');
+    expect(component.filteredOrganizationalUnits(row).map(item => item.id)).toEqual(['unit-2']);
+    component.selectOrganizationalUnit(row, component.filteredOrganizationalUnits(row)[0]);
+    expect(row.organizational_unit_id).toBe('unit-2');
+  });
+
   it('displays the selected organizational unit and preserves its ID in the PUT payload', () => {
     component.organizationalUnits.push(otherUnit);
     fixture.detectChanges();
@@ -290,5 +300,11 @@ describe('UsuarioEdicionDialogComponent', () => {
     expect(fixture.nativeElement.textContent).not.toContain('Datos personales');
     expect(fixture.nativeElement.textContent).toContain('Roles y alcances');
     expect(fixture.nativeElement.textContent).not.toContain('Guardar asignaciones');
+  });
+
+  it('wires the module-first assignment flow without removing personal editing', () => {
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-assignment-flow')).not.toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('Datos personales');
   });
 });

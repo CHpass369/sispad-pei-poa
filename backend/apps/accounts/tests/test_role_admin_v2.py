@@ -1,11 +1,15 @@
 """Tests F3b2a: administración V2 de roles y capacidades."""
 
+from datetime import date
+
 from django.test import TestCase
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from apps.accounts.models import Capacidad, Rol, Usuario
+from apps.accounts.models import AlcanceOrganizacional, Capacidad, Rol, Usuario
+from apps.gestion.models import GestionFiscal
+from apps.organizacion.models import TipoUnidad, UnidadOrganizacional
 
 
 PASSWORD = 'Clave-Roles.Segura.2026'
@@ -162,6 +166,7 @@ class RolAdminAutorizacionTests(F3b2aTestBase):
             client.post(reverse('v2-admin-roles'), {}, format='json'),
             client.get(self.url_rol(self.rol_pe)),
             client.patch(self.url_rol(self.rol_pe), {}, format='json'),
+            client.delete(self.url_rol(self.rol_pe)),
             client.put(
                 self.url_capacidades_rol(self.rol_pe),
                 {'capability_codes': []},
@@ -181,6 +186,7 @@ class RolAdminAutorizacionTests(F3b2aTestBase):
             client.post(reverse('v2-admin-roles'), {}, format='json'),
             client.get(self.url_rol(self.rol_pe)),
             client.patch(self.url_rol(self.rol_pe), {}, format='json'),
+            client.delete(self.url_rol(self.rol_pe)),
             client.put(
                 self.url_capacidades_rol(self.rol_pe),
                 {'capability_codes': []},
@@ -295,38 +301,67 @@ class RolAdminSuperuserTests(F3b2aTestBase):
             ['accounts', 'sis_pe', 'sis_poa'],
         )
 
-    def test_roles_base_son_visibles_pero_inmutables(self):
+    def test_system_role_can_be_edited(self):
         client = self.cliente(self.superuser)
-        url = reverse('v2-admin-roles')
-        codigos_base = {
-            'SUPER_ADMIN', 'SECRETARIO_MUNICIPAL', 'DIRECTOR',
-            'JEFE_POA', 'JEFE_PE', 'FORMULADOR_POAU',
-        }
-        for codigo in codigos_base:
-            with self.subTest(codigo=codigo):
-                self.assertIn(
-                    codigo, self.codigos(client.get(url, {'search': codigo})),
-                )
-        self.assertEqual(
-            client.get(self.url_rol(self.rol_jefe_pe)).status_code,
-            status.HTTP_200_OK,
+        response = client.patch(
+            self.url_rol(self.rol_jefe_pe),
+            {'nombre': 'Jefatura PE actualizada'},
+            format='json',
         )
-        self.assertEqual(
-            client.patch(
-                self.url_rol(self.rol_jefe_pe),
-                {'nombre': 'No permitido'},
-                format='json',
-            ).status_code,
-            status.HTTP_403_FORBIDDEN,
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.rol_jefe_pe.refresh_from_db()
+        self.assertEqual(self.rol_jefe_pe.nombre, 'Jefatura PE actualizada')
+
+    def test_system_role_capabilities_can_be_replaced(self):
+        response = self.cliente(self.superuser).put(
+            self.url_capacidades_rol(self.rol_jefe_pe),
+            {'capability_codes': [self.cap_pe.codigo]},
+            format='json',
         )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(
-            client.put(
-                self.url_capacidades_rol(self.rol_jefe_pe),
-                {'capability_codes': [self.cap_pe.codigo]},
-                format='json',
-            ).status_code,
-            status.HTTP_403_FORBIDDEN,
+            set(self.rol_jefe_pe.capacidades.values_list('codigo', flat=True)),
+            {self.cap_pe.codigo},
         )
+
+    def test_unassigned_system_role_can_be_deleted(self):
+        response = self.cliente(self.superuser).delete(
+            self.url_rol(self.rol_secretario),
+        )
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Rol.objects.filter(pk=self.rol_secretario.pk).exists())
+
+    def test_assigned_role_delete_preserves_memberships_and_scope_history(self):
+        gestion = GestionFiscal.objects.create(anio=2087)
+        tipo = TipoUnidad.objects.create(
+            codigo='CORE007', nombre='CORE 007', nivel=1,
+        )
+        unidad = UnidadOrganizacional.objects.create(
+            codigo='CORE007', nombre='CORE 007', tipo=tipo, gestion=gestion,
+            fecha_vigencia_desde=date(2087, 1, 1),
+        )
+        self.sin_capacidad.roles.add(self.rol_director)
+        alcance = AlcanceOrganizacional.objects.create(
+            usuario=self.sin_capacidad,
+            rol=self.rol_director,
+            unidad=unidad,
+            fiscal_year=gestion,
+            activo=False,
+        )
+
+        response = self.cliente(self.superuser).delete(
+            self.url_rol(self.rol_director),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertEqual(response.data['code'], 'role_in_use')
+        self.assertEqual(response.data['references'], {
+            'users': 1, 'organizational_scopes': 1,
+        })
+        self.assertIn('Retire primero las asignaciones', response.data['error'])
+        self.assertTrue(Rol.objects.filter(pk=self.rol_director.pk).exists())
+        self.assertTrue(self.sin_capacidad.roles.filter(pk=self.rol_director.pk).exists())
+        self.assertTrue(AlcanceOrganizacional.objects.filter(pk=alcance.pk).exists())
 
     def test_deprecated_ocultos_y_solo_superuser_puede_incluirlos(self):
         url = reverse('v2-admin-roles')
@@ -363,6 +398,10 @@ class RolAdminJefaturasTests(F3b2aTestBase):
             client.patch(
                 self.url_rol(self.rol_poa), {'nombre': 'No'}, format='json',
             ).status_code,
+            status.HTTP_404_NOT_FOUND,
+        )
+        self.assertEqual(
+            client.delete(self.url_rol(self.rol_poa)).status_code,
             status.HTTP_404_NOT_FOUND,
         )
         self.assertEqual(

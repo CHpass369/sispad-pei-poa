@@ -1,0 +1,76 @@
+<section class="flow-grid" aria-labelledby="assignment-flow-title">
+  <div>
+    <p class="section-step">02 · Acceso modular</p>
+    <h3 id="assignment-flow-title">Nueva asignación</h3>
+    <p>Configure el acceso en orden: sistema, módulo, rol o perfil, unidad, alcance y gestión.</p>
+  </div>
+
+  <mat-form-field appearance="outline">
+    <mat-label>Sistema</mat-label>
+    <mat-select [ngModel]="selectedSystem" name="assignment-system" (ngModelChange)="selectSystem($event)">
+      @for (system of systems; track system) { <mat-option [value]="system">{{ systemLabel(system) }}</mat-option> }
+    </mat-select>
+  </mat-form-field>
+
+  @if (selectedSystem) {
+    <mat-form-field appearance="outline">
+      <mat-label>Módulo</mat-label>
+      <mat-select [ngModel]="selectedModule" name="assignment-module" (ngModelChange)="selectModule($event)">
+        @for (module of modules; track module.codigo) { <mat-option [value]="module">{{ module.nombre }}</mat-option> }
+      </mat-select>
+    </mat-form-field>
+  }
+
+  @if (selectedModule) {
+    <mat-form-field appearance="outline">
+      <mat-label>Rol o perfil compatible</mat-label>
+      <mat-select [ngModel]="selectedRoleCode" name="assignment-role" (ngModelChange)="selectRole($event)">
+        @for (role of compatibleRoles; track role.codigo) { <mat-option [value]="role.codigo">{{ role.nombre }} · {{ role.codigo }}</mat-option> }
+      </mat-select>
+      @if (compatibleRoles.length === 0) { <mat-hint>No hay roles compatibles con este módulo.</mat-hint> }
+    </mat-form-field>
+
+    @if (selectedRole) {
+      <fieldset>
+        <legend>Capacidades efectivas del rol en este módulo</legend>
+        <p class="flow-capabilities-note">Información derivada y de solo lectura: no se guarda una selección parcial; solo se envía el rol completo.</p>
+        <ul class="flow-capabilities">
+          @for (capability of effectiveRoleCapabilities; track capability.codigo) { <li><code>{{ capability.codigo }}</code></li> }
+        </ul>
+      </fieldset>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Unidad organizacional</mat-label>
+        <input matInput name="assignment-unit" [ngModel]="unitQuery" (ngModelChange)="searchUnits($event)" [matAutocomplete]="unitsAutocomplete" autocomplete="off">
+        <mat-autocomplete #unitsAutocomplete="matAutocomplete" (optionSelected)="selectOrganizationalUnit($event.option.value)">
+          @for (unit of filteredUnits; track unit.id) { <mat-option [value]="unit">{{ unit.codigo }} · {{ unit.nombre }}</mat-option> }
+          @empty { <mat-option disabled>Sin unidades coincidentes</mat-option> }
+        </mat-autocomplete>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Alcance</mat-label>
+        <mat-select [(ngModel)]="selectedScope" name="assignment-scope" [disabled]="fixedScope !== null">
+          @for (scope of scopes; track scope) { <mat-option [value]="scope">{{ scope }}</mat-option> }
+        </mat-select>
+        @if (fixedScope) { <mat-hint>Alcance fijo para {{ selectedRole.codigo }}.</mat-hint> }
+      </mat-form-field>
+
+      @if (requiresFiscalYear) {
+        <mat-form-field appearance="outline">
+          <mat-label>Gestión fiscal aplicable</mat-label>
+          <mat-select [(ngModel)]="selectedFiscalYearId" name="assignment-year">
+            @for (year of fiscalYears; track year.id) { <mat-option [value]="year.id">{{ year.anio }} · {{ year.estado_display }}</mat-option> }
+          </mat-select>
+        </mat-form-field>
+      }
+
+      <div class="flow-actions">
+        <button mat-stroked-button type="button" (click)="preview()" [disabled]="loadingPreview || !canSubmit">{{ loadingPreview ? 'Previsualizando…' : 'Previsualizar acceso' }}</button>
+        <button mat-flat-button type="button" (click)="save()" [disabled]="!canSubmit">Guardar asignación</button>
+      </div>
+      <app-preview-panel [preview]="previewResult"></app-preview-panel>
+    }
+    @if (error) { <p class="flow-error" role="alert">{{ error }}</p> }
+  }
+</section>

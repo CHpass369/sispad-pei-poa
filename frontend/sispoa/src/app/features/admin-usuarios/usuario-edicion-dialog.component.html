@@ -80,15 +80,9 @@
       <div class="section-heading assignments-heading">
         <div>
           <p class="section-step">02 · Autoridad</p>
-          <h3 id="assignments-title">Roles y alcances</h3>
+          <h3 id="assignments-title">Accesos y alcances · Roles y alcances</h3>
           <p>El guardado reemplaza atómicamente solo las asignaciones que puede administrar.</p>
         </div>
-        @if (data.canAssign && !isPending && !loadingAssignments) {
-          <button mat-stroked-button type="button" (click)="addAssignment()">
-            <lucide-angular name="plus" [size]="17" aria-hidden="true"></lucide-angular>
-            Agregar asignación
-          </button>
-        }
       </div>
 
       @if (isPending) {
@@ -121,6 +115,21 @@
         }
 
         @if (!loadingAssignments && !assignmentsLoadError) {
+          @if (data.canAssign) {
+            <app-assignment-flow
+              [userId]="currentUser.id"
+              [roles]="roles"
+              [organizationalUnits]="organizationalUnits"
+              [fiscalYears]="fiscalYears"
+              (saveRequested)="saveFlowAssignment($event)"
+            ></app-assignment-flow>
+          }
+
+          <details class="legacy-assignment-editor">
+            <summary>Asignaciones actuales y edición detallada</summary>
+            @if (data.canAssign) {
+              <button mat-stroked-button type="button" (click)="addAssignment()">Agregar asignación detallada</button>
+            }
           @if (rows.length === 0) {
             <div class="assignments-empty" role="status">
               <strong>Sin asignaciones administrables</strong>
@@ -271,6 +280,7 @@
               </button>
             </div>
           }
+          </details>
         }
       }
     </section>

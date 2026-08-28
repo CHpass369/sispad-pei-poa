@@ -19,7 +19,7 @@ from datetime import timedelta
 
 from apps.auditoria.models import EventoAuditoria
 from apps.auditoria.services import registrar_evento
-from apps.budget.models import BudgetImport
+from apps.budget.models import Importacion
 
 EVENTOS_URL = '/api/v1/eventos/'
 IMPORTS_URL = '/api/v2/sis-poa/budget/imports/'
@@ -35,7 +35,7 @@ def _crear_eventos(cantidad):
     """
     eventos = [
         registrar_evento(
-            None, EventoAuditoria.Accion.CREAR, 'Allocation', f'ev-{i}',
+            None, EventoAuditoria.Accion.CREAR, 'Apertura', f'ev-{i}',
             resumen=f'Evento {i}', gestion=2026,
         )
         for i in range(cantidad)
@@ -117,7 +117,7 @@ def test_auditoria_orden_desc_por_creado(auth_client):
 
 
 def test_importaciones_paginadas(auth_client, gestion, admin_user):
-    importacion = BudgetImport.objects.create(
+    importacion = Importacion.objects.create(
         gestion=gestion,
         archivo=SimpleUploadedFile('planilla.xlsx', b'datos'),
         creado_por=admin_user,

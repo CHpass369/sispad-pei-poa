@@ -33,7 +33,11 @@ from apps.accounts.models import (
     AlcanceOrganizacional, Capacidad, Rol, Usuario,
 )
 from apps.gestion.models import GestionFiscal
-from apps.organizacion.models import TipoUnidad, UnidadOrganizacional
+from apps.organizacion.models import (
+    AsignacionUsuarioUnidad,
+    TipoUnidad,
+    UnidadOrganizacional,
+)
 
 PASSWORD = 'Clave-Registro.Segura.2026'
 
@@ -208,7 +212,7 @@ class F3aTestBase(TestCase):
             'rol_codigo': 'FORMULADOR_POAU',
             'sistema': 'sis_poa',
             'scope_type': AlcanceOrganizacional.SCOPE_SELF,
-            'fiscal_year_id': None,
+            'fiscal_year_id': str(self.gestion.id),
         }
         payload.update(overrides)
         return payload
@@ -364,6 +368,34 @@ class AprobacionSuperAdminTests(F3aTestBase):
         assert response.status_code == status.HTTP_201_CREATED
         return Usuario.objects.get(email=email)
 
+    @staticmethod
+    def _approval_state(usuario):
+        usuario.refresh_from_db()
+        return {
+            'lifecycle': (
+                usuario.estado, usuario.activo, usuario.is_active,
+            ),
+            'roles': tuple(usuario.roles.order_by('pk').values_list('pk', flat=True)),
+            'scopes': tuple(
+                usuario.alcances_organizacionales.order_by('pk').values_list(
+                    'pk', 'rol_id', 'unidad_id', 'scope_type',
+                    'fiscal_year_id', 'activo',
+                )
+            ),
+            'legacy': tuple(
+                AsignacionUsuarioUnidad.objects.filter(usuario=usuario)
+                .order_by('pk')
+                .values_list('pk', 'unidad_id', 'gestion_id', 'activo')
+            ),
+        }
+
+    def _post_approval_payload(self, usuario, payload):
+        return self.cliente(self.super_admin).post(
+            reverse('v2-admin-user-approve', kwargs={'pk': usuario.pk}),
+            payload,
+            format='json',
+        )
+
     def test_aprobacion_formulador_self_activa_usuario(self):
         u = self._pendiente('f3a-ap-formulador@test.gob.bo')
         response = self.aprobar(self.super_admin, u)
@@ -380,6 +412,59 @@ class AprobacionSuperAdminTests(F3aTestBase):
         alcance = u.alcances_organizacionales.get(rol=self.rol_formulador)
         self.assertEqual(alcance.scope_type, AlcanceOrganizacional.SCOPE_SELF)
         self.assertEqual(alcance.unidad_id, self.dir_catastro.id)
+        self.assertEqual(alcance.fiscal_year_id, self.gestion.id)
+
+        current = self.cliente(self.super_admin).get(
+            reverse('v2-admin-preview-access'), {'user_id': str(u.pk)},
+        )
+        self.assertEqual(current.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            [item['codigo'] for item in current.data['effective_uos']],
+            [self.dir_catastro.codigo],
+        )
+
+    def test_aprobacion_sis_pe_acepta_gestion_omitida_o_nula(self):
+        for suffix, explicit_null in (('omitted', False), ('null', True)):
+            with self.subTest(fiscal_year=suffix):
+                usuario = self._pendiente(f'f3a-ap-pe-{suffix}@test.gob.bo')
+                payload = self.payload_aprobacion(
+                    rol_codigo='JEFE_PE',
+                    sistema='sis_pe',
+                    scope_type=AlcanceOrganizacional.SCOPE_GLOBAL,
+                )
+                if explicit_null:
+                    payload['fiscal_year_id'] = None
+                else:
+                    payload.pop('fiscal_year_id')
+
+                response = self._post_approval_payload(usuario, payload)
+
+                self.assertEqual(response.status_code, status.HTTP_200_OK)
+                scope = usuario.alcances_organizacionales.get(rol=self.rol_jefe_pe)
+                self.assertIsNone(scope.fiscal_year_id)
+
+    def test_aprobacion_poa_invalida_no_modifica_ninguna_tabla(self):
+        otra_gestion, _ = GestionFiscal.objects.get_or_create(
+            anio=2099, defaults={'estado': GestionFiscal.Estado.PREPARACION},
+        )
+        for suffix, year in (
+            ('omitted', 'omit'),
+            ('null', None),
+            ('mismatch', str(otra_gestion.pk)),
+        ):
+            with self.subTest(fiscal_year=suffix):
+                usuario = self._pendiente(f'f3a-ap-poa-{suffix}@test.gob.bo')
+                payload = self.payload_aprobacion()
+                if year == 'omit':
+                    payload.pop('fiscal_year_id')
+                else:
+                    payload['fiscal_year_id'] = year
+                original = self._approval_state(usuario)
+
+                response = self._post_approval_payload(usuario, payload)
+
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertEqual(self._approval_state(usuario), original)
 
     def test_aprobacion_jefe_poa_fuerza_alcance_global(self):
         u = self._pendiente('f3a-ap-jefepoa@test.gob.bo')

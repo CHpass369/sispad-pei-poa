@@ -24,6 +24,7 @@ from apps.accounts.views_admin import (
     AsignarCapacidadesRolView,
     CapacidadAdminListView,
     DesactivarUsuarioView,
+    PreviewAccessView,
     RolAdminDetailView,
     RolAdminListCreateView,
     UsuarioAdminDetailView,
@@ -45,6 +46,10 @@ urlpatterns = [
         'auth/organizational-units/',
         UnidadesOrganizacionalesPublicasView.as_view(),
         name='v2-auth-organizational-units',
+    ),
+    path(
+        'admin/preview-access/', PreviewAccessView.as_view(),
+        name='v2-admin-preview-access',
     ),
     path(
         'admin/users/<uuid:pk>/approve/', AprobarUsuarioView.as_view(),

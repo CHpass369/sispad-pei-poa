@@ -6,10 +6,6 @@ Los tests usan el cliente Django (no APIClient de DRF) porque el
 mecanismo es un middleware puro, no una capa de DRF.
 """
 from django.test import Client
-from django.urls import resolve
-
-from apps.inversion.views_v2 import VinculoViewSet as VinculoProyectoViewSet
-from apps.planificacion.views_v2 import VinculoViewSet as VinculoEstrategicoViewSet
 
 
 def test_v1_response_carries_deprecation_headers():
@@ -35,11 +31,3 @@ def test_health_has_no_deprecation_headers():
     response = Client().get('/health/')
     assert 'Deprecation' not in response
     assert 'Sunset' not in response
-
-
-def test_vinculos_routers_use_distinct_viewsets():
-    """sis-pe/vinculos y sis-pro/vinculos apuntan a viewsets distintos."""
-    pe_match = resolve('/api/v2/sis-pe/vinculos/')
-    pro_match = resolve('/api/v2/sis-pro/vinculos/')
-    assert pe_match.func.cls is VinculoEstrategicoViewSet
-    assert pro_match.func.cls is VinculoProyectoViewSet

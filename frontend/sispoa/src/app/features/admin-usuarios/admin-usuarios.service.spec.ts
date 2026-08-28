@@ -4,6 +4,8 @@ import { environment } from '../../../environments/environment';
 import {
   AdminApprovalPayload,
   AdminCapability,
+  AdminAccessPreviewResponse,
+  AdminAssignmentInput,
   AdminAssignmentsPayload,
   AdminRegistrationRequest,
   AdminRole,
@@ -249,6 +251,12 @@ describe('AdminUsuariosService', () => {
     });
     patch.flush(role);
 
+    service.deleteRole(role.id).subscribe();
+    const remove = http.expectOne(`${environment.apiUrlV2}/admin/roles/${role.id}/`);
+    expect(remove.request.method).toBe('DELETE');
+    expect(remove.request.body).toBeNull();
+    remove.flush(null);
+
     service.replaceRoleCapabilities(role.id, {
       capability_codes: [capability.codigo],
     }).subscribe();
@@ -349,4 +357,50 @@ describe('AdminUsuariosService', () => {
       'sis_pe.pad.view', 'accounts.rol.view',
     ]);
   });
+
+  it('requests the typed unpaginated access preview with production assignments', () => {
+    const assignments: AdminAssignmentInput[] = [{
+      role_code: 'FORMULADOR_POAU',
+      organizational_unit_id: 'unit-1',
+      scope_type: 'SELF',
+      fiscal_year_id: 'year-2026',
+    }];
+    const response: AdminAccessPreviewResponse = {
+      capabilities: [{
+        codigo: 'sis_poa.poau.view',
+        nombre: 'Ver POAU',
+        sistema: 'sis_poa',
+        modulo: 'poau',
+      }],
+      effective_uos: [{ id: 'unit-1', codigo: 'UO-1', nombre: 'Unidad 1' }],
+      modules: [{ codigo: 'poau', sistema: 'sis_poa', visible: true }],
+    };
+      let preview: AdminAccessPreviewResponse | undefined;
+    service.previewAccess({ user_id: user.id, assignments }).subscribe(result => preview = result);
+
+    const request = http.expectOne(req =>
+      req.url === `${environment.apiUrlV2}/admin/preview-access/`,
+    );
+    expect(request.request.method).toBe('GET');
+    expect(request.request.params.get('user_id')).toBe(user.id);
+    expect(JSON.parse(request.request.params.get('assignments') ?? '')).toEqual(assignments);
+    request.flush(response);
+
+    expect(preview).toEqual(response);
+    expect(Object.keys(preview ?? {})).toEqual(['capabilities', 'effective_uos', 'modules']);
+    expect(preview?.capabilities[0]).toEqual(response.capabilities[0]);
+    expect(preview?.effective_uos[0]).toEqual(response.effective_uos[0]);
+    expect(preview?.modules[0]).toEqual(response.modules[0]);
+  });
+
+  it('omits assignments when previewing the current access', () => {
+    service.previewAccess({ user_id: user.id }).subscribe();
+
+    const request = http.expectOne(req =>
+      req.url === `${environment.apiUrlV2}/admin/preview-access/`,
+    );
+    expect(request.request.params.keys()).toEqual(['user_id']);
+    request.flush({ capabilities: [], effective_uos: [], modules: [] });
+  });
+
 });

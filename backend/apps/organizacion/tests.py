@@ -18,7 +18,7 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from apps.accounts.models import Usuario
+from apps.accounts.models import AlcanceOrganizacional, Capacidad, Rol, Usuario
 from apps.gestion.models import GestionFiscal
 from apps.organizacion.models import (
     TipoUnidad, UnidadOrganizacional, DireccionAdministrativa,
@@ -53,6 +53,34 @@ def auth_client(admin_user):
     client = APIClient()
     client.force_authenticate(user=admin_user)
     return client
+
+
+@pytest.fixture
+def capability_client(db):
+    """Build an authenticated non-superuser with existing capability codes."""
+    def build(*codes):
+        slug = '-'.join(code.replace('.', '-') for code in codes) or 'none'
+        user = Usuario.objects.create_user(
+            email=f'organizacion-{slug}@test.gob.bo', password='Test-2026',
+        )
+        if codes:
+            capabilities = [
+                Capacidad.objects.get_or_create(
+                    codigo=code,
+                    defaults={'nombre': code, 'sistema': 'accounts'},
+                )[0]
+                for code in codes
+            ]
+            role = Rol.objects.create(
+                codigo=f'ORG_{slug}', nombre=f'Organization {slug}',
+            )
+            role.capacidades.set(capabilities)
+            user.roles.add(role)
+        client = APIClient()
+        client.force_authenticate(user=user)
+        return client
+
+    return build
 
 
 @pytest.fixture
@@ -390,6 +418,39 @@ class TestTiposUnidadAPI:
 
 
 class TestAsignacionUsuarioUnidadAPI:
+    ROUTER_BASENAMES = (
+        'asignacionusuariounidad',
+        'v2-core-asignaciones-usuario-unidad',
+    )
+
+    @staticmethod
+    def _create_synchronized_assignment(unidad, gestion_fiscal):
+        formulator_role, _ = Rol.objects.get_or_create(
+            codigo='FORMULADOR_POAU',
+            defaults={'nombre': 'Formulador POAU', 'es_sistema': True},
+        )
+        formulator = Usuario.objects.create_user(
+            email='formulator-gate@test.gob.bo', password='Test-2026',
+        )
+        formulator.roles.add(formulator_role)
+        assignment = AsignacionUsuarioUnidad.objects.create(
+            usuario=formulator, unidad=unidad, gestion=gestion_fiscal,
+        )
+        AlcanceOrganizacional.objects.create(
+            usuario=formulator,
+            rol=formulator_role,
+            unidad=unidad,
+            scope_type=AlcanceOrganizacional.SCOPE_SELF,
+            fiscal_year=gestion_fiscal,
+        )
+        return assignment
+
+    @staticmethod
+    def _assignment_snapshot():
+        legacy = list(AsignacionUsuarioUnidad.objects.order_by('pk').values())
+        canonical = list(AlcanceOrganizacional.objects.order_by('pk').values())
+        return legacy, canonical
+
     def test_list_200(self, auth_client, admin_user, unidad, gestion_fiscal):
         AsignacionUsuarioUnidad.objects.create(
             usuario=admin_user, unidad=unidad, gestion=gestion_fiscal,
@@ -400,3 +461,136 @@ class TestAsignacionUsuarioUnidadAPI:
         item = resp.data['results'][0]
         assert str(item['usuario']) == str(admin_user.id)
         assert str(item['unidad']) == str(unidad.id)
+
+    @pytest.mark.parametrize('basename', ROUTER_BASENAMES)
+    def test_assignment_reads_require_view_capability(
+        self, basename, capability_client, unidad, gestion_fiscal,
+    ):
+        assignment = self._create_synchronized_assignment(unidad, gestion_fiscal)
+        client = capability_client()
+
+        assert client.get(reverse(f'{basename}-list')).status_code == status.HTTP_403_FORBIDDEN
+        assert client.get(
+            reverse(f'{basename}-detail', args=[assignment.pk]),
+        ).status_code == status.HTTP_403_FORBIDDEN
+
+    @pytest.mark.parametrize('basename', ROUTER_BASENAMES)
+    def test_view_capability_allows_assignment_reads(
+        self, basename, capability_client, unidad, gestion_fiscal,
+    ):
+        assignment = self._create_synchronized_assignment(unidad, gestion_fiscal)
+        client = capability_client('accounts.alcance.view')
+
+        response = client.get(reverse(f'{basename}-list'))
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['count'] == 1
+        response = client.get(reverse(f'{basename}-detail', args=[assignment.pk]))
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['id'] == str(assignment.pk)
+
+    @pytest.mark.parametrize('basename', ROUTER_BASENAMES)
+    @pytest.mark.parametrize('method', ('post', 'put', 'patch', 'delete'))
+    def test_read_only_capability_denies_atomic_assignment_mutations(
+        self, basename, method, capability_client, unidad, unidad_hija,
+        gestion_fiscal,
+    ):
+        assignment = self._create_synchronized_assignment(unidad, gestion_fiscal)
+        client = capability_client('accounts.alcance.view')
+        before = self._assignment_snapshot()
+        list_url = reverse(f'{basename}-list')
+        detail_url = reverse(f'{basename}-detail', args=[assignment.pk])
+        payload = {
+            'usuario': str(assignment.usuario_id),
+            'unidad': str(unidad_hija.pk),
+            'gestion': str(gestion_fiscal.pk),
+        }
+
+        if method == 'post':
+            response = client.post(list_url, payload, format='json')
+        elif method == 'delete':
+            response = client.delete(detail_url)
+        else:
+            response = getattr(client, method)(detail_url, payload, format='json')
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert self._assignment_snapshot() == before
+
+    @pytest.mark.parametrize('basename', ROUTER_BASENAMES)
+    def test_formulador_create_update_delete_synchronizes_self_scope(
+        self, basename, capability_client, unidad, unidad_hija, gestion_fiscal,
+    ):
+        client = capability_client('accounts.alcance.assign')
+        formulator_role, _ = Rol.objects.get_or_create(
+            codigo='FORMULADOR_POAU',
+            defaults={'nombre': 'Formulador POAU', 'es_sistema': True},
+        )
+        director_role, _ = Rol.objects.get_or_create(
+            codigo='DIRECTOR',
+            defaults={'nombre': 'Director', 'es_sistema': True},
+        )
+        formulator = Usuario.objects.create_user(
+            email='formulator-sync@test.gob.bo', password='Test-2026',
+        )
+        formulator.roles.add(formulator_role)
+        preserved_scope = AlcanceOrganizacional.objects.create(
+            usuario=formulator,
+            rol=director_role,
+            unidad=unidad,
+            scope_type=AlcanceOrganizacional.SCOPE_DESCENDANTS,
+            fiscal_year=gestion_fiscal,
+        )
+
+        response = client.post(
+            reverse(f'{basename}-list'),
+            {
+                'usuario': str(formulator.pk),
+                'unidad': str(unidad.pk),
+                'gestion': str(gestion_fiscal.pk),
+            },
+            format='json',
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+        assignment_id = response.data['id']
+        scope = AlcanceOrganizacional.objects.get(
+            usuario=formulator, rol=formulator_role,
+        )
+        assert scope.unidad_id == unidad.pk
+        assert scope.scope_type == AlcanceOrganizacional.SCOPE_SELF
+
+        detail_url = reverse(
+            f'{basename}-detail', args=[assignment_id],
+        )
+        for _ in range(2):
+            response = client.patch(
+                detail_url, {'unidad': str(unidad_hija.pk)}, format='json',
+            )
+            assert response.status_code == status.HTTP_200_OK
+        assert AlcanceOrganizacional.objects.filter(
+            usuario=formulator, rol=formulator_role,
+            unidad=unidad_hija, fiscal_year=gestion_fiscal,
+        ).count() == 1
+        assert AlcanceOrganizacional.objects.filter(
+            usuario=formulator, rol=formulator_role,
+        ).count() == 1
+        assert AlcanceOrganizacional.objects.filter(pk=preserved_scope.pk).exists()
+
+        response = client.put(
+            detail_url,
+            {
+                'usuario': str(formulator.pk),
+                'unidad': str(unidad.pk),
+                'gestion': str(gestion_fiscal.pk),
+            },
+            format='json',
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert AlcanceOrganizacional.objects.get(
+            usuario=formulator, rol=formulator_role,
+        ).unidad_id == unidad.pk
+
+        response = client.delete(detail_url)
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert not AlcanceOrganizacional.objects.filter(
+            usuario=formulator, rol=formulator_role,
+        ).exists()
+        assert AlcanceOrganizacional.objects.filter(pk=preserved_scope.pk).exists()

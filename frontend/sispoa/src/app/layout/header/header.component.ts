@@ -1,4 +1,5 @@
 import { Component, EventEmitter, Input, Output, ChangeDetectionStrategy } from '@angular/core';
+import { Router } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { GestionHabilitadaService } from '../../core/services/gestion-habilitada.service';
 import { RUTA_HABILITACION } from '../../core/guards/gestion-habilitada.guard';
@@ -33,7 +34,7 @@ import { Usuario } from '../../core/models/usuario.model';
             }
           }
           <div class="avatar" [attr.aria-label]="'Usuario: ' + user.first_name + ' ' + user.last_name">{{ initials(user) }}</div>
-          <button class="btn btn-outline btn-sm" (click)="auth.logout()">Salir</button>
+          <button class="btn btn-outline btn-sm" (click)="logout()">Salir</button>
         }
       </div>
     </header>
@@ -106,7 +107,13 @@ export class HeaderComponent {
   constructor(
     public auth: AuthService,
     public gestion: GestionHabilitadaService,
+    private router: Router,
   ) {}
+
+  logout(): void {
+    this.auth.logout();
+    void this.router.navigateByUrl('/auth/login', { replaceUrl: true });
+  }
 
   initials(user: Usuario): string {
     return ((user.first_name?.[0] ?? '') + (user.last_name?.[0] ?? '')).toUpperCase();
