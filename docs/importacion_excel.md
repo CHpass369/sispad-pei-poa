@@ -19,6 +19,48 @@ contiene un código oficial. No crea montos, ignora valores `#REF!` y su segunda
 ejecución es idempotente (`0` registros nuevos). El Excel original no debe
 modificarse.
 
+## Padron de organizaciones sociales territoriales (OST)
+
+Tabla maestra que llena los campos «OTB / Junta vecinal» y «Presidente» del
+acta de priorizacion. Se carga un distrito por corrida, desde los libros
+`LISTA DE LIMITES DE OTB *.xlsx` que entrega cada distrito.
+
+```bash
+python manage.py importar_organizaciones_territoriales \
+  --archivo "/path/D_1/LISTA DE LIMITES DE OTB D-1.xlsx" \
+  --distrito D1 --dry-run
+```
+
+| Columna Excel | Destino | Nota |
+|---------------|---------|------|
+| ORGANIZACION SOCIAL TERRITORIAL | `UnidadTerritorial.nombre` | Se guarda tal cual: es lo que se imprime en el acta |
+| NOMBRE DEL DIRIGENTE | `DirigenteTerritorial.nombre` | |
+| CARGO | `DirigenteTerritorial.cargo` | Texto libre: hay presidentes y secretarios generales |
+| TELEFONO | `DirigenteTerritorial.telefono` | Se le saca el `.0` que agrega openpyxl |
+| OBSERVACIONES | `DirigenteTerritorial.observacion` | |
+| DISTRITO | *se ignora* | Ver abajo |
+
+- **El distrito va por parametro, no se lee de la columna F.** En el conjunto
+  completo esa columna viene vacia en 111 de 368 filas y con seis grafias
+  distintas en el resto. El archivo llega dentro de la carpeta de su distrito,
+  y esa es la unica fuente confiable.
+- **`--gestion` es la gestion POA a la que sirve el padron**, no el ano en que
+  se levanto: es la que busca el formulario del acta. Por defecto toma la
+  gestion habilitada.
+- **El tipo se deduce del prefijo del nombre** (`OTB`, `O.T.B.`, `JUNTA
+  VECINAL`, `SINDICATO`, `SUBCENTRAL`, `COMUNIDAD`). Lo que no declara su tipo
+  queda en `otro`. El resumen de la corrida imprime el reparto para validarlo.
+- **Es idempotente.** Reimportar la misma planilla no duplica ni renumera: la
+  clave es el nombre normalizado dentro del distrito, y el codigo se asigna una
+  sola vez al alta.
+- **El padron del ano siguiente no pisa al anterior:** el dirigente es una fila
+  por gestion, porque la dirigencia rota y el acta ya firmada tiene que poder
+  decir quien presidia entonces.
+
+Endpoint del dominio: `GET /api/v1/unidades-territoriales/dominio/?distrito=<uuid>`
+devuelve el padron completo del distrito, sin paginar, con el dirigente vigente
+de la gestion habilitada pegado a cada fila.
+
 ---
 
 ## 1. Formatos Soportados
