@@ -1,9 +1,10 @@
-import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subject, debounceTime, distinctUntilChanged, switchMap } from 'rxjs';
 import { GestionHabilitadaService } from '../../core/services/gestion-habilitada.service';
 import {
-  ActaPriorizacion, PriorizacionService, ProyectoCatalogo, ProyectoPriorizado,
+  ActaPriorizacion, OrganizacionTerritorial, PriorizacionService,
+  ProyectoCatalogo, ProyectoPriorizado,
 } from './priorizacion.service';
 
 @Component({
@@ -32,18 +33,76 @@ import {
                    title="La gestión la fija la habilitación de gestión fiscal">
           </label>
           <label>Distrito
-            <select class="form-control" [(ngModel)]="acta.distrito">
+            <select class="form-control" [ngModel]="acta.distrito"
+                    (ngModelChange)="cambiarDistrito($event)">
               <option value="">Seleccione…</option>
               <option *ngFor="let d of distritos" [value]="d.id">{{ d.nombre }}</option>
             </select>
           </label>
-          <label>OTB / Junta vecinal
-            <input class="form-control" [(ngModel)]="acta.otb"
-                   placeholder="OTB SAN JOSE DE KORIPILA">
-          </label>
-          <label>Presidente
-            <input class="form-control" [(ngModel)]="acta.presidente">
-          </label>
+          <!-- Los dos campos buscan sobre el mismo padrón y se completan
+               mutuamente: se puede entrar por la organización o por el
+               dirigente. Siguen admitiendo texto libre porque hay
+               organizaciones que todavía no están en la tabla maestra y el
+               acta no puede quedar trabada por eso. -->
+          <!-- Combobox editable no restrictivo: se escribe adentro y la lista
+               acota, pero un valor que no está en el padrón también vale. La
+               lista va FUERA del <label>: un label no puede contener otro
+               control, y un lector de pantalla leería el listbox como parte
+               del rótulo. -->
+          <div class="campo-padron">
+            <label for="buscador-otb">OTB / Junta vecinal</label>
+            <input class="form-control" id="buscador-otb" [value]="acta.otb"
+                   (input)="buscarOtb($event)" (focus)="abrir('otb')"
+                   (blur)="cerrarPadron()" (keydown)="teclaPadron($event, 'otb')"
+                   role="combobox" aria-autocomplete="list"
+                   aria-controls="sugeridas-otb" autocomplete="off"
+                   [attr.aria-expanded]="abiertoPadron === 'otb'"
+                   [attr.aria-activedescendant]="opcionActivaId('otb')"
+                   placeholder="Escriba y agregue palabras para acotar: ulincate">
+            <ul class="sugerencias" id="sugeridas-otb" role="listbox"
+                *ngIf="abiertoPadron === 'otb' && sugeridas.length">
+              <li *ngFor="let o of sugeridas; let i = index"
+                  [id]="'opcion-otb-' + i" role="option"
+                  [attr.aria-selected]="i === indiceActivo"
+                  [class.activa]="i === indiceActivo"
+                  (mousedown)="tomar(o, 'otb')">
+                <span class="nombre">{{ o.nombre }}</span>
+                <span class="marca">{{ o.tipo_display }}</span>
+                <span class="marca" *ngIf="o.distrito_codigo">{{ o.distrito_codigo }}</span>
+                <span class="marca dirigente" *ngIf="o.dirigente">{{ o.dirigente }}</span>
+              </li>
+            </ul>
+            <small class="pista">{{ pistaOtb() }}</small>
+          </div>
+
+          <div class="campo-padron">
+            <label for="buscador-presidente">Presidente</label>
+            <input class="form-control" id="buscador-presidente"
+                   [value]="acta.presidente"
+                   (input)="buscarPresidente($event)" (focus)="abrir('presidente')"
+                   (blur)="cerrarPadron()"
+                   (keydown)="teclaPadron($event, 'presidente')"
+                   role="combobox" aria-autocomplete="list"
+                   aria-controls="sugeridas-presidente" autocomplete="off"
+                   [attr.aria-expanded]="abiertoPadron === 'presidente'"
+                   [attr.aria-activedescendant]="opcionActivaId('presidente')"
+                   placeholder="Busque por nombre del dirigente">
+            <ul class="sugerencias" id="sugeridas-presidente" role="listbox"
+                *ngIf="abiertoPadron === 'presidente' && sugeridas.length">
+              <li *ngFor="let o of sugeridas; let i = index"
+                  [id]="'opcion-presidente-' + i" role="option"
+                  [attr.aria-selected]="i === indiceActivo"
+                  [class.activa]="i === indiceActivo"
+                  (mousedown)="tomar(o, 'presidente')">
+                <span class="nombre">{{ o.dirigente }}</span>
+                <span class="marca" *ngIf="o.cargo">{{ o.cargo | lowercase }}</span>
+                <span class="marca dirigente">{{ o.nombre }}</span>
+              </li>
+            </ul>
+            <small class="pista" *ngIf="cargoDirigente && cargoDirigente !== 'PRESIDENTE'">
+              El padrón lo registra como {{ cargoDirigente | lowercase }}.
+            </small>
+          </div>
 
           <label class="pavimento-check">
             <span>Pavimentos</span>
@@ -199,6 +258,20 @@ import {
     .total { font-weight: 700; color: var(--pip-green-700); }
     .buscador { position: relative; margin: var(--e-2) 0; }
     .ayuda { font-size: 0.75rem; color: var(--text-secondary); margin: 0.3rem 0 0; }
+    .pista {
+      display: block; margin-top: 0.2rem; font-size: 0.6875rem; font-weight: 400;
+      color: var(--text-secondary);
+    }
+    /* La lista de sugerencias se ancla al campo, no a la grilla. Como el
+       envoltorio dejó de ser un <label>, repite su estilo de grilla. */
+    .campo-padron {
+      position: relative; display: block; font-size: 0.75rem;
+      font-weight: 600; color: var(--text-secondary);
+    }
+    .campo-padron .form-control { margin-top: 0.25rem; font-weight: 400; }
+    .sugerencias li.activa { background: var(--realce); }
+    .sugerencias li[aria-selected="true"] { outline: 2px solid var(--pip-green-700); outline-offset: -2px; }
+    .marca.dirigente { background: #FFE0B2; color: #E65100; }
     .sugerencias {
       position: absolute; z-index: 20; left: 0; right: 0; margin: 0.2rem 0 0;
       padding: 0; list-style: none; max-height: 320px; overflow: auto;
@@ -287,12 +360,21 @@ export class ActaFormComponent implements OnInit {
   id = '';
   acta: ActaPriorizacion = {
     // La gestión sale del candado (ADR-007); el backend rechaza cualquier otra.
-    gestion: 0, distrito: '', otb: '', presidente: '',
+    gestion: 0, distrito: '', otb: '', unidad_territorial: null, presidente: '',
     responsable_registro: '', fecha: null,
     es_pavimento: false,
     proyectos: [],
   };
   distritos: any[] = [];
+  organizaciones: OrganizacionTerritorial[] = [];
+  sugeridas: OrganizacionTerritorial[] = [];
+  /** Qué buscador del padrón está desplegado: '' | 'otb' | 'presidente'. */
+  abiertoPadron = '';
+  /** Opción resaltada por teclado. -1 = ninguna, se respeta lo tipeado. */
+  indiceActivo = -1;
+  cargoDirigente = '';
+  /** Lo último que puso el padrón, para saber qué se puede retirar y qué no. */
+  private presidenteDelPadron = '';
   categorias: any[] = [];
   pares: any[] = [];
   sugerencias: ProyectoCatalogo[] = [];
@@ -306,7 +388,8 @@ export class ActaFormComponent implements OnInit {
 
   constructor(private api: PriorizacionService, private cdr: ChangeDetectorRef,
               private ruta: ActivatedRoute, private router: Router,
-              private gestionActiva: GestionHabilitadaService) {}
+              private gestionActiva: GestionHabilitadaService,
+              private anfitrion: ElementRef<HTMLElement>) {}
 
   ngOnInit(): void {
     // El acta nace en la gestión habilitada y el campo va de solo lectura:
@@ -316,6 +399,7 @@ export class ActaFormComponent implements OnInit {
       this.distritos = d.results ?? d;
       this.cdr.markForCheck();
     });
+    this.cargarPadron();
     this.cargarCategorias();
     this.cargarSaldos();
 
@@ -394,6 +478,230 @@ export class ActaFormComponent implements OnInit {
       },
       error: () => { this.error = 'No se pudo cargar el acta.'; this.cdr.markForCheck(); },
     });
+  }
+
+  /**
+   * Cambiar de distrito limpia lo ya escrito: dejar una OTB del distrito
+   * anterior es peor que pedir que se elija de nuevo. El padrón no se vuelve a
+   * pedir —está entero en memoria— solo se acota al distrito.
+   */
+  cambiarDistrito(distritoId: string): void {
+    this.acta.distrito = distritoId;
+    this.limpiarOrganizacion();
+    this.cdr.markForCheck();
+  }
+
+  private limpiarOrganizacion(): void {
+    this.acta.otb = '';
+    this.acta.unidad_territorial = null;
+    this.acta.presidente = '';
+    this.presidenteDelPadron = '';
+    this.cargoDirigente = '';
+    this.sugeridas = [];
+  }
+
+  /**
+   * El padrón se trae entero una sola vez. Son 368 filas con los doce
+   * distritos cargados: filtrar en memoria es instantáneo y evita una consulta
+   * por tecla.
+   */
+  private cargarPadron(): void {
+    this.api.organizaciones().subscribe({
+      next: (d: any) => {
+        this.organizaciones = d.resultados ?? [];
+        this.cdr.markForCheck();
+      },
+      error: () => { this.organizaciones = []; this.cdr.markForCheck(); },
+    });
+  }
+
+  /** Lo que se puede elegir: el distrito del acta acota, si ya se eligió. */
+  private get padron(): OrganizacionTerritorial[] {
+    return this.acta.distrito
+      ? this.organizaciones.filter(o => o.distrito === this.acta.distrito)
+      : this.organizaciones;
+  }
+
+  abrir(campo: string): void {
+    this.abiertoPadron = campo;
+    this.indiceActivo = -1;
+    // Al enfocar sin haber escrito se ve el padrón entero: es un desplegable
+    // además de un buscador.
+    const escrito = campo === 'otb' ? this.acta.otb : this.acta.presidente;
+    this.sugeridas = this.filtrar(escrito, campo);
+    this.cdr.markForCheck();
+  }
+
+  buscarOtb(evento: Event): void {
+    this.acta.otb = (evento.target as HTMLInputElement).value;
+    this.abiertoPadron = 'otb';
+    this.indiceActivo = -1;
+    this.sugeridas = this.filtrar(this.acta.otb, 'otb');
+    this.resolverCoincidencia();
+  }
+
+  buscarPresidente(evento: Event): void {
+    this.acta.presidente = (evento.target as HTMLInputElement).value;
+    this.presidenteDelPadron = '';
+    this.abiertoPadron = 'presidente';
+    this.indiceActivo = -1;
+    this.sugeridas = this.filtrar(this.acta.presidente, 'presidente');
+    this.cdr.markForCheck();
+  }
+
+  /**
+   * Cada palabra acota más —AND de contiene—, igual que el buscador de
+   * proyectos. Sin texto devuelve el padrón entero, recortado para que la
+   * lista no tape el formulario.
+   */
+  private filtrar(texto: string, campo: string): OrganizacionTerritorial[] {
+    const palabras = this.normalizar(texto).split(' ').filter(Boolean);
+    const contra = (o: OrganizacionTerritorial) => this.normalizar(
+      campo === 'presidente' ? `${o.dirigente} ${o.nombre}`
+                             : `${o.nombre} ${o.dirigente}`);
+    return this.padron
+      .filter(o => palabras.every(w => contra(o).includes(w)))
+      .slice(0, 40);
+  }
+
+  /**
+   * Escribir el nombre exacto vale lo mismo que elegirlo de la lista. Si se
+   * sigue tipeando y se pierde la coincidencia, se suelta el enganche y se
+   * retira lo que había puesto el padrón —no lo escrito a mano—.
+   */
+  private resolverCoincidencia(): void {
+    const clave = this.normalizar(this.acta.otb);
+    const hallada = this.padron.find(o => this.normalizar(o.nombre) === clave);
+    if (hallada) {
+      this.tomar(hallada, 'exacto');
+      return;
+    }
+    this.acta.unidad_territorial = null;
+    this.cargoDirigente = '';
+    if (this.acta.presidente === this.presidenteDelPadron) {
+      this.acta.presidente = '';
+    }
+    this.presidenteDelPadron = '';
+    this.cdr.markForCheck();
+  }
+
+  /**
+   * Elegir del padrón por cualquiera de los dos campos completa los dos.
+   *
+   * `origen` decide qué pasa con el presidente, y no es un detalle:
+   * - `presidente`: se eligió a esa persona de la lista, gana el padrón.
+   * - `otb` o `exacto`: se eligió la organización, así que un presidente
+   *   escrito a mano se respeta —puede ser un cambio de dirigencia posterior
+   *   al padrón, y el acta la firma quien firmó—.
+   */
+  tomar(o: OrganizacionTerritorial, origen = 'otb'): void {
+    // Gana la grafía del padrón: es la que sale impresa en el acta.
+    this.acta.otb = o.nombre;
+    this.acta.unidad_territorial = o.id;
+    this.cargoDirigente = o.cargo;
+    // Elegir sin distrito lo resuelve solo: la organización sabe cuál es.
+    if (o.distrito) { this.acta.distrito = o.distrito; }
+    if (origen === 'presidente' || !this.acta.presidente.trim()
+        || this.acta.presidente === this.presidenteDelPadron) {
+      this.acta.presidente = o.dirigente;
+      this.presidenteDelPadron = o.dirigente;
+    }
+    if (origen !== 'exacto') { this.cerrarPadron(); }
+    this.cdr.markForCheck();
+  }
+
+  /**
+   * El teclado maneja el combobox entero: flechas recorren, Enter elige,
+   * Escape cierra. Quien carga actas todo el día no debería soltar el teclado
+   * para ir al mouse por cada OTB.
+   */
+  teclaPadron(evento: KeyboardEvent, campo: string): void {
+    if (this.abiertoPadron !== campo) {
+      if (evento.key !== 'ArrowDown') { return; }
+      this.abrir(campo);
+    }
+    switch (evento.key) {
+      case 'ArrowDown':
+        this.mover(1, campo);
+        break;
+      case 'ArrowUp':
+        this.mover(-1, campo);
+        break;
+      case 'Enter':
+        // Sin opción resaltada no se elige nada: lo tipeado vale como está,
+        // que es lo que hace no restrictivo a este combobox.
+        if (this.indiceActivo < 0) { return; }
+        evento.preventDefault();
+        this.tomar(this.sugeridas[this.indiceActivo], campo);
+        break;
+      case 'Escape':
+        evento.preventDefault();
+        this.cerrarPadron();
+        break;
+      case 'Tab':
+        this.cerrarPadron();
+        return;
+      default:
+        return;
+    }
+    // Las flechas no deben mover el cursor dentro del campo. Tab y el resto
+    // ya salieron por `return` más arriba.
+    evento.preventDefault();
+    this.cdr.markForCheck();
+  }
+
+  private mover(paso: number, campo: string): void {
+    if (!this.sugeridas.length) { return; }
+    const total = this.sugeridas.length;
+    // Da la vuelta en los extremos, y desde "nada resaltado" bajar lleva a la
+    // primera y subir a la última.
+    this.indiceActivo = this.indiceActivo < 0
+      ? (paso > 0 ? 0 : total - 1)
+      : (this.indiceActivo + paso + total) % total;
+    this.desplazarAVista(campo);
+  }
+
+  /** La lista tiene alto máximo: sin esto la opción resaltada se sale. */
+  private desplazarAVista(campo: string): void {
+    const opcion = this.anfitrion.nativeElement.querySelector(
+      `#opcion-${campo}-${this.indiceActivo}`);
+    opcion?.scrollIntoView({ block: 'nearest' });
+  }
+
+  cerrarPadron(): void {
+    this.abiertoPadron = '';
+    this.indiceActivo = -1;
+    this.sugeridas = [];
+    this.cdr.markForCheck();
+  }
+
+  /** Le dice al lector de pantalla cuál opción está resaltada. */
+  opcionActivaId(campo: string): string | null {
+    return this.abiertoPadron === campo && this.indiceActivo >= 0
+      ? `opcion-${campo}-${this.indiceActivo}` : null;
+  }
+
+  pistaOtb(): string {
+    if (!this.organizaciones.length) { return 'Padrón no disponible: se escribe a mano.'; }
+    if (this.acta.otb.trim() && !this.acta.unidad_territorial) {
+      return 'No figura en el padrón: se guarda como texto libre.';
+    }
+    return `${this.padron.length} organizaciones en el padrón`
+         + (this.acta.distrito ? ' del distrito.' : '. Elija una y se completa el distrito.');
+  }
+
+  /**
+   * Espejo de `clave_organizacion` del backend: sin tildes ni puntuación, y
+   * las siglas punteadas vueltas a pegar para que `O.T.B. VILLA` reconozca a
+   * `OTB VILLA`. Si esto se desalinea, elegir del padrón deja de enganchar.
+   */
+  private normalizar(texto: string): string {
+    const plano = (texto || '').toUpperCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^A-Z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+    // Solo se junta una corrida de dos o más letras sueltas: una letra final
+    // —`OTB SAN JOSE B`— es parte del nombre.
+    return plano.replace(/\b(?:[A-Z] ){1,}[A-Z]\b/g, c => c.replace(/ /g, ''));
   }
 
   get total(): number {
