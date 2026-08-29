@@ -1,6 +1,8 @@
 import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
-import { concatMap, from, toArray } from 'rxjs';
+import { Observable, concatMap, from, of, toArray } from 'rxjs';
+import { catchError, map } from 'rxjs/operators';
 import { ApiService } from '../../core/services/api.service';
+import { OpcionCombo } from '../../shared/components/combo-box/combo-box.component';
 import { GestionHabilitadaService } from '../../core/services/gestion-habilitada.service';
 import {
   CabeceraRecursos,
@@ -8,8 +10,10 @@ import {
   Hallazgo,
   MESES,
   RequerimientoForm,
+  TIPOS_GASTO,
   cabeceraVacia,
   construirFilas,
+  grupoDePartida,
   requerimientoVacio,
   tieneErrores,
   totalAnual,
@@ -59,13 +63,11 @@ import {
           <div class="field"><label>Gestión</label>
             <input [ngModel]="cabecera.gestion" name="gestion" type="number" class="form-control" readonly
                    title="La fija la habilitación de gestión fiscal"></div>
-          <div class="field"><label>Acción de corto plazo</label>
-            <select [(ngModel)]="accionSel" class="form-control" (change)="onAccion()">
-              <option value="">Seleccione...</option>
-              <option *ngFor="let a of acciones" [value]="a.id">
-                {{ a.codigo_accion }} — {{ (a.denominacion || '') | slice:0:60 }}
-              </option>
-            </select>
+          <div class="field"><label for="cmb-accion">Acción de corto plazo</label>
+            <app-combo-box [opciones]="opcionesAccion" [(ngModel)]="accionSel"
+                           etiqueta="Acción de corto plazo"
+                           placeholder="Escriba el código o parte de la denominación…"
+                           (seleccionado)="onAccion()"></app-combo-box>
           </div>
         </div>
         <div class="form-2col">
@@ -96,19 +98,36 @@ import {
 
         <div class="heredado" *ngIf="cabecera.actividadId">
           <h4>Clasificación de la cadena</h4>
+          <!-- Código y denominación salen de la categoría programática de la
+               acción, cruzada contra el catálogo. No se tipean: si se pudieran
+               editar, la matriz diría una categoría y el catálogo otra. -->
           <div class="form-2col">
             <div class="field"><label>Categoría programática</label>
-              <input [(ngModel)]="cabecera.categoriaProgramatica" class="form-control"></div>
+              <input [ngModel]="cabecera.categoriaProgramatica" class="form-control derivada"
+                     readonly title="La hereda la acción de corto plazo elegida"></div>
             <div class="field"><label>Denominación de la categoría</label>
-              <input [(ngModel)]="cabecera.denominacionCategoria" class="form-control"></div>
+              <input [ngModel]="cabecera.denominacionCategoria" class="form-control derivada"
+                     readonly title="Del catálogo de categorías programáticas"></div>
+          </div>
+          <div class="aviso-catalogo" *ngIf="cabecera.categoriaProgramatica &&
+                                             !cabecera.denominacionCategoria">
+            La categoría <strong>{{ cabecera.categoriaProgramatica }}</strong> no figura
+            en el catálogo de la gestión {{ cabecera.gestion }}: revise la acción en el POAU.
           </div>
           <div class="form-3col">
             <div class="field"><label>Cargo del REACP</label>
               <input [(ngModel)]="cabecera.cargoReacp" class="form-control"></div>
             <div class="field"><label>DA — Dirección Administrativa</label>
-              <input [(ngModel)]="cabecera.da" class="form-control" placeholder="Ej: 01"></div>
+              <app-combo-box [opciones]="opcionesDa" [(ngModel)]="cabecera.da"
+                             etiqueta="Dirección Administrativa"
+                             placeholder="Código o nombre…"
+                             (seleccionado)="onDa($event)"></app-combo-box></div>
             <div class="field"><label>UE — Unidad Ejecutora</label>
-              <input [(ngModel)]="cabecera.ue" class="form-control" placeholder="Ej: 001"></div>
+              <app-combo-box [opciones]="opcionesUe" [(ngModel)]="cabecera.ue"
+                             etiqueta="Unidad Ejecutora"
+                             [disabled]="!daId"
+                             [placeholder]="daId ? 'Código o nombre…' : 'Elija primero la DA'"
+                             ></app-combo-box></div>
           </div>
         </div>
 
@@ -144,10 +163,19 @@ import {
                    placeholder="Ej: Servicio de consultoría en línea"></div>
 
           <div class="form-3col">
+            <!-- Los dos combos son el mismo clasificador visto por sus dos
+                 caras: se elija por el que se elija, se llenan ambos. -->
             <div class="field"><label>Cod. partida de gastos</label>
-              <input [(ngModel)]="r.codPartida" class="form-control" placeholder="Ej: 25200"></div>
+              <app-combo-box [buscador]="buscarPartidaPorCodigo" [(ngModel)]="r.codPartida"
+                             etiqueta="Código de partida de gastos"
+                             placeholder="Ej: 25200"
+                             (seleccionado)="onPartida(r, $event)"></app-combo-box></div>
             <div class="field"><label>Descripción de la partida</label>
-              <input [(ngModel)]="r.descripcionPartida" class="form-control"></div>
+              <app-combo-box [buscador]="buscarPartidaPorDescripcion"
+                             [(ngModel)]="r.descripcionPartida"
+                             etiqueta="Descripción de la partida"
+                             placeholder="Ej: Estudios e investigaciones"
+                             (seleccionado)="onPartida(r, $event)"></app-combo-box></div>
             <div class="field"><label>Fecha en la que se requiere el pago</label>
               <select [(ngModel)]="r.fechaRequerimiento" class="form-control">
                 <option value="">Mes estimado…</option>
@@ -157,13 +185,26 @@ import {
           </div>
           <div class="form-4col">
             <div class="field"><label>FTE — Fuente</label>
-              <input [(ngModel)]="r.fuenteFinanciamiento" class="form-control" placeholder="Ej: 20"></div>
+              <app-combo-box [opciones]="opcionesFuente" [(ngModel)]="r.fuenteFinanciamiento"
+                             etiqueta="Fuente de financiamiento"
+                             placeholder="Ej: 20"></app-combo-box></div>
             <div class="field"><label>ORG — Organismo</label>
-              <input [(ngModel)]="r.organismoFinanciador" class="form-control" placeholder="Ej: 230"></div>
+              <!-- 319 organismos: no entran en una página, va contra el servidor. -->
+              <app-combo-box [buscador]="buscarOrganismo" [(ngModel)]="r.organismoFinanciador"
+                             etiqueta="Organismo financiador"
+                             placeholder="Ej: 230"></app-combo-box></div>
             <div class="field"><label>Grupo de gasto</label>
-              <input [(ngModel)]="r.grupoGasto" class="form-control" placeholder="Ej: 20000"></div>
+              <!-- Sale del código de la partida: el clasificador es jerárquico
+                   y pedirlo aparte sería pedir un dato que ya está. -->
+              <input [ngModel]="r.grupoGasto" class="form-control derivada" readonly
+                     [title]="nombreGrupo(r.grupoGasto) || 'Lo determina la partida elegida'">
+              <small class="pista" *ngIf="nombreGrupo(r.grupoGasto)">
+                {{ nombreGrupo(r.grupoGasto) }}
+              </small></div>
             <div class="field"><label>Tipo de gasto</label>
-              <input [(ngModel)]="r.tipoGasto" class="form-control" placeholder="Funcionamiento"></div>
+              <app-combo-box [opciones]="opcionesTipoGasto" [(ngModel)]="r.tipoGasto"
+                             etiqueta="Tipo de gasto"
+                             placeholder="Funcionamiento"></app-combo-box></div>
           </div>
           <div class="form-2col">
             <div class="field"><label>Presupuesto programado gestión {{ cabecera.gestion }} (Bs.)</label>
@@ -296,6 +337,15 @@ import {
 
     .heredado { margin-top: 1rem; padding: 0.9rem; border: 1px solid var(--border); border-left: 4px solid var(--primary); border-radius: 6px; background: #F7FBF8; }
     .heredado h4 { margin-top: 0; }
+    .pista {
+      display: block; font-size: 0.6875rem; color: var(--text-secondary);
+      margin-top: 0.15rem; overflow: hidden; text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .aviso-catalogo {
+      margin: 0.5rem 0 0.75rem; padding: 0.5rem 0.7rem; border-radius: 4px;
+      background: #FFF4E5; color: #8A4B00; font-size: 0.75rem;
+    }
     .aviso-vacio { margin-top: 1rem; padding: 0.9rem; background: var(--aviso-fondo); color: var(--aviso-tinta); border-radius: 6px; font-size: 0.8125rem; display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
 
     .req-card { border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
@@ -339,6 +389,25 @@ export class PoauRecursosWizardComponent implements OnInit {
   actividadSel = '';
   cargando = true;
 
+  /** Catálogos maestros que alimentan los combos de la cabecera.
+   *
+   * Las opciones se arman al cargar y no en un getter: un `map` sobre 178
+   * acciones en cada ciclo de detección de cambios es basura que se recolecta
+   * sesenta veces por segundo. */
+  opcionesAccion: OpcionCombo[] = [];
+  opcionesDa: OpcionCombo[] = [];
+  opcionesUe: OpcionCombo[] = [];
+  opcionesFuente: OpcionCombo[] = [];
+  readonly opcionesTipoGasto: OpcionCombo[] =
+    TIPOS_GASTO.map(t => ({ valor: t, etiqueta: t }));
+  private unidadesEjecutoras: any[] = [];
+  /** Código de grupo → denominación, solo para rotular el campo derivado. */
+  private nombrePorGrupo = new Map<string, string>();
+  /** Código de categoría → denominación oficial. */
+  private denominacionPorCategoria = new Map<string, string>();
+  /** El id de la DA elegida: es lo que acota las UE, no su código. */
+  daId = '';
+
   guardando = false;
   msg = '';
   msgClass = '';
@@ -349,9 +418,46 @@ export class PoauRecursosWizardComponent implements OnInit {
   ngOnInit(): void {
     // Los recursos del POAU son de la gestión habilitada (ADR-007).
     this.cabecera.gestion = this.gestionActiva.anio() ?? 0;
-    this.cargar('/articulacion/acciones-poa/', v => { this.acciones = v; this.cargando = false; });
+    this.cargar('/articulacion/acciones-poa/', v => {
+      this.acciones = v;
+      this.opcionesAccion = v.map((a: any) => ({
+        valor: a.id,
+        etiqueta: `${a.codigo_accion} — ${a.denominacion || ''}`,
+        detalle: a.categoria_programatica || '',
+        dato: a,
+      }));
+      this.cargando = false;
+    });
     this.cargar('/articulacion/operaciones/', v => { this.operaciones = v; });
     this.cargar('/articulacion/actividades/', v => { this.actividades = v; });
+    // DA y UE son cinco y once filas: entran enteras en una página y se
+    // filtran en memoria, igual que operaciones y actividades.
+    this.cargar(`/direcciones-administrativas/?gestion=${this.cabecera.gestion}`,
+                v => {
+                  this.opcionesDa = v.map((d: any) => ({
+                    valor: d.codigo, etiqueta: `${d.codigo} — ${d.nombre}`, dato: d,
+                  }));
+                });
+    this.cargar(`/unidades-ejecutoras/?gestion=${this.cabecera.gestion}`,
+                v => { this.unidadesEjecutoras = v; this.recalcularUe(); });
+    // 21 fuentes entran en una página; los 9 grupos de gasto también.
+    this.cargar(`/fuentes/?gestion=${this.cabecera.gestion}`, v => {
+      this.opcionesFuente = v.map((f: any) => ({
+        valor: f.codigo, etiqueta: `${f.codigo} — ${f.denominacion}`, dato: f,
+      }));
+    });
+    this.cargar(`/objetos-gasto/?gestion=${this.cabecera.gestion}&nivel=grupo`, v => {
+      this.nombrePorGrupo = new Map(
+        v.map((g: any) => [String(g.codigo), String(g.denominacion || '')]));
+    });
+    // La denominación de la categoría no viene con la acción: la trae el
+    // catálogo. Este endpoint devuelve la lista completa del año, sin paginar.
+    this.cargar('/priorizacion/categorias-programaticas/', v => {
+      this.denominacionPorCategoria = new Map(
+        v.map((c: any) => [String(c.codigo), String(c.denominacion || '')]));
+      // La acción pudo elegirse antes de que llegara el catálogo.
+      this.completarDenominacion();
+    });
   }
 
   // --- Derivados ------------------------------------------------------------
@@ -385,6 +491,7 @@ export class PoauRecursosWizardComponent implements OnInit {
     this.cabecera.codigoAccion = accion?.codigo_accion || '';
     this.cabecera.categoriaProgramatica = accion?.categoria_programatica || '';
     this.cabecera.cargoReacp = accion?.cargo_responsable || '';
+    this.completarDenominacion();
     if (accion?.gestion) this.cabecera.gestion = accion.gestion;
     this.operacionSel = '';
     this.actividadSel = '';
@@ -403,6 +510,107 @@ export class PoauRecursosWizardComponent implements OnInit {
     const actividad = this.actividadesFiltradas.find(a => a.id === this.actividadSel);
     this.cabecera.actividadId = actividad?.id || null;
   }
+
+  /** La denominación es del catálogo, no de lo que alguien tipeó en la acción. */
+  private completarDenominacion(): void {
+    this.cabecera.denominacionCategoria =
+      this.denominacionPorCategoria.get(this.cabecera.categoriaProgramatica) || '';
+  }
+
+  onDa(opcion: OpcionCombo | null): void {
+    this.daId = opcion?.dato?.id || '';
+    // La UE elegida colgaba de la DA anterior: dejarla puesta arma una
+    // combinación que no existe en el padrón.
+    this.cabecera.ue = '';
+    this.recalcularUe();
+  }
+
+  /** Solo las UE de la DA elegida: una UE cuelga de una sola DA por gestión. */
+  private recalcularUe(): void {
+    this.opcionesUe = this.unidadesEjecutoras
+      .filter(u => u.da === this.daId)
+      .map(u => ({ valor: u.codigo, etiqueta: `${u.codigo} — ${u.nombre}`, dato: u }));
+  }
+
+  // --- Partida de gastos ----------------------------------------------------
+
+  /**
+   * Las dos caras del clasificador de objeto del gasto.
+   *
+   * Van como propiedades y no como métodos porque son `@Input` del combo: un
+   * método nuevo en cada ciclo de detección de cambios lo haría re-renderizar
+   * sin parar.
+   */
+  readonly buscarPartidaPorCodigo = (consulta: string): Observable<OpcionCombo[]> =>
+    this.buscarPartida(consulta).pipe(map(filas => filas.map(f => ({
+      valor: String(f.codigo), etiqueta: String(f.codigo),
+      detalle: this.rotuloPartida(f), dato: f,
+    }))));
+
+  readonly buscarPartidaPorDescripcion = (consulta: string): Observable<OpcionCombo[]> =>
+    this.buscarPartida(consulta).pipe(map(filas => filas.map(f => ({
+      valor: String(f.denominacion || ''), etiqueta: String(f.denominacion || ''),
+      detalle: `${f.codigo} · ${f.nivel || ''}`.trim(), dato: f,
+    }))));
+
+  /** El nivel a la vista: en el desplegable conviven partidas y detalles. */
+  private rotuloPartida(f: any): string {
+    const nivel = f?.nivel ? ` · ${f.nivel}` : '';
+    return `${f?.denominacion || ''}${nivel}`;
+  }
+
+  /**
+   * El clasificador tiene 505 objetos del gasto por gestión y la API pagina de
+   * a 25: filtrar en memoria mostraría solo las primeras 25 y el resto sería
+   * inalcanzable. Por eso busca en el servidor.
+   *
+   * `imputable=true` deja partidas y detalles, que son los dos niveles contra
+   * los que se imputa. Los grupos y subgrupos no se pueden elegir, pero sí
+   * teclear: la búsqueda baja por el árbol y trae lo que cuelga de ellos.
+   */
+  private buscarPartida(consulta: string): Observable<any[]> {
+    return this.api.get<any>('/objetos-gasto/', {
+      gestion: this.cabecera.gestion,
+      imputable: true,
+      activo: true,
+      search: consulta,
+    }).pipe(
+      map((r: any) => r?.results || (Array.isArray(r) ? r : [])),
+      catchError(() => of([])),
+    );
+  }
+
+  /** Se elija por código o por descripción, quedan llenos los dos campos. */
+  onPartida(r: RequerimientoForm, opcion: OpcionCombo | null): void {
+    if (!opcion?.dato) { return; }
+    r.codPartida = String(opcion.dato.codigo || '');
+    r.descripcionPartida = String(opcion.dato.denominacion || '');
+    // El grupo se deduce de la partida: son el mismo clasificador.
+    r.grupoGasto = grupoDePartida(r.codPartida);
+  }
+
+  nombreGrupo(codigo: string): string {
+    return this.nombrePorGrupo.get(codigo) || '';
+  }
+
+  /**
+   * Los organismos financiadores son 319: no entran en una página de la API.
+   *
+   * Es la misma razón que en las partidas —ver `buscarPartida`—, y por eso va
+   * remoto y no con `[opciones]`.
+   */
+  readonly buscarOrganismo = (consulta: string): Observable<OpcionCombo[]> =>
+    this.api.get<any>('/organismos/', {
+      gestion: this.cabecera.gestion, activo: true, search: consulta,
+    }).pipe(
+      map((res: any) => res?.results || (Array.isArray(res) ? res : [])),
+      map((filas: any[]) => filas.map(f => ({
+        valor: String(f.codigo),
+        etiqueta: `${f.codigo} — ${f.denominacion}`,
+        dato: f,
+      }))),
+      catchError(() => of([] as OpcionCombo[])),
+    );
 
   // --- Requerimientos -------------------------------------------------------
 

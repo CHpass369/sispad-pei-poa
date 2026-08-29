@@ -11,6 +11,7 @@ tabla —las columnas tienen que seguir alineadas— sin perder el árbol.
 El cronograma mensual viaja como doce columnas más el total anual.
 """
 from rest_framework import viewsets
+from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 
@@ -22,7 +23,7 @@ from apps.accounts.permissions import TieneCapacidad
 from apps.accounts.services_scope import GLOBAL_SCOPE, ScopeResolver
 from apps.gestion.mixins import gestion_del_candado
 
-from .models import AccionPOA, OperacionPOAU
+from .models import AccionPOA, AsignacionObjetoGasto, OperacionPOAU
 
 MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio',
          'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
@@ -164,6 +165,85 @@ class MatrizPOAUViewSet(viewsets.ViewSet):
         if raiz in programa:
             return programa[raiz], 'programa'
         return '', ''
+
+    @action(detail=False, methods=['get'], url_path='presupuesto')
+    def presupuesto(self, request):
+        """Programación presupuestaria del POAU, agrupada por categoría.
+
+        Es la contraparte financiera de la matriz física y va debajo de ella en
+        la misma pantalla: lo que el asistente de recursos registró como
+        requerimientos, ordenado por la categoría programática que lo clasifica.
+
+        Comparte candado, alcance y filtro `?unidad=` con `list()`: si la
+        matriz de arriba muestra una unidad, la de abajo tiene que mostrar el
+        presupuesto de esa misma unidad y no el de todas.
+        """
+        gestion = gestion_del_candado(request).anio
+        unidad = request.query_params.get('unidad')
+        en_alcance = self._codigos_en_alcance(request)
+
+        qs = (
+            AsignacionObjetoGasto.objects
+            .select_related('accion_poa__unidad_responsable', 'operacion',
+                            'actividad')
+            .filter(gestion=gestion)
+            .order_by('categoria_programatica', 'codigo_asignacion')
+        )
+        if en_alcance is not None:
+            qs = qs.filter(
+                accion_poa__unidad_responsable__codigo__in=en_alcance)
+        if unidad:
+            qs = qs.filter(accion_poa__unidad_responsable__codigo=unidad)
+
+        exacto, programa = catalogo_categorias(gestion)
+        grupos: dict = {}
+        for fila in qs:
+            codigo = _codigo_categoria(fila.categoria_programatica)
+            grupo = grupos.setdefault(codigo, {
+                'categoria': fila.categoria_programatica or '',
+                # La denominación sale del catálogo y no de la fila: el acta
+                # guarda el código, y el nombre es del maestro.
+                'denominacion': exacto.get(codigo)
+                or programa.get(_codigo_categoria(fila.programa)) or '',
+                'total': 0.0,
+                'filas': [],
+            })
+            meses = _plan(fila.programacion_mensual)
+            total = sum(float(v) for v in meses.values() if v is not None)
+            # El total del renglón es la suma mensual y no `monto_programado`:
+            # es lo que efectivamente quedó distribuido en el año.
+            grupo['total'] += total
+            renglon = {
+                'id': str(fila.pk),
+                'codigo_asignacion': fila.codigo_asignacion,
+                'accion': fila.accion_poa.codigo_accion if fila.accion_poa else '',
+                'actividad': (fila.actividad.codigo_actividad
+                              if fila.actividad else ''),
+                'unidad': (fila.accion_poa.unidad_responsable.codigo
+                           if fila.accion_poa
+                           and fila.accion_poa.unidad_responsable else ''),
+                'da': fila.da, 'ue': fila.ue,
+                'cod_objeto_gasto': fila.cod_objeto_gasto,
+                'descripcion_objeto': fila.descripcion_objeto,
+                'grupo_gasto': fila.grupo_gasto,
+                'tipo_gasto': fila.tipo_gasto,
+                'fuente_financiamiento': fila.fuente_financiamiento,
+                'organismo_financiador': fila.organismo_financiador,
+                'fecha_requerimiento': fila.fecha_requerimiento,
+                'monto_programado': _num(fila.monto_programado),
+                'total_anual': total,
+                'estado': fila.estado,
+            }
+            for mes, valor in meses.items():
+                renglon[f'mes_{mes}'] = _num(valor)
+            grupo['filas'].append(renglon)
+
+        categorias = sorted(grupos.values(), key=lambda g: g['categoria'])
+        return Response({
+            'gestion': gestion,
+            'total': sum(g['total'] for g in categorias),
+            'categorias': categorias,
+        })
 
     def list(self, request):
         # El candado manda: el POAU es de la gestión habilitada. Antes, sin

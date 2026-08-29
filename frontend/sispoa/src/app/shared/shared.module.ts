@@ -4,8 +4,11 @@ import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { TablaGenericaComponent } from './components/tabla-generica/tabla-generica.component';
 import { ControlMetodologicoComponent } from './components/control-metodologico/control-metodologico.component';
+import { ComboBoxComponent } from './components/combo-box/combo-box.component';
 
-const EXPORTED_DECLARABLES = [TablaGenericaComponent, ControlMetodologicoComponent];
+const EXPORTED_DECLARABLES = [
+  TablaGenericaComponent, ControlMetodologicoComponent, ComboBoxComponent,
+];
 
 @NgModule({
   declarations: [...EXPORTED_DECLARABLES],

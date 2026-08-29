@@ -12,6 +12,30 @@ export const MESES = [
   'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
 ] as const;
 
+/**
+ * Tipos de gasto de la clasificación presupuestaria boliviana.
+ *
+ * Es una convención escrita acá y no un catálogo importado: `tipo_gasto` es un
+ * `CharField` libre en `AsignacionObjetoGasto` y no hay tabla maestra ni
+ * `choices` en el backend. Se fija la lista para que el campo deje de recibir
+ * texto suelto; el día que exista el catálogo, esto se reemplaza por él.
+ */
+export const TIPOS_GASTO = ['Funcionamiento', 'Inversión'] as const;
+
+/**
+ * El grupo de gasto que le corresponde a una partida.
+ *
+ * El clasificador es jerárquico por código: la partida `25200` cuelga del
+ * subgrupo `25000` y este del grupo `20000`. O sea que el grupo es el primer
+ * dígito de la partida seguido de cuatro ceros, y pedirlo aparte sería pedir
+ * un dato que ya está.
+ */
+export function grupoDePartida(codPartida: string): string {
+  const codigo = (codPartida || '').trim();
+  if (!/^\d{5}$/.test(codigo)) { return ''; }
+  return `${codigo[0]}0000`;
+}
+
 export type ProgramacionMensual = Record<string, number | null>;
 
 export function programacionVacia(): ProgramacionMensual {

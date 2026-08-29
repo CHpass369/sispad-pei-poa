@@ -24,8 +24,10 @@ from rest_framework.test import APIClient
 
 from apps.accounts.models import AlcanceOrganizacional, Capacidad, Rol, Usuario
 from apps.articulacion.models import (
-    AccionPOA, OperacionPOAU, ProductoPEI, ResultadoPEI,
+    AccionPOA, ActividadPOAU, AsignacionObjetoGasto, OperacionPOAU,
+    ProductoPEI, ResultadoPEI,
 )
+from apps.budget.models import CategoriaProgramaticaTecho
 from apps.gestion.testing import habilitar_gestion_para_tests
 from apps.organizacion.models import TipoUnidad, UnidadOrganizacional
 
@@ -244,3 +246,125 @@ class CadenaPOAUScopeTests(ScopePOAUUnidadBase):
         self.assertFalse(
             AccionPOA.objects.filter(codigo_accion='ACC-INTRUSA').exists(),
         )
+
+
+class MatrizPOAUPresupuestoTests(ScopePOAUUnidadBase):
+    """La programación presupuestaria que va debajo de la matriz POAU.
+
+    Es la contraparte financiera de la matriz física y comparte pantalla con
+    ella, así que tiene que compartir también candado, alcance y `?unidad=`:
+    dos totales en la misma pantalla que hablen de universos distintos son dos
+    totales que nadie puede conciliar.
+    """
+
+    URL = f'{MATRIZ}presupuesto/'
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        CategoriaProgramaticaTecho.objects.create(
+            gestion=cls.gestion, codigo='170 0 001', nivel='ACTIVIDAD',
+            denominacion='CONSTRUCCION DE VIAS URBANAS',
+        )
+
+        # Los requerimientos cuelgan de una actividad: `actividad_id` es NOT
+        # NULL, igual que exige el asistente de recursos.
+        actividades = {}
+        for operacion in OperacionPOAU.objects.all():
+            actividades[operacion.accion_poa_id] = ActividadPOAU.objects.create(
+                operacion=operacion,
+                codigo_actividad=f'{operacion.codigo_operacion}-AC1',
+                denominacion=f'Actividad de {operacion.codigo_operacion}',
+            )
+
+        def asignacion(accion, codigo, categoria, meses, partida='25200',
+                       declarado=None):
+            # `declarado` a propósito distinto de la suma mensual: si fueran
+            # siempre iguales, el test del total no distinguiría cuál de los
+            # dos usa el endpoint.
+            return AsignacionObjetoGasto.objects.create(
+                codigo_asignacion=codigo, gestion=2027, accion_poa=accion,
+                operacion=actividades[accion.pk].operacion,
+                actividad=actividades[accion.pk],
+                categoria_programatica=categoria, da='1', ue='001',
+                programa=categoria.split()[0], cod_objeto_gasto=partida,
+                descripcion_objeto='Estudios e Investigaciones',
+                grupo_gasto='20000', tipo_gasto='Funcionamiento',
+                fuente_financiamiento='20', organismo_financiador='230',
+                monto_programado=(sum(meses.values()) if declarado is None
+                                  else declarado),
+                monto_vigente=sum(meses.values()),
+                programacion_mensual=meses,
+            )
+
+        # Declara 9 000 pero solo distribuyó 1 500: vale lo distribuido.
+        asignacion(cls.accion_propia, 'ACC-PROPIA.G1', '170 0 001',
+                   {'enero': 1000, 'marzo': 500}, declarado=9000)
+        asignacion(cls.accion_propia, 'ACC-PROPIA.G2', '170 0 001',
+                   {'julio': 2500}, partida='25800')
+        # Otra categoría de la misma unidad: tiene que salir en su propio grupo.
+        asignacion(cls.accion_propia, 'ACC-PROPIA.G3', '000 0 001',
+                   {'diciembre': 700})
+        # Y una de la unidad ajena, para que el alcance tenga qué filtrar.
+        asignacion(cls.accion_ajena, 'ACC-AJENA.G1', '170 0 001',
+                   {'enero': 9999})
+
+    def presupuesto(self, usuario, query=''):
+        respuesta = self.cliente(usuario).get(f'{self.URL}{query}')
+        self.assertEqual(respuesta.status_code, status.HTTP_200_OK)
+        return respuesta.data
+
+    def test_agrupa_los_requerimientos_por_categoria_programatica(self):
+        datos = self.presupuesto(self.global_, '?unidad=SCOPE-PROPIA')
+        codigos = [c['categoria'] for c in datos['categorias']]
+        self.assertEqual(codigos, ['000 0 001', '170 0 001'])
+        porcategoria = {c['categoria']: c for c in datos['categorias']}
+        self.assertEqual(len(porcategoria['170 0 001']['filas']), 2)
+        self.assertEqual(len(porcategoria['000 0 001']['filas']), 1)
+
+    def test_la_denominacion_la_pone_el_catalogo(self):
+        # La fila guarda el código; el nombre es del maestro de categorías.
+        datos = self.presupuesto(self.global_, '?unidad=SCOPE-PROPIA')
+        porcategoria = {c['categoria']: c for c in datos['categorias']}
+        self.assertEqual(porcategoria['170 0 001']['denominacion'],
+                         'CONSTRUCCION DE VIAS URBANAS')
+
+    def test_el_total_es_la_suma_mensual_y_no_el_monto_declarado(self):
+        # `ACC-PROPIA.G1` declara 9 000 y distribuyó 1 500. Vale lo
+        # distribuido: si el endpoint sumara `monto_programado`, la categoría
+        # daría 11 500 en vez de 4 000.
+        datos = self.presupuesto(self.global_, '?unidad=SCOPE-PROPIA')
+        porcategoria = {c['categoria']: c for c in datos['categorias']}
+        fila = porcategoria['170 0 001']['filas'][0]
+        self.assertEqual(fila['monto_programado'], 9000.0)
+        self.assertEqual(fila['total_anual'], 1500.0)
+        self.assertEqual(porcategoria['170 0 001']['total'], 4000.0)
+        self.assertEqual(porcategoria['000 0 001']['total'], 700.0)
+        self.assertEqual(datos['total'], 4700.0)
+
+    def test_cada_fila_trae_sus_doce_meses(self):
+        datos = self.presupuesto(self.global_, '?unidad=SCOPE-PROPIA')
+        fila = next(f for c in datos['categorias'] for f in c['filas']
+                    if f['codigo_asignacion'] == 'ACC-PROPIA.G1')
+        self.assertEqual(fila['mes_enero'], 1000.0)
+        self.assertEqual(fila['mes_marzo'], 500.0)
+        self.assertIsNone(fila['mes_febrero'])
+        self.assertEqual(fila['total_anual'], 1500.0)
+        self.assertEqual(fila['cod_objeto_gasto'], '25200')
+
+    def test_filtrar_por_unidad_deja_afuera_a_las_demas(self):
+        datos = self.presupuesto(self.global_, '?unidad=SCOPE-AJENA')
+        self.assertEqual(datos['total'], 9999.0)
+
+    def test_el_alcance_acota_igual_que_la_matriz_de_arriba(self):
+        # Sin filtro explícito, el acotado ve solo lo suyo: 4700, no 14699.
+        self.assertEqual(self.presupuesto(self.acotado)['total'], 4700.0)
+        self.assertEqual(self.presupuesto(self.global_)['total'], 14699.0)
+
+    def test_pedir_una_unidad_ajena_no_devuelve_su_presupuesto(self):
+        datos = self.presupuesto(self.acotado, '?unidad=SCOPE-AJENA')
+        self.assertEqual(datos['categorias'], [])
+        self.assertEqual(datos['total'], 0)
+
+    def test_sin_alcance_no_se_ve_nada(self):
+        self.assertEqual(self.presupuesto(self.sin_alcance)['total'], 0)

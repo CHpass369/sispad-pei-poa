@@ -1,3 +1,4 @@
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.parsers import MultiPartParser, FormParser
@@ -97,8 +98,71 @@ class RubroRecursoViewSet(CatalogoImportMixin, GestionFilterMixin, viewsets.Mode
 class ObjetoGastoViewSet(CatalogoImportMixin, GestionFilterMixin, viewsets.ModelViewSet):
     queryset = ObjetoGasto.objects.all()
     serializer_class = ObjetoGastoSerializer
-    filterset_fields = ['activo']
+    # `nivel` es filtrable porque un desplegable de partidas no puede ofrecer
+    # grupos ni subgrupos: son encabezados del clasificador y contra ellos no
+    # se imputa gasto.
+    filterset_fields = ['activo', 'nivel']
     search_fields = ['codigo', 'denominacion']
+
+    # Los dos niveles contra los que se imputa gasto. `grupo` y `subgrupo` son
+    # encabezados del clasificador: sirven para buscar, no para elegir.
+    NIVELES_IMPUTABLES = (ObjetoGasto.NIVEL_PARTIDA, ObjetoGasto.NIVEL_DETALLE)
+
+    @staticmethod
+    def _pedido_imputable(request):
+        return request.query_params.get('imputable') in ('1', 'true', 'True')
+
+    @staticmethod
+    def _con_descendientes(universo, ids):
+        """Agrega a `ids` todo lo que cuelga de ellos, a cualquier profundidad.
+
+        Sin esto no se puede buscar desde un nivel alto: el texto de un
+        subgrupo no aparece en el código ni en la denominación de sus hijos.
+        Tecleando `25000` se encontraba **una** fila —el subgrupo mismo— y con
+        `?hoja=true` ninguna, porque el subgrupo tiene hijos. Ahora se
+        encuentran las nueve partidas que cuelgan de él y sus detalles.
+        """
+        hijos_de: dict = {}
+        for hijo, padre in universo.values_list('id', 'padre_id'):
+            hijos_de.setdefault(padre, []).append(hijo)
+        alcanzados, pila = set(ids), list(ids)
+        while pila:
+            for hijo in hijos_de.get(pila.pop(), ()):
+                if hijo not in alcanzados:
+                    alcanzados.add(hijo)
+                    pila.append(hijo)
+        return alcanzados
+
+    def filter_queryset(self, queryset):
+        """Búsqueda por familia, y `?imputable=true` para lo elegible.
+
+        El orden importa y por eso no alcanza con filtrar en `get_queryset()`:
+        primero se busca sobre el catálogo entero —para que un subgrupo pueda
+        ser el punto de partida—, después se baja a sus descendientes, y recién
+        al final se descartan los niveles que no admiten imputación.
+
+        `?imputable=true` deja `partida` y `detalle`, que son los dos niveles
+        contra los que el GAM Sacaba imputa. Se probó antes dejando solo las
+        hojas del árbol, y eso sacaba del desplegable a `25200`, que sí se
+        usa: una partida con detalles colgados se imputa igual. `grupo` y
+        `subgrupo` siguen afuera —son encabezados como «SERVICIOS NO
+        PERSONALES»— pero se pueden teclear para llegar a lo que cuelga de
+        ellos.
+        """
+        qs = super().filter_queryset(queryset)
+        if self.request.query_params.get('search'):
+            ids = self._con_descendientes(queryset, qs.values_list('id', flat=True))
+            # Se vuelve a pasar el filterset —y no `super()`— porque `super()`
+            # reaplicaría la búsqueda y volvería a dejar afuera justo a los
+            # descendientes que se acaban de traer. Sin esto, expandir por el
+            # árbol reintroduce filas que `?nivel=` o `?activo=` ya habían
+            # descartado.
+            qs = DjangoFilterBackend().filter_queryset(
+                self.request, queryset.filter(id__in=ids), self)
+        if self._pedido_imputable(self.request):
+            qs = qs.filter(nivel__in=self.NIVELES_IMPUTABLES)
+        return qs
+
     def _get_tipo_catalogo(self): return 'objeto_gasto'
 
 

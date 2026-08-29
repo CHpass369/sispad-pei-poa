@@ -14,12 +14,12 @@ import { ActaPriorizacion, PriorizacionService } from './priorizacion.service';
           <p class="sub">Lo que cada organización territorial priorizó para el POA.</p>
         </div>
         <div class="encabezado-acciones">
-          <select class="form-control filtro" [(ngModel)]="distrito" (change)="cargar()">
+          <select class="form-control filtro" [(ngModel)]="distrito" (change)="filtrar()">
             <option value="">Todos los distritos</option>
             <option *ngFor="let d of distritos" [value]="d.id">{{ d.nombre }}</option>
           </select>
           <input class="form-control filtro" [(ngModel)]="busqueda"
-                 (keyup.enter)="cargar()" placeholder="OTB o presidente">
+                 (keyup.enter)="filtrar()" placeholder="OTB o presidente">
           <a class="btn btn-sm btn-primary" routerLink="/priorizacion/actas/nueva">
             + Nueva acta
           </a>
@@ -29,11 +29,12 @@ import { ActaPriorizacion, PriorizacionService } from './priorizacion.service';
       <div class="msg-box error" *ngIf="error">{{ error }}</div>
       <div class="msg-box aviso" *ngIf="aviso && !error">{{ aviso }}</div>
 
-      <div class="tarjetas-resumen" *ngIf="actas.length">
-        <div class="tarjeta"><span>{{ actas.length }}</span><small>actas</small></div>
-        <div class="tarjeta"><span>{{ totalProyectos }}</span><small>proyectos</small></div>
+      <!-- El resumen es de todo lo filtrado, no de la página en pantalla. -->
+      <div class="tarjetas-resumen" *ngIf="totales.actas">
+        <div class="tarjeta"><span>{{ totales.actas }}</span><small>actas</small></div>
+        <div class="tarjeta"><span>{{ totales.proyectos }}</span><small>proyectos</small></div>
         <div class="tarjeta">
-          <span>Bs {{ montoTotal | number:'1.0-0' }}</span><small>priorizado</small>
+          <span>Bs {{ totales.monto | number:'1.0-0' }}</span><small>priorizado</small>
         </div>
       </div>
 
@@ -43,9 +44,13 @@ import { ActaPriorizacion, PriorizacionService } from './priorizacion.service';
         <table class="tabla tabla-compacta">
           <thead>
             <tr>
-              <th>Distrito</th><th>OTB / Junta vecinal</th><th>Presidente</th>
-              <th>Fecha</th><th class="num">Proyectos</th><th class="num">Monto Bs</th>
-              <th>Estado</th><th style="width:200px">Acciones</th>
+              <th *ngFor="let c of columnas" class="ordenable"
+                  [class.num]="c.num" [class.activa]="!!indicador(c.clave)"
+                  [attr.aria-sort]="direccion(c.clave)" tabindex="0"
+                  (click)="ordenar(c.clave)" (keydown.enter)="ordenar(c.clave)">
+                {{ c.titulo }}<span class="flecha">{{ indicador(c.clave) }}</span>
+              </th>
+              <th style="width:200px">Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -60,6 +65,9 @@ import { ActaPriorizacion, PriorizacionService } from './priorizacion.service';
                 <span class="estado" [ngClass]="'e-' + a.estado">{{ a.estado }}</span>
                 <span class="incompleta" *ngIf="!a.esta_completa"
                       title="Sin fecha o sin proyectos: no se puede emitir">incompleta</span>
+              </td>
+              <td class="registro">
+                {{ (a.fecha_hora_registro | date:'dd/MM/yy HH:mm') || '—' }}
               </td>
               <td>
                 <div class="acciones">
@@ -80,7 +88,7 @@ import { ActaPriorizacion, PriorizacionService } from './priorizacion.service';
               </td>
             </tr>
             <tr *ngIf="!actas.length">
-              <td colspan="8">
+              <td colspan="9">
                 <div class="sin-datos">
                   <span class="sin-datos-icono">📋</span>
                   <strong>No hay actas registradas para la gestión {{ gestion }}</strong>
@@ -93,6 +101,16 @@ import { ActaPriorizacion, PriorizacionService } from './priorizacion.service';
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <div class="paginador" *ngIf="!cargando && totalPaginas > 1">
+        <button class="btn btn-sm" [disabled]="pagina === 1"
+                (click)="irA(pagina - 1)">◀ Anterior</button>
+        <span class="cuenta">
+          Página {{ pagina }} de {{ totalPaginas }} · {{ count }} actas
+        </span>
+        <button class="btn btn-sm" [disabled]="pagina === totalPaginas"
+                (click)="irA(pagina + 1)">Siguiente ▶</button>
       </div>
     </div>
   `,
@@ -107,6 +125,17 @@ import { ActaPriorizacion, PriorizacionService } from './priorizacion.service';
     .tarjeta small { font-size: 0.6875rem; color: var(--text-secondary); }
     .fuerte { font-weight: 600; }
     .num { text-align: right; }
+    .registro { font-size: 0.6875rem; color: var(--text-secondary); white-space: nowrap; }
+    .ordenable { cursor: pointer; user-select: none; }
+    .ordenable:hover, .ordenable:focus-visible { background: rgba(0,0,0,.06); }
+    .ordenable.activa { color: var(--pip-green-700); }
+    .flecha { font-size: 0.625rem; margin-left: 0.2rem; }
+    .paginador {
+      display: flex; align-items: center; justify-content: center;
+      gap: var(--e-2); margin-top: var(--e-2); font-size: 0.75rem;
+    }
+    .paginador .cuenta { color: var(--text-secondary); }
+    .paginador button[disabled] { opacity: .4; cursor: default; }
     .acciones { display: flex; gap: 0.2rem; }
     .acc {
       border: none; background: rgba(0,0,0,.06); color: var(--text); cursor: pointer;
@@ -148,6 +177,31 @@ export class ActasListadoComponent implements OnInit {
   error = '';
   aviso = '';
 
+  /**
+   * Columnas del encabezado. `clave` viaja tal cual al backend en `ordering`:
+   * ordenar acá sería ordenar solo la página recibida, no las actas.
+   */
+  readonly columnas = [
+    { titulo: 'Distrito', clave: 'distrito__codigo', num: false },
+    { titulo: 'OTB / Junta vecinal', clave: 'otb', num: false },
+    { titulo: 'Presidente', clave: 'presidente', num: false },
+    { titulo: 'Fecha', clave: 'fecha', num: false },
+    { titulo: 'Proyectos', clave: 'cuenta_proyectos', num: true },
+    { titulo: 'Monto Bs', clave: 'suma_monto', num: true },
+    { titulo: 'Estado', clave: 'estado', num: false },
+    { titulo: 'Registrada', clave: 'created_at', num: false },
+  ];
+
+  /** Lo último registrado arriba. Es el mismo default que aplica el backend. */
+  orden = '-created_at';
+
+  pagina = 1;
+  count = 0;
+  /** Lo dice el servidor: clavarlo acá lo desincroniza de `PAGE_SIZE`. */
+  pageSize = 25;
+  /** Totales de todo lo filtrado, no de la página que se está viendo. */
+  totales = { actas: 0, proyectos: 0, monto: 0 };
+
   constructor(private api: PriorizacionService, private cdr: ChangeDetectorRef,
               private gestionActiva: GestionHabilitadaService) {}
 
@@ -159,23 +213,59 @@ export class ActasListadoComponent implements OnInit {
     this.cargar();
   }
 
-  get totalProyectos(): number {
-    return this.actas.reduce((t, a) => t + a.proyectos.length, 0);
+  get totalPaginas(): number {
+    if (!this.pageSize) { return 1; }
+    return Math.max(1, Math.ceil(this.count / this.pageSize));
   }
 
-  get montoTotal(): number {
-    return this.actas.reduce((t, a) => t + Number(a.monto_total || 0), 0);
+  /** Filtrar u ordenar cambia el conjunto: la página vieja ya no significa nada. */
+  filtrar(): void {
+    this.pagina = 1;
+    this.cargar();
+  }
+
+  irA(pagina: number): void {
+    if (pagina < 1 || pagina > this.totalPaginas) { return; }
+    this.pagina = pagina;
+    this.cargar();
+  }
+
+  /** Click en el encabezado: misma columna invierte, otra columna arranca asc. */
+  ordenar(clave: string): void {
+    this.orden = this.orden === clave ? `-${clave}` : clave;
+    this.filtrar();
+  }
+
+  indicador(clave: string): string {
+    if (this.orden === clave) { return '▲'; }
+    if (this.orden === `-${clave}`) { return '▼'; }
+    return '';
+  }
+
+  direccion(clave: string): string {
+    if (this.orden === clave) { return 'ascending'; }
+    if (this.orden === `-${clave}`) { return 'descending'; }
+    return 'none';
   }
 
   cargar(): void {
     this.cargando = true;
     this.error = '';
     // La gestión no viaja como filtro: la resuelve el candado en el backend.
-    this.api.listarActas({ distrito: this.distrito, q: this.busqueda })
+    this.api.listarActas({ distrito: this.distrito, q: this.busqueda,
+                           ordering: this.orden, page: this.pagina })
       .pipe(finalize(() => { this.cargando = false; this.cdr.markForCheck(); }))
       .subscribe({
         next: d => {
           this.actas = d.results ?? d;
+          this.count = d.count ?? this.actas.length;
+          this.pageSize = d.page_size ?? this.pageSize;
+          // Los montos llegan como texto (DRF serializa Decimal así): sin el
+          // `+` la tarjeta muestra el string crudo en vez del número formateado.
+          this.totales = d.resumen
+            ? { actas: +d.resumen.actas, proyectos: +d.resumen.proyectos,
+                monto: +d.resumen.monto }
+            : this.totalesDeLaPagina();
           this.cdr.markForCheck();
         },
         error: () => {
@@ -183,6 +273,15 @@ export class ActasListadoComponent implements OnInit {
           this.cdr.markForCheck();
         },
       });
+  }
+
+  /** Respaldo para una respuesta sin paginar: los totales de lo que llegó. */
+  private totalesDeLaPagina(): { actas: number; proyectos: number; monto: number } {
+    return {
+      actas: this.actas.length,
+      proyectos: this.actas.reduce((t, a) => t + a.proyectos.length, 0),
+      monto: this.actas.reduce((t, a) => t + Number(a.monto_total || 0), 0),
+    };
   }
 
   revisar(acta: ActaPriorizacion, accion: string): void {
@@ -234,7 +333,13 @@ export class ActasListadoComponent implements OnInit {
   eliminar(acta: ActaPriorizacion): void {
     if (!window.confirm(`¿Eliminar el acta de ${acta.otb}?`)) { return; }
     this.api.eliminarActa(acta.id!).subscribe({
-      next: () => { this.aviso = 'Acta eliminada.'; this.cargar(); },
+      next: () => {
+        this.aviso = 'Acta eliminada.';
+        // Era la única de la página: esa página ya no existe y el servidor
+        // responde 404 «Invalid page», no una lista vacía.
+        if (this.actas.length === 1 && this.pagina > 1) { this.pagina--; }
+        this.cargar();
+      },
       error: e => {
         this.error = e?.error?.error || 'No se pudo eliminar el acta.';
         this.cdr.markForCheck();

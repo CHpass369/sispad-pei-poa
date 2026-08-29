@@ -63,3 +63,12 @@ htmlcov/
 # Frontend Angular compilado: lo produce `npm run build` en cada despliegue.
 # Versionarlo ensucia el arbol de trabajo del servidor y rompe `git pull --ff-only`.
 backend/static_assets/
+
+# Credenciales de servicio. `secrets/google-sheets.json` vive en el servidor de
+# produccion y NO estaba ignorado: un `git add -A` alli publicaba la clave de
+# la cuenta de servicio de Google en el repositorio.
+secrets/
+*.json.key
+
+# Respaldos que deja el trabajo manual sobre el servidor.
+*.bak_*
