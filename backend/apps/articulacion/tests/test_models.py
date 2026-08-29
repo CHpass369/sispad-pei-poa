@@ -520,3 +520,33 @@ class AsignacionObjetoGastoModelTest(TestCase):
         )
         self.assertIn('00000001', str(asig))
         self.assertEqual(asig.estado, 'REFERENCIAL')
+
+    def test_el_codigo_entra_con_un_codigo_de_accion_real(self):
+        """`codigo_asignacion` medía 20 y ningún código real entraba.
+
+        El asistente de recursos del POAU arma el código como
+        `<codigo_accion>.G<n>`, y las acciones cargadas llegan a 25 caracteres
+        —`PROV-SD-DDH-52-13-2610001`—. Guardar la programación presupuestaria
+        devolvía 400 «Asegúrese de que este campo no tenga más de 20
+        caracteres» para prácticamente toda acción.
+        """
+        accion = AccionPOA.objects.create(
+            codigo_accion='PROV-SD-DDH-52-13-2610001',
+            denominacion='Acción con código largo',
+            producto_pei=self.accion.producto_pei, gestion=2026,
+        )
+        codigo = f'{accion.codigo_accion}.G1'
+        self.assertGreater(len(codigo), 20)
+
+        asig = AsignacionObjetoGasto.objects.create(
+            codigo_asignacion=codigo, gestion=2026, accion_poa=accion,
+            operacion=self.operacion, actividad=self.actividad,
+            categoria_programatica='170 0 001', da='1', ue='001',
+            programa='170', cod_objeto_gasto='25200',
+            descripcion_objeto='Estudios e Investigaciones',
+            grupo_gasto='20000', tipo_gasto='Funcionamiento',
+            fuente_financiamiento='20', organismo_financiador='230',
+            monto_programado=1000, monto_vigente=1000,
+        )
+        asig.refresh_from_db()
+        self.assertEqual(asig.codigo_asignacion, codigo)

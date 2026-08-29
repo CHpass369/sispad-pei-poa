@@ -1054,7 +1054,11 @@ class SeguimientoPresupuesto(TimeStampedModel):
 
 class AsignacionObjetoGasto(TimeStampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    codigo_asignacion = models.CharField(max_length=20, verbose_name='Código asignación')
+    # 60 y no 20: el código se arma como `<codigo_accion>.G<n>` y
+    # `AccionPOA.codigo_accion` admite 50. Con 20 no entraba ni un código real
+    # —`PROV-SD-DDH-52-13-2610001` mide 25— y la programación presupuestaria
+    # del POAU moría con un 400 al guardar.
+    codigo_asignacion = models.CharField(max_length=60, verbose_name='Código asignación')
     gestion = models.IntegerField(verbose_name='Gestión')
     accion_poa = models.ForeignKey(
         AccionPOA, on_delete=models.CASCADE,
