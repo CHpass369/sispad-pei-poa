@@ -316,10 +316,98 @@ const NUMERICAS = new Set(['linea_base', 'meta', 'meta_actual', 'ponderacion',
           </tbody>
         </table>
       </div>
+
+      <!-- ================= PROGRAMACIÓN PRESUPUESTARIA ================= -->
+      <div class="bloque-presupuesto">
+        <div class="encabezado-pantalla">
+          <div>
+            <h3>Programación presupuestaria</h3>
+            <p class="sub">
+              Requerimientos registrados para
+              {{ unidad ? 'la unidad ' + unidad : 'todas las unidades' }},
+              agrupados por categoría programática.
+            </p>
+          </div>
+          <div class="encabezado-acciones" *ngIf="presupuesto.length">
+            <span class="chip total">
+              Total programado: {{ moneda(totalPresupuesto) }} Bs.
+            </span>
+          </div>
+        </div>
+
+        <div class="msg-box error" *ngIf="errorPresupuesto">{{ errorPresupuesto }}</div>
+        <div class="sin-datos" *ngIf="cargandoPresupuesto">
+          <span>Cargando programación presupuestaria…</span>
+        </div>
+
+        <div class="sin-datos" *ngIf="!cargandoPresupuesto && !errorPresupuesto
+                                      && !presupuesto.length">
+          <span class="sin-datos-icono">◫</span>
+          <strong>Sin requerimientos presupuestados</strong>
+          <span>La programación se registra en POAU (Recursos).</span>
+          <a class="btn btn-sm btn-primary" routerLink="/poau_recursos">
+            Ir a la programación presupuestaria
+          </a>
+        </div>
+
+        <div class="tabla-caja" *ngIf="!cargandoPresupuesto && presupuesto.length">
+          <table class="tabla tabla-compacta tabla-presupuesto">
+            <thead>
+              <tr>
+                <th *ngFor="let c of columnasPresupuesto"
+                    [class.num]="c.num" [style.min-width.px]="c.ancho">
+                  {{ c.etiqueta }}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <ng-container *ngFor="let cat of presupuesto">
+                <!-- La categoría encabeza su grupo, como en la planilla. -->
+                <tr class="fila-categoria">
+                  <td [attr.colspan]="columnasPresupuesto.length - 1">
+                    <strong>{{ cat.categoria || 'SIN CATEGORÍA' }}</strong>
+                    <span class="denominacion">{{ cat.denominacion }}</span>
+                    <span class="cuenta">{{ cat.filas.length }} requerimiento(s)</span>
+                  </td>
+                  <td class="num"><strong>{{ moneda(cat.total) }}</strong></td>
+                </tr>
+                <tr *ngFor="let f of cat.filas">
+                  <td>{{ f.codigo_asignacion }}</td>
+                  <td>{{ f.da }} / {{ f.ue }}</td>
+                  <td>{{ f.cod_objeto_gasto }}</td>
+                  <td class="descripcion">{{ f.descripcion_objeto }}</td>
+                  <td>{{ f.fuente_financiamiento }}/{{ f.organismo_financiador }}</td>
+                  <td>{{ f.fecha_requerimiento || '—' }}</td>
+                  <td class="num" *ngFor="let m of meses">
+                    {{ f['mes_' + m] ? moneda(f['mes_' + m]) : '' }}
+                  </td>
+                  <td class="num">{{ moneda(f.total_anual) }}</td>
+                </tr>
+              </ng-container>
+              <tr class="fila-total">
+                <td [attr.colspan]="columnasPresupuesto.length - 1">
+                  TOTAL PROGRAMADO GESTIÓN {{ gestion }}
+                </td>
+                <td class="num">{{ moneda(totalPresupuesto) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   `,
   styles: [`
     .filtro { max-width: 300px; font-size: 0.8125rem; }
+    .bloque-presupuesto { margin-top: 2rem; padding-top: 1.25rem; border-top: 2px solid var(--border); }
+    .bloque-presupuesto h3 { font-size: 1rem; color: var(--primary); margin: 0; }
+    .chip.total { background: var(--pip-green-100); color: var(--pip-green-700); font-size: 0.75rem; font-weight: 700; padding: 0.3rem 0.7rem; border-radius: 999px; }
+    .tabla-presupuesto { font-size: 0.75rem; }
+    .tabla-presupuesto .num { text-align: right; }
+    .tabla-presupuesto .descripcion { max-width: 240px; }
+    .fila-categoria td { background: #ECEFF1; border-top: 2px solid var(--border); }
+    .fila-categoria .denominacion { color: var(--text-secondary); margin-left: 0.5rem; }
+    .fila-categoria .cuenta { color: var(--text-secondary); margin-left: 0.5rem; font-size: 0.6875rem; }
+    .fila-total td { background: var(--pip-green-100); font-weight: 700; border-top: 2px solid var(--pip-green-500); }
     .vistas { display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
     .vistas .btn { border: none; border-radius: 0; background: transparent; }
     .vistas .btn.activa { background: var(--pip-green-500); color: #fff; }
@@ -444,6 +532,26 @@ export class MatrizPoauComponent implements OnInit, AfterViewInit, OnDestroy {
   niveles = Object.keys(ETIQUETA_NIVEL);
 
   filas: any[] = [];
+
+  // --- Programación presupuestaria -------------------------------------------
+  /** Grupos por categoría programática, como los arma el servidor. */
+  presupuesto: any[] = [];
+  totalPresupuesto = 0;
+  cargandoPresupuesto = true;
+  errorPresupuesto = '';
+  readonly meses = MESES;
+  /** La última columna es siempre el total: la fila de categoría hace
+   *  `colspan` sobre todas las demás y apoya su total en esa. */
+  readonly columnasPresupuesto = [
+    { etiqueta: 'CÓDIGO', ancho: 150, num: false },
+    { etiqueta: 'DA / UE', ancho: 70, num: false },
+    { etiqueta: 'PARTIDA', ancho: 64, num: false },
+    { etiqueta: 'DESCRIPCIÓN DE LA PARTIDA', ancho: 220, num: false },
+    { etiqueta: 'FTE/ORG', ancho: 70, num: false },
+    { etiqueta: 'MES REQUERIDO', ancho: 88, num: false },
+    ...MESES.map(m => ({ etiqueta: m.slice(0, 3).toUpperCase(), ancho: 68, num: true })),
+    { etiqueta: 'TOTAL ANUAL', ancho: 92, num: true },
+  ];
   visibles: any[] = [];
   conteo: Record<string, number> = {};
   expandidos = new Set<string>();
@@ -519,7 +627,45 @@ export class MatrizPoauComponent implements OnInit, AfterViewInit, OnDestroy {
 
   tinta(fondo: string): string { return tintaSobre(fondo); }
 
+  /**
+   * La programación va de la mano de la matriz: mismo candado, misma unidad.
+   *
+   * Si la de arriba muestra una unidad y la de abajo mostrara todas, los dos
+   * totales de la pantalla hablarían de universos distintos.
+   */
+  cargarPresupuesto(): void {
+    this.cargandoPresupuesto = true;
+    this.errorPresupuesto = '';
+    const filtro = this.unidad ? `?unidad=${encodeURIComponent(this.unidad)}` : '';
+    this.http.get<any>(
+      `${environment.apiUrl}/articulacion/matriz-poau/presupuesto/${filtro}`)
+      .pipe(finalize(() => {
+        this.cargandoPresupuesto = false;
+        this.cdr.markForCheck();
+      }))
+      .subscribe({
+        next: d => {
+          this.presupuesto = d?.categorias ?? [];
+          this.totalPresupuesto = Number(d?.total || 0);
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.presupuesto = [];
+          this.totalPresupuesto = 0;
+          this.errorPresupuesto =
+            'No se pudo cargar la programación presupuestaria.';
+          this.cdr.markForCheck();
+        },
+      });
+  }
+
+  moneda(valor: number | null | undefined): string {
+    const n = Number(valor || 0);
+    return n ? n.toLocaleString('es-BO', { maximumFractionDigits: 0 }) : '0';
+  }
+
   cargar(): void {
+    this.cargarPresupuesto();
     this.cargando = true;
     this.error = '';
     const filtro = this.unidad ? `&unidad=${encodeURIComponent(this.unidad)}` : '';
