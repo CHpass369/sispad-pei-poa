@@ -742,7 +742,16 @@ class OrdenDelPresupuestoTests(TestCase):
 
 
 class JerarquiaDelGastoTests(TestCase):
-    """El rango es el PROGRAMA y el código de tres dígitos el SUBPROGRAMA."""
+    """El PROGRAMA es el código de tres dígitos; el rango solo lo describe.
+
+    Esta clase probaba lo contrario —el rango del Anexo VI como nodo raíz del
+    árbol— y quedó desactualizada cuando el árbol pasó a leerse del código
+    oficial `PPP S AAA`. El motivo está escrito en `apps/budget/views.py`:
+    agrupar por rango mandaba 126 de 133 filas a «SIN PROGRAMA» y dejaba el
+    mismo programa dos veces, como `131` y como `131 0 000`. El rango no
+    desapareció: aporta la finalidad y el sector del programa cuyo número cae
+    dentro, y eso se prueba en `test_el_programa_trae_lo_que_exige_la_directriz`.
+    """
 
     GASTOS = '/api/v2/sis-poa/budget/presupuesto-gastos/?gestion=2027'
 
@@ -775,17 +784,18 @@ class JerarquiaDelGastoTests(TestCase):
     def arbol(self):
         return self.client.get(self.GASTOS).json()['programas']
 
-    def test_el_programa_es_el_rango(self):
+    def test_el_programa_es_el_codigo_de_tres_digitos_y_no_el_rango(self):
         programas = self.arbol()
-        self.assertEqual(len(programas), 1)
-        self.assertEqual(programas[0]['codigo'], '170-179')
-        self.assertEqual(programas[0]['denominacion'],
-                         'INFRAESTRUCTURA URBANA Y RURAL')
+        self.assertEqual([p['codigo'] for p in programas], ['170', '171'])
+        # El rango del Anexo VI describe al programa, no es un nodo del árbol.
+        self.assertNotIn('170-179', [p['codigo'] for p in programas])
 
-    def test_el_subprograma_es_el_codigo_de_tres_digitos(self):
-        subprogramas = self.arbol()[0]['subprogramas']
-        self.assertEqual([s['codigo'] for s in subprogramas], ['170', '171'])
-        self.assertIn('VIAS URBANAS', subprogramas[1]['denominacion'])
+    def test_cada_programa_lleva_su_subprograma(self):
+        programas = self.arbol()
+        self.assertEqual([s['codigo'] for s in programas[0]['subprogramas']],
+                         ['170'])
+        self.assertIn('VIAS URBANAS',
+                      programas[1]['subprogramas'][0]['denominacion'])
 
     def test_la_actividad_cuelga_de_su_subprograma(self):
         actividades = self.arbol()[0]['subprogramas'][0]['actividades']
@@ -797,22 +807,25 @@ class JerarquiaDelGastoTests(TestCase):
         self.assertEqual(programa['finalidad_funcion'], '4.4.3; 4.5.1; 6.1')
 
     def test_los_programas_salen_en_orden_numerico_no_alfabetico(self):
-        # '170-179' y '97': por número el 97 va primero, por texto no.
+        # '97' y '170': por número el 97 va primero, por texto va último.
         rango97 = RangoProgramaDirectriz.objects.create(
             gestion=2027, desde=97, hasta=97, denominacion='NO ASIGNABLES')
         prog = CategoriaProgramaticaTecho.objects.create(
             gestion=self.gestion, codigo='97', nivel='PROGRAMA',
             denominacion='NO ASIGNABLES', rango_directriz=rango97)
+        # El subprograma va como '097' porque `gestion + codigo` es único y el
+        # programa ya ocupa '97'. Lo que decide el orden es el primer token del
+        # código de la ACTIVIDAD, que es de donde sale el número de programa.
         sub = CategoriaProgramaticaTecho.objects.create(
             gestion=self.gestion, codigo='097', nivel='SUBPROGRAMA',
             denominacion='X', parent=prog)
         act = CategoriaProgramaticaTecho.objects.create(
-            gestion=self.gestion, codigo='097 0 001', nivel='ACTIVIDAD',
+            gestion=self.gestion, codigo='97 0 001', nivel='ACTIVIDAD',
             denominacion='Y', parent=sub)
         Apertura.objects.create(gestion=self.gestion, categoria=act,
                                 denominacion='Y')
         codigos = [p['codigo'] for p in self.arbol()]
-        self.assertEqual(codigos, ['97', '170-179'])
+        self.assertEqual(codigos, ['97', '170', '171'])
         self.assertNotEqual(codigos, sorted(codigos))
 
 class AltaDesdeGastosTests(TestCase):

@@ -1,6 +1,7 @@
 """Módulo Priorización POA: buscador, acta oficial y circuito de revisión."""
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 
@@ -10,7 +11,7 @@ from apps.priorizacion.models import (
     ActaPriorizacion, PlantillaActa, ProyectoCatalogo, ProyectoPriorizado,
     normalizar,
 )
-from apps.priorizacion.views import anio_en_letras
+from apps.priorizacion.views import MESES, anio_en_letras
 from apps.territorio.models import Distrito
 
 User = get_user_model()
@@ -115,12 +116,13 @@ class ActaTests(TestCase):
         PlantillaActa.objects.create(nombre='Acta', **PLANTILLA)
 
     def crear_acta(self, **extra):
+        # `fecha` no viaja en el cuerpo: es de solo lectura y la pone el
+        # servidor al registrar. Mandarla no hace nada.
         datos = {
             'gestion': 2027, 'distrito': str(self.distrito.id),
             'otb': 'OTB SAN JOSE DE KORIPILA',
             'presidente': 'LIZETTE SHIRLEY CUBA ALDUNATE',
             'responsable_registro': 'LILIANA AYALA',
-            'fecha': '2026-09-03',
             'proyectos': [
                 {'nombre': 'CONST. PAVIMENTO ZONA SUDOESTE', 'monto': '220000',
                  'sisin': '', 'categoria_programatica': '170 0 001'},
@@ -130,6 +132,22 @@ class ActaTests(TestCase):
         }
         datos.update(extra)
         return self.client.post(f'{API}/actas/', datos, format='json')
+
+    def acta_sin_fecha(self):
+        """Un acta sin fecha, que por API ya no se puede crear.
+
+        Las hay igual: son las 18 que se importaron de planillas donde la
+        fecha venía en blanco. `esta_completa` las sigue frenando.
+        """
+        acta_id = self.crear_acta().json()['id']
+        ActaPriorizacion.objects.filter(pk=acta_id).update(fecha=None)
+        return acta_id
+
+    def fecha_del_acta_en_letras(self, acta_id):
+        """El encabezado, escrito con la fecha que el acta tiene guardada."""
+        fecha = ActaPriorizacion.objects.get(pk=acta_id).fecha
+        return (f'en fecha {fecha.day:02d} de {MESES[fecha.month - 1]} '
+                f'del año {anio_en_letras(fecha.year)}')
 
     # --- Registro ----------------------------------------------------------
 
@@ -164,12 +182,18 @@ class ActaTests(TestCase):
         r = self.client.put(f'{API}/actas/{acta_id}/', {
             'gestion': 2027, 'distrito': str(self.distrito.id),
             'otb': 'OTB SAN JOSE DE KORIPILA', 'presidente': 'OTRO',
-            'responsable_registro': '', 'fecha': '2026-09-03',
+            'responsable_registro': '',
             'proyectos': [{'nombre': 'UNICO', 'monto': '500', 'sisin': '',
                            'categoria_programatica': ''}],
         }, format='json')
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertEqual(ProyectoPriorizado.objects.count(), 1)
+
+    def test_la_fecha_la_pone_el_servidor_y_no_el_cliente(self):
+        # El formulario ni siquiera la pide: la muestra ya asignada. Por eso el
+        # acta oficial imprime el día del registro y no lo que mande el cuerpo.
+        r = self.crear_acta(fecha='2020-01-01')
+        self.assertEqual(r.json()['fecha'], str(timezone.localdate()))
 
     # --- Acta oficial ------------------------------------------------------
 
@@ -182,11 +206,13 @@ class ActaTests(TestCase):
         self.assertEqual(d['distrito'], 'DISTRITO 2')
         self.assertIn('El Sr. LIZETTE SHIRLEY CUBA ALDUNATE presidente de la '
                       'OTB SAN JOSE DE KORIPILA del DISTRITO 2', d['encabezado'])
-        self.assertIn('en fecha 03 de septiembre del año dos mil veintiséis',
-                      d['encabezado'])
+        self.assertIn(self.fecha_del_acta_en_letras(acta_id), d['encabezado'])
         self.assertEqual(d['total'], 230000.0)
+        # Firma el presidente y nadie más: el responsable del registro es un
+        # dato interno y no se imprime, aunque la plantilla declare su casilla.
         self.assertEqual([f['nombre'] for f in d['firmas']],
-                         ['LIZETTE SHIRLEY CUBA ALDUNATE', 'LILIANA AYALA'])
+                         ['LIZETTE SHIRLEY CUBA ALDUNATE'])
+        self.assertNotIn('LILIANA AYALA', str(d['firmas']))
 
     def test_no_antepone_otb_al_nombre_de_la_organizacion(self):
         # Hay juntas vecinales y sindicatos que no son OTB.
@@ -196,7 +222,7 @@ class ActaTests(TestCase):
         self.assertNotIn('de la OTB J.V.', d['encabezado'])
 
     def test_sin_fecha_no_se_emite(self):
-        acta_id = self.crear_acta(fecha=None).json()['id']
+        acta_id = self.acta_sin_fecha()
         r = self.client.get(f'{API}/actas/{acta_id}/acta-oficial/')
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
 
@@ -229,7 +255,7 @@ class ActaTests(TestCase):
     # --- Circuito ----------------------------------------------------------
 
     def test_validar_exige_que_el_acta_este_completa(self):
-        acta_id = self.crear_acta(fecha=None).json()['id']
+        acta_id = self.acta_sin_fecha()
         r = self.client.post(f'{API}/actas/{acta_id}/validar/')
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
 
@@ -298,7 +324,10 @@ class ActaPDFTests(ActaTests):
     """El PDF lo arma el servidor: la medida no puede quedar a criterio del
     diálogo de impresión del navegador."""
 
-    def test_sale_en_oficio_exacto(self):
+    def test_sale_en_carta_exacta(self):
+        # El acta se emitía en oficio (216 x 330) hasta que `0f3ac99` la pasó a
+        # carta. La medida sigue clavada en el servidor: lo que no puede pasar
+        # es que la decida el diálogo de impresión del navegador.
         import re
         acta_id = self.crear_acta().json()['id']
         r = self.client.get(f'{API}/actas/{acta_id}/pdf/')
@@ -306,11 +335,9 @@ class ActaPDFTests(ActaTests):
         self.assertEqual(r['Content-Type'], 'application/pdf')
         caja = re.search(rb'/MediaBox \[([^\]]+)\]', r.content)
         ancho, alto = [float(v) for v in caja.group(1).split()[2:]]
-        # 216 x 330 mm en puntos, con tolerancia de redondeo.
+        # 216 x 279 mm en puntos, con tolerancia de redondeo.
         self.assertAlmostEqual(ancho, 216 * 72 / 25.4, places=1)
-        self.assertAlmostEqual(alto, 330 * 72 / 25.4, places=1)
-        # El Legal norteamericano mediría 1008 puntos de alto.
-        self.assertLess(alto, 1000)
+        self.assertAlmostEqual(alto, 279 * 72 / 25.4, places=1)
 
     def test_se_descarga_con_nombre_propio(self):
         acta_id = self.crear_acta().json()['id']
@@ -357,7 +384,7 @@ class ActaPDFTests(ActaTests):
             status.HTTP_200_OK)
 
     def test_sin_fecha_no_hay_pdf(self):
-        acta_id = self.crear_acta(fecha=None).json()['id']
+        acta_id = self.acta_sin_fecha()
         r = self.client.get(f'{API}/actas/{acta_id}/pdf/')
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
 
@@ -425,14 +452,23 @@ class TextoDelPDFTests(ActaTests):
                          PdfReader(io.BytesIO(contenido)).pages)
 
     def test_imprime_el_acta_completa(self):
-        PlantillaActa.objects.all().update(
-            aclaracion='Aclarar que las transferencias del TGN del POA {gestion}')
         texto = self.texto_pdf(self.crear_acta().json()['id'])
         self.assertIn('ACTA DE PRIORIZACIÓN DE PROYECTOS Y ACTIVIDADES', texto)
         self.assertIn('DISTRITO 2', texto)
         self.assertIn('CONST. PAVIMENTO ZONA SUDOESTE', texto)
-        self.assertIn('transferencias del TGN', texto)
         self.assertIn('LIZETTE SHIRLEY CUBA ALDUNATE', texto)
+        self.assertIn('230.000,00', texto)
+
+    def test_la_aclaracion_de_la_plantilla_ya_no_se_imprime(self):
+        # El hotfix `6b9cd73` reemplazó ese párrafo por el texto condicional de
+        # pavimento. La aclaración sigue viva en la plantilla y en el acta que
+        # se ve en pantalla; en el PDF no sale.
+        PlantillaActa.objects.all().update(
+            aclaracion='Aclarar que las transferencias del TGN del POA {gestion}')
+        acta_id = self.crear_acta().json()['id']
+        d = self.client.get(f'{API}/actas/{acta_id}/acta-oficial/').json()
+        self.assertIn('transferencias del TGN', d['aclaracion'])
+        self.assertNotIn('transferencias del TGN', self.texto_pdf(acta_id))
 
     def test_no_lleva_el_rotulo_de_verificacion(self):
         texto = self.texto_pdf(self.crear_acta().json()['id'])
@@ -440,8 +476,10 @@ class TextoDelPDFTests(ActaTests):
         self.assertNotIn('Verificación del contenido', texto)
 
     def test_cierra_con_la_entidad_y_la_gestion(self):
+        # Con tilde: el pie del PDF se imprime, no se escanea. El que va sin
+        # tildes es el contenido del QR, y eso lo cubre `ContenidoQRTests`.
         texto = self.texto_pdf(self.crear_acta().json()['id'])
-        self.assertIn('Gobierno Autonomo Municipal de Sacaba', texto)
+        self.assertIn('Gobierno Autónomo Municipal de Sacaba', texto)
         self.assertIn('POA 2027', texto)
 
     def test_la_huella_queda_impresa_bajo_el_qr(self):
