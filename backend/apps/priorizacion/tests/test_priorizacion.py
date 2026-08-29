@@ -195,6 +195,89 @@ class ActaTests(TestCase):
         r = self.crear_acta(fecha='2020-01-01')
         self.assertEqual(r.json()['fecha'], str(timezone.localdate()))
 
+    # --- Orden del listado -------------------------------------------------
+
+    def _dos_actas_en_distritos_distintos(self):
+        """La primera va al distrito que el orden viejo ponía adelante.
+
+        Así el orden por código de distrito y el orden por registro dan
+        resultados opuestos, y el test distingue cuál de los dos se aplicó.
+        """
+        primero = Distrito.objects.create(codigo='D1', nombre='DISTRITO 1')
+        self.crear_acta(distrito=str(primero.id), otb='OTB ANTIGUA')
+        self.crear_acta(otb='OTB RECIENTE', proyectos=[
+            {'nombre': 'ADQ. CONTENEDORES', 'monto': '900000', 'sisin': '',
+             'categoria_programatica': ''},
+        ])
+
+    def _listar(self, consulta=''):
+        return [a['otb'] for a in
+                self.client.get(f'{API}/actas/{consulta}').json()['results']]
+
+    def test_el_listado_arranca_por_lo_ultimo_registrado(self):
+        self._dos_actas_en_distritos_distintos()
+        self.assertEqual(self._listar(), ['OTB RECIENTE', 'OTB ANTIGUA'])
+
+    def test_el_encabezado_ordena_por_la_columna_pedida(self):
+        self._dos_actas_en_distritos_distintos()
+        self.assertEqual(self._listar('?ordering=otb'),
+                         ['OTB ANTIGUA', 'OTB RECIENTE'])
+        self.assertEqual(self._listar('?ordering=-otb'),
+                         ['OTB RECIENTE', 'OTB ANTIGUA'])
+
+    def test_ordena_por_las_columnas_calculadas_del_encabezado(self):
+        # `proyectos` y `monto Bs` son propiedades del modelo: sin anotarlas
+        # el encabezado no podría ordenar por ellas.
+        self._dos_actas_en_distritos_distintos()
+        self.assertEqual(self._listar('?ordering=-cuenta_proyectos'),
+                         ['OTB ANTIGUA', 'OTB RECIENTE'])
+        self.assertEqual(self._listar('?ordering=-suma_monto'),
+                         ['OTB RECIENTE', 'OTB ANTIGUA'])
+
+    # --- Paginación --------------------------------------------------------
+
+    def _cargar_actas(self, cuantas):
+        """`cuantas` actas, cada una de una OTB distinta."""
+        for i in range(cuantas):
+            self.crear_acta(otb=f'OTB {i:03d}')
+
+    def test_el_listado_viene_paginado_y_dice_de_a_cuanto(self):
+        self._cargar_actas(27)
+        d = self.client.get(f'{API}/actas/').json()
+        self.assertEqual(d['count'], 27)
+        self.assertEqual(d['page_size'], 25)
+        self.assertEqual(len(d['results']), 25)
+        segunda = self.client.get(f'{API}/actas/?page=2').json()
+        self.assertEqual(len(segunda['results']), 2)
+
+    def test_el_resumen_cuenta_todas_las_actas_y_no_la_pagina(self):
+        # Las tarjetas de la pantalla se arman con esto. Si contaran `results`
+        # dirían 25 actas y 50 proyectos habiendo 27 y 54.
+        self._cargar_actas(27)
+        resumen = self.client.get(f'{API}/actas/').json()['resumen']
+        self.assertEqual(resumen['actas'], 27)
+        self.assertEqual(resumen['proyectos'], 54)
+        self.assertEqual(float(resumen['monto']), 27 * 230000.0)
+
+    def test_el_resumen_respeta_el_filtro_de_busqueda(self):
+        self._cargar_actas(3)
+        resumen = self.client.get(f'{API}/actas/?q=OTB 001').json()['resumen']
+        self.assertEqual(resumen['actas'], 1)
+        self.assertEqual(resumen['proyectos'], 2)
+
+    def test_sin_actas_el_resumen_va_en_cero_y_no_en_nulo(self):
+        d = self.client.get(f'{API}/actas/').json()
+        self.assertEqual(d['resumen'],
+                         {'actas': 0, 'proyectos': 0, 'monto': 0})
+
+    def test_la_cuenta_de_proyectos_no_se_infla_al_sumar_montos(self):
+        # Contar la relación y sumar sobre ella en el mismo `annotate` es donde
+        # Django infla la cuenta por el join.
+        self.crear_acta()
+        acta = self.client.get(f'{API}/actas/').json()['results'][0]
+        self.assertEqual(len(acta['proyectos']), 2)
+        self.assertEqual(float(acta['monto_total']), 230000.0)
+
     # --- Acta oficial ------------------------------------------------------
 
     def test_el_acta_reproduce_el_formato_oficial(self):

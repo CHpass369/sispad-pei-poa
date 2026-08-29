@@ -1,10 +1,13 @@
 """API del módulo Priorización POA."""
+from collections import OrderedDict
+
 from django.core.exceptions import ImproperlyConfigured
 from django.db.models import Count, F, Q, Sum
 from django.http import HttpResponse
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -86,6 +89,34 @@ class ProyectoCatalogoViewSet(viewsets.ReadOnlyModelViewSet):
         })
 
 
+class PaginacionActas(PageNumberPagination):
+    """Paginación del listado de actas, con el resumen de TODO lo filtrado.
+
+    Las tarjetas de la pantalla dicen cuántas actas, cuántos proyectos y cuánto
+    monto hay. Calculadas sobre `results` contarían solo la página en pantalla
+    y mentirían apenas hay más de una: el resumen se arma acá, sobre el
+    queryset completo que el paginador ya tiene en `object_list`.
+    """
+
+    def get_paginated_response(self, data):
+        totales = self.page.paginator.object_list.aggregate(
+            proyectos=Sum('cuenta_proyectos'), monto=Sum('suma_monto'))
+        return Response(OrderedDict([
+            ('count', self.page.paginator.count),
+            # Sin el tamaño de página el frontend no puede decir «página X de
+            # Y» sin clavarse un 25 que acá podría cambiar.
+            ('page_size', self.get_page_size(self.request)),
+            ('next', self.get_next_link()),
+            ('previous', self.get_previous_link()),
+            ('resumen', {
+                'actas': self.page.paginator.count,
+                'proyectos': totales['proyectos'] or 0,
+                'monto': totales['monto'] or 0,
+            }),
+            ('results', data),
+        ]))
+
+
 class ActaPriorizacionViewSet(CandadoSisPoaMixin, viewsets.ModelViewSet):
     """Actas de priorización, con su circuito de revisión.
 
@@ -98,11 +129,27 @@ class ActaPriorizacionViewSet(CandadoSisPoaMixin, viewsets.ModelViewSet):
                 .select_related('distrito')
                 .prefetch_related('proyectos')
                 .all())
+    # El listado ordena en el servidor y no en el navegador: la respuesta viene
+    # paginada, así que ordenar la página ya recibida mentiría sobre el total.
+    # `cuenta_proyectos` y `suma_monto` son las columnas calculadas: el modelo
+    # las expone como propiedades y sin anotarlas no hay por dónde ordenarlas.
+    ordering_fields = [
+        'distrito__codigo', 'otb', 'presidente', 'fecha', 'cuenta_proyectos',
+        'suma_monto', 'estado', 'created_at',
+    ]
+    # Lo último registrado va arriba: es lo que el técnico acaba de cargar.
+    ordering = ['-created_at']
+    pagination_class = PaginacionActas
 
     def get_queryset(self):
         # `super()` entra por CandadoSisPoaMixin, que acota a la gestión
         # habilitada antes de que se apliquen estos filtros.
         qs = super().get_queryset()
+        # Los alias NO se llaman `proyectos` ni `monto_total`: el primero pisa
+        # el nombre de la relación y rompe el `Sum` de al lado, y el segundo
+        # choca con la propiedad del modelo.
+        qs = qs.annotate(cuenta_proyectos=Count('proyectos'),
+                         suma_monto=Sum('proyectos__monto'))
         for campo in ('distrito', 'estado'):
             valor = self.request.query_params.get(campo)
             if valor:
