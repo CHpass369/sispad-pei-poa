@@ -20,6 +20,16 @@ import { ActaPriorizacion, PriorizacionService } from './priorizacion.service';
           </select>
           <input class="form-control filtro" [(ngModel)]="busqueda"
                  (keyup.enter)="filtrar()" placeholder="OTB o presidente">
+          <button type="button" class="btn btn-sm btn-exportar"
+                  [disabled]="!!descargando" (click)="exportar('xlsx')"
+                  title="Proyectos programados de lo filtrado, en Excel">
+            {{ descargando === 'xlsx' ? 'Generando…' : 'Excel' }}
+          </button>
+          <button type="button" class="btn btn-sm btn-exportar"
+                  [disabled]="!!descargando" (click)="exportar('pdf')"
+                  title="Proyectos programados de lo filtrado, en PDF">
+            {{ descargando === 'pdf' ? 'Generando…' : 'PDF' }}
+          </button>
           <a class="btn btn-sm btn-primary" routerLink="/priorizacion/actas/nueva">
             + Nueva acta
           </a>
@@ -160,6 +170,21 @@ import { ActaPriorizacion, PriorizacionService } from './priorizacion.service';
       background: var(--error-fondo); color: var(--error-tinta);
       padding: 0.7rem 0.9rem; border-radius: var(--radius); margin-bottom: var(--e-2);
     }
+    /* Exportar es acción secundaria: verde institucional, pero en tinta y no
+       en relleno, para no competir con el primario «+ Nueva acta». */
+    .btn-exportar {
+      background: var(--pip-green-100);
+      border: 1px solid var(--pip-green-500);
+      color: var(--pip-green-700);
+      font-weight: 600;
+    }
+    .btn-exportar:hover:not(:disabled) {
+      background: var(--pip-green-700);
+      border-color: var(--pip-green-700);
+      color: #fff;
+    }
+    .btn-exportar:disabled { opacity: 0.55; cursor: progress; }
+
     .msg-box.aviso {
       background: var(--pip-green-100); color: var(--pip-green-700);
       padding: 0.55rem 0.9rem; border-radius: var(--radius); margin-bottom: var(--e-2);
@@ -201,6 +226,9 @@ export class ActasListadoComponent implements OnInit {
   pageSize = 25;
   /** Totales de todo lo filtrado, no de la página que se está viendo. */
   totales = { actas: 0, proyectos: 0, monto: 0 };
+
+  /** Qué formato se está generando: deshabilita ambos botones mientras tanto. */
+  descargando: '' | 'xlsx' | 'pdf' = '';
 
   constructor(private api: PriorizacionService, private cdr: ChangeDetectorRef,
               private gestionActiva: GestionHabilitadaService) {}
@@ -270,6 +298,42 @@ export class ActasListadoComponent implements OnInit {
         },
         error: () => {
           this.error = 'No se pudieron cargar las actas.';
+          this.cdr.markForCheck();
+        },
+      });
+  }
+
+  /**
+   * Descarga el reporte de proyectos programados del recorte actual.
+   *
+   * Se mandan los filtros y NO la página: lo que se exporta es todo lo
+   * filtrado. El total de proyectos ya lo trae el resumen del listado, así que
+   * el recorte vacío se corta acá en vez de bajar un archivo con solo el
+   * encabezado.
+   */
+  exportar(formato: 'xlsx' | 'pdf'): void {
+    if (!this.totales.proyectos) {
+      this.error = 'El recorte actual no tiene proyectos que reportar.';
+      return;
+    }
+    this.descargando = formato;
+    this.error = '';
+    this.api
+      .reporteProyectos(
+        { distrito: this.distrito, q: this.busqueda, ordering: this.orden },
+        formato)
+      .pipe(finalize(() => { this.descargando = ''; this.cdr.markForCheck(); }))
+      .subscribe({
+        next: blob => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `proyectos-programados-${this.gestion}.${formato}`;
+          a.click();
+          URL.revokeObjectURL(url);
+        },
+        error: () => {
+          this.error = 'No se pudo generar el reporte.';
           this.cdr.markForCheck();
         },
       });

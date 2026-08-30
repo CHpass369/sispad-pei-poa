@@ -29,6 +29,9 @@ from .materializacion import (
     desmaterializar_acta, materializar_acta, revisar_acta,
 )
 from .pdf import generar_acta_pdf, hash_acta
+from .reportes import (
+    filas_reporte, generar_reporte_excel, generar_reporte_pdf,
+)
 from .saldos import saldos
 from .serializers import ActaPriorizacionSerializer, ProyectoCatalogoSerializer
 
@@ -481,6 +484,65 @@ class ActaPriorizacionViewSet(CandadoSisPoaMixin, viewsets.ModelViewSet):
         respuesta['Content-Disposition'] = (
             f'attachment; filename="{nombre.replace(chr(32), "-")}"')
         respuesta['X-Acta-Huella'] = huella
+        return respuesta
+
+    # --- Reporte de proyectos programados -----------------------------------
+
+    def _pie_de_filtros(self, actas):
+        """Qué recorte se exportó, escrito en el propio archivo.
+
+        Un reporte filtrado que no dice por qué está filtrado es indistinguible
+        de uno incompleto: quien lo recibe no puede saber si faltan actas
+        porque se las excluyó o porque nunca se cargaron.
+        """
+        partes = [f'Gestión POA {_gestion_del_candado(self.request).anio}']
+        distrito = self.request.query_params.get('distrito')
+        if distrito:
+            primera = actas.first()
+            partes.append(f'Distrito: {primera.distrito.nombre}' if primera
+                          else 'Distrito filtrado')
+        estado = self.request.query_params.get('estado')
+        if estado:
+            partes.append(f'Estado: {dict(EstadosActa.choices).get(estado, estado)}')
+        buscar = self.request.query_params.get('q')
+        if buscar:
+            partes.append(f'Búsqueda: “{buscar}”')
+        if len(partes) == 1:
+            partes.append('todas las actas de la gestión')
+        return ' · '.join(partes)
+
+    @action(detail=False, methods=['get'], url_path='reporte')
+    def reporte(self, request):
+        """Los proyectos programados de lo que el listado está mostrando.
+
+        Se exporta el queryset filtrado y SIN paginar: el usuario pidió el
+        reporte de su recorte, no de los 25 renglones que tiene en pantalla.
+        """
+        formato = (request.query_params.get('formato') or 'xlsx').lower()
+        if formato not in ('xlsx', 'pdf'):
+            return Response(
+                {'error': 'Formato no soportado. Use «xlsx» o «pdf».'},
+                status=status.HTTP_400_BAD_REQUEST)
+
+        actas = self.filter_queryset(self.get_queryset())
+        filas = filas_reporte(actas)
+        pie = self._pie_de_filtros(actas)
+        gestion = _gestion_del_candado(request).anio
+
+        if formato == 'xlsx':
+            contenido = generar_reporte_excel(filas, pie)
+            tipo = ('application/vnd.openxmlformats-officedocument'
+                    '.spreadsheetml.sheet')
+        else:
+            contenido = generar_reporte_pdf(filas, pie)
+            tipo = 'application/pdf'
+
+        respuesta = HttpResponse(contenido, content_type=tipo)
+        respuesta['Content-Disposition'] = (
+            f'attachment; filename="proyectos-programados-{gestion}.{formato}"')
+        # El frontend no puede contar las filas de un blob: si el recorte salió
+        # vacío, sin esto descarga un archivo con solo el encabezado y nada avisa.
+        respuesta['X-Reporte-Filas'] = str(len(filas))
         return respuesta
 
 

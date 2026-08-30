@@ -1,4 +1,6 @@
 """Módulo Priorización POA: buscador, acta oficial y circuito de revisión."""
+import io
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.utils import timezone
@@ -470,6 +472,124 @@ class ActaPDFTests(ActaTests):
         acta_id = self.acta_sin_fecha()
         r = self.client.get(f'{API}/actas/{acta_id}/pdf/')
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+
+class ReporteProyectosTests(ActaTests):
+    """El reporte de proyectos programados, por filtros y en los dos formatos."""
+
+    XLSX = ('application/vnd.openxmlformats-officedocument'
+            '.spreadsheetml.sheet')
+
+    def filas_del_xlsx(self, contenido):
+        from openpyxl import load_workbook
+        hoja = load_workbook(io.BytesIO(contenido)).active
+        # Fila 1 título, 2 subtítulo, 3 encabezados: los datos arrancan en 4.
+        return [[c.value for c in fila] for fila in hoja.iter_rows(min_row=4)]
+
+    def test_emite_una_fila_por_proyecto_y_no_por_acta(self):
+        self.crear_acta()
+        r = self.client.get(f'{API}/actas/reporte/?formato=xlsx')
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual(r['Content-Type'], self.XLSX)
+        # Un acta con dos proyectos son dos filas, más la del total.
+        self.assertEqual(r['X-Reporte-Filas'], '2')
+        filas = self.filas_del_xlsx(r.content)
+        self.assertEqual(len(filas), 3)
+
+    def test_las_columnas_son_las_nueve_pedidas_y_en_orden(self):
+        self.crear_acta()
+        r = self.client.get(f'{API}/actas/reporte/?formato=xlsx')
+        from openpyxl import load_workbook
+        hoja = load_workbook(io.BytesIO(r.content)).active
+        self.assertEqual(
+            [c.value for c in hoja[3]],
+            ['GESTIÓN POA', 'DISTRITO', 'OTB / JUNTA VECINAL',
+             'CATEGORÍA PROGRAMÁTICA', 'SISIN', 'N° PROYECTO',
+             'NOMBRE DEL PROYECTO', 'MONTO PROYECTO',
+             'RESPONSABLE DEL REGISTRO'])
+
+    def test_cada_fila_trae_los_datos_del_acta_y_del_proyecto(self):
+        self.crear_acta()
+        r = self.client.get(f'{API}/actas/reporte/?formato=xlsx')
+        primera = self.filas_del_xlsx(r.content)[0]
+        # openpyxl guarda la celda vacía como ausente: el SISIN en blanco
+        # vuelve a leerse como None, no como la cadena que se escribió.
+        self.assertEqual(primera[:8], [
+            2027, 'DISTRITO 2', 'OTB SAN JOSE DE KORIPILA', '170 0 001', None,
+            1, 'CONST. PAVIMENTO ZONA SUDOESTE', 220000])
+        self.assertEqual(primera[8], 'LILIANA AYALA')
+
+    def test_respeta_el_filtro_de_distrito_aplicado(self):
+        self.crear_acta()
+        otro = Distrito.objects.create(codigo='D5', nombre='DISTRITO 5')
+        self.crear_acta(distrito=str(otro.id), otb='OTB VILLA OBRAJES')
+
+        completo = self.client.get(f'{API}/actas/reporte/?formato=xlsx')
+        self.assertEqual(completo['X-Reporte-Filas'], '4')
+
+        filtrado = self.client.get(
+            f'{API}/actas/reporte/?formato=xlsx&distrito={otro.id}')
+        self.assertEqual(filtrado['X-Reporte-Filas'], '2')
+        distritos = {f[1] for f in self.filas_del_xlsx(filtrado.content)[:2]}
+        self.assertEqual(distritos, {'DISTRITO 5'})
+
+    def test_respeta_la_busqueda_por_otb(self):
+        self.crear_acta()
+        self.crear_acta(otb='OTB VILLA OBRAJES')
+        r = self.client.get(f'{API}/actas/reporte/?formato=xlsx&q=OBRAJES')
+        self.assertEqual(r['X-Reporte-Filas'], '2')
+
+    def test_exporta_todo_lo_filtrado_y_no_solo_la_pagina(self):
+        """La paginación es de la pantalla; el reporte no la hereda."""
+        for n in range(30):
+            self.crear_acta(otb=f'OTB NUMERO {n:02d}')
+        listado = self.client.get(f'{API}/actas/').json()
+        self.assertEqual(len(listado['results']), listado['page_size'])
+        r = self.client.get(f'{API}/actas/reporte/?formato=xlsx')
+        self.assertEqual(r['X-Reporte-Filas'], '60')
+
+    def test_el_pdf_sale_en_carta_apaisada(self):
+        self.crear_acta()
+        r = self.client.get(f'{API}/actas/reporte/?formato=pdf')
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual(r['Content-Type'], 'application/pdf')
+        self.assertTrue(r.content.startswith(b'%PDF'))
+        # Carta apaisada en puntos: 279 mm x 216 mm. Que el ancho sea mayor
+        # que el alto es justamente lo que se está afirmando.
+        self.assertIn(b'/MediaBox [ 0 0 790.8661 612.2835 ]', r.content)
+
+    def test_un_acta_sin_proyectos_no_aporta_filas(self):
+        acta_id = self.crear_acta().json()['id']
+        ProyectoPriorizado.objects.filter(acta_id=acta_id).delete()
+        r = self.client.get(f'{API}/actas/reporte/?formato=xlsx')
+        self.assertEqual(r['X-Reporte-Filas'], '0')
+        self.assertEqual(self.filas_del_xlsx(r.content), [])
+
+    def test_rechaza_un_formato_que_no_existe(self):
+        r = self.client.get(f'{API}/actas/reporte/?formato=docx')
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_el_subtitulo_dice_que_recorte_se_exporto(self):
+        self.crear_acta()
+        from openpyxl import load_workbook
+        r = self.client.get(
+            f'{API}/actas/reporte/?formato=xlsx&distrito={self.distrito.id}')
+        hoja = load_workbook(io.BytesIO(r.content)).active
+        self.assertIn('Gestión POA 2027', hoja['A2'].value)
+        self.assertIn('DISTRITO 2', hoja['A2'].value)
+
+    def test_sin_filtros_el_subtitulo_lo_dice(self):
+        self.crear_acta()
+        from openpyxl import load_workbook
+        r = self.client.get(f'{API}/actas/reporte/?formato=xlsx')
+        hoja = load_workbook(io.BytesIO(r.content)).active
+        self.assertIn('todas las actas de la gestión', hoja['A2'].value)
+
+    def test_pide_autenticacion(self):
+        self.client.force_authenticate(user=None)
+        r = self.client.get(f'{API}/actas/reporte/?formato=xlsx')
+        self.assertEqual(r.status_code, status.HTTP_401_UNAUTHORIZED)
 
 
 class ContenidoQRTests(TestCase):

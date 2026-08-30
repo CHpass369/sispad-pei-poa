@@ -114,6 +114,23 @@ export class PriorizacionService {
     });
   }
 
+  /**
+   * Reporte de proyectos programados del recorte que se está viendo.
+   *
+   * Viajan los mismos filtros que el listado y NO la página: el reporte es de
+   * todo lo filtrado, no de los renglones que entraron en pantalla.
+   */
+  reporteProyectos(filtros: Record<string, any>, formato: 'xlsx' | 'pdf'):
+      Observable<Blob> {
+    let params = new HttpParams().set('formato', formato);
+    for (const [k, v] of Object.entries(filtros)) {
+      if (v !== '' && v !== null && v !== undefined) { params = params.set(k, v); }
+    }
+    return this.http.get(`${this.base}/actas/reporte/`, {
+      params, responseType: 'blob',
+    });
+  }
+
   /** Sube el acta escaneada. El servidor la guarda cifrada. */
   adjuntar(id: string, archivo: File): Observable<any> {
     const cuerpo = new FormData();

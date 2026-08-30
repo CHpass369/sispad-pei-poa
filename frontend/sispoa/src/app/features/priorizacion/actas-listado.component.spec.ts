@@ -179,3 +179,110 @@ describe('ActasListadoComponent · orden del listado', () => {
     });
   });
 });
+
+describe('ActasListadoComponent · reporte de proyectos programados', () => {
+  let fixture: ComponentFixture<ActasListadoComponent>;
+  let componente: ActasListadoComponent;
+  let http: HttpTestingController;
+
+  const RESUMEN = { actas: 1, proyectos: 2, monto: 230000 };
+
+  const responderActas = (resumen: any = RESUMEN): void => {
+    http.expectOne(r => r.url.includes('/actas/') && !r.url.includes('/reporte/'))
+        .flush({ count: 1, page_size: 25, resumen, results: [] });
+    fixture.detectChanges();
+  };
+
+  const boton = (texto: string): HTMLButtonElement =>
+    Array.from(fixture.nativeElement.querySelectorAll('.encabezado-acciones button'))
+         .find(b => (b as HTMLElement).textContent!.includes(texto)) as HTMLButtonElement;
+
+  /** El pedido del reporte, con los parámetros que efectivamente viajaron. */
+  const pedidoDelReporte = () =>
+    http.expectOne(r => r.url.includes('/actas/reporte/'));
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [HttpClientTestingModule, RouterTestingModule, FormsModule],
+      declarations: [ActasListadoComponent],
+      providers: [
+        { provide: GestionHabilitadaService, useValue: gestionHabilitadaStub(2027) },
+      ],
+    });
+    fixture = TestBed.createComponent(ActasListadoComponent);
+    componente = fixture.componentInstance;
+    http = TestBed.inject(HttpTestingController);
+    // La descarga real abriría el archivo: lo que se verifica es el pedido.
+    spyOn(URL, 'createObjectURL').and.returnValue('blob:x');
+    spyOn(URL, 'revokeObjectURL');
+    fixture.detectChanges();
+    http.expectOne(r => r.url.includes('/distritos/')).flush({ results: [] });
+  });
+
+  afterEach(() => http.verify());
+
+  it('exporta con los mismos filtros que el listado', () => {
+    responderActas();
+    componente.distrito = 'd7';
+    componente.busqueda = 'koripila';
+    fixture.detectChanges();
+
+    boton('Excel').click();
+    const url = pedidoDelReporte().request.urlWithParams;
+    expect(url).toContain('formato=xlsx');
+    expect(url).toContain('distrito=d7');
+    expect(url).toContain('q=koripila');
+    expect(url).toContain('ordering=-created_at');
+  });
+
+  it('no manda la página: el reporte es de todo lo filtrado', () => {
+    responderActas();
+    componente.pagina = 3;
+    boton('Excel').click();
+    expect(pedidoDelReporte().request.urlWithParams).not.toContain('page=');
+  });
+
+  it('el botón PDF pide el otro formato', () => {
+    responderActas();
+    boton('PDF').click();
+    expect(pedidoDelReporte().request.urlWithParams).toContain('formato=pdf');
+  });
+
+  it('pide el archivo como blob y no como JSON', () => {
+    responderActas();
+    boton('Excel').click();
+    expect(pedidoDelReporte().request.responseType).toBe('blob');
+  });
+
+  it('sin proyectos en el recorte no pide nada y lo avisa', () => {
+    // El resumen del listado ya sabe que no hay nada: bajar un archivo con
+    // solo el encabezado no le sirve a nadie.
+    responderActas({ actas: 0, proyectos: 0, monto: 0 });
+    boton('Excel').click();
+    http.expectNone(r => r.url.includes('/reporte/'));
+    expect(componente.error).toContain('no tiene proyectos');
+  });
+
+  it('mientras genera deshabilita los dos botones', () => {
+    responderActas();
+    boton('Excel').click();
+    fixture.detectChanges();
+    expect(boton('Generando').disabled).toBe(true);
+    expect(boton('PDF').disabled).toBe(true);
+    pedidoDelReporte().flush(new Blob(['x']));
+    fixture.detectChanges();
+    expect(boton('Excel').disabled).toBe(false);
+  });
+
+  it('un fallo del servidor deja el aviso y libera los botones', () => {
+    responderActas();
+    boton('Excel').click();
+    // El pedido es `responseType: 'blob'`: el cuerpo del error también
+    // tiene que ser un Blob, o el mock no puede convertirlo.
+    pedidoDelReporte().flush(new Blob(['']),
+                             { status: 500, statusText: 'Server Error' });
+    fixture.detectChanges();
+    expect(componente.error).toContain('No se pudo generar el reporte');
+    expect(boton('Excel').disabled).toBe(false);
+  });
+});
