@@ -16,7 +16,7 @@
       "runtimeExecutable": "bash",
       "runtimeArgs": [
         "-c",
-        "cd frontend/sispoa && exec ./node_modules/.bin/ng serve --project sispoa"
+        "cd frontend/sispoa && exec ./node_modules/.bin/ng serve --project sispoa --host 127.0.0.1"
       ],
       "port": 4200
     }
