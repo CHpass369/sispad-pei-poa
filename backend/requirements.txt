@@ -56,3 +56,5 @@ reportlab==5.0.0
 segno==1.6.6
 pypdf==6.16.1
 cryptography>=45,<50
+# Los reportes del SIGEP son .xls BIFF viejo: openpyxl no los abre.
+xlrd==2.0.2
