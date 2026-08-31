@@ -26,6 +26,14 @@ describe('ActaFormComponent · buscador y carga de proyectos', () => {
     componente.buscar({ target: { value: texto } } as any);
     tick(250);
   };
+  const tecla = (key: string) =>
+    ({ key, preventDefault: jasmine.createSpy('preventDefault') } as any);
+  /** Deja la lista abierta con las dos opciones, que es el estado a navegar. */
+  const conDosSugerencias = () => {
+    teclear('lumin');
+    http.expectOne(r => r.url.includes('catalogo-proyectos'))
+        .flush({ total: 2, resultados: [HISTORICO, DEL_SIGEP] });
+  };
 
   beforeEach(() => {
     TestBed.configureTestingModule({
@@ -117,6 +125,99 @@ describe('ActaFormComponent · buscador y carga de proyectos', () => {
     expect(componente.consulta).toBe('');
     expect(componente.abierto).toBe(false);
     expect(componente.sugerencias.length).toBe(0);
+  }));
+
+  it('la flecha abajo resalta la primera sugerencia', fakeAsync(() => {
+    conDosSugerencias();
+    expect(componente.indiceProyecto).toBe(-1);
+    componente.teclaProyecto(tecla('ArrowDown'));
+    expect(componente.indiceProyecto).toBe(0);
+  }));
+
+  it('las flechas recorren y dan la vuelta en los extremos', fakeAsync(() => {
+    conDosSugerencias();
+    componente.teclaProyecto(tecla('ArrowDown'));
+    componente.teclaProyecto(tecla('ArrowDown'));
+    expect(componente.indiceProyecto).toBe(1);
+    // Son dos: de la última vuelve a la primera.
+    componente.teclaProyecto(tecla('ArrowDown'));
+    expect(componente.indiceProyecto).toBe(0);
+    componente.teclaProyecto(tecla('ArrowUp'));
+    expect(componente.indiceProyecto).toBe(1);
+  }));
+
+  it('Enter carga la sugerencia resaltada', fakeAsync(() => {
+    conDosSugerencias();
+    componente.teclaProyecto(tecla('ArrowDown'));
+    componente.teclaProyecto(tecla('ArrowDown'));
+    componente.teclaProyecto(tecla('Enter'));
+    expect(componente.acta.proyectos.length).toBe(1);
+    expect(componente.acta.proyectos[0].catalogo).toBe('c1');
+    expect(componente.abierto).toBe(false);
+  }));
+
+  it('Enter sin nada resaltado no carga nada', fakeAsync(() => {
+    // El nombre libre sale por su botón: que Enter lo cargara solo convertiría
+    // cualquier error de tipeo en un proyecto del acta.
+    conDosSugerencias();
+    const evento = tecla('Enter');
+    componente.teclaProyecto(evento);
+    expect(componente.acta.proyectos.length).toBe(0);
+    expect(evento.preventDefault).not.toHaveBeenCalled();
+  }));
+
+  it('Escape cierra sin borrar lo escrito', fakeAsync(() => {
+    conDosSugerencias();
+    componente.teclaProyecto(tecla('Escape'));
+    expect(componente.abierto).toBe(false);
+    expect(componente.consulta).toBe('lumin');
+  }));
+
+  it('la flecha abajo vuelve a abrir la lista cerrada', fakeAsync(() => {
+    conDosSugerencias();
+    componente.cerrarProyectos();
+    componente.teclaProyecto(tecla('ArrowDown'));
+    expect(componente.abierto).toBe(true);
+    expect(componente.indiceProyecto).toBe(0);
+  }));
+
+  it('Tab cierra y deja pasar el foco', fakeAsync(() => {
+    conDosSugerencias();
+    const evento = tecla('Tab');
+    componente.teclaProyecto(evento);
+    expect(componente.abierto).toBe(false);
+    expect(evento.preventDefault).not.toHaveBeenCalled();
+  }));
+
+  it('las flechas no mueven el cursor dentro del campo', fakeAsync(() => {
+    conDosSugerencias();
+    const evento = tecla('ArrowDown');
+    componente.teclaProyecto(evento);
+    expect(evento.preventDefault).toHaveBeenCalled();
+  }));
+
+  it('una tanda nueva de resultados descarta el resaltado anterior',
+     fakeAsync(() => {
+    // El índice apunta a una posición, no a una fila: sin esto la segunda
+    // búsqueda cargaría el proyecto equivocado con Enter.
+    conDosSugerencias();
+    componente.teclaProyecto(tecla('ArrowDown'));
+    componente.teclaProyecto(tecla('ArrowDown'));
+    expect(componente.indiceProyecto).toBe(1);
+    teclear('microriego');
+    http.expectOne(r => r.url.includes('catalogo-proyectos'))
+        .flush({ total: 1, resultados: [DEL_SIGEP] });
+    expect(componente.indiceProyecto).toBe(-1);
+  }));
+
+  it('el lector de pantalla recibe cuál opción está resaltada',
+     fakeAsync(() => {
+    conDosSugerencias();
+    expect(componente.opcionProyectoActivaId()).toBeNull();
+    componente.teclaProyecto(tecla('ArrowDown'));
+    expect(componente.opcionProyectoActivaId()).toBe('opcion-proyecto-0');
+    componente.cerrarProyectos();
+    expect(componente.opcionProyectoActivaId()).toBeNull();
   }));
 
   it('el total suma los montos cargados e ignora los vacíos', () => {

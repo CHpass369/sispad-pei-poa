@@ -143,14 +143,24 @@ import {
           <label>Nombre del proyecto
             <input class="form-control" [value]="consulta"
                    (input)="buscar($event)" (focus)="abierto = true"
+                   (blur)="cerrarProyectos()" (keydown)="teclaProyecto($event)"
+                   role="combobox" aria-autocomplete="list"
+                   aria-controls="sugerencias-proyecto" autocomplete="off"
+                   [attr.aria-expanded]="abierto"
+                   [attr.aria-activedescendant]="opcionProyectoActivaId()"
                    placeholder="Escriba y agregue palabras para acotar: lumin distrito 4">
           </label>
           <p class="ayuda">
             Cada palabra que agregue acota más el resultado.
             <span *ngIf="consulta">{{ totalHallado }} coincidencia(s).</span>
           </p>
-          <ul class="sugerencias" *ngIf="abierto && sugerencias.length">
-            <li *ngFor="let s of sugerencias" (click)="elegir(s)">
+          <ul class="sugerencias" id="sugerencias-proyecto" role="listbox"
+              *ngIf="abierto && sugerencias.length">
+            <li *ngFor="let s of sugerencias; let i = index"
+                [id]="'opcion-proyecto-' + i" role="option"
+                [attr.aria-selected]="i === indiceProyecto"
+                [class.activa]="i === indiceProyecto"
+                (mousedown)="elegir(s)">
               <span class="nombre">{{ s.nombre }}</span>
               <span class="marca sisin" *ngIf="s.sisin">SISIN {{ s.sisin }}</span>
               <span class="marca" *ngIf="s.categoria_programatica">
@@ -161,7 +171,7 @@ import {
           </ul>
           <p class="ayuda" *ngIf="abierto && consulta && !sugerencias.length">
             Sin coincidencias en el catálogo.
-            <button class="btn btn-sm btn-secondary" (click)="agregarLibre()">
+            <button class="btn btn-sm btn-secondary" (mousedown)="agregarLibre()">
               Agregar «{{ consulta }}» igual
             </button>
           </p>
@@ -381,6 +391,8 @@ export class ActaFormComponent implements OnInit {
   totalHallado = 0;
   consulta = '';
   abierto = false;
+  /** Opción resaltada por teclado en el buscador del catálogo. -1 = ninguna. */
+  indiceProyecto = -1;
   guardando = false;
   error = '';
 
@@ -413,9 +425,14 @@ export class ActaFormComponent implements OnInit {
       next: (d: any) => {
         this.sugerencias = d.resultados ?? [];
         this.totalHallado = d.total ?? 0;
+        this.indiceProyecto = -1;
         this.cdr.markForCheck();
       },
-      error: () => { this.sugerencias = []; this.cdr.markForCheck(); },
+      error: () => {
+        this.sugerencias = [];
+        this.indiceProyecto = -1;
+        this.cdr.markForCheck();
+      },
     });
 
     this.id = this.ruta.snapshot.paramMap.get('id') || '';
@@ -711,12 +728,82 @@ export class ActaFormComponent implements OnInit {
   buscar(evento: Event): void {
     this.consulta = (evento.target as HTMLInputElement).value;
     this.abierto = true;
+    this.indiceProyecto = -1;
     if (this.consulta.trim().length < 2) {
       this.sugerencias = [];
       this.totalHallado = 0;
       return;
     }
     this.teclas.next(this.consulta.trim());
+  }
+
+  /**
+   * El teclado maneja el buscador del catálogo igual que los del padrón:
+   * flechas recorren, Enter elige, Escape cierra. Antes la lista era solo
+   * mouse: con el tabulador no había forma de alcanzar una sugerencia.
+   */
+  teclaProyecto(evento: KeyboardEvent): void {
+    if (!this.abierto) {
+      if (evento.key !== 'ArrowDown' || !this.sugerencias.length) { return; }
+      this.abierto = true;
+    }
+    switch (evento.key) {
+      case 'ArrowDown':
+        this.moverProyecto(1);
+        break;
+      case 'ArrowUp':
+        this.moverProyecto(-1);
+        break;
+      case 'Enter':
+        // Sin opción resaltada no se agrega nada: el nombre libre sigue
+        // saliendo por su botón, que es una decisión y no un descuido.
+        if (this.indiceProyecto < 0) { return; }
+        evento.preventDefault();
+        this.elegir(this.sugerencias[this.indiceProyecto]);
+        break;
+      case 'Escape':
+        evento.preventDefault();
+        this.cerrarProyectos();
+        break;
+      case 'Tab':
+        this.cerrarProyectos();
+        return;
+      default:
+        return;
+    }
+    // Las flechas no deben mover el cursor dentro del campo. Tab y el resto
+    // ya salieron por `return` más arriba.
+    evento.preventDefault();
+    this.cdr.markForCheck();
+  }
+
+  private moverProyecto(paso: number): void {
+    if (!this.sugerencias.length) { return; }
+    const total = this.sugerencias.length;
+    // Da la vuelta en los extremos, y desde "nada resaltado" bajar lleva a la
+    // primera y subir a la última.
+    this.indiceProyecto = this.indiceProyecto < 0
+      ? (paso > 0 ? 0 : total - 1)
+      : (this.indiceProyecto + paso + total) % total;
+    const opcion = this.anfitrion.nativeElement.querySelector(
+      `#opcion-proyecto-${this.indiceProyecto}`);
+    opcion?.scrollIntoView({ block: 'nearest' });
+  }
+
+  /**
+   * Cierra sin borrar `sugerencias`: al volver al campo reaparece lo mismo que
+   * muestra el texto que quedó escrito, sin repetir la consulta al servidor.
+   */
+  cerrarProyectos(): void {
+    this.abierto = false;
+    this.indiceProyecto = -1;
+    this.cdr.markForCheck();
+  }
+
+  /** Le dice al lector de pantalla cuál opción está resaltada. */
+  opcionProyectoActivaId(): string | null {
+    return this.abierto && this.indiceProyecto >= 0
+      ? `opcion-proyecto-${this.indiceProyecto}` : null;
   }
 
   elegir(s: ProyectoCatalogo): void {
@@ -739,6 +826,7 @@ export class ActaFormComponent implements OnInit {
     this.consulta = '';
     this.sugerencias = [];
     this.abierto = false;
+    this.indiceProyecto = -1;
     this.cdr.markForCheck();
   }
 
