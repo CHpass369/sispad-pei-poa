@@ -429,10 +429,10 @@ export class PoauRecursosWizardComponent implements OnInit {
       }));
       this.cargando = false;
     });
-    this.cargar('/articulacion/operaciones/', v => { this.operaciones = v; });
-    this.cargar('/articulacion/actividades/', v => { this.actividades = v; });
+    // Operaciones y actividades se cargan bajo demanda según la cadena elegida.
+    // Así evitamos descargar toda la matriz POAU al abrir el asistente.
     // DA y UE son cinco y once filas: entran enteras en una página y se
-    // filtran en memoria, igual que operaciones y actividades.
+    // filtran en memoria.
     this.cargar(`/direcciones-administrativas/?gestion=${this.cabecera.gestion}`,
                 v => {
                   this.opcionesDa = v.map((d: any) => ({
@@ -488,23 +488,72 @@ export class PoauRecursosWizardComponent implements OnInit {
 
   onAccion(): void {
     const accion = this.acciones.find(a => a.id === this.accionSel);
+
     this.cabecera.accionPoaId = accion?.id || null;
     this.cabecera.codigoAccion = accion?.codigo_accion || '';
     this.cabecera.categoriaProgramatica = accion?.categoria_programatica || '';
     this.cabecera.cargoReacp = accion?.cargo_responsable || '';
+
     this.completarDenominacion();
-    if (accion?.gestion) this.cabecera.gestion = accion.gestion;
+
+    if (accion?.gestion) {
+      this.cabecera.gestion = accion.gestion;
+    }
+
+    // Cambiar de ACP invalida toda la cadena dependiente anterior.
     this.operacionSel = '';
     this.actividadSel = '';
     this.cabecera.operacionId = null;
     this.cabecera.actividadId = null;
+    this.operaciones = [];
+    this.actividades = [];
+
+    if (!accion?.id) {
+      return;
+    }
+
+    // La API conserva el scope organizacional y el candado de gestión.
+    // Se recuperan únicamente las operaciones que cuelgan de esta ACP.
+    const accionId = accion.id;
+
+    this.cargar(
+      `/articulacion/operaciones/?accion_poa=${encodeURIComponent(String(accionId))}`,
+      v => {
+        // Evita que una respuesta tardía de la ACP anterior ensucie la selección.
+        if (this.cabecera.accionPoaId === accionId) {
+          this.operaciones = v;
+        }
+      },
+    );
   }
 
   onOperacion(): void {
-    const operacion = this.operacionesFiltradas.find(o => o.id === this.operacionSel);
+    const operacion = this.operacionesFiltradas.find(
+      o => o.id === this.operacionSel,
+    );
+
     this.cabecera.operacionId = operacion?.id || null;
+
+    // Cambiar de operación invalida las actividades de la anterior.
     this.actividadSel = '';
     this.cabecera.actividadId = null;
+    this.actividades = [];
+
+    if (!operacion?.id) {
+      return;
+    }
+
+    const operacionId = operacion.id;
+
+    this.cargar(
+      `/articulacion/actividades/?operacion=${encodeURIComponent(String(operacionId))}`,
+      v => {
+        // Evita respuestas tardías provenientes de otra operación.
+        if (this.cabecera.operacionId === operacionId) {
+          this.actividades = v;
+        }
+      },
+    );
   }
 
   onActividad(): void {
@@ -717,9 +766,50 @@ export class PoauRecursosWizardComponent implements OnInit {
   }
 
   private cargar(ruta: string, asignar: (valores: any[]) => void): void {
-    this.api.get<any>(ruta).subscribe({
-      next: (r: any) => { asignar(r?.results || (Array.isArray(r) ? r : [])); this.cdr.markForCheck(); },
-      error: () => { asignar([]); this.cargando = false; this.cdr.markForCheck(); },
+    this.cargarPagina(ruta, 1, []).subscribe({
+      next: valores => {
+        asignar(valores);
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        asignar([]);
+        this.cargando = false;
+        this.cdr.markForCheck();
+      },
     });
+  }
+
+  /**
+   * Recorre una respuesta DRF paginada hasta consumir todas sus páginas.
+   *
+   * También admite endpoints que devuelven directamente un array.
+   * Los filtros presentes en `ruta` se conservan en todas las páginas.
+   */
+  private cargarPagina(
+    ruta: string,
+    pagina: number,
+    acumulado: any[],
+  ): Observable<any[]> {
+    const separador = ruta.includes('?') ? '&' : '?';
+    const rutaPagina = `${ruta}${separador}page=${pagina}`;
+
+    return this.api.get<any>(rutaPagina).pipe(
+      concatMap((respuesta: any) => {
+        // Algunos endpoints internos no están paginados.
+        if (Array.isArray(respuesta)) {
+          return of([...acumulado, ...respuesta]);
+        }
+
+        const paginaActual = Array.isArray(respuesta?.results)
+          ? respuesta.results
+          : [];
+
+        const todos = [...acumulado, ...paginaActual];
+
+        return respuesta?.next
+          ? this.cargarPagina(ruta, pagina + 1, todos)
+          : of(todos);
+      }),
+    );
   }
 }
