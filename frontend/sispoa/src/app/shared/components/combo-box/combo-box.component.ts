@@ -1,10 +1,13 @@
 import {
   AfterViewChecked, Component, ElementRef, EventEmitter, forwardRef, Input,
-  OnDestroy, Output, ViewChild,
+  OnDestroy, OnInit, Output, ViewChild,
 } from '@angular/core';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
-import { Observable, Subject, Subscription, of } from 'rxjs';
-import { debounceTime, switchMap } from 'rxjs/operators';
+import { Observable, Subject, Subscription } from 'rxjs';
+import {
+  AUTOCOMPLETE_CONFIG,
+  autocompleteSearch
+} from '../../utils/autocomplete.util';
 
 /** Una fila del desplegable. El consumidor mapea su catálogo a esto. */
 export interface OpcionCombo {
@@ -129,7 +132,7 @@ let secuencia = 0;
   `],
 })
 export class ComboBoxComponent
-  implements ControlValueAccessor, AfterViewChecked, OnDestroy {
+  implements ControlValueAccessor, AfterViewChecked, OnInit, OnDestroy {
   @Input() opciones: OpcionCombo[] = [];
   @Input() placeholder = '';
   /** Texto para lectores de pantalla cuando el `<label>` no envuelve al input. */
@@ -139,6 +142,11 @@ export class ComboBoxComponent
   @Input() buscador?: (consulta: string) => Observable<OpcionCombo[]>;
   /** Cuántas filas se muestran en modo local. */
   @Input() maximo = 50;
+
+  /** Política global para autocompletados remotos de PIP. */
+  @Input() minChars = AUTOCOMPLETE_CONFIG.minChars;
+  @Input() debounceMs = AUTOCOMPLETE_CONFIG.debounceMs;
+  @Input() maximoRemoto = AUTOCOMPLETE_CONFIG.limit;
 
   @Output() seleccionado = new EventEmitter<OpcionCombo | null>();
 
@@ -161,23 +169,31 @@ export class ComboBoxComponent
   private mudada = false;
 
   private consultas = new Subject<string>();
-  private suscripcion: Subscription;
+  private suscripcion?: Subscription;
   private alCambiar: (valor: string) => void = () => {};
   private alTocar: () => void = () => {};
 
-  constructor() {
-    // Solo el camino remoto pasa por acá: filtrar en memoria con 250 ms de
-    // retardo se siente roto, y el `switchMap` descarta la respuesta vieja
-    // cuando el usuario sigue tecleando.
+  ngOnInit(): void {
+    /*
+     * Los combos remotos comparten una única política:
+     * debounce, mínimo de caracteres, cancelación y manejo
+     * de errores.
+     *
+     * Los combos locales no pasan por este stream.
+     */
     this.suscripcion = this.consultas.pipe(
-      debounceTime(250),
-      switchMap(consulta => this.buscador
-        ? this.buscador(consulta)
-        : of([] as OpcionCombo[])),
-    ).subscribe({
-      next: opciones => this.mostrar(opciones),
-      // Un catálogo caído deja la lista vacía, no la pantalla rota.
-      error: () => this.mostrar([]),
+      autocompleteSearch(
+        consulta => this.buscador!(consulta),
+        [] as OpcionCombo[],
+        {
+          minChars: this.minChars,
+          debounceMs: this.debounceMs,
+        }
+      ),
+    ).subscribe(opciones => {
+      this.mostrar(
+        opciones.slice(0, this.maximoRemoto)
+      );
     });
   }
 
@@ -197,7 +213,7 @@ export class ComboBoxComponent
   }
 
   ngOnDestroy(): void {
-    this.suscripcion.unsubscribe();
+    this.suscripcion?.unsubscribe();
     this.dejarDeSeguir();
     // Si el componente muere con la lista abierta, el nodo quedaría colgado
     // del body para siempre.
@@ -351,10 +367,31 @@ export class ComboBoxComponent
   // --- Interno --------------------------------------------------------------
 
   private buscar(consulta: string): void {
+    // Modo local: filtrado inmediato y cero HTTP.
     if (!this.buscador) {
-      this.mostrar(this.filtrarLocal(consulta));
+      this.mostrar(
+        this.filtrarLocal(consulta)
+      );
       return;
     }
+
+    /*
+     * Modo remoto.
+     *
+     * Siempre emitimos el texto nuevo.
+     * Una consulta menor a minChars no genera HTTP,
+     * pero permite cancelar inmediatamente un request
+     * anterior que ya no corresponde.
+     */
+    const limpia = consulta.trim();
+
+    if (limpia.length < this.minChars) {
+      this.buscando = false;
+      this.visibles = [];
+      this.consultas.next(consulta);
+      return;
+    }
+
     this.buscando = true;
     this.consultas.next(consulta);
   }

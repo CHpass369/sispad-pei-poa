@@ -13,7 +13,11 @@ import {
   ValidatorFn,
   Validators,
 } from '@angular/forms';
-import { Subject, catchError, debounceTime, distinctUntilChanged, of, switchMap, takeUntil } from 'rxjs';
+import { Subject, catchError, of, takeUntil } from 'rxjs';
+import {
+  AUTOCOMPLETE_CONFIG,
+  autocompleteSearch
+} from '../../shared/utils/autocomplete.util';
 import {
   PublicOrganizationalUnit,
   RegistrationRequest,
@@ -68,27 +72,31 @@ export class RegisterComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.searchTerms.pipe(
-      debounceTime(250),
-      distinctUntilChanged(),
-      switchMap(search => {
-        this.loadingOrganizationalUnits = true;
-        this.organizationalUnitsError = '';
-        this.cdr.markForCheck();
-        return this.auth.listPublicOrganizationalUnits(search).pipe(
-          catchError(() => {
-            this.organizationalUnitsError = 'No se pudieron cargar las unidades organizacionales.';
-            return of([] as PublicOrganizationalUnit[]);
-          }),
-        );
-      }),
+      autocompleteSearch(
+        search => {
+          this.loadingOrganizationalUnits = true;
+          this.organizationalUnitsError = '';
+          this.cdr.markForCheck();
+
+          return this.auth.listPublicOrganizationalUnits(search).pipe(
+            catchError(() => {
+              this.organizationalUnitsError =
+                'No se pudieron cargar las unidades organizacionales.';
+              return of([] as PublicOrganizationalUnit[]);
+            }),
+          );
+        },
+        [] as PublicOrganizationalUnit[]
+      ),
       takeUntil(this.destroy$),
     ).subscribe(units => {
-      this.organizationalUnits = units;
+      this.organizationalUnits =
+        units.slice(0, AUTOCOMPLETE_CONFIG.limit);
       this.loadingOrganizationalUnits = false;
       this.cdr.markForCheck();
     });
 
-    this.searchTerms.next('');
+    this.organizationalUnits = [];
   }
 
   ngOnDestroy(): void {

@@ -1,3 +1,4 @@
+import { AUTOCOMPLETE_CONFIG } from '../../shared/utils/autocomplete.util';
 import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { Observable, concatMap, from, of, toArray } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
@@ -574,6 +575,7 @@ export class PoauRecursosWizardComponent implements OnInit {
       imputable: true,
       activo: true,
       search: consulta,
+      page_size: AUTOCOMPLETE_CONFIG.limit,
     }).pipe(
       map((r: any) => r?.results || (Array.isArray(r) ? r : [])),
       catchError(() => of([])),
@@ -601,7 +603,10 @@ export class PoauRecursosWizardComponent implements OnInit {
    */
   readonly buscarOrganismo = (consulta: string): Observable<OpcionCombo[]> =>
     this.api.get<any>('/organismos/', {
-      gestion: this.cabecera.gestion, activo: true, search: consulta,
+      gestion: this.cabecera.gestion,
+      activo: true,
+      search: consulta,
+      page_size: AUTOCOMPLETE_CONFIG.limit,
     }).pipe(
       map((res: any) => res?.results || (Array.isArray(res) ? res : [])),
       map((filas: any[]) => filas.map(f => ({

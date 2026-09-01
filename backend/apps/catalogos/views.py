@@ -3,6 +3,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
+from rest_framework.pagination import PageNumberPagination
 from drf_spectacular.utils import extend_schema
 from .models import (
     ClasificadorInstitucional, RubroRecurso, ObjetoGasto,
@@ -95,7 +96,19 @@ class RubroRecursoViewSet(CatalogoImportMixin, GestionFilterMixin, viewsets.Mode
     def _get_tipo_catalogo(self): return 'rubro_recurso'
 
 
+class AutocompletePageNumberPagination(PageNumberPagination):
+    """
+    Paginación para catálogos utilizados por autocompletados.
+
+    Conserva PAGE_SIZE global cuando el cliente no indica nada,
+    pero permite solicitar una página menor mediante ?page_size=N.
+    """
+    page_size_query_param = 'page_size'
+    max_page_size = 50
+
+
 class ObjetoGastoViewSet(CatalogoImportMixin, GestionFilterMixin, viewsets.ModelViewSet):
+    pagination_class = AutocompletePageNumberPagination
     queryset = ObjetoGasto.objects.all()
     serializer_class = ObjetoGastoSerializer
     # `nivel` es filtrable porque un desplegable de partidas no puede ofrecer
@@ -175,6 +188,7 @@ class FuenteFinanciamientoViewSet(CatalogoImportMixin, GestionFilterMixin, views
 
 
 class OrganismoFinanciadorViewSet(CatalogoImportMixin, GestionFilterMixin, viewsets.ModelViewSet):
+    pagination_class = AutocompletePageNumberPagination
     queryset = OrganismoFinanciador.objects.all()
     serializer_class = OrganismoFinanciadorSerializer
     filterset_fields = ['activo']

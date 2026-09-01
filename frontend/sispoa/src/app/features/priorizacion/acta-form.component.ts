@@ -1,6 +1,10 @@
 import { ChangeDetectorRef, Component, ElementRef, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Subject, debounceTime, distinctUntilChanged, switchMap } from 'rxjs';
+import { Subject } from 'rxjs';
+import {
+  AUTOCOMPLETE_CONFIG,
+  autocompleteSearch
+} from '../../shared/utils/autocomplete.util';
 import { GestionHabilitadaService } from '../../core/services/gestion-habilitada.service';
 import {
   ActaPriorizacion, OrganizacionTerritorial, PriorizacionService,
@@ -418,9 +422,13 @@ export class ActaFormComponent implements OnInit {
     // El buscador espera a que se deje de escribir: una consulta por tecla
     // satura el backend sin mejorar nada.
     this.teclas.pipe(
-      debounceTime(220),
-      distinctUntilChanged(),
-      switchMap(q => this.api.buscarProyectos(q)),
+      autocompleteSearch(
+        q => this.api.buscarProyectos(
+          q,
+          AUTOCOMPLETE_CONFIG.limit
+        ),
+        { resultados: [], total: 0 }
+      ),
     ).subscribe({
       next: (d: any) => {
         this.sugerencias = d.resultados ?? [];
@@ -729,12 +737,20 @@ export class ActaFormComponent implements OnInit {
     this.consulta = (evento.target as HTMLInputElement).value;
     this.abierto = true;
     this.indiceProyecto = -1;
-    if (this.consulta.trim().length < 2) {
+    if (
+      this.consulta.trim().length <
+      AUTOCOMPLETE_CONFIG.minChars
+    ) {
       this.sugerencias = [];
       this.totalHallado = 0;
-      return;
     }
-    this.teclas.next(this.consulta.trim());
+
+    /*
+     * Se emite siempre, incluso cuando queda por debajo
+     * del mínimo. Así autocompleteSearch() puede cancelar
+     * inmediatamente cualquier request anterior.
+     */
+    this.teclas.next(this.consulta);
   }
 
   /**
