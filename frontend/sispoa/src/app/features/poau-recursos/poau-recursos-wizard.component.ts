@@ -66,6 +66,7 @@ import {
                    title="La fija la habilitación de gestión fiscal"></div>
           <div class="field"><label for="cmb-accion">Acción de corto plazo</label>
             <app-combo-box [opciones]="opcionesAccion" [(ngModel)]="accionSel"
+                                   [maximo]="opcionesAccion.length"
                            etiqueta="Acción de corto plazo"
                            placeholder="Escriba el código o parte de la denominación…"
                            (seleccionado)="onAccion()"></app-combo-box>
@@ -392,7 +393,7 @@ export class PoauRecursosWizardComponent implements OnInit {
 
   /** Catálogos maestros que alimentan los combos de la cabecera.
    *
-   * Las opciones se arman al cargar y no en un getter: un `map` sobre 178
+   * Las opciones se arman al cargar y no en un getter: un `map` sobre todas las
    * acciones en cada ciclo de detección de cambios es basura que se recolecta
    * sesenta veces por segundo. */
   opcionesAccion: OpcionCombo[] = [];
