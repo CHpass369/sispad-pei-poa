@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { finalize } from 'rxjs';
 import { GestionHabilitadaService } from '../../core/services/gestion-habilitada.service';
 import { ActaPriorizacion, PriorizacionService } from './priorizacion.service';
@@ -8,45 +8,178 @@ import { ActaPriorizacion, PriorizacionService } from './priorizacion.service';
   standalone: false,
   template: `
     <div class="lienzo lienzo-datos">
-      <div class="encabezado-pantalla">
-        <div>
-          <h2>Actas de priorización</h2>
-          <p class="sub">Lo que cada organización territorial priorizó para el POA.</p>
-        </div>
-        <div class="encabezado-acciones">
-          <select class="form-control filtro" [(ngModel)]="distrito" (change)="filtrar()">
-            <option value="">Todos los distritos</option>
-            <option *ngFor="let d of distritos" [value]="d.id">{{ d.nombre }}</option>
-          </select>
-          <input class="form-control filtro" [(ngModel)]="busqueda"
-                 (keyup.enter)="filtrar()" placeholder="OTB o presidente">
-          <button type="button" class="btn btn-sm btn-exportar"
-                  [disabled]="!!descargando" (click)="exportar('xlsx')"
-                  title="Proyectos programados de lo filtrado, en Excel">
-            {{ descargando === 'xlsx' ? 'Generando…' : 'Excel' }}
-          </button>
-          <button type="button" class="btn btn-sm btn-exportar"
-                  [disabled]="!!descargando" (click)="exportar('pdf')"
-                  title="Proyectos programados de lo filtrado, en PDF">
-            {{ descargando === 'pdf' ? 'Generando…' : 'PDF' }}
-          </button>
-          <a class="btn btn-sm btn-primary" routerLink="/priorizacion/actas/nueva">
-            + Nueva acta
-          </a>
-        </div>
-      </div>
+        <div class="encabezado-pantalla encabezado-actas">
 
-      <div class="msg-box error" *ngIf="error">{{ error }}</div>
-      <div class="msg-box aviso" *ngIf="aviso && !error">{{ aviso }}</div>
+          <div class="encabezado-titulo">
+            <h2>Actas de priorización</h2>
 
-      <!-- El resumen es de todo lo filtrado, no de la página en pantalla. -->
-      <div class="tarjetas-resumen" *ngIf="totales.actas">
-        <div class="tarjeta"><span>{{ totales.actas }}</span><small>actas</small></div>
-        <div class="tarjeta"><span>{{ totales.proyectos }}</span><small>proyectos</small></div>
-        <div class="tarjeta">
-          <span>Bs {{ totales.monto | number:'1.0-0' }}</span><small>priorizado</small>
+            <p class="sub">
+              Lo que cada organización territorial priorizó para el POA.
+            </p>
+          </div>
+
+
+          <!--
+            Temporizador exclusivamente visual.
+            No bloquea, no cierra sesión y no modifica registros.
+          -->
+          <div
+            class="registro-countdown"
+            [ngClass]="'countdown--' + estadoCuentaRegresiva"
+          >
+
+            <div class="countdown-icono">
+              ⏳
+            </div>
+
+            <div class="countdown-contenido">
+
+              <div class="countdown-titulo">
+                CIERRE DE REGISTROS
+              </div>
+
+              <div
+                class="countdown-tiempo"
+                *ngIf="!plazoFinalizado"
+              >
+                {{ cuentaRegresiva }}
+              </div>
+
+              <div
+                class="countdown-tiempo countdown-finalizado"
+                *ngIf="plazoFinalizado"
+              >
+                PLAZO FINALIZADO
+              </div>
+
+              <div class="countdown-subtitulo">
+                HOY · 23:59 · BOLIVIA
+              </div>
+
+            </div>
+
+          </div>
+
         </div>
-      </div>
+
+
+        <!--
+          RESUMEN + NUEVA ACTA + FILTROS
+          Una sola fila en escritorio.
+        -->
+        <div class="barra-actas">
+
+          <!-- IZQUIERDA: RESUMEN -->
+          <div class="barra-actas-resumen">
+
+            <div
+              class="tarjetas-resumen"
+              *ngIf="totales.actas"
+            >
+
+              <div class="tarjeta">
+                <span>{{ totales.actas }}</span>
+                <small>actas</small>
+              </div>
+
+              <div class="tarjeta">
+                <span>{{ totales.proyectos }}</span>
+                <small>proyectos</small>
+              </div>
+
+              <div class="tarjeta">
+                <span>
+                  Bs {{ totales.monto | number:'1.0-0' }}
+                </span>
+                <small>priorizado</small>
+              </div>
+
+            </div>
+
+          </div>
+
+
+          <!-- CENTRO: NUEVA ACTA -->
+          <div class="barra-actas-centro">
+
+            <a
+              class="btn btn-sm btn-primary btn-nueva-acta"
+              routerLink="/priorizacion/actas/nueva"
+            >
+              + Nueva acta
+            </a>
+
+          </div>
+
+
+          <!-- DERECHA: FILTROS Y EXPORTACION -->
+          <div class="barra-actas-filtros">
+
+            <select
+              class="form-control filtro"
+              [(ngModel)]="distrito"
+              (change)="filtrar()"
+            >
+              <option value="">
+                Todos los distritos
+              </option>
+
+              <option
+                *ngFor="let d of distritos"
+                [value]="d.id"
+              >
+                {{ d.nombre }}
+              </option>
+            </select>
+
+
+            <input
+              class="form-control filtro"
+              [(ngModel)]="busqueda"
+              (keyup.enter)="filtrar()"
+              placeholder="OTB o presidente"
+            >
+
+
+            <button
+              type="button"
+              class="btn btn-sm btn-exportar"
+              [disabled]="!!descargando"
+              (click)="exportar('xlsx')"
+              title="Proyectos programados de lo filtrado, en Excel"
+            >
+              {{ descargando === 'xlsx' ? 'Generando…' : 'Excel' }}
+            </button>
+
+
+            <button
+              type="button"
+              class="btn btn-sm btn-exportar"
+              [disabled]="!!descargando"
+              (click)="exportar('pdf')"
+              title="Proyectos programados de lo filtrado, en PDF"
+            >
+              {{ descargando === 'pdf' ? 'Generando…' : 'PDF' }}
+            </button>
+
+          </div>
+
+        </div>
+
+
+        <div
+          class="msg-box error"
+          *ngIf="error"
+        >
+          {{ error }}
+        </div>
+
+        <div
+          class="msg-box aviso"
+          *ngIf="aviso && !error"
+        >
+          {{ aviso }}
+        </div>
 
       <div class="sin-datos" *ngIf="cargando"><span>Cargando actas…</span></div>
 
@@ -125,7 +258,517 @@ import { ActaPriorizacion, PriorizacionService } from './priorizacion.service';
     </div>
   `,
   styles: [`
-    .filtro { max-width: 190px; font-size: 0.8125rem; }
+
+      /*
+       * =====================================================
+       * CABECERA
+       * =====================================================
+       */
+
+      .encabezado-actas {
+        width: 100%;
+
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+
+        gap: 1.25rem;
+      }
+
+      .encabezado-titulo {
+        flex: 1 1 auto;
+        min-width: 0;
+      }
+
+
+      /*
+       * =====================================================
+       * TEMPORIZADOR
+       * =====================================================
+       */
+
+      .registro-countdown {
+        flex: 0 0 auto;
+
+        min-width: 270px;
+
+        margin-left: auto;
+
+        display: flex;
+        align-items: center;
+
+        gap: 0.85rem;
+
+        padding:
+          0.8rem
+          1.1rem;
+
+        box-sizing: border-box;
+
+        color: #fff;
+
+        border:
+          2px solid
+          rgba(255,255,255,.90);
+
+        border-radius: 13px;
+
+        box-shadow:
+          0 7px 20px rgba(0,0,0,.20),
+          0 0 0 1px rgba(0,0,0,.05);
+
+        transition:
+          background .25s ease,
+          box-shadow .25s ease,
+          transform .25s ease;
+      }
+
+
+      .countdown-icono {
+        flex: 0 0 auto;
+
+        font-size: 2.1rem;
+
+        line-height: 1;
+
+        filter:
+          drop-shadow(
+            0 2px 2px
+            rgba(0,0,0,.22)
+          );
+      }
+
+
+      .countdown-contenido {
+        min-width: 0;
+
+        display: flex;
+        flex-direction: column;
+      }
+
+
+      .countdown-titulo {
+        font-size: .69rem;
+
+        font-weight: 900;
+
+        line-height: 1.1;
+
+        letter-spacing: .08em;
+
+        color: #fff;
+      }
+
+
+      .countdown-tiempo {
+        margin-top: .16rem;
+
+        font-size: 1.8rem;
+
+        font-weight: 900;
+
+        line-height: 1;
+
+        letter-spacing: .045em;
+
+        font-variant-numeric:
+          tabular-nums;
+
+        color: #fff;
+
+        text-shadow:
+          0 2px 3px
+          rgba(0,0,0,.20);
+      }
+
+
+      .countdown-finalizado {
+        font-size: 1rem;
+
+        line-height: 1.15;
+      }
+
+
+      .countdown-subtitulo {
+        margin-top: .3rem;
+
+        font-size: .64rem;
+
+        font-weight: 800;
+
+        line-height: 1;
+
+        letter-spacing: .06em;
+
+        color:
+          rgba(255,255,255,.94);
+      }
+
+
+      /*
+       * Estado normal:
+       * resaltante naranja → rojo.
+       */
+      .countdown--normal {
+        background:
+          linear-gradient(
+            135deg,
+            #f59e0b 0%,
+            #f97316 40%,
+            #dc2626 100%
+          );
+      }
+
+
+      /*
+       * Menos de 2 horas.
+       */
+      .countdown--urgente {
+        background:
+          linear-gradient(
+            135deg,
+            #f97316 0%,
+            #dc2626 45%,
+            #991b1b 100%
+          );
+
+        box-shadow:
+          0 7px 22px
+          rgba(185,28,28,.36),
+          0 0 0 2px
+          rgba(254,202,202,.22);
+      }
+
+
+      /*
+       * Últimos 30 minutos.
+       */
+      .countdown--critico {
+        background:
+          linear-gradient(
+            135deg,
+            #dc2626 0%,
+            #b91c1c 50%,
+            #7f1d1d 100%
+          );
+
+        box-shadow:
+          0 8px 25px
+          rgba(185,28,28,.48),
+          0 0 0 3px
+          rgba(254,202,202,.38);
+
+        animation:
+          pulso-cierre
+          1.7s
+          ease-in-out
+          infinite;
+      }
+
+
+      /*
+       * Luego de las 23:59.
+       * Sigue sin realizar ninguna acción funcional.
+       */
+      .countdown--finalizado {
+        background:
+          linear-gradient(
+            135deg,
+            #374151 0%,
+            #111827 100%
+          );
+
+        animation: none;
+      }
+
+
+      @keyframes pulso-cierre {
+
+        0%,
+        100% {
+          transform: scale(1);
+        }
+
+        50% {
+          transform: scale(1.018);
+        }
+
+      }
+
+
+      /*
+       * =====================================================
+       * NUEVA ACTA
+       * =====================================================
+       */
+
+      .fila-nueva-acta {
+        width: 100%;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        margin:
+          .35rem 0
+          .65rem;
+      }
+
+
+      .btn-nueva-acta {
+        min-width: 165px;
+
+        min-height: 41px;
+
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+
+        padding:
+          0 1.25rem;
+
+        font-size: .83rem;
+
+        font-weight: 800;
+
+        box-shadow:
+          0 4px 11px
+          rgba(0,128,61,.22);
+      }
+
+
+      /*
+       * =====================================================
+       * FILTROS + EXCEL + PDF
+       * =====================================================
+       */
+
+      .fila-filtros {
+        width: 100%;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        gap: .5rem;
+
+        flex-wrap: wrap;
+
+        margin-bottom: 1rem;
+      }
+
+
+      .fila-filtros .filtro,
+      .fila-filtros .btn {
+        height: 38px;
+        min-height: 38px;
+
+        box-sizing: border-box;
+      }
+
+
+      .fila-filtros .btn {
+        display: inline-flex;
+
+        align-items: center;
+        justify-content: center;
+      }
+
+
+      /*
+       * =====================================================
+       * RESPONSIVE
+       * =====================================================
+       */
+
+      @media (max-width: 900px) {
+
+        .encabezado-actas {
+          flex-direction: column;
+        }
+
+        .registro-countdown {
+          align-self: stretch;
+
+          width: 100%;
+          min-width: 0;
+
+          margin-left: 0;
+        }
+
+      }
+
+
+      @media (max-width: 680px) {
+
+        .btn-nueva-acta {
+          width: 100%;
+        }
+
+        .fila-filtros {
+          flex-direction: column;
+
+          align-items: stretch;
+        }
+
+        .fila-filtros .filtro,
+        .fila-filtros .btn {
+          width: 100%;
+
+          max-width: none;
+        }
+
+      }
+
+      /*
+       * =====================================================
+       * FILA PRINCIPAL DE ACTAS
+       * =====================================================
+       *
+       * 1fr / auto / 1fr mantiene el botón Nueva acta
+       * geométricamente centrado respecto al contenido.
+       */
+
+      .barra-actas {
+        width: 100%;
+
+        display: grid;
+
+        grid-template-columns:
+          minmax(0, 1fr)
+          auto
+          minmax(0, 1fr);
+
+        align-items: center;
+
+        column-gap: 1rem;
+
+        margin:
+          0.7rem 0
+          0.8rem;
+      }
+
+
+      /* IZQUIERDA */
+
+      .barra-actas-resumen {
+        min-width: 0;
+
+        display: flex;
+
+        align-items: center;
+        justify-content: flex-start;
+      }
+
+
+      .barra-actas-resumen .tarjetas-resumen {
+        margin: 0;
+
+        flex-wrap: nowrap;
+      }
+
+
+      .barra-actas-resumen .tarjeta {
+        min-height: 64px;
+
+        box-sizing: border-box;
+      }
+
+
+      /* CENTRO */
+
+      .barra-actas-centro {
+        display: flex;
+
+        align-items: center;
+        justify-content: center;
+      }
+
+
+      .barra-actas-centro .btn-nueva-acta {
+        margin: 0;
+
+        min-width: 165px;
+        min-height: 38px;
+      }
+
+
+      /* DERECHA */
+
+      .barra-actas-filtros {
+        min-width: 0;
+
+        display: flex;
+
+        align-items: center;
+        justify-content: flex-end;
+
+        gap: 0.45rem;
+
+        flex-wrap: nowrap;
+      }
+
+
+      .barra-actas-filtros .filtro {
+        width: 175px;
+        max-width: 175px;
+
+        height: 38px;
+        min-height: 38px;
+
+        box-sizing: border-box;
+      }
+
+
+      .barra-actas-filtros .btn {
+        height: 38px;
+        min-height: 38px;
+
+        display: inline-flex;
+
+        align-items: center;
+        justify-content: center;
+
+        box-sizing: border-box;
+
+        white-space: nowrap;
+      }
+
+
+      /*
+       * En resoluciones pequeñas dejamos que se reorganice.
+       * En escritorio permanece obligatoriamente en una fila.
+       */
+      @media (max-width: 1250px) {
+
+        .barra-actas {
+          grid-template-columns: 1fr;
+
+          row-gap: 0.65rem;
+
+          justify-items: center;
+        }
+
+
+        .barra-actas-resumen {
+          justify-content: center;
+        }
+
+
+        .barra-actas-filtros {
+          justify-content: center;
+
+          flex-wrap: wrap;
+        }
+
+      }
+
+
+      .filtro {
+        max-width: 190px;
+        font-size: 0.8125rem;
+      }
+
     .tarjetas-resumen { display: flex; gap: var(--e-2); margin-bottom: var(--e-2); }
     .tarjeta {
       background: var(--surface); border: 1px solid var(--border);
@@ -191,7 +834,7 @@ import { ActaPriorizacion, PriorizacionService } from './priorizacion.service';
     }
   `],
 })
-export class ActasListadoComponent implements OnInit {
+export class ActasListadoComponent implements OnInit, OnDestroy {
   actas: ActaPriorizacion[] = [];
   distritos: any[] = [];
   /** La gestión la fija el candado de SIS-POA, no un filtro (ADR-007). */
@@ -230,16 +873,191 @@ export class ActasListadoComponent implements OnInit {
   /** Qué formato se está generando: deshabilita ambos botones mientras tanto. */
   descargando: '' | 'xlsx' | 'pdf' = '';
 
+  /**
+   * Temporizador exclusivamente visual.
+   *
+   * No controla ninguna operación del sistema.
+   */
+  cuentaRegresiva = '--:--:--';
+
+  plazoFinalizado = false;
+
+  estadoCuentaRegresiva:
+    | 'normal'
+    | 'urgente'
+    | 'critico'
+    | 'finalizado'
+    = 'normal';
+
+  /**
+   * 1 de septiembre de 2026,
+   * 23:59 hora de Bolivia (UTC-4).
+   */
+  private readonly cierreRegistros =
+    new Date(
+      '2026-09-01T23:59:00-04:00'
+    ).getTime();
+
+  private timerCuentaRegresiva:
+    ReturnType<typeof setInterval>
+    | null
+    = null;
+
   constructor(private api: PriorizacionService, private cdr: ChangeDetectorRef,
               private gestionActiva: GestionHabilitadaService) {}
 
   ngOnInit(): void {
+
+    /*
+     * AVISO VISUAL SOLAMENTE.
+     *
+     * No bloquea registros.
+     * No deshabilita botones.
+     * No realiza llamadas al backend.
+     */
+    this.actualizarCuentaRegresiva();
+
+    if (!this.plazoFinalizado) {
+
+      this.timerCuentaRegresiva =
+        setInterval(
+          () => this.actualizarCuentaRegresiva(),
+          1000,
+        );
+
+    }
+
     this.api.distritos().subscribe(d => {
       this.distritos = d.results ?? d;
       this.cdr.markForCheck();
     });
     this.cargar();
   }
+
+  ngOnDestroy(): void {
+
+    if (this.timerCuentaRegresiva !== null) {
+
+      clearInterval(
+        this.timerCuentaRegresiva
+      );
+
+      this.timerCuentaRegresiva = null;
+
+    }
+
+  }
+
+
+  /**
+   * Actualiza únicamente la representación visual
+   * del plazo de cierre.
+   */
+  private actualizarCuentaRegresiva(): void {
+
+    const restante =
+      this.cierreRegistros
+      - Date.now();
+
+
+    if (restante <= 0) {
+
+      this.cuentaRegresiva =
+        '00:00:00';
+
+      this.plazoFinalizado =
+        true;
+
+      this.estadoCuentaRegresiva =
+        'finalizado';
+
+
+      if (
+        this.timerCuentaRegresiva
+        !== null
+      ) {
+
+        clearInterval(
+          this.timerCuentaRegresiva
+        );
+
+        this.timerCuentaRegresiva =
+          null;
+
+      }
+
+
+      this.cdr.markForCheck();
+
+      return;
+
+    }
+
+
+    this.plazoFinalizado =
+      false;
+
+
+    const totalSegundos =
+      Math.floor(
+        restante / 1000
+      );
+
+
+    const horas =
+      Math.floor(
+        totalSegundos / 3600
+      );
+
+
+    const minutos =
+      Math.floor(
+        (totalSegundos % 3600)
+        / 60
+      );
+
+
+    const segundos =
+      totalSegundos % 60;
+
+
+    this.cuentaRegresiva =
+      `${String(horas).padStart(2, '0')}:`
+      + `${String(minutos).padStart(2, '0')}:`
+      + `${String(segundos).padStart(2, '0')}`;
+
+
+    /*
+     * Cambio solamente visual.
+     */
+    if (
+      restante
+      <= 30 * 60 * 1000
+    ) {
+
+      this.estadoCuentaRegresiva =
+        'critico';
+
+    } else if (
+      restante
+      <= 2 * 60 * 60 * 1000
+    ) {
+
+      this.estadoCuentaRegresiva =
+        'urgente';
+
+    } else {
+
+      this.estadoCuentaRegresiva =
+        'normal';
+
+    }
+
+
+    this.cdr.markForCheck();
+
+  }
+
 
   get totalPaginas(): number {
     if (!this.pageSize) { return 1; }
