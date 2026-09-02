@@ -53,7 +53,7 @@ import { ActaPriorizacion, PriorizacionService } from './priorizacion.service';
               </div>
 
               <div class="countdown-subtitulo">
-                HOY · 23:59 · BOLIVIA
+                HOY · 14:00 · BOLIVIA
               </div>
 
             </div>
@@ -467,7 +467,7 @@ import { ActaPriorizacion, PriorizacionService } from './priorizacion.service';
 
 
       /*
-       * Luego de las 23:59.
+       * Luego de las 14:00.
        * Sigue sin realizar ninguna acción funcional.
        */
       .countdown--finalizado {
@@ -890,12 +890,12 @@ export class ActasListadoComponent implements OnInit, OnDestroy {
     = 'normal';
 
   /**
-   * 1 de septiembre de 2026,
-   * 23:59 hora de Bolivia (UTC-4).
+   * 2 de septiembre de 2026,
+   * 14:00 hora de Bolivia (UTC-4).
    */
   private readonly cierreRegistros =
     new Date(
-      '2026-09-01T23:59:00-04:00'
+      '2026-09-02T14:00:00-04:00'
     ).getTime();
 
   private timerCuentaRegresiva:
