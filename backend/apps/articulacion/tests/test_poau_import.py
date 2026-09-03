@@ -2,6 +2,7 @@
 
 import io
 from datetime import date
+from decimal import Decimal
 from unittest.mock import patch
 
 import openpyxl
@@ -19,6 +20,7 @@ from apps.articulacion.models import (
     ProductoPEI,
     ResultadoPEI,
     TareaPOAU,
+    VersionImportacionPOAU,
 )
 from apps.articulacion.poau_importer import (
     ImportacionError,
@@ -26,9 +28,30 @@ from apps.articulacion.poau_importer import (
     create_preview,
     download_google_sheet,
 )
-from apps.catalogos.models import TipoOperacion, UnidadMedida
+from apps.catalogos.models import (
+    ClasificadorInstitucional,
+    FuenteFinanciamiento,
+    ObjetoGasto,
+    OrganismoFinanciador,
+    TipoOperacion,
+    UnidadMedida,
+    VersionClasificador,
+)
 from apps.gestion.testing import habilitar_gestion_para_tests
-from apps.organizacion.models import TipoUnidad, UnidadOrganizacional
+from apps.organizacion.models import (
+    DireccionAdministrativa,
+    TipoUnidad,
+    UnidadEjecutora,
+    UnidadOrganizacional,
+)
+from apps.presupuesto.models import (
+    ActividadPresupuestaria,
+    AsignacionPresupuestariaUnidad,
+    CategoriaProgramatica,
+    ProgramaPresupuestario,
+    ProyectoPresupuestario,
+)
+from apps.presupuesto.test_t4_asignaciones import crear_version
 
 
 HEADERS = [
@@ -80,7 +103,7 @@ def workbook_bytes(rows, headers=HEADERS, sheet='POAU', header_row=1):
     return output.getvalue()
 
 
-def official_workbook_bytes(aie='Producto ETL'):
+def official_workbook_bytes(aie='Producto ETL', trailing_legacy_section=False):
     workbook = openpyxl.Workbook()
     worksheet = workbook.active
     worksheet.title = 'PROPUESTA POAU FINAL'
@@ -133,6 +156,16 @@ def official_workbook_bytes(aie='Producto ETL'):
             row[column] = 0
         row[47] = 1
         worksheet.append(row)
+    if trailing_legacy_section:
+        legacy_header = [None] * 51
+        legacy_header[5] = 'INDICADORES EXISTENTE'
+        worksheet.append(legacy_header)
+        legacy_row = [None] * 51
+        legacy_row[9] = 'Operación legado'
+        legacy_row[12:15] = ['Avance físico', 'Ejecutado / programado', 'PORC']
+        legacy_row[15:21] = [0.25, 0.50, 1, '2027-01-01', '2027-12-31', 25]
+        legacy_row[22] = 'Responsable ETL'
+        worksheet.append(legacy_row)
     output = io.BytesIO()
     workbook.save(output)
     workbook.close()
@@ -162,6 +195,78 @@ def physical_row(level, **values):
         row[month] = 0
     row.update(values)
     return row
+
+
+def crear_asignacion_presupuestaria(gestion, unidad, operacion):
+    """Cadena mínima real para una `AsignacionPresupuestariaUnidad` de prueba.
+
+    Reusa `crear_version` de `test_t4_asignaciones` en vez de reinventarla;
+    el resto de la cadena de catálogos es exclusiva de este test porque
+    `CategoriaProgramatica` exige entidad/da/ue/programa/proyecto/actividad
+    reales y `full_clean()`-validados.
+    """
+    inicio = date(gestion.anio, 1, 1)
+    entidad = ClasificadorInstitucional.objects.create(
+        # CategoriaProgramatica.clean() exige entidad.codigo == '1312'.
+        codigo='1312', denominacion='Entidad ETL', gestion=gestion,
+        fecha_vigencia_desde=inicio,
+    )
+    da = DireccionAdministrativa.objects.create(
+        codigo='DA-ETL', nombre='DA ETL', gestion=gestion,
+        fecha_vigencia_desde=inicio,
+    )
+    ue = UnidadEjecutora.objects.create(
+        codigo='UE-ETL', nombre='UE ETL', da=da, gestion=gestion,
+        fecha_vigencia_desde=inicio,
+    )
+    programa = ProgramaPresupuestario.objects.create(
+        codigo='ETL-PRG', nombre='Programa ETL', gestion=gestion.anio,
+    )
+    proyecto = ProyectoPresupuestario.objects.create(
+        codigo='ETL-PRY', nombre='Proyecto ETL', programa=programa,
+        gestion=gestion.anio,
+    )
+    actividad_presupuestaria = ActividadPresupuestaria.objects.create(
+        codigo='ETL-ACT', nombre='Actividad presupuestaria ETL',
+        proyecto=proyecto, gestion=gestion.anio,
+    )
+    categoria_version = crear_version(
+        VersionClasificador.TIPO_CATEGORIA_PROGRAMATICA, gestion=gestion.anio,
+    )
+    categoria = CategoriaProgramatica.objects.create(
+        version_clasificador=categoria_version, entidad=entidad, da=da, ue=ue,
+        programa=programa, proyecto=proyecto, actividad=actividad_presupuestaria,
+        codigo_fuente='1312-ETL|DA-ETL|UE-ETL|ETL-PRG|ETL-PRY|ETL-ACT',
+        procedencia_normativa='Prueba ETL',
+    )
+    fuente = FuenteFinanciamiento.objects.create(
+        # ANCHO_CODIGO_OFICIAL exige 2/3/5 dígitos exactos en fuente/organismo/objeto.
+        codigo='20', denominacion='Fuente ETL', gestion=gestion,
+        fecha_vigencia_desde=inicio,
+        version_clasificador=crear_version(
+            VersionClasificador.TIPO_FUENTE_FINANCIAMIENTO, gestion=gestion.anio,
+        ),
+    )
+    organismo = OrganismoFinanciador.objects.create(
+        codigo='210', denominacion='Organismo ETL', gestion=gestion,
+        fecha_vigencia_desde=inicio,
+        version_clasificador=crear_version(
+            VersionClasificador.TIPO_ORGANISMO_FINANCIADOR, gestion=gestion.anio,
+        ),
+    )
+    objeto = ObjetoGasto.objects.create(
+        codigo='11210', denominacion='Objeto de gasto ETL', gestion=gestion,
+        fecha_vigencia_desde=inicio, nivel=ObjetoGasto.NIVEL_DETALLE,
+        version_clasificador=crear_version(
+            VersionClasificador.TIPO_OBJETO_GASTO, gestion=gestion.anio,
+        ),
+    )
+    return AsignacionPresupuestariaUnidad.objects.create(
+        categoria_programatica=categoria, fuente=fuente, organismo=organismo,
+        objeto_gasto=objeto, unidad=unidad, operacion=operacion,
+        gestion=gestion.anio, monto_formulado=Decimal('1000.00'),
+        monto_vigente=Decimal('900.00'), monto_ejecutado=Decimal('0'),
+    )
 
 
 class PoauImportBase(TestCase):
@@ -314,6 +419,34 @@ class PoauImportPreviewTests(PoauImportBase):
         self.assertEqual(operation['linea_base'], '0.25')
         self.assertEqual(operation['meta_actual'], '0.5')
         self.assertEqual(operation['ponderacion'], '25')
+
+    def test_indicadores_existente_section_is_ignored(self):
+        response = self.preview_excel(
+            content=official_workbook_bytes(trailing_legacy_section=True),
+            sheet='PROPUESTA POAU FINAL',
+        )
+
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data['estado'], 'VALIDO')
+        self.assertEqual(response.data['resumen']['filas_validas'], 4)
+        denominaciones = {
+            row.get('operacion') or row.get('actividad') or row.get('tarea')
+            for row in response.data['filas']
+        }
+        self.assertNotIn('Operación legado', denominaciones)
+
+    def test_missing_unit_of_measure_is_a_warning_not_a_blocking_error(self):
+        rows = self.rows()
+        rows[0] = {**rows[0], 'UNIDAD DE MEDIDA': ''}
+        response = self.preview_excel(rows)
+
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data['estado'], 'VALIDO')
+        warning = next(
+            error for error in response.data['errores']
+            if error['campo'] == 'unidad_medida'
+        )
+        self.assertEqual(warning['severidad'], 'advertencia')
 
     def test_excel_preview_is_read_only_and_does_not_store_bytes(self):
         response = self.preview_excel()
@@ -629,6 +762,47 @@ class PoauImportApplyTests(PoauImportBase):
         self.assertEqual(operation.ponderacion, 25)
         self.assertEqual(applied.data['resultado']['eliminados'], 4)
         self.assertEqual(applied.data['resultado']['creados'], 5)
+
+    def test_apply_replaces_operation_with_existing_budget_assignment(self):
+        """Reproduce el 400 real de producción: la operación que el nuevo
+
+        árbol reemplaza ya tiene una `AsignacionPresupuestariaUnidad`
+        (on_delete=PROTECT). Antes del fix esto bloqueaba todo el `apply`;
+        ahora debe reemplazar igual, dejando la asignación en el historial
+        auditado en vez de simplemente borrarla sin dejar rastro.
+        """
+        asignacion = crear_asignacion_presupuestaria(
+            self.gestion, self.unit, self.operation,
+        )
+        response = self.preview_excel(self.rows(include_new=True))
+        operation_id = self.operation.id
+
+        applied = self.client.post(
+            reverse('v2-poau-imports-apply', args=[response.data['id']]) + self.query,
+            {'confirmation_code': self.unit.codigo}, format='json',
+        )
+
+        self.assertEqual(applied.status_code, 200, applied.data)
+        self.assertFalse(OperacionPOAU.objects.filter(pk=operation_id).exists())
+        self.assertFalse(
+            AsignacionPresupuestariaUnidad.objects.filter(pk=asignacion.pk).exists(),
+        )
+        version = VersionImportacionPOAU.objects.get(
+            unidad=self.unit, tipo_evento=VersionImportacionPOAU.TipoEvento.REEMPLAZO,
+        )
+        self.assertIn(
+            str(operation_id),
+            [row['id'] for row in version.snapshot['operaciones']],
+        )
+        # El monto asignado no se pierde: queda en el snapshot aunque la fila
+        # viva ya no exista, para reconciliar a mano si hace falta.
+        asignaciones_snapshot = version.snapshot['asignaciones_presupuestarias']
+        self.assertEqual(len(asignaciones_snapshot), 1)
+        self.assertEqual(asignaciones_snapshot[0]['id'], str(asignacion.pk))
+        self.assertEqual(
+            Decimal(asignaciones_snapshot[0]['monto_vigente']), Decimal('900.00'),
+        )
+        self.assertEqual(version.resumen['asignaciones_presupuestarias'], 1)
 
     def test_write_failure_rolls_back_all_changes(self):
         content = workbook_bytes(self.rows())

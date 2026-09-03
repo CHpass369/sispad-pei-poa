@@ -158,18 +158,136 @@ Re-run it outside that restriction.
 These results prove only the current superseded diff/upsert design. After the
 redesign, add/replace tests and run the entire verification set again.
 
+## Design: replacement boundary and audit (steps 2-3, resolved 2026-09-03)
+
+Diagnosed in production the same day: `apply_preview()` deterministically
+rejects every apply attempt (400, evidence: 6 real attempts, 4 different
+preview IDs, all 6 responses exactly 258 bytes) for any unit that already has
+real operational data, because `_has_external_dependencies()` blocks on the
+first dependent row it finds on a node the new matrix would delete. This was
+never a regression — it is exactly the superseded behavior step 5 already
+called out. Full root cause: [[importador-poau-bloqueado-por-recursos-protect]].
+
+### Real dependency map (relevado del código, no supuesto)
+
+Every FK that points at `OperacionPOAU`/`ActividadPOAU`/`TareaPOAU`, found by
+scanning every `apps/*/models.py` for `ForeignKey` targets — not the partial
+list `_has_external_dependencies` happens to hit first:
+
+| Model.field | Points at | `on_delete` | What it represents | Handling |
+| --- | --- | --- | --- | --- |
+| `ActividadPOAU.operacion`, `TareaPOAU.actividad` | tree parent | CASCADE | the tree itself | internal, not a dependency |
+| `ActividadNormativa.actividad`, `TareaNormativa.tarea` | actividad/tarea | CASCADE | legal-basis links | snapshot, then let ORM cascade |
+| `SeguimientoPresupuesto.{operacion,actividad,tarea}` | any level | CASCADE | **execution tracking** | snapshot, then let ORM cascade |
+| `AsignacionObjetoGasto.{operacion,actividad,tarea}` | any level | CASCADE | **budget object classification** | snapshot, then let ORM cascade |
+| `AsignacionPresupuestariaUnidad.{operacion,actividad,tarea}` | any level | **PROTECT** | **budget assignment (formulado/vigente/ejecutado)** | snapshot, then delete explicitly *before* the tree |
+
+Only `AsignacionPresupuestariaUnidad` is `PROTECT`; it is the one that raises
+today. The other four are `CASCADE` in Django, but **all five have a real
+`db_constraint=True` FK in PostgreSQL** (confirmed: no model sets
+`db_constraint=False`) — the "approval" dimension from the confirmed
+decisions table is not a separate table, it is the `estado` field
+(`OFICIAL`/`APROBADO`) on the POAU nodes themselves, already gated by the
+existing pre-check at the top of `apply_preview` (kept, see decision below).
+
+### There is already an abandoned, unfinished v2 attempt — do not wire it in as-is
+
+`poau_importer.py` has `_apply_preview_v2()`, `_locked_tree()`,
+`_assert_replaceable()`, `_enable_rebuild_override()`, `_raw_delete()`,
+`_delete_tree()`, `snapshot_unit_tree()`, `VersionImportacionPOAU` and
+`restore_version()` — a real prior attempt at exactly this redesign, dead
+code today (`_apply_preview_v2` is never imported or called; confirmed by
+`rg -n "_apply_preview_v2\("`, one hit, its own `def`). It cannot simply be
+turned on:
+
+- `_assert_replaceable()` blocks on **any** dependency anywhere in the whole
+  current tree, not just on stale nodes being removed — stricter than
+  today's bug, not looser. It would never pass for a unit with any resource
+  programmed, matched or not.
+- `_delete_tree()` deletes via **raw SQL** (`_raw_delete`, plain
+  `DELETE FROM ... WHERE id = %s`), which bypasses Django's cascade
+  collector entirely. Since every one of the five FKs above has a real
+  PostgreSQL constraint, that raw delete hits the DB's own referential
+  integrity and fails with a bare `IntegrityError` for any node with a
+  `CASCADE`-in-Django dependent — Django's `on_delete=CASCADE` is an
+  application-level behavior, not a DB-level `ON DELETE CASCADE` clause.
+- `_enable_rebuild_override()` sets a Postgres session GUC,
+  `SET LOCAL pip.poau_rebuild = 'on'`, that **no migration, trigger, or rule
+  anywhere reads** (`rg` across `apps/articulacion/migrations/` for
+  `poau_rebuild`: zero hits). It does nothing.
+
+`snapshot_unit_tree()` and `VersionImportacionPOAU` (append-only, already
+has `gestion`/`unidad`/`usuario`/`tipo_evento`/`snapshot`/`resumen`/source
+fields, and a `RESTAURACION` event type with a working `restore_version()`)
+are the one part of this attempt that is sound and should be reused as-is —
+it already satisfies step 3's audit requirements.
+
+### Design for the new `apply_preview()`
+
+Replace the raw-SQL rebuild with plain Django ORM, inside the existing
+`transaction.atomic()` + `select_for_update()` lock on the full tree
+(`_locked_tree`, reused):
+
+1. **Snapshot first.** Call `snapshot_unit_tree()` and create one
+   `VersionImportacionPOAU(tipo_evento=REEMPLAZO, ...)` row *before* any
+   delete — reused unchanged from the abandoned attempt.
+2. **Delete `AsignacionPresupuestariaUnidad` rows explicitly**, for every
+   node about to be deleted, *before* deleting the nodes themselves — this
+   is the only step that needs to run first, because it is the only `PROTECT`
+   relation.
+3. **Delete the stale nodes through the ORM** (`queryset.delete()`, not raw
+   SQL) exactly as `apply_preview` already does today. Django's collector
+   correctly cascades the four `CASCADE` dependents (tracking, budget-object
+   assignment, normativa links) in the same call — no manual ordering needed
+   for those, and no phantom GUC.
+4. Drop `_has_external_dependencies()` / `_is_blocking`-style hard block on
+   stale nodes entirely — the audit snapshot is what "covers" the warning
+   requirement now, not a refusal to proceed.
+5. Preview must compute and return a **destructive-impact summary** before
+   apply: counts (and, for `AsignacionPresupuestariaUnidad`, the sum of
+   `monto_vigente`) per dependent type, scoped to the stale nodes the apply
+   would remove, so the UI can show it in the confirmation step (task plan
+   step 6) instead of only warning generically.
+
+### Open decision — needs your confirmation before I implement
+
+The confirmed decisions table says the warning "must cover ... approval"
+data and that, after confirmation, the importer should "reconstruct all
+in-scope operational data." Today `apply_preview` still hard-blocks the
+whole apply if any node in scope is `OFICIAL`/`APROBADO`, requiring someone
+to manually move it back to draft first — that pre-check is untouched by
+everything above.
+
+I have not changed that behavior, because auto-downgrading and replacing an
+**officially approved** POAU node inside the same "reconstruct everything"
+apply is a materially different risk than replacing draft data with real
+budget history behind it (which the design above already covers safely via
+the audit snapshot). Two ways to close this:
+
+- **Keep the hard block for `OFICIAL`/`APROBADO`** (recommended): the warning
+  screen names which nodes are official/approved and why apply is disabled
+  until they are moved back to draft by hand, same as today — just with a
+  clearer message than the current generic block.
+- **Fold it into the same warn-then-rebuild flow**: the destructive-impact
+  summary lists official/approved nodes as their own category, and
+  confirming apply is enough to replace them too, no manual downgrade step.
+
 ## Ordered implementation plan
 
 Keep each unit reviewable and pair behavioral changes with tests.
 
 - [ ] **1. Resolve the UO creation schema.** Record mandatory source columns,
   catalog resolution rules, parent-unit rules, and blocking errors.
-- [ ] **2. Define the replacement boundary.** Enumerate every UO/year-owned
+- [x] **2. Define the replacement boundary.** Enumerate every UO/year-owned
   operational and dependent table that must be deleted/rebuilt. Confirm foreign
   key order and deletion policy from real models; do not rely on cascade guesses.
-- [ ] **3. Design immutable audit.** Capture actor, timestamp, UO/year, source
+  Designed 2026-09-03, see "Design: replacement boundary and audit" above.
+  Pending confirmation on OFICIAL/APROBADO handling before implementing.
+- [x] **3. Design immutable audit.** Capture actor, timestamp, UO/year, source
   type/safe locator, preview digest, validation summary, confirmation, and exact
   replaced/created counts. Preserve audit rows across reconstruction and rollback.
+  Designed 2026-09-03: reuse `VersionImportacionPOAU` + `snapshot_unit_tree()`,
+  already built and sound, just never wired into `apply_preview()`.
 - [ ] **4. Change preview scope.** Remove target-action input. Resolve/create-plan
   the UO, validate multiple actions and their full descendants, detect duplicate
   natural keys across the complete matrix, and preview destructive impact.
