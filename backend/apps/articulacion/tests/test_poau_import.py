@@ -22,6 +22,7 @@ from apps.articulacion.models import (
 )
 from apps.articulacion.poau_importer import (
     ImportacionError,
+    _canonical_header,
     apply_preview,
     create_preview,
     download_google_sheet,
@@ -208,6 +209,59 @@ class PoauImportBase(TestCase):
             data,
             format='multipart',
         )
+
+
+class CabeceraFlexibleTests(TestCase):
+    """El matcher de encabezados contra los nombres de la planilla real.
+
+    El formato oficial no escribe «ACCIÓN DE CORTO PLAZO» a secas: le cuelga la
+    gestión y una aclaración entre paréntesis. La igualdad exacta rechazaba esa
+    columna, y sin ella la detección de cabecera fallaba entera.
+    """
+
+    def test_acepta_el_alias_como_prefijo(self):
+        self.assertEqual(
+            _canonical_header(
+                'ACCIÓN DE CORTO PLAZO GESTIÓN 2027 \n'
+                '(PRODUCTO INSTITUCIONAL ANUAL)',
+            ),
+            'accion',
+        )
+
+    def test_gana_el_alias_mas_largo(self):
+        """«unidad» es prefijo de «unidad de medida»: no puede quedárselo."""
+        self.assertEqual(_canonical_header('UNIDAD DE MEDIDA'), 'unidad_medida')
+        self.assertEqual(
+            _canonical_header('UNIDAD ORGANIZACIONAL EJECUTORA'),
+            'unidad_nombre',
+        )
+
+    def test_corta_en_limite_de_palabra(self):
+        """`fin` y `ene` no pueden comerse palabras que apenas empiezan igual."""
+        self.assertIsNone(_canonical_header('FINANCIAMIENTO'))
+        self.assertIsNone(_canonical_header('ENERGÍA ELÉCTRICA'))
+        self.assertIsNone(_canonical_header('METODOLOGÍA'))
+
+    def test_meta_actual_no_le_roba_la_columna_a_meta(self):
+        self.assertEqual(_canonical_header('META'), 'meta')
+        self.assertEqual(_canonical_header('META ACTUAL'), 'meta_actual')
+
+    def test_mapea_las_columnas_que_tienen_campo_en_la_base(self):
+        """Si el modelo tiene dónde guardarlo, la columna no puede caer al vacío."""
+        self.assertEqual(
+            _canonical_header('CATEGORIA PROGRAMATICA'), 'categoria_programatica',
+        )
+        self.assertEqual(
+            _canonical_header('MEDIO DE VERIFICACIÓN'), 'medio_verificacion',
+        )
+
+    def test_sigue_rechazando_lo_que_no_es_del_formato(self):
+        for encabezado in (
+            'MARCO COMPETENCIAL', 'RAZONES DE DESVIACIÓN 1ER TRIMESTRE',
+            'DENOMINACIÓN (CATEGORIA PROGRAMATICA )', '',
+        ):
+            with self.subTest(encabezado=encabezado):
+                self.assertIsNone(_canonical_header(encabezado))
 
 
 class PoauImportPreviewTests(PoauImportBase):

@@ -155,6 +155,9 @@ HEADER_ALIASES = {
         'codigo accion', 'codigo accion de corto plazo',
         'cod accion corto plazo', 'accion codigo',
     },
+    'categoria_programatica': {
+        'categoria programatica', 'cat programatica', 'categoria prg',
+    },
     'operacion_codigo': {'codigo operacion', 'cod operacion'},
     'operacion': {'operacion', 'operaciones', 'operaciones producto intermedio'},
     'actividad_codigo': {'codigo actividad', 'cod actividad'},
@@ -165,10 +168,16 @@ HEADER_ALIASES = {
     'indicador': {'indicador'},
     'formula': {'formula'},
     'unidad_medida': {'unidad de medida', 'unidad medida'},
+    'linea_base': {'linea base', 'linea de base'},
     'meta': {'meta', 'meta anual'},
+    # No lo consume el parser: existe para que «META ACTUAL» no le robe la
+    # columna a «META» cuando el alias se acepta como prefijo. Gana el más
+    # largo, así que reclamarla acá la saca del camino.
+    'meta_actual': {'meta actual', 'meta reprogramada'},
     'fecha_inicio': {'fecha inicio', 'inicio'},
     'fecha_fin': {'fecha final', 'fecha fin', 'fin', 'final'},
     'responsable': {'responsable', 'cargo responsable'},
+    'medio_verificacion': {'medio de verificacion', 'medio verificacion'},
     'total_anual': {'total anual', 'total programado'},
 }
 for _mes in MESES:
@@ -176,30 +185,74 @@ for _mes in MESES:
 
 
 def _canonical_header(value):
+    """Campo canónico de un encabezado, o None.
+
+    La igualdad exacta no alcanza contra una planilla real. Los encabezados del
+    formato oficial llevan colgada la gestión y una aclaración entre paréntesis
+    —«ACCIÓN DE CORTO PLAZO GESTIÓN 2027 (PRODUCTO INSTITUCIONAL ANUAL)»— y
+    ninguno de esos coincide letra por letra con su alias. Peor: los que sí
+    coincidían lo hacían por casualidad, porque al quitarles el año quedaban
+    calcados.
+
+    Por eso el alias también vale como PREFIJO, con dos candados:
+
+    - **corta en límite de palabra**, para que `fin` no se coma
+      «financiamiento» ni `ene` a «energía»;
+    - **gana el alias más largo**, para que «unidad de medida» resuelva a
+      `unidad_medida` y no a `unidad_nombre`, que es prefijo suyo.
+
+    El desempate entre alias de igual longitud lo define el orden de
+    `HEADER_ALIASES`: es determinista, no depende del orden de los sets.
+    """
     normalized = _clave(value)
-    normalized = re.sub(r'\b(?:19|20)\d{2}\b', '', normalized).strip()
+    normalized = re.sub(r'\b(?:19|20)\d{2}\b', '', normalized)
+    normalized = re.sub(r'\s+', ' ', normalized).strip()
+    if not normalized:
+        return None
     for field, aliases in HEADER_ALIASES.items():
         if normalized in aliases:
             return field
-    return None
+    mejor_largo, mejor_campo = 0, None
+    for field, aliases in HEADER_ALIASES.items():
+        for alias in aliases:
+            corta_en_palabra = (
+                normalized.startswith(alias)
+                and (len(normalized) == len(alias)
+                     or normalized[len(alias)] == ' ')
+            )
+            if corta_en_palabra and len(alias) > mejor_largo:
+                mejor_largo, mejor_campo = len(alias), field
+    return mejor_campo
 
 
-def _header_map(values):
+def _header_map(values, anio_base=None):
+    """Índice de columna por campo canónico.
+
+    `anio_base` es la gestión anterior a la que se importa. Existe por la línea
+    base: el formato oficial trae «LINEA BASE (2025)» y «LINEA BASE (2026)», y
+    las dos normalizan al mismo alias porque el año se limpia. Sin desempate
+    ganaría la primera —la más vieja— y se guardaría el dato equivocado.
+    """
     mapping = {}
     for index, value in enumerate(values):
         normalized = _clave(value)
         field = _canonical_header(value)
         if normalized == 'codigo' and 'unidad_nombre' in mapping and 'unidad_codigo' not in mapping:
             field = 'unidad_codigo'
-        if field and field not in mapping:
+        if not field:
+            continue
+        if field == 'linea_base' and anio_base and str(anio_base) in normalized:
+            mapping[field] = index          # la del año base pisa a cualquier otra
+        elif field not in mapping:
             mapping[field] = index
     return mapping
 
 
-def _find_header(sheet, fallback_action_code='', fallback_unit_code=''):
+def _find_header(sheet, fallback_action_code='', fallback_unit_code='',
+                 anio_base=None):
     best = None
     for number, values in enumerate(sheet.iter_rows(min_row=1, max_row=30, values_only=True), 1):
-        mapping = _header_map(values)
+        mapping = _header_map(values, anio_base)
         score = len(mapping)
         executable = {'operacion', 'actividad', 'tarea'} & mapping.keys()
         has_action = bool({'accion', 'accion_codigo'} & mapping.keys()) or fallback_action_code
@@ -227,13 +280,21 @@ def _cell(values, mapping, field):
 def _parse_sheet(
     sheet, gestion, fallback_action_code='', fallback_unit_code='',
 ):
-    header_row, mapping = _find_header(sheet, fallback_action_code, fallback_unit_code)
+    anio_base = (gestion.anio - 1) if getattr(gestion, 'anio', None) else None
+    header_row, mapping = _find_header(
+        sheet, fallback_action_code, fallback_unit_code, anio_base,
+    )
     nodes, issues = [], []
     rows_read = 0
     emitted_actions = set()
+    linea_por_accion = {}
+
+    def action_key_previo(ctx):
+        return f"{_clave(ctx['aie'])}|{_clave(ctx['accion'])}"
     context = {
         'aie': '', 'accion': '', 'operacion': '', 'actividad': '',
         'operacion_codigo': '', 'actividad_codigo': '',
+        'categoria_programatica': '', 'linea_base': '',
     }
 
     for row_number, values in enumerate(
@@ -251,6 +312,13 @@ def _parse_sheet(
             context.update(aie=aie, accion='', operacion='', actividad='')
         if action and _clave(action) != _clave(context['accion']):
             context.update(accion=action, operacion='', actividad='')
+        categoria = _texto(_cell(values, mapping, 'categoria_programatica'))
+        if categoria:
+            context['categoria_programatica'] = categoria
+        linea_base = _texto(_cell(values, mapping, 'linea_base'))
+        if linea_base:
+            context['linea_base'] = linea_base
+            linea_por_accion.setdefault(action_key_previo(context), linea_base)
 
         raw = {
             level: _texto(_cell(values, mapping, level))
@@ -281,6 +349,8 @@ def _parse_sheet(
                     'fila': row_number, 'nivel': 'accion',
                     'aie': context['aie'], 'accion': context['accion'],
                     'accion_clave': action_key,
+                    'categoria_programatica': context['categoria_programatica'],
+                    'linea_base': context['linea_base'],
                     'indicador': '', 'formula': '', 'unidad_medida': '',
                     'meta': '0', 'fecha_inicio': None, 'fecha_fin': None,
                     'responsable': '',
@@ -394,6 +464,7 @@ def _parse_sheet(
                 'fila': row_number, 'nivel': level,
                 'aie': context['aie'], 'accion': context['accion'],
                 'accion_clave': action_key,
+                'categoria_programatica': context['categoria_programatica'],
                 'operacion_codigo': context['operacion_codigo'],
                 'operacion': context['operacion'],
                 'actividad_codigo': context['actividad_codigo'],
@@ -408,11 +479,19 @@ def _parse_sheet(
                 'fecha_inicio': start.isoformat() if start else None,
                 'fecha_fin': end.isoformat() if end else None,
                 'responsable': _texto(_cell(values, mapping, 'responsable')),
+                'medio_verificacion': _texto(
+                    _cell(values, mapping, 'medio_verificacion')),
                 'programacion_mensual': months,
                 'total_anual': str(total),
             }
             nodes.append(node)
         issues.extend(row_issues)
+
+    # La línea base la escribe el planificador en la fila de la operación —la de
+    # la acción suele venir vacía— pero el campo vive en `AccionPOA`.
+    for node in nodes:
+        if node['nivel'] == 'accion' and not node.get('linea_base'):
+            node['linea_base'] = linea_por_accion.get(node['accion_clave'], '')
 
     return nodes, issues, rows_read
 
@@ -890,6 +969,7 @@ def _fields_for(node):
     if node['nivel'] == 'operacion':
         return {
             **common,
+            'medio_verificacion': node.get('medio_verificacion', ''),
             'tipo_operacion': node['tipo_operacion'],
             'indicador': node['indicador'],
             'formula': node['formula'],
@@ -901,6 +981,7 @@ def _fields_for(node):
     if node['nivel'] == 'actividad':
         return {
             **common,
+            'medio_verificacion': node.get('medio_verificacion', ''),
             'indicador': node['indicador'],
             'formula': node['formula'],
             'unidad_medida': node['unidad_medida'],
@@ -1045,6 +1126,14 @@ def _delete_tree(actions, operations, activities, tasks):
         _raw_delete(objects)
 
 
+def _decimal_o_nulo(valor):
+    """La línea base es decimal y opcional: un texto suelto no rompe el apply."""
+    try:
+        return Decimal(str(valor).replace(',', '.')) if _texto(valor) else None
+    except (InvalidOperation, ValueError):
+        return None
+
+
 def _action_values(node, gestion, unidad, product):
     return {
         'denominacion': node['accion'], 'producto_pei': product,
@@ -1056,6 +1145,8 @@ def _action_values(node, gestion, unidad, product):
         'fecha_inicio': date.fromisoformat(node['fecha_inicio']) if node.get('fecha_inicio') else None,
         'fecha_fin': date.fromisoformat(node['fecha_fin']) if node.get('fecha_fin') else None,
         'cargo_responsable': node.get('responsable', ''),
+        'categoria_programatica': node.get('categoria_programatica', ''),
+        'linea_base': _decimal_o_nulo(node.get('linea_base')),
     }
 
 
