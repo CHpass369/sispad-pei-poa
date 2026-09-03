@@ -271,6 +271,16 @@ def _parse_sheet(
             context['unidad_codigo'] = unit_code
         aie = _texto(_cell(values, mapping, 'aie'))
         action = _texto(_cell(values, mapping, 'accion'))
+
+        # La matriz puede contener, después del POAU propuesto,
+        # una sección auxiliar/legacy denominada "INDICADORES EXISTENTE".
+        # Esa sección no forma parte del árbol POAU a importar.
+        if _clave(aie) in {
+            'indicadores existente',
+            'indicadores existentes',
+        }:
+            break
+
         if aie and _clave(aie) != _clave(context['aie']):
             context.update(
                 aie=aie, accion='', operacion='', actividad='',
@@ -735,12 +745,17 @@ def _database_errors_v2(nodes, gestion, unidad):
             UnidadMedida, gestion, node['unidad_medida'],
         )
         if not node['unidad_medida']:
-            issues.append(_error(
-                row, 'unidad_medida', 'La unidad de medida es obligatoria.',
+            issues.append(_warning(
+                row,
+                'unidad_medida',
+                f'El registro de nivel {level} no tiene unidad de medida; '
+                'se importará sin este dato.',
+                'missing_value',
             ))
         elif not valid:
             issues.append(_error(
-                row, 'unidad_medida',
+                row,
+                'unidad_medida',
                 'La unidad de medida no existe en el catálogo vigente.',
                 'foreign_key',
             ))

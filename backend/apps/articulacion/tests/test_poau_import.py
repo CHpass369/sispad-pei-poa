@@ -80,7 +80,7 @@ def workbook_bytes(rows, headers=HEADERS, sheet='POAU', header_row=1):
     return output.getvalue()
 
 
-def official_workbook_bytes(aie='Producto ETL'):
+def official_workbook_bytes(aie='Producto ETL', trailing_legacy_section=False):
     workbook = openpyxl.Workbook()
     worksheet = workbook.active
     worksheet.title = 'PROPUESTA POAU FINAL'
@@ -133,6 +133,16 @@ def official_workbook_bytes(aie='Producto ETL'):
             row[column] = 0
         row[47] = 1
         worksheet.append(row)
+    if trailing_legacy_section:
+        legacy_header = [None] * 51
+        legacy_header[5] = 'INDICADORES EXISTENTE'
+        worksheet.append(legacy_header)
+        legacy_row = [None] * 51
+        legacy_row[9] = 'Operación legado'
+        legacy_row[12:15] = ['Avance físico', 'Ejecutado / programado', 'PORC']
+        legacy_row[15:21] = [0.25, 0.50, 1, '2027-01-01', '2027-12-31', 25]
+        legacy_row[22] = 'Responsable ETL'
+        worksheet.append(legacy_row)
     output = io.BytesIO()
     workbook.save(output)
     workbook.close()
@@ -314,6 +324,34 @@ class PoauImportPreviewTests(PoauImportBase):
         self.assertEqual(operation['linea_base'], '0.25')
         self.assertEqual(operation['meta_actual'], '0.5')
         self.assertEqual(operation['ponderacion'], '25')
+
+    def test_indicadores_existente_section_is_ignored(self):
+        response = self.preview_excel(
+            content=official_workbook_bytes(trailing_legacy_section=True),
+            sheet='PROPUESTA POAU FINAL',
+        )
+
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data['estado'], 'VALIDO')
+        self.assertEqual(response.data['resumen']['filas_validas'], 4)
+        denominaciones = {
+            row.get('operacion') or row.get('actividad') or row.get('tarea')
+            for row in response.data['filas']
+        }
+        self.assertNotIn('Operación legado', denominaciones)
+
+    def test_missing_unit_of_measure_is_a_warning_not_a_blocking_error(self):
+        rows = self.rows()
+        rows[0] = {**rows[0], 'UNIDAD DE MEDIDA': ''}
+        response = self.preview_excel(rows)
+
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data['estado'], 'VALIDO')
+        warning = next(
+            error for error in response.data['errores']
+            if error['campo'] == 'unidad_medida'
+        )
+        self.assertEqual(warning['severidad'], 'advertencia')
 
     def test_excel_preview_is_read_only_and_does_not_store_bytes(self):
         response = self.preview_excel()
