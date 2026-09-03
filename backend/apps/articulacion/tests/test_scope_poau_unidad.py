@@ -182,6 +182,53 @@ class MatrizPOAUScopeTests(ScopePOAUUnidadBase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
 
+class MatrizPOAUCatalogoUnidadesTests(ScopePOAUUnidadBase):
+    """A-bis. GET /matriz-poau/unidades/ — el catálogo del selector, solo.
+
+    El selector de la importación existe para elegir la unidad cuyo árbol se va
+    a crear, así que tiene que ofrecer también las que todavía no tienen POAU.
+    Antes el catálogo solo llegaba dentro de la matriz —miles de filas y
+    megabytes—: una lectura pesada que fallara dejaba el desplegable vacío.
+    """
+
+    URL = f'{MATRIZ}unidades/'
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        # Una unidad del catálogo sin una sola AccionPOA colgando.
+        cls.sin_poau = UnidadOrganizacional.objects.create(
+            codigo='SCOPE-SIN-POAU', nombre='Unidad sin POAU',
+            tipo=cls.propia.tipo, padre=None, gestion=cls.gestion,
+            fecha_vigencia_desde=date(2027, 1, 1),
+        )
+
+    def catalogo(self, usuario):
+        response = self.cliente(usuario).get(self.URL)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        return [u['codigo'] for u in response.data['unidades']]
+
+    def test_ofrece_una_unidad_sin_arbol_todavia(self):
+        self.assertIn('SCOPE-SIN-POAU', self.catalogo(self.global_))
+
+    def test_devuelve_la_gestion_habilitada(self):
+        response = self.cliente(self.global_).get(self.URL)
+        self.assertEqual(response.data['gestion'], 2027)
+
+    def test_respeta_el_alcance_organizacional(self):
+        self.assertEqual(self.catalogo(self.acotado), ['SCOPE-PROPIA'])
+
+    def test_sin_alcances_no_ofrece_nada(self):
+        self.assertEqual(self.catalogo(self.sin_alcance), [])
+
+    def test_exige_la_capacidad_poau(self):
+        sin_rol = Usuario.objects.create_user(
+            email='scope-cat-sin-cap@test.gob.bo', password='Clave.Scope.2027',
+        )
+        response = self.cliente(sin_rol).get(self.URL)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
 class MatrizPOAUDetalleScopeTests(ScopePOAUUnidadBase):
     """B. GET /matriz-poau/<accion>/ — el detalle también se acota."""
 

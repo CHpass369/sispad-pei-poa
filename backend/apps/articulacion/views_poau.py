@@ -166,6 +166,29 @@ class MatrizPOAUViewSet(viewsets.ViewSet):
             return programa[raiz], 'programa'
         return '', ''
 
+    @action(detail=False, methods=['get'], url_path='unidades')
+    def unidades(self, request):
+        """GET /matriz-poau/unidades/ — el catálogo que alimenta los selectores.
+
+        El catálogo también viaja dentro de `list()`, pero ahí es carga de
+        acompañamiento: la respuesta de la matriz trae miles de filas y pesa
+        megabytes. El selector de la importación no puede depender de eso,
+        porque justamente se usa para elegir una unidad que **todavía no tiene
+        árbol**: si la matriz falla o tarda, el desplegable queda vacío y no hay
+        forma de crear el POAU de esa unidad.
+
+        Acá el catálogo se pide solo, con la misma capacidad y el mismo alcance
+        organizacional que la matriz, para que el desplegable nunca ofrezca una
+        unidad que el usuario no puede abrir.
+        """
+        gestion = gestion_del_candado(request).anio
+        return Response({
+            'gestion': int(gestion) if gestion else None,
+            'unidades': self._catalogo_unidades(
+                gestion, self._codigos_en_alcance(request),
+            ),
+        })
+
     @action(detail=False, methods=['get'], url_path='presupuesto')
     def presupuesto(self, request):
         """Programación presupuestaria del POAU, agrupada por categoría.
