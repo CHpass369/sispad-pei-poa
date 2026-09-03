@@ -205,6 +205,11 @@ const TODAS_UNIDADES = '__todas_las_unidades__';
             de lo general a lo específico.
           </p>
         </div>
+        <!-- Aviso visual del cierre. No bloquea el registro: quien decide si
+             una fila entra es el candado de gestión, no este reloj. -->
+        <app-cuenta-regresiva
+          cierre="2026-09-03T23:59:00-04:00"
+          subtitulo="HOY · 23:59 · BOLIVIA"></app-cuenta-regresiva>
         <div class="encabezado-acciones">
           <app-combo-box class="filtro" [opciones]="opcionesUnidadFiltro"
                          [ngModel]="unidadFiltro"

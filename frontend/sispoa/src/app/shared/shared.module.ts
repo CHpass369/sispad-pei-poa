@@ -5,9 +5,11 @@ import { RouterModule } from '@angular/router';
 import { TablaGenericaComponent } from './components/tabla-generica/tabla-generica.component';
 import { ControlMetodologicoComponent } from './components/control-metodologico/control-metodologico.component';
 import { ComboBoxComponent } from './components/combo-box/combo-box.component';
+import { CuentaRegresivaComponent } from './components/cuenta-regresiva/cuenta-regresiva.component';
 
 const EXPORTED_DECLARABLES = [
   TablaGenericaComponent, ControlMetodologicoComponent, ComboBoxComponent,
+  CuentaRegresivaComponent,
 ];
 
 @NgModule({
