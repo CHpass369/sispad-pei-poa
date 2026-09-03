@@ -448,6 +448,34 @@ class PoauImportPreviewTests(PoauImportBase):
         )
         self.assertEqual(warning['severidad'], 'advertencia')
 
+    def test_ponderacion_over_100_is_a_warning_not_a_blocking_error(self):
+        rows = self.rows()
+        rows[0] = {**rows[0], '% PONDERACIÓN': 150}
+        response = self.preview_excel(rows)
+
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data['estado'], 'VALIDO')
+        warning = next(
+            error for error in response.data['errores']
+            if error['campo'] == 'ponderacion'
+        )
+        self.assertEqual(warning['severidad'], 'advertencia')
+
+    def test_fecha_fin_before_inicio_is_a_warning_not_a_blocking_error(self):
+        rows = self.rows()
+        rows[0] = {
+            **rows[0], 'FECHA INICIO': '2027-12-31', 'FECHA FINAL': '2027-01-01',
+        }
+        response = self.preview_excel(rows)
+
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data['estado'], 'VALIDO')
+        warning = next(
+            error for error in response.data['errores']
+            if error['campo'] == 'fecha_fin'
+        )
+        self.assertEqual(warning['severidad'], 'advertencia')
+
     def test_excel_preview_is_read_only_and_does_not_store_bytes(self):
         response = self.preview_excel()
         self.assertEqual(response.status_code, 201, response.data)
