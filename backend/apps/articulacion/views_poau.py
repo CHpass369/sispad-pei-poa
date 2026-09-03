@@ -352,9 +352,13 @@ class MatrizPOAUViewSet(viewsets.ViewSet):
                     f['denominacion_categoria'] = den
                     f['origen_categoria'] = origen
 
+        incluir_unidades = request.query_params.get('incluir_unidades', '1') != '0'
         return Response({
             'gestion': int(gestion) if gestion else None,
-            'unidades': self._catalogo_unidades(gestion, en_alcance),
+            'unidades': (
+                self._catalogo_unidades(gestion, en_alcance)
+                if incluir_unidades else []
+            ),
             'total_filas': len(filas),
             'filas': filas,
         })
@@ -363,24 +367,21 @@ class MatrizPOAUViewSet(viewsets.ViewSet):
     def _catalogo_unidades(gestion, en_alcance):
         """Unidades que el selector puede ofrecer.
 
-        Se calcula sobre la gestión completa y no sobre las filas ya
-        filtradas: con `?unidad=` aplicado, `unidades` quedaría reducido a esa
-        sola UO y el desplegable se vaciaría al primer filtro.
+        Sale del catálogo organizacional de la gestión, incluso si una unidad
+        todavía no tiene acciones POA. El frontend lo solicita una sola vez y
+        reutiliza la lista al cambiar el filtro de la matriz.
         """
+        from apps.organizacion.models import UnidadOrganizacional
+
         catalogo = (
-            AccionPOA.objects
-            .filter(gestion=gestion, unidad_responsable__isnull=False)
-            .values_list('unidad_responsable__codigo',
-                         'unidad_responsable__nombre')
-            .distinct()
+            UnidadOrganizacional.objects
+            .filter(gestion__anio=gestion, activo=True)
         )
         if en_alcance is not None:
-            catalogo = catalogo.filter(
-                unidad_responsable__codigo__in=en_alcance)
-        return [
-            {'codigo': codigo, 'nombre': nombre}
-            for codigo, nombre in sorted(set(catalogo))
-        ]
+            catalogo = catalogo.filter(codigo__in=en_alcance)
+        return list(
+            catalogo.values('codigo', 'nombre', 'sigla').order_by('codigo')
+        )
 
     def retrieve(self, request, pk=None):
         """GET /matriz-poau/<accion_id>/ — la acción cargada para el wizard.

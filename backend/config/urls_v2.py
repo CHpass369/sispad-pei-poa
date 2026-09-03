@@ -31,6 +31,7 @@ from apps.articulacion.views import (
     ArticulacionPADPEIViewSet,
 )
 from apps.articulacion.views_matrices import MatrizViewSet as ArticulacionMatrizViewSet
+from apps.articulacion.views_poau_import import ImportacionProgramacionFisicaViewSet
 from apps.auditoria.views import EventoAuditoriaViewSet as AuditoriaEventoAuditoriaViewSet
 from apps.catalogos.views import (
     ClasificadorInstitucionalViewSet as CatalogoClasificadorInstitucionalViewSet,
@@ -89,6 +90,10 @@ sis_poa_router.register('operaciones', OperacionViewSet, basename='v2-operacione
 sis_poa_router.register('actividades', ActividadViewSet, basename='v2-actividades')
 sis_poa_router.register('tareas', TareaViewSet, basename='v2-tareas')
 sis_poa_router.register('programaciones', ProgramacionViewSet, basename='v2-programaciones')
+sis_poa_router.register(
+    'poau-imports', ImportacionProgramacionFisicaViewSet,
+    basename='v2-poau-imports',
+)
 sis_poa_router.register('techos', TechoViewSetV2, basename='v2-techos')
 
 

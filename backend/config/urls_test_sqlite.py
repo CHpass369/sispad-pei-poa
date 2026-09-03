@@ -9,6 +9,7 @@ from rest_framework.routers import DefaultRouter
 from apps.core.views_root import health_check
 
 from apps.accounts.views_v2 import MeViewSet
+from apps.articulacion.views_poau_import import ImportacionProgramacionFisicaViewSet
 from apps.poau.views_v2 import (
     AccionViewSet,
     ActividadViewSet,
@@ -35,6 +36,10 @@ sis_poa_router.register('actividades', ActividadViewSet, basename='v2-actividade
 sis_poa_router.register('tareas', TareaViewSet, basename='v2-tareas')
 sis_poa_router.register('programaciones', ProgramacionViewSet, basename='v2-programaciones')
 sis_poa_router.register('techos', TechoViewSetV2, basename='v2-techos')
+sis_poa_router.register(
+    'poau-imports', ImportacionProgramacionFisicaViewSet,
+    basename='v2-poau-imports',
+)
 
 platform_router.register('workflow-definiciones', DefinicionViewSet, basename='v2-workflow-definiciones')
 platform_router.register('workflow-instancias', InstanciaViewSet, basename='v2-workflow-instancias')

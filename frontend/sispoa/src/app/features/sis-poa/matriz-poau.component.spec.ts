@@ -191,6 +191,106 @@ describe('MatrizPoauComponent · aprovechamiento del ancho', () => {
   });
 });
 
+describe('MatrizPoauComponent · importación ETL', () => {
+  let componente: MatrizPoauComponent;
+  let http: HttpTestingController;
+  let fixture: ComponentFixture<MatrizPoauComponent>;
+
+  const preview: any = {
+    id: 'preview-1', estado: 'VALIDO',
+    resumen: {
+      filas_leidas: 3, filas_validas: 3, filas_rechazadas: 0,
+      errores: 0, registros_preview: 3,
+    },
+    errores: [],
+    filas: [{
+      fila: 2, nivel: 'operacion', operacion_codigo: 'OP-1',
+      operacion: 'Operación importada', meta: '1',
+    }],
+  };
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [HttpClientTestingModule, RouterTestingModule],
+      declarations: [MatrizPoauComponent],
+      providers: [
+        { provide: GestionHabilitadaService, useValue: gestionHabilitadaStub(2027, 'gestion-2027') },
+      ],
+    });
+    fixture = TestBed.createComponent(MatrizPoauComponent);
+    componente = fixture.componentInstance;
+    componente.unidad = 'UO-01';
+    componente.accionImportCodigo = 'ACP-01';
+    http = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => http.verify());
+
+  it('ubica el botón de importar antes de las exportaciones y abre un diálogo accesible', () => {
+    fixture.detectChanges();
+    const buttons = Array.from(fixture.nativeElement.querySelectorAll('.encabezado-acciones button')) as HTMLButtonElement[];
+    const labels = buttons.map(button => button.textContent?.trim());
+    expect(labels.indexOf('⇧ Importar')).toBeLessThan(labels.indexOf('⬇ Excel'));
+    buttons.find(button => button.textContent?.includes('Importar'))?.click();
+    fixture.detectChanges();
+    const dialog = fixture.nativeElement.querySelector('[role="dialog"]');
+    expect(dialog).toBeTruthy();
+    expect(dialog.getAttribute('aria-modal')).toBe('true');
+  });
+
+  it('envía Excel temporal a preview V2 y muestra su resumen', () => {
+    componente.archivoImport = new File(['xlsx'], 'poau.xlsx', {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    componente.hojaImport = 'POAU';
+    componente.previsualizarImportacion();
+    const request = http.expectOne(req =>
+      req.url.includes('/api/v2/sis-poa/poau-imports/preview/') &&
+      req.params.get('gestion_id') === 'gestion-2027');
+    expect(request.request.body instanceof FormData).toBeTrue();
+    expect(request.request.body.get('unidad_codigo')).toBe('UO-01');
+    expect(request.request.body.get('accion_codigo')).toBe('ACP-01');
+    request.flush(preview);
+    expect(componente.previewImport?.resumen.filas_validas).toBe(3);
+  });
+
+  it('no previsualiza sin una Acción POA objetivo explícita', () => {
+    componente.accionImportCodigo = '';
+    componente.archivoImport = new File(['xlsx'], 'poau.xlsx', {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+
+    componente.previsualizarImportacion();
+
+    http.expectNone(req => req.url.includes('/poau-imports/preview/'));
+    expect(componente.importError).toContain('Acción POA objetivo');
+  });
+
+  it('aplica solo con confirmación, conserva el resumen y recarga la matriz', () => {
+    componente.previewImport = preview;
+    componente.confirmarReemplazo = true;
+    componente.aplicarImportacion();
+    const apply = http.expectOne(req => req.url.includes('/preview-1/apply/'));
+    apply.flush({
+      ...preview, estado: 'APLICADO',
+      resultado: { creados: 1, actualizados: 2, eliminados: 0, reemplazados: 2, sin_cambios: 0 },
+    });
+    http.expectOne(req => req.url.includes('/articulacion/matriz-poau/presupuesto/'))
+      .flush({ categorias: [], total: 0 });
+    http.expectOne(req => req.url.includes('/articulacion/matriz-poau/') && !req.url.includes('/presupuesto/'))
+      .flush({ filas: [], unidades: [] });
+    expect(componente.previewImport?.resultado?.creados).toBe(1);
+    expect(componente.aviso).toContain('1 creados');
+  });
+
+  it('no permite aplicar una vista previa inválida', () => {
+    componente.previewImport = { ...preview, estado: 'INVALIDO' };
+    componente.confirmarReemplazo = true;
+    componente.aplicarImportacion();
+    http.expectNone(req => req.url.includes('/apply/'));
+  });
+});
+
 describe('MatrizPoauComponent · vista de árbol', () => {
   let componente: MatrizPoauComponent;
 
