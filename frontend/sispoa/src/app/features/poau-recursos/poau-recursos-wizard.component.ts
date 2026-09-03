@@ -1,6 +1,6 @@
 import { AUTOCOMPLETE_CONFIG } from '../../shared/utils/autocomplete.util';
 import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
-import { Observable, concatMap, from, of, switchMap, tap, toArray } from 'rxjs';
+import { Observable, concatMap, from, of, toArray } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { ApiService } from '../../core/services/api.service';
 import { OpcionCombo } from '../../shared/components/combo-box/combo-box.component';
@@ -520,7 +520,6 @@ export class PoauRecursosWizardComponent implements OnInit {
   guardando = false;
   msg = '';
   msgClass = '';
-  private idsAsignacionesCargadas = new Set<string>();
 
   constructor(private api: ApiService, private cdr: ChangeDetectorRef,
               private gestionActiva: GestionHabilitadaService) {}
@@ -710,30 +709,6 @@ export class PoauRecursosWizardComponent implements OnInit {
     // La actividad quedó fuera del asistente: la programación cuelga de la
     // operación y el backend ya no la exige.
     this.cabecera.actividadId = null;
-
-    // La programación cuelga de la operación: cargar lo ya registrado para
-    // actualizarlo en lugar de volver a crear asignaciones duplicadas.
-    this.idsAsignacionesCargadas.clear();
-    this.requerimientos = [requerimientoVacio()];
-
-    if (!operacion?.objeto_id) {
-      return;
-    }
-
-    const operacionId = operacion.objeto_id;
-    this.cargar(
-      `/articulacion/asignaciones-gasto/?operacion=${encodeURIComponent(String(operacionId))}`,
-      filas => {
-        // Evita respuestas tardías provenientes de otra operación.
-        if (this.cabecera.operacionId !== operacionId) { return; }
-        this.idsAsignacionesCargadas = new Set(
-          filas.map((fila: any) => String(fila.id)),
-        );
-        this.requerimientos = filas.length
-          ? filas.map((fila: any) => this.desdeAsignacion(fila))
-          : [requerimientoVacio()];
-      },
-    );
   }
 
   /** Deja la categoría y su saldo en blanco sin tocar la unidad. */
@@ -746,10 +721,6 @@ export class PoauRecursosWizardComponent implements OnInit {
     this.cabecera.accionPoaId = null;
     this.cabecera.codigoAccion = '';
     this.cabecera.actividadId = null;
-    // Sin operación elegida no hay programación que editar: los requerimientos
-    // cargados pertenecen a la operación anterior.
-    this.idsAsignacionesCargadas.clear();
-    this.requerimientos = [requerimientoVacio()];
   }
 
   /** La denominación es del catálogo, no de lo que alguien tipeó en la acción. */
@@ -895,28 +866,14 @@ export class PoauRecursosWizardComponent implements OnInit {
     this.msg = 'Registrando la programación presupuestaria…';
     this.msgClass = '';
 
-    this.eliminarAsignacionesRetiradas()
+    from(this.requerimientos.map((r, i) => this.cuerpo(r, i)))
       .pipe(
-        switchMap(() => from(this.requerimientos.map((r, i) => ({ r, i }))).pipe(
-          concatMap(({ r, i }) => {
-            const cuerpo = this.cuerpo(r, i);
-            const guardado$ = r.id
-              ? this.api.patch<any>(`/articulacion/asignaciones-gasto/${r.id}/`, cuerpo)
-              : this.api.post<any>('/articulacion/asignaciones-gasto/', cuerpo);
-            return guardado$.pipe(tap((fila: any) => {
-              r.id = String(fila.id);
-              r.codigoAsignacion = String(fila.codigo_asignacion);
-            }));
-          }),
-          toArray(),
-        )),
+        concatMap(cuerpo => this.api.post('/articulacion/asignaciones-gasto/', cuerpo)),
+        toArray(),
       )
       .subscribe({
         next: () => {
           this.guardando = false;
-          this.idsAsignacionesCargadas = new Set(
-            this.requerimientos.flatMap(r => r.id ? [r.id] : []),
-          );
           this.msg = `✅ Programación registrada: ${this.requerimientos.length} requerimiento(s) por ${this.moneda(this.total)} Bs.`;
           this.msgClass = 'exito';
           this.cdr.markForCheck();
@@ -933,11 +890,7 @@ export class PoauRecursosWizardComponent implements OnInit {
   private cuerpo(r: RequerimientoForm, indice: number): Record<string, unknown> {
     const segmentos = this.cabecera.categoriaProgramatica.split(/\s+/);
     return {
-      // Una acción agrupa varias operaciones y la programación cuelga de la
-      // operación: usar solo el código de la acción repetía `.G1` y violaba
-      // la unicidad por gestión.
-      codigo_asignacion: r.codigoAsignacion
-        || `${this.cabecera.codigoOperacion}.G${indice + 1}`,
+      codigo_asignacion: `${this.cabecera.codigoAccion}.G${indice + 1}`,
       gestion: Number(this.cabecera.gestion),
       accion_poa: this.cabecera.accionPoaId,
       operacion: this.cabecera.operacionId,
@@ -962,37 +915,6 @@ export class PoauRecursosWizardComponent implements OnInit {
       medio_verificacion: r.medioVerificacion,
       justificacion: r.bienServicio,
     };
-  }
-
-  private desdeAsignacion(fila: any): RequerimientoForm {
-    return {
-      id: String(fila.id),
-      codigoAsignacion: String(fila.codigo_asignacion),
-      bienServicio: String(fila.justificacion || fila.descripcion_objeto || ''),
-      codPartida: String(fila.cod_objeto_gasto || ''),
-      descripcionPartida: String(fila.descripcion_objeto || ''),
-      grupoGasto: String(fila.grupo_gasto || ''),
-      tipoGasto: String(fila.tipo_gasto || ''),
-      fuenteFinanciamiento: String(fila.fuente_financiamiento || ''),
-      organismoFinanciador: String(fila.organismo_financiador || ''),
-      fechaRequerimiento: String(fila.fecha_requerimiento || ''),
-      presupuestoProgramado: fila.monto_programado == null
-        ? null : Number(fila.monto_programado),
-      programacion: { ...fila.programacion_mensual },
-      medioVerificacion: String(fila.medio_verificacion || ''),
-    };
-  }
-
-  private eliminarAsignacionesRetiradas(): Observable<unknown> {
-    const actuales = new Set(
-      this.requerimientos.flatMap(r => r.id ? [r.id] : []),
-    );
-    const eliminaciones = [...this.idsAsignacionesCargadas]
-      .filter(id => !actuales.has(id))
-      .map(id => this.api.delete(`/articulacion/asignaciones-gasto/${id}/`));
-    return eliminaciones.length
-      ? from(eliminaciones).pipe(concatMap(peticion => peticion), toArray())
-      : of([]);
   }
 
   private detalleError(err: any): string {
