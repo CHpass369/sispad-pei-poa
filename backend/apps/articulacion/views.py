@@ -29,7 +29,9 @@ from .serializers import (
     validar_estructura_resultados,
 )
 from apps.gestion import candado
-from apps.gestion.mixins import CandadoSisPoaMixin, GestionHabilitadaFilterMixin
+from apps.gestion.mixins import (
+    CandadoSisPoaMixin, GestionHabilitadaFilterMixin, GestionNoHabilitada,
+)
 
 from .revision_poau import EstadosPOAU, RevisionPOAUMixin
 from .scope_poau import (
@@ -368,6 +370,45 @@ class AsignacionObjetoGastoViewSet(
     filterset_fields = ['estado', 'accion_poa', 'operacion', 'actividad', 'tipo_gasto']
     search_fields = ['codigo_asignacion', 'descripcion_objeto']
     ordering_fields = ['codigo_asignacion', 'gestion']
+
+    @action(detail=False, methods=['post'], url_path='bulk')
+    def bulk(self, request):
+        """Crea varios requerimientos en una sola transacción: todo o nada.
+
+        El wizard de recursos mandaba un POST por requerimiento
+        (`concatMap`, uno detrás de otro). Si el N-ésimo fallaba, los
+        anteriores ya habían quedado guardados en la base, y reintentar
+        volvía a mandar la tanda completa: con `codigo_asignacion`
+        autogenerado, los ya guardados no chocan más contra sí mismos y se
+        duplicaban en silencio. Acá se valida y guarda todo dentro de una
+        única `transaction.atomic()`; cualquier error revierte la tanda
+        entera y no queda nada a medio guardar.
+        """
+        items = request.data
+        if not isinstance(items, list) or not items:
+            raise serializers.ValidationError({
+                'detail': ['Debe enviar una lista no vacía de requerimientos.'],
+            })
+        gestiones = {
+            item.get('gestion') for item in items if isinstance(item, dict)
+        }
+        if len(gestiones) != 1:
+            raise serializers.ValidationError({
+                'detail': ['Todos los requerimientos deben pertenecer a la misma gestión.'],
+            })
+        try:
+            candado.validar_gestion(next(iter(gestiones)))
+        except candado.FueraDeGestionHabilitada as error:
+            raise GestionNoHabilitada(error) from error
+
+        creados = []
+        with transaction.atomic():
+            for item in items:
+                serializer = self.get_serializer(data=item)
+                serializer.is_valid(raise_exception=True)
+                serializer.save()
+                creados.append(serializer.data)
+        return Response(creados, status=status.HTTP_201_CREATED)
 
 
 class RevisionMatrizMixin:

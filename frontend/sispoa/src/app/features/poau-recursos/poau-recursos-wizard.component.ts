@@ -1,6 +1,6 @@
 import { AUTOCOMPLETE_CONFIG } from '../../shared/utils/autocomplete.util';
 import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
-import { Observable, concatMap, from, of, toArray } from 'rxjs';
+import { Observable, concatMap, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { ApiService } from '../../core/services/api.service';
 import { OpcionCombo } from '../../shared/components/combo-box/combo-box.component';
@@ -866,11 +866,13 @@ export class PoauRecursosWizardComponent implements OnInit {
     this.msg = 'Registrando la programación presupuestaria…';
     this.msgClass = '';
 
-    from(this.requerimientos.map(r => this.cuerpo(r)))
-      .pipe(
-        concatMap(cuerpo => this.api.post('/articulacion/asignaciones-gasto/', cuerpo)),
-        toArray(),
-      )
+    // Una sola tanda, no un POST por requerimiento: el servidor la guarda
+    // dentro de una única transacción (todo o nada). Antes se mandaba con
+    // concatMap uno por uno y, si el N-ésimo fallaba, los anteriores ya
+    // habían quedado guardados — un reintento los duplicaba en silencio.
+    const cuerpos = this.requerimientos.map(r => this.cuerpo(r));
+
+    this.api.post('/articulacion/asignaciones-gasto/bulk/', cuerpos)
       .subscribe({
         next: () => {
           this.guardando = false;
