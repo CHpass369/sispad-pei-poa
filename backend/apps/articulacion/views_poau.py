@@ -10,16 +10,20 @@ tabla —las columnas tienen que seguir alineadas— sin perder el árbol.
 
 El cronograma mensual viaja como doce columnas más el total anual.
 """
-from rest_framework import viewsets
+from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 
 import re
 
+from django.db import transaction
+from django.db.models.deletion import Collector, ProtectedError
 from django.shortcuts import get_object_or_404
 
-from apps.accounts.permissions import TieneCapacidad
+from apps.accounts.permissions import EsAdministrador, TieneCapacidad
+from apps.auditoria.models import EventoAuditoria
+from apps.auditoria.services import registrar_evento
 from apps.accounts.services_scope import GLOBAL_SCOPE, ScopeResolver
 from apps.gestion.mixins import gestion_del_candado
 
@@ -90,6 +94,10 @@ class MatrizPOAUViewSet(viewsets.ViewSet):
 
     def get_permissions(self):
         # Patrón del proyecto: instancias desde get_permissions.
+        if self.action == 'poau_de_unidad':
+            # Borrar el POAU entero de una UO no es «ver la matriz»: es una
+            # operación destructiva de plataforma y va con su propio candado.
+            return [EsAdministrador()]
         return [TieneCapacidad('sis_poa.poau.view')]
 
     @staticmethod
@@ -165,6 +173,146 @@ class MatrizPOAUViewSet(viewsets.ViewSet):
         if raiz in programa:
             return programa[raiz], 'programa'
         return '', ''
+
+    # El nombre del modelo no es texto de pantalla. La traducción vive acá
+    # porque el `detail` del 409 lo arma el backend: es el único lugar donde
+    # `ErrorInterceptor` va a buscar el motivo de un error.
+    ETIQUETA_MODELO = {
+        'articulacion.AccionPOA': 'Acciones de corto plazo',
+        'articulacion.OperacionPOAU': 'Operaciones',
+        'articulacion.ActividadPOAU': 'Actividades',
+        'articulacion.TareaPOAU': 'Tareas',
+        'articulacion.ActividadNormativa': 'Actividades normativas',
+        'articulacion.TareaNormativa': 'Tareas normativas',
+        'articulacion.AsignacionObjetoGasto': 'Asignaciones de objeto de gasto',
+        'articulacion.SeguimientoPresupuesto': 'Seguimientos de presupuesto',
+        'presupuesto.AsignacionPresupuestariaUnidad':
+            'Asignaciones presupuestarias',
+    }
+
+    @classmethod
+    def _detalle_bloqueo(cls, bloqueos):
+        """El motivo, en una frase que la pantalla pueda mostrar tal cual."""
+        detalle = ', '.join(
+            f'{cls.ETIQUETA_MODELO.get(b["modelo"], b["modelo"])} '
+            f'({b["registros"]})'
+            for b in bloqueos
+        )
+        return [
+            'No se puede eliminar: hay registros que dependen de este POAU '
+            f'— {detalle}.'
+        ]
+
+    @staticmethod
+    def _impacto_poau_unidad(unidad, anio):
+        """Qué se llevaría por delante borrar el POAU de una UO.
+
+        El conteo lo hace el mismo `Collector` que ejecuta el borrado, no una
+        lista escrita a mano: las cascadas de esta cadena son cuatro niveles y
+        cuelgan además `AsignacionObjetoGasto`, `SeguimientoPresupuesto` y un
+        `SET_NULL` sobre `BorradorMatrizPOA`. Adivinarlas es cómo se borra de
+        más o se promete de menos.
+
+        `AsignacionPresupuestariaUnidad` apunta con PROTECT a operación,
+        actividad y tarea: si la unidad ya tiene presupuesto asignado, el
+        Collector levanta `ProtectedError` y acá no se borra nada.
+        """
+        acciones = list(
+            AccionPOA.objects.filter(gestion=anio, unidad_responsable=unidad)
+        )
+        if not acciones:
+            return {}, []
+        collector = Collector(using=AccionPOA.objects.db)
+        try:
+            collector.collect(acciones)
+        except ProtectedError as error:
+            bloqueos = {}
+            for obj in error.protected_objects:
+                etiqueta = obj._meta.label
+                bloqueos[etiqueta] = bloqueos.get(etiqueta, 0) + 1
+            return None, [
+                {'modelo': etiqueta, 'registros': n}
+                for etiqueta, n in sorted(bloqueos.items())
+            ]
+        return {
+            modelo._meta.label: len(objetos)
+            for modelo, objetos in collector.data.items() if objetos
+        }, []
+
+    @action(detail=False, methods=['get', 'delete'],
+            url_path=r'unidad/(?P<codigo>[^/]+)')
+    def poau_de_unidad(self, request, codigo=None):
+        """El POAU completo de una Unidad Organizacional. Solo administrador.
+
+        - `GET`: qué se borraría, contado, sin tocar nada.
+        - `DELETE`: lo borra en una sola transacción.
+
+        Existe porque un POAU mal importado no se arregla fila por fila: son
+        cientos de tareas colgando de una cadena de cuatro niveles, y el árbol
+        hay que poder tirarlo entero para volver a construirlo.
+
+        La unidad organizacional NO se toca: sigue en el catálogo. Lo que se
+        borra es su programación de la gestión habilitada.
+        """
+        from apps.organizacion.models import UnidadOrganizacional
+
+        gestion = gestion_del_candado(request)
+        unidad = get_object_or_404(
+            UnidadOrganizacional, codigo__iexact=codigo, gestion=gestion,
+        )
+        eliminaria, bloqueado_por = self._impacto_poau_unidad(
+            unidad, gestion.anio,
+        )
+        cuerpo = {
+            'unidad': {'codigo': unidad.codigo, 'nombre': unidad.nombre},
+            'gestion': gestion.anio,
+            'eliminaria': eliminaria or {},
+            'total': sum((eliminaria or {}).values()),
+            'bloqueado_por': bloqueado_por,
+        }
+        if bloqueado_por:
+            cuerpo['detail'] = self._detalle_bloqueo(bloqueado_por)
+            return Response(cuerpo, status=status.HTTP_409_CONFLICT)
+        if request.method == 'GET':
+            return Response(cuerpo)
+
+        try:
+            with transaction.atomic():
+                # Se bloquean las raíces antes de contar de nuevo: entre la
+                # vista previa y el borrado alguien pudo tocar el árbol.
+                ids = list(
+                    AccionPOA.objects.select_for_update()
+                    .filter(gestion=gestion.anio, unidad_responsable=unidad)
+                    .values_list('pk', flat=True)
+                )
+                _, borrados = AccionPOA.objects.filter(pk__in=ids).delete()
+                registrar_evento(
+                    request.user, EventoAuditoria.Accion.ANULAR,
+                    'POAU', unidad.codigo,
+                    resumen=(
+                        f'POAU de {unidad.codigo} eliminado por completo '
+                        f'en la gestión {gestion.anio}.'
+                    ),
+                    datos_previos=cuerpo['eliminaria'],
+                    datos_posteriores=borrados,
+                    direccion_ip=request.META.get('REMOTE_ADDR'),
+                    gestion=gestion,
+                )
+        except ProtectedError as error:
+            bloqueos = {}
+            for obj in error.protected_objects:
+                etiqueta = obj._meta.label
+                bloqueos[etiqueta] = bloqueos.get(etiqueta, 0) + 1
+            cuerpo['bloqueado_por'] = [
+                {'modelo': etiqueta, 'registros': n}
+                for etiqueta, n in sorted(bloqueos.items())
+            ]
+            cuerpo['detail'] = self._detalle_bloqueo(cuerpo['bloqueado_por'])
+            return Response(cuerpo, status=status.HTTP_409_CONFLICT)
+
+        cuerpo['eliminados'] = borrados
+        cuerpo['total'] = sum(borrados.values())
+        return Response(cuerpo)
 
     @action(detail=False, methods=['get'], url_path='unidades')
     def unidades(self, request):

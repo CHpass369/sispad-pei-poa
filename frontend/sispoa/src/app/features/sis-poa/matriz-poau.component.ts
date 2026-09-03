@@ -7,6 +7,7 @@ import { Router } from '@angular/router';
 import { finalize } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { GestionHabilitadaService } from '../../core/services/gestion-habilitada.service';
+import { PermissionsService } from '../../core/services/permissions.service';
 import { OpcionCombo } from '../../shared/components/combo-box/combo-box.component';
 
 interface ColumnaMatriz { clave: string; etiqueta: string; ancho: number; }
@@ -191,6 +192,18 @@ const NUMERICAS = new Set(['linea_base', 'meta', 'meta_actual', 'ponderacion',
                            'total_anual', ...MESES.map(m => `mes_${m}`)]);
 const TODAS_UNIDADES = '__todas_las_unidades__';
 
+/** El backend cuenta por modelo; la confirmación se lee en castellano. */
+const ETIQUETA_MODELO: Record<string, string> = {
+  'articulacion.AccionPOA': 'Acciones de corto plazo',
+  'articulacion.OperacionPOAU': 'Operaciones',
+  'articulacion.ActividadPOAU': 'Actividades',
+  'articulacion.TareaPOAU': 'Tareas',
+  'articulacion.ActividadNormativa': 'Actividades normativas',
+  'articulacion.TareaNormativa': 'Tareas normativas',
+  'articulacion.AsignacionObjetoGasto': 'Asignaciones de objeto de gasto',
+  'articulacion.SeguimientoPresupuesto': 'Seguimientos de presupuesto',
+  'presupuesto.AsignacionPresupuestariaUnidad': 'Asignaciones presupuestarias',
+};
 
 @Component({
   selector: 'app-matriz-poau',
@@ -457,7 +470,15 @@ const TODAS_UNIDADES = '__todas_las_unidades__';
                   <button class="acc peligro" title="Eliminar"
                           [disabled]="ocupado === f.id" (click)="eliminar(f)">✕</button>
                 </div>
-                <ng-template #sinAcciones><span class="sin-acc">—</span></ng-template>
+                <div class="acciones" *ngIf="!f.objeto_id && puedeBorrarPoau(f)">
+                  <button class="acc peligro borrar-poau"
+                          title="Eliminar el POAU completo de esta Unidad Organizacional"
+                          [disabled]="ocupado === f.id"
+                          (click)="eliminarPoauUnidad(f)">✕ POAU</button>
+                </div>
+                <ng-template #sinAcciones>
+                  <span class="sin-acc" *ngIf="!puedeBorrarPoau(f)">—</span>
+                </ng-template>
               </td>
             </tr>
             <tr *ngIf="!filas.length">
@@ -634,6 +655,11 @@ const TODAS_UNIDADES = '__todas_las_unidades__';
     .td-sel { text-align: center; }
     .mz tbody tr.marcada td { box-shadow: inset 0 0 0 9999px rgba(21,101,192,.09); }
     .acciones { display: flex; align-items: center; gap: 0.15rem; }
+    /* Borra un árbol entero, no una fila: no puede parecerse al ✕ de al lado. */
+    .acc.borrar-poau {
+      width: auto; padding: 0 .35rem; font-size: .6875rem; font-weight: 700;
+      letter-spacing: .02em; white-space: nowrap;
+    }
     .acc {
       border: none; background: rgba(0,0,0,.06); color: #1F2933; cursor: pointer;
       border-radius: 3px; padding: 0.1rem 0.28rem; font-size: 0.625rem; line-height: 1.4;
@@ -789,7 +815,20 @@ export class MatrizPoauComponent implements OnInit, AfterViewInit, OnDestroy {
 
   constructor(private http: HttpClient, private cdr: ChangeDetectorRef,
               private router: Router,
-              private gestionActiva: GestionHabilitadaService) {}
+              private gestionActiva: GestionHabilitadaService,
+              private permisos: PermissionsService) {}
+
+  /**
+   * Borrar el POAU entero de una unidad es destructivo y no se delega con un
+   * rol funcional: lo habilita el administrador de plataforma. El backend es
+   * la autoridad (`EsAdministrador`); esto solo evita mostrar un botón que
+   * igual daría 403.
+   *
+   * Se resuelve una vez en `ngOnInit` y no como getter: la plantilla lo
+   * consulta por fila, y con miles de filas a la vista un getter que recorre
+   * roles se evalúa en cada ciclo de detección.
+   */
+  esAdministrador = false;
 
   /**
    * La fila de columnas se pega justo debajo de la de bandas. Ese desnivel no
@@ -826,6 +865,7 @@ export class MatrizPoauComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.esAdministrador = this.permisos.hasAnyRole(['SUPER_ADMIN', 'superadmin']);
     // El encabezado del formato oficial lleva el año adentro: se resuelve una
     // vez, con la gestión que el candado ya dejó cargada antes de esta ruta.
     this.bloquesMatriz = conGestion(BLOQUES_MATRIZ, this.gestion);
@@ -1188,6 +1228,116 @@ export class MatrizPoauComponent implements OnInit, AfterViewInit, OnDestroy {
           this.cdr.markForCheck();
         },
       });
+  }
+
+  /** El botón solo existe en la fila de unidad y solo para el administrador. */
+  puedeBorrarPoau(fila: any): boolean {
+    return !fila.objeto_id && fila.nivel === 'unidad'
+      && Boolean(fila.unidad_codigo) && this.esAdministrador;
+  }
+
+  /**
+   * Elimina el POAU completo de una Unidad Organizacional.
+   *
+   * Dos pasos a propósito. Primero se le pregunta al backend QUÉ se llevaría:
+   * ese conteo lo hace el `Collector` de Django sobre las cascadas reales, no
+   * una estimación de pantalla. Recién con el número a la vista se pide la
+   * confirmación, y encima se exige teclear el código: son cientos de tareas
+   * y no hay deshacer.
+   *
+   * La Unidad Organizacional NO se borra: sigue en el catálogo. Lo que se
+   * borra es su programación de la gestión habilitada.
+   */
+  eliminarPoauUnidad(fila: any): void {
+    const codigo = fila.unidad_codigo;
+    if (!codigo) { return; }
+    this.ocupado = fila.id;
+    this.error = '';
+    this.aviso = '';
+    const url = `${environment.apiUrl}/articulacion/matriz-poau/unidad/`
+      + `${encodeURIComponent(codigo)}/`;
+    this.http.get<any>(url)
+      .pipe(finalize(() => { this.cdr.markForCheck(); }))
+      .subscribe({
+        next: impacto => {
+          this.ocupado = '';
+          if (this.confirmarBorradoPoau(fila, impacto)) {
+            this.borrarPoauUnidad(url, fila);
+          }
+          this.cdr.markForCheck();
+        },
+        error: respuesta => {
+          this.ocupado = '';
+          this.error = this.mensajeDelBackend(respuesta)
+            || 'No se pudo calcular qué se eliminaría.';
+          this.cdr.markForCheck();
+        },
+      });
+  }
+
+  private confirmarBorradoPoau(fila: any, impacto: any): boolean {
+    if (!impacto?.total) {
+      this.aviso = 'Esta unidad no tiene POAU en la gestión habilitada.';
+      return false;
+    }
+    const codigo = impacto.unidad?.codigo || fila.unidad_codigo;
+    const nombre = impacto.unidad?.nombre || fila.unidad || '';
+    const detalle = Object.entries(impacto.eliminaria || {})
+      .map(([modelo, n]) => `  · ${ETIQUETA_MODELO[modelo] || modelo}: ${n}`)
+      .join('\n');
+    const seguro = window.confirm(
+      `Se eliminará el POAU COMPLETO de ${nombre} (${codigo}), `
+      + `gestión ${impacto.gestion}.\n\n${detalle}\n\n`
+      + `Total: ${impacto.total} registros. Esto no se puede deshacer.\n\n`
+      + 'La Unidad Organizacional NO se borra: sigue en el catálogo.');
+    if (!seguro) { return false; }
+    const tecleado = (window.prompt(
+      `Para confirmar, escriba el código de la unidad: ${codigo}`) || '').trim();
+    if (tecleado.toUpperCase() !== String(codigo).toUpperCase()) {
+      this.aviso = 'Eliminación cancelada: el código no coincide.';
+      return false;
+    }
+    return true;
+  }
+
+  private borrarPoauUnidad(url: string, fila: any): void {
+    this.ocupado = fila.id;
+    this.error = '';
+    this.http.delete<any>(url)
+      .pipe(finalize(() => { this.ocupado = ''; this.cdr.markForCheck(); }))
+      .subscribe({
+        next: r => {
+          this.aviso = `POAU de ${r?.unidad?.codigo} eliminado: `
+            + `${r?.total ?? 0} registros.`;
+          this.cargar();
+        },
+        error: respuesta => {
+          this.error = this.mensajeDelBackend(respuesta)
+            || 'No se pudo eliminar el POAU de la unidad.';
+          this.cdr.markForCheck();
+        },
+      });
+  }
+
+  /**
+   * El motivo que mandó el backend, o vacío si no mandó ninguno.
+   *
+   * `ErrorInterceptor` (app.module) aplana TODO error a `{message, status}`
+   * antes de que llegue acá: el cuerpo crudo no existe a esta altura. Por eso
+   * el 409 del borrado manda su `detail` ya redactado — es lo único que el
+   * interceptor conserva.
+   *
+   * Importa porque `AsignacionPresupuestariaUnidad` apunta con PROTECT a
+   * operación, actividad y tarea: decir «no se pudo eliminar» a secas deja al
+   * administrador sin saber qué desarmar primero.
+   */
+  private mensajeDelBackend(respuesta: any): string {
+    const mensaje = respuesta?.message;
+    if (typeof mensaje !== 'string' || !mensaje.trim()) { return ''; }
+    // El interceptor cae al `err.message` de Angular cuando el cuerpo no trae
+    // motivo; ese texto es ruido de transporte, no algo que mostrarle a nadie.
+    if (/^Http failure/i.test(mensaje)) { return ''; }
+    return mensaje;
   }
 
   /**

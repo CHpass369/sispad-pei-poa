@@ -45,6 +45,37 @@ def tiene_capacidad(usuario, codigo_capacidad):
     ).exists()
 
 
+ROLES_ADMINISTRADOR = ('SUPER_ADMIN', 'superadmin')
+
+
+def es_administrador(usuario):
+    """Administrador de plataforma: superusuario Django o rol de administrador.
+
+    No es una capacidad más. Las capacidades gobiernan pantallas y operaciones
+    de formulación; esto gobierna operaciones destructivas de plataforma, que
+    no deben poder delegarse asignando un rol funcional.
+    """
+    if not usuario or not usuario.is_authenticated:
+        return False
+    if usuario.is_superuser:
+        return True
+    return usuario.roles.filter(
+        activo=True, codigo__in=ROLES_ADMINISTRADOR,
+    ).exists()
+
+
+class EsAdministrador(permissions.BasePermission):
+    """Permiso DRF para operaciones reservadas al administrador."""
+
+    message = 'Solo un administrador puede ejecutar esta operación.'
+
+    def has_permission(self, request, view):
+        return es_administrador(request.user)
+
+    def has_object_permission(self, request, view, obj):
+        return self.has_permission(request, view)
+
+
 class TieneCapacidad(permissions.BasePermission):
     """Permiso DRF parametrizable: `TieneCapacidad('sis_pe.pad.edit')`."""
 

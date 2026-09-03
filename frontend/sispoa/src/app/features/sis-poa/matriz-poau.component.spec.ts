@@ -4,6 +4,9 @@ import { RouterTestingModule } from '@angular/router/testing';
 import { MatrizPoauComponent } from './matriz-poau.component';
 import { FormsModule } from '@angular/forms';
 import { ComboBoxComponent } from '../../shared/components/combo-box/combo-box.component';
+import { PermissionsService } from '../../core/services/permissions.service';
+import { HTTP_INTERCEPTORS } from '@angular/common/http';
+import { ErrorInterceptor } from '../../core/interceptors/error.interceptor';
 import { GestionHabilitadaService } from '../../core/services/gestion-habilitada.service';
 import { gestionHabilitadaStub } from '../../core/testing/gestion-habilitada.stub';
 
@@ -500,6 +503,150 @@ describe('MatrizPoauComponent · selección y acciones', () => {
     spyOn(window, 'confirm').and.returnValue(false);
     componente.eliminar(FILAS_ACC[5]);
     http.expectNone(() => true);
+  });
+});
+
+describe('MatrizPoauComponent · eliminar el POAU de una unidad', () => {
+  let fixture: ComponentFixture<MatrizPoauComponent>;
+  let componente: MatrizPoauComponent;
+  let http: HttpTestingController;
+
+  const FILA_UNIDAD = {
+    id: 'u', padre: null, nivel: 'unidad', orden_nivel: 0, hijos: 1,
+    unidad: 'JURÍDICA', unidad_codigo: 'EM-DJR-01',
+  };
+  const FILA_TAREA = {
+    id: 'u|t', padre: 'u', nivel: 'tarea', orden_nivel: 5, hijos: 0,
+    tarea: 'T1', objeto_id: 'tar-1', tipo: 'tarea', estado: 'BORRADOR',
+  };
+  const IMPACTO = {
+    unidad: { codigo: 'EM-DJR-01', nombre: 'JURÍDICA' },
+    gestion: 2027,
+    eliminaria: {
+      'articulacion.AccionPOA': 2, 'articulacion.OperacionPOAU': 5,
+      'articulacion.TareaPOAU': 140,
+    },
+    total: 147,
+    bloqueado_por: [],
+  };
+
+  const URL_UNIDAD = '/articulacion/matriz-poau/unidad/EM-DJR-01/';
+
+  const montar = (esAdmin: boolean) => {
+    TestBed.configureTestingModule({
+      imports: [HttpClientTestingModule, RouterTestingModule, FormsModule],
+      declarations: [MatrizPoauComponent, ComboBoxComponent],
+      providers: [
+        { provide: PermissionsService, useValue: { hasAnyRole: () => esAdmin } },
+        // El interceptor va acá a propósito: en producción aplana TODO error a
+        // `{message, status}` antes de que el componente lo vea. Sin él, el
+        // spec verificaría una forma de error que la pantalla nunca recibe.
+        { provide: HTTP_INTERCEPTORS, useClass: ErrorInterceptor, multi: true },
+      ],
+    });
+    fixture = TestBed.createComponent(MatrizPoauComponent);
+    componente = fixture.componentInstance;
+    http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    // Con catálogo real queda cacheado: la recarga posterior al borrado no
+    // vuelve a pedirlo, igual que en la pantalla.
+    CATALOGO(http, [{ codigo: 'EM-DJR-01', nombre: 'JURÍDICA' }]);
+    PRESUPUESTO(http);
+    MATRIZ(http, {
+      gestion: 2027, total_filas: 2, filas: [FILA_UNIDAD, FILA_TAREA],
+    });
+    componente.expandirTodo();
+    fixture.detectChanges();
+  };
+
+  afterEach(() => http.verify());
+
+  it('no le ofrece el botón a quien no es administrador', () => {
+    montar(false);
+    expect(componente.puedeBorrarPoau(FILA_UNIDAD)).toBeFalse();
+    expect(fixture.nativeElement.querySelector('.borrar-poau')).toBeNull();
+  });
+
+  it('le da al administrador un botón en la fila de unidad, y solo ahí', () => {
+    montar(true);
+    expect(componente.puedeBorrarPoau(FILA_UNIDAD)).toBeTrue();
+    // Una tarea tiene su propio ✕: el del árbol entero no va ahí.
+    expect(componente.puedeBorrarPoau(FILA_TAREA)).toBeFalse();
+    const botones = fixture.nativeElement.querySelectorAll('.borrar-poau');
+    expect(botones.length).toBe(1);
+  });
+
+  it('consulta el impacto antes de borrar y exige teclear el código', () => {
+    montar(true);
+    spyOn(window, 'confirm').and.returnValue(true);
+    spyOn(window, 'prompt').and.returnValue('em-djr-01');
+
+    componente.eliminarPoauUnidad(FILA_UNIDAD);
+    http.expectOne(r => r.url.includes(URL_UNIDAD) && r.method === 'GET')
+        .flush(IMPACTO);
+
+    // El aviso de confirmación lleva el conteo real, no una estimación.
+    const texto = (window.confirm as jasmine.Spy).calls.mostRecent().args[0];
+    expect(texto).toContain('147');
+    expect(texto).toContain('NO se borra');
+
+    http.expectOne(r => r.url.includes(URL_UNIDAD) && r.method === 'DELETE')
+        .flush({ ...IMPACTO, eliminados: IMPACTO.eliminaria });
+    PRESUPUESTO(http);
+    MATRIZ(http, { gestion: 2027, total_filas: 0, filas: [] });
+    expect(componente.aviso).toContain('147');
+  });
+
+  it('no borra nada si el código tecleado no coincide', () => {
+    montar(true);
+    spyOn(window, 'confirm').and.returnValue(true);
+    spyOn(window, 'prompt').and.returnValue('OTRA-COSA');
+
+    componente.eliminarPoauUnidad(FILA_UNIDAD);
+    http.expectOne(r => r.url.includes(URL_UNIDAD) && r.method === 'GET')
+        .flush(IMPACTO);
+
+    http.expectNone(r => r.method === 'DELETE');
+    expect(componente.aviso).toContain('no coincide');
+  });
+
+  it('no borra nada si se cancela la confirmación', () => {
+    montar(true);
+    spyOn(window, 'confirm').and.returnValue(false);
+
+    componente.eliminarPoauUnidad(FILA_UNIDAD);
+    http.expectOne(r => r.url.includes(URL_UNIDAD) && r.method === 'GET')
+        .flush(IMPACTO);
+
+    http.expectNone(r => r.method === 'DELETE');
+  });
+
+  it('el 409 dice qué está reteniendo el árbol, no «no se pudo»', () => {
+    montar(true);
+    componente.eliminarPoauUnidad(FILA_UNIDAD);
+    http.expectOne(r => r.url.includes(URL_UNIDAD) && r.method === 'GET')
+        .flush(
+          {
+            ...IMPACTO,
+            bloqueado_por: [
+              { modelo: 'presupuesto.AsignacionPresupuestariaUnidad', registros: 3 },
+            ],
+            detail: [
+              'No se puede eliminar: hay registros que dependen de este POAU '
+              + '— Asignaciones presupuestarias (3).',
+            ],
+          },
+          { status: 409, statusText: 'Conflict' },
+        );
+    expect(componente.error).toContain('Asignaciones presupuestarias (3)');
+  });
+
+  it('un error sin motivo no muestra el ruido de transporte de Angular', () => {
+    montar(true);
+    componente.eliminarPoauUnidad(FILA_UNIDAD);
+    http.expectOne(r => r.url.includes(URL_UNIDAD) && r.method === 'GET')
+        .flush(null, { status: 500, statusText: 'Server Error' });
+    expect(componente.error).toBe('No se pudo calcular qué se eliminaría.');
   });
 });
 
