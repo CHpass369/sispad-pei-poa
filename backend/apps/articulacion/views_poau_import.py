@@ -1,5 +1,7 @@
 """V2 transport adapter for POAU physical-programming imports."""
 
+import json
+
 from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
@@ -95,8 +97,28 @@ class ImportacionProgramacionFisicaViewSet(viewsets.GenericViewSet):
         # get_object performs the capability/scope object check before locking;
         # apply_preview repeats ownership, scope, state, and expiry checks under lock.
         preview = self.get_object()
+        # Sin el código tecleado, `apply_preview` levanta siempre: reconstruir
+        # el POAU de una unidad borra su árbol completo y exige confirmación
+        # explícita. Antes no se reenviaba y el apply era inalcanzable.
+        confirmation_code = str(request.data.get('confirmation_code', '')).strip()
+        operation_types = request.data.get('operation_types') or {}
+        if isinstance(operation_types, str):
+            try:
+                operation_types = json.loads(operation_types) or {}
+            except ValueError as exc:
+                raise serializers.ValidationError({
+                    'operation_types': ['Debe ser un objeto JSON.'],
+                }) from exc
+        if not isinstance(operation_types, dict):
+            raise serializers.ValidationError({
+                'operation_types': ['Debe ser un objeto JSON.'],
+            })
         try:
-            applied = apply_preview(preview.id, request.user)
+            applied = apply_preview(
+                preview.id, request.user,
+                confirmation_code=confirmation_code,
+                operation_types=operation_types,
+            )
         except ImportacionError as exc:
             raise serializers.ValidationError({'detail': exc.messages}) from exc
         return Response(serialize_preview(applied))

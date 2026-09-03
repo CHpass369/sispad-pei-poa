@@ -275,6 +275,7 @@ describe('MatrizPoauComponent · importación ETL', () => {
       declarations: [MatrizPoauComponent, ComboBoxComponent],
       providers: [
         { provide: GestionHabilitadaService, useValue: gestionHabilitadaStub(2027, 'gestion-2027') },
+        { provide: HTTP_INTERCEPTORS, useClass: ErrorInterceptor, multi: true },
       ],
     });
     fixture = TestBed.createComponent(MatrizPoauComponent);
@@ -343,6 +344,23 @@ describe('MatrizPoauComponent · importación ETL', () => {
     MATRIZ(http, { filas: [] });
     expect(componente.previewImport?.resultado?.creados).toBe(1);
     expect(componente.aviso).toContain('1 creados');
+  });
+
+  it('muestra el motivo que mandó el backend, no un texto genérico', () => {
+    // El TestBed de este describe registra `ErrorInterceptor`: el error llega
+    // aplanado, igual que en la pantalla. Sin eso el spec verificaría una
+    // forma de error que el componente nunca recibe.
+    componente.archivoImport = new File(['xlsx'], 'poau.xlsx', {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    componente.previsualizarImportacion();
+    http.expectOne(req => req.url.includes('/poau-imports/preview/')).flush(
+      { error: { detail: ['No se encontró una cabecera con Acción de corto plazo.'] },
+        status_code: 400 },
+      { status: 400, statusText: 'Bad Request' },
+    );
+    expect(componente.importError)
+      .toBe('No se encontró una cabecera con Acción de corto plazo.');
   });
 
   it('no permite aplicar una vista previa inválida', () => {

@@ -992,7 +992,8 @@ export class MatrizPoauComponent implements OnInit, AfterViewInit, OnDestroy {
       .subscribe({
         next: preview => { this.previewImport = preview; this.cdr.markForCheck(); },
         error: response => {
-          this.importError = this.importMessage(response, 'No se pudo validar la fuente.');
+          this.importError = this.mensajeDelBackend(response)
+            || 'No se pudo validar la fuente.';
           this.cdr.markForCheck();
         },
       });
@@ -1000,10 +1001,24 @@ export class MatrizPoauComponent implements OnInit, AfterViewInit, OnDestroy {
 
   aplicarImportacion(): void {
     if (!this.previewImport || this.previewImport.estado !== 'VALIDO' || !this.confirmarReemplazo) { return; }
+    // El backend reconstruye el árbol entero de la unidad: borra el POAU
+    // anterior —versionándolo— y lo vuelve a crear desde la planilla. Exige el
+    // código tecleado, y sin mandarlo el apply era inalcanzable.
+    const codigo = (window.prompt(
+      `Se reconstruirá el POAU completo de ${this.unidad}. `
+      + `Para confirmar, escriba el código de la unidad: ${this.unidad}`) || '').trim();
+    if (codigo.toUpperCase() !== this.unidad.toUpperCase()) {
+      this.importError = codigo
+        ? 'El código no coincide: la importación no se aplicó.'
+        : 'Importación cancelada.';
+      this.cdr.markForCheck();
+      return;
+    }
     this.aplicando = true;
     this.importError = '';
     this.http.post<PoauImportPreview>(
-      this.importUrl(`${this.previewImport.id}/apply/`), {},
+      this.importUrl(`${this.previewImport.id}/apply/`),
+      { confirmation_code: codigo },
     ).pipe(finalize(() => { this.aplicando = false; this.cdr.markForCheck(); }))
       .subscribe({
         next: preview => {
@@ -1016,7 +1031,8 @@ export class MatrizPoauComponent implements OnInit, AfterViewInit, OnDestroy {
           this.cargar();
         },
         error: response => {
-          this.importError = this.importMessage(response, 'No se pudo aplicar la importación.');
+          this.importError = this.mensajeDelBackend(response)
+            || 'No se pudo aplicar la importación.';
           this.cdr.markForCheck();
         },
       });
@@ -1024,17 +1040,6 @@ export class MatrizPoauComponent implements OnInit, AfterViewInit, OnDestroy {
 
   codigoImportado(row: any): string {
     return row[`${row.nivel}_codigo`] || '';
-  }
-
-  private importMessage(response: any, fallback: string): string {
-    const body = response?.error?.error ?? response?.error;
-    const detail = body?.detail ?? body;
-    if (Array.isArray(detail)) { return detail.join(' '); }
-    if (typeof detail === 'string') { return detail; }
-    if (detail && typeof detail === 'object') {
-      return Object.values(detail).flat().join(' ') || fallback;
-    }
-    return fallback;
   }
 
   cargar(): void {
@@ -1323,13 +1328,13 @@ export class MatrizPoauComponent implements OnInit, AfterViewInit, OnDestroy {
    * El motivo que mandó el backend, o vacío si no mandó ninguno.
    *
    * `ErrorInterceptor` (app.module) aplana TODO error a `{message, status}`
-   * antes de que llegue acá: el cuerpo crudo no existe a esta altura. Por eso
-   * el 409 del borrado manda su `detail` ya redactado — es lo único que el
-   * interceptor conserva.
+   * antes de que llegue acá: el cuerpo crudo no existe a esta altura. Leer
+   * `response.error.detail` —como hacía la importación— devuelve siempre
+   * `undefined`, así que cada fallo se veía igual: «No se pudo validar la
+   * fuente», tapando el motivo exacto que el backend sí había mandado.
    *
-   * Importa porque `AsignacionPresupuestariaUnidad` apunta con PROTECT a
-   * operación, actividad y tarea: decir «no se pudo eliminar» a secas deja al
-   * administrador sin saber qué desarmar primero.
+   * Del lado del backend la contrapartida es mandar el motivo en `detail`:
+   * es la única clave que el interceptor conserva.
    */
   private mensajeDelBackend(respuesta: any): string {
     const mensaje = respuesta?.message;
