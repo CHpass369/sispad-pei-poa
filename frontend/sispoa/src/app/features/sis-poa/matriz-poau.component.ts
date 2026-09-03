@@ -388,9 +388,7 @@ const TODAS_UNIDADES = '__todas_las_unidades__';
 
           <label
             class="replace-confirm"
-            *ngIf="!tienePoauSeleccionado &&
-                   previewImport?.estado === 'VALIDO' &&
-                   !previewImport?.resultado"
+            *ngIf="!tienePoauSeleccionado && previewImport?.estado === 'VALIDO'"
           >
             <input type="checkbox" [(ngModel)]="confirmarReemplazo">
             <span>
