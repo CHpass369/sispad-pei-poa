@@ -325,10 +325,10 @@ const TODAS_UNIDADES = '__todas_las_unidades__';
             <span>Errores <strong>{{ p.resumen.errores }}</strong></span>
           </div>
 
-          <div class="import-errors" *ngIf="previewImport?.errores?.length">
-            <h4>Errores que bloquean la importación</h4>
+          <div class="import-errors" *ngIf="erroresImportacionVisibles.length">
+            <h4>Observaciones de la importación</h4>
             <ul>
-              <li *ngFor="let e of previewImport!.errores | slice:0:50">
+              <li *ngFor="let e of erroresImportacionVisibles | slice:0:50">
                 <strong>{{ e.fila ? 'Fila ' + e.fila : 'Estructura' }}</strong>
                 · {{ e.campo }}: {{ e.mensaje }}
               </li>
@@ -355,15 +355,48 @@ const TODAS_UNIDADES = '__todas_las_unidades__';
             </table>
           </div>
 
-          <div class="apply-result" *ngIf="previewImport?.resultado as r" role="status">
+          <div class="apply-result" *ngIf="previewImport?.estado === 'APLICADO' && previewImport?.resultado as r" role="status">
             Aplicación completada: {{ r.creados }} creados, {{ r.actualizados }} actualizados,
             {{ r.eliminados }} eliminados y {{ r.sin_cambios }} sin cambios.
           </div>
 
-          <label class="replace-confirm" *ngIf="previewImport?.estado === 'VALIDO'">
+          <div
+            class="replace-confirm-box"
+            *ngIf="tienePoauSeleccionado && previewImport"
+          >
+            <label class="replace-confirm">
+              <input
+                type="checkbox"
+                [(ngModel)]="confirmarReemplazo"
+                [disabled]="previewImport.estado !== 'VALIDO'"
+              >
+              <span>
+                <strong>Confirmación obligatoria:</strong>
+                confirmo que deseo reemplazar el POAU existente de esta Unidad
+                Organizacional y entiendo que su árbol actual será sustituido
+                por los datos de esta matriz.
+              </span>
+            </label>
+
+            <small
+              class="replace-confirm-help"
+              *ngIf="previewImport.estado === 'VALIDO'"
+            >
+              Marque esta casilla para habilitar el botón “Reemplazar POAU”.
+            </small>
+          </div>
+
+          <label
+            class="replace-confirm"
+            *ngIf="!tienePoauSeleccionado &&
+                   previewImport?.estado === 'VALIDO' &&
+                   !previewImport?.resultado"
+          >
             <input type="checkbox" [(ngModel)]="confirmarReemplazo">
-            <span *ngIf="tienePoauSeleccionado">Confirmo que esta vista previa reemplazará el árbol POAU completo de la unidad.</span>
-            <span *ngIf="!tienePoauSeleccionado">Confirmo que deseo crear el nuevo POAU con el árbol completo de esta vista previa.</span>
+            <span>
+              Confirmo que deseo crear el nuevo POAU con el árbol completo
+              de esta vista previa.
+            </span>
           </label>
 
           <footer>
@@ -699,7 +732,36 @@ const TODAS_UNIDADES = '__todas_las_unidades__';
     .import-errors ul { margin: .5rem 0 0; padding-left: 1.2rem; font-size: .75rem; }
     .import-table { max-height: 240px; overflow: auto; margin-top: .8rem; border: 1px solid var(--border); }
     .import-table .num { text-align: right; }
-    .replace-confirm { display: flex; gap: .5rem; align-items: flex-start; margin-top: 1rem; font-size: .8125rem; }
+    .replace-confirm-box {
+      margin-top: 1rem;
+      padding: .8rem 1rem;
+      border: 1px solid #e5a000;
+      border-left: 4px solid #e57c00;
+      border-radius: var(--radius);
+      background: #fff8e8;
+    }
+    .replace-confirm {
+      display: flex;
+      gap: .6rem;
+      align-items: flex-start;
+      margin-top: 1rem;
+      font-size: .8125rem;
+      cursor: pointer;
+    }
+    .replace-confirm-box .replace-confirm {
+      margin-top: 0;
+    }
+    .replace-confirm input {
+      margin-top: .15rem;
+      flex: 0 0 auto;
+    }
+    .replace-confirm-help {
+      display: block;
+      margin-top: .45rem;
+      margin-left: 1.65rem;
+      color: #6b5a2b;
+      font-size: .75rem;
+    }
     .apply-result { margin-top: .8rem; padding: .7rem; background: #C8E6C9; color: #1B5E20; border-radius: var(--radius); }
     .import-dialog footer { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1rem; }
     @media (max-width: 700px) { .import-fields { grid-template-columns: 1fr; } }
@@ -835,6 +897,21 @@ export class MatrizPoauComponent implements OnInit, AfterViewInit, OnDestroy {
     return !this.cargando && !this.error && Boolean(this.unidad) && this.filas.length === 0;
   }
 
+
+  get erroresImportacionVisibles(): any[] {
+    const errores = this.previewImport?.errores ?? [];
+
+    return errores.filter((error: any) => {
+      if (error?.campo !== 'tipo_operacion') {
+        return true;
+      }
+
+      const fila = Number(error?.fila);
+
+      return !this.tiposOperacionImport?.[fila];
+    });
+  }
+
   get tienePoauSeleccionado(): boolean {
     return Boolean(this.unidad) && this.filas.length > 0;
   }
@@ -959,8 +1036,25 @@ export class MatrizPoauComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   aplicarImportacion(): void {
-    if (!this.previewImport || this.previewImport.estado !== 'VALIDO' ||
-        !this.confirmarReemplazo || this.faltanTiposOperacion()) { return; }
+    if (!this.previewImport || this.previewImport.estado !== 'VALIDO') {
+      this.importError =
+        'Debe generar una vista previa válida antes de aplicar la importación.';
+      return;
+    }
+
+    if (!this.confirmarReemplazo) {
+      this.importError = this.tienePoauSeleccionado
+        ? 'Debe confirmar expresamente el reemplazo del POAU existente.'
+        : 'Debe confirmar expresamente la creación del nuevo POAU.';
+      return;
+    }
+
+    if (this.faltanTiposOperacion()) {
+      this.importError =
+        'Debe seleccionar el tipo de todas las operaciones antes de continuar.';
+      return;
+    }
+
     this.aplicando = true;
     this.importError = '';
     this.http.post<PoauImportPreview>(
