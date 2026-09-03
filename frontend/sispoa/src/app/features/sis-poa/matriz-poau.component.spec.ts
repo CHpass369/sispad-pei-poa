@@ -1,5 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
+import { SharedModule } from '../../shared/shared.module';
 import { RouterTestingModule } from '@angular/router/testing';
 import { MatrizPoauComponent } from './matriz-poau.component';
 import { GestionHabilitadaService } from '../../core/services/gestion-habilitada.service';
@@ -27,7 +28,7 @@ describe('MatrizPoauComponent', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [HttpClientTestingModule, RouterTestingModule],
+      imports: [HttpClientTestingModule, RouterTestingModule, SharedModule],
       declarations: [MatrizPoauComponent],
       providers: [
         { provide: GestionHabilitadaService, useValue: gestionHabilitadaStub(2027) },
@@ -107,7 +108,7 @@ describe('MatrizPoauComponent · tinta de las cabeceras', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [HttpClientTestingModule, RouterTestingModule],
+      imports: [HttpClientTestingModule, RouterTestingModule, SharedModule],
       declarations: [MatrizPoauComponent],
     });
     componente = TestBed.createComponent(MatrizPoauComponent).componentInstance;
@@ -144,7 +145,7 @@ describe('MatrizPoauComponent · aprovechamiento del ancho', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [HttpClientTestingModule, RouterTestingModule],
+      imports: [HttpClientTestingModule, RouterTestingModule, SharedModule],
       declarations: [MatrizPoauComponent],
     });
     componente = TestBed.createComponent(MatrizPoauComponent).componentInstance;
@@ -215,7 +216,7 @@ describe('MatrizPoauComponent · importación ETL', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [HttpClientTestingModule, RouterTestingModule],
+      imports: [HttpClientTestingModule, RouterTestingModule, SharedModule],
       declarations: [MatrizPoauComponent],
       providers: [
         { provide: GestionHabilitadaService, useValue: gestionHabilitadaStub(2027, 'gestion-2027') },
@@ -293,7 +294,7 @@ describe('MatrizPoauComponent · vista de árbol', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [HttpClientTestingModule, RouterTestingModule],
+      imports: [HttpClientTestingModule, RouterTestingModule, SharedModule],
       declarations: [MatrizPoauComponent],
     });
     componente = TestBed.createComponent(MatrizPoauComponent).componentInstance;
@@ -351,7 +352,7 @@ describe('MatrizPoauComponent · selección y acciones', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [HttpClientTestingModule, RouterTestingModule],
+      imports: [HttpClientTestingModule, RouterTestingModule, SharedModule],
       declarations: [MatrizPoauComponent],
     });
     componente = TestBed.createComponent(MatrizPoauComponent).componentInstance;
@@ -444,7 +445,7 @@ describe('MatrizPoauComponent · denominación de la categoría programática', 
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [HttpClientTestingModule, RouterTestingModule],
+      imports: [HttpClientTestingModule, RouterTestingModule, SharedModule],
       declarations: [MatrizPoauComponent],
     });
     componente = TestBed.createComponent(MatrizPoauComponent).componentInstance;
@@ -514,7 +515,7 @@ describe('MatrizPoauComponent · layout medido en el navegador', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [HttpClientTestingModule, RouterTestingModule],
+      imports: [HttpClientTestingModule, RouterTestingModule, SharedModule],
       declarations: [MatrizPoauComponent],
     });
     fixture = TestBed.createComponent(MatrizPoauComponent);
