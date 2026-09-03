@@ -102,6 +102,8 @@ export function cabeceraVacia(): CabeceraRecursos {
 
 /** Requerimiento: un bien o servicio demandado con su partida y programación. */
 export interface RequerimientoForm {
+  id?: string;
+  codigoAsignacion?: string;
   bienServicio: string;
   codPartida: string;
   descripcionPartida: string;

@@ -212,6 +212,9 @@ describe('PoauRecursosWizardComponent · combos de catálogo', () => {
       componente.onCategoria();
       componente.operacionSel = 'op-1';
       componente.onOperacion();
+      // Elegir operación trae lo ya programado para actualizar, no duplicar.
+      http.expectOne(r => r.url.includes('/asignaciones-gasto/')
+        && r.urlWithParams.includes('operacion=op-1')).flush({ results: [] });
       expect(componente.cabecera.operacionId).toBe('op-1');
       expect(componente.cabecera.accionPoaId).toBe('ac-1');
       expect(componente.cabecera.codigoAccion).toBe('ACP-01');
@@ -226,6 +229,8 @@ describe('PoauRecursosWizardComponent · combos de catálogo', () => {
       componente.onCategoria();
       componente.operacionSel = 'op-1';
       componente.onOperacion();
+      http.expectOne(r => r.url.includes('/asignaciones-gasto/'))
+          .flush({ results: [] });
 
       elegirUnidad('EM-D01', []);
       expect(componente.cabecera.categoriaProgramatica).toBe('');
@@ -294,6 +299,53 @@ describe('PoauRecursosWizardComponent · combos de catálogo', () => {
       expect(componente.cabecera.saldoDisponible).toBeNull();
       expect(componente.restante).toBeNull();
       expect(componente.enDeficit).toBe(false);
+    });
+  });
+
+  describe('código de asignación presupuestaria', () => {
+    it('usa la operación para no repetir G1 entre operaciones de una acción', () => {
+      responderCatalogos();
+      componente.cabecera.categoriaProgramatica = '097 0 000';
+      componente.operaciones = [
+        { nivel: 'operacion', objeto_id: 'op-2', codigo: 'ACP-01.1.2',
+          accion_id: 'ac-1', cod_accion_corto_plazo: 'ACP-01',
+          categoria_programatica: '097 0 000' },
+      ];
+      componente.operacionSel = 'op-2';
+
+      componente.onOperacion();
+      http.expectOne(r => r.url.includes('/asignaciones-gasto/')
+        && r.urlWithParams.includes('operacion=op-2')).flush({ results: [] });
+      const cuerpo = (componente as any).cuerpo(requerimientoVacio(), 0);
+
+      expect(cuerpo.codigo_asignacion).toBe('ACP-01.1.2.G1');
+    });
+
+    it('carga el registro existente y conserva su código para actualizarlo', () => {
+      responderCatalogos();
+      componente.cabecera.categoriaProgramatica = '097 0 000';
+      componente.operaciones = [
+        { nivel: 'operacion', objeto_id: 'op-2', codigo: 'ACP-01.1.2',
+          accion_id: 'ac-1', cod_accion_corto_plazo: 'ACP-01',
+          categoria_programatica: '097 0 000' },
+      ];
+      componente.operacionSel = 'op-2';
+
+      componente.onOperacion();
+      http.expectOne(r => r.url.includes('/asignaciones-gasto/')).flush({
+        results: [{
+          id: 'asg-1', codigo_asignacion: 'LEGACY.G1',
+          cod_objeto_gasto: '25200', descripcion_objeto: 'Consultoría',
+          grupo_gasto: '20000', tipo_gasto: 'Funcionamiento',
+          fuente_financiamiento: '20', organismo_financiador: '230',
+          monto_programado: '100', programacion_mensual: { enero: 100 },
+        }],
+      });
+
+      const existente = componente.requerimientos[0];
+      const cuerpo = (componente as any).cuerpo(existente, 0);
+      expect(existente.id).toBe('asg-1');
+      expect(cuerpo.codigo_asignacion).toBe('LEGACY.G1');
     });
   });
 
