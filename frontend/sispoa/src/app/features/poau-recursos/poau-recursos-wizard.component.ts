@@ -866,7 +866,7 @@ export class PoauRecursosWizardComponent implements OnInit {
     this.msg = 'Registrando la programación presupuestaria…';
     this.msgClass = '';
 
-    from(this.requerimientos.map((r, i) => this.cuerpo(r, i)))
+    from(this.requerimientos.map(r => this.cuerpo(r)))
       .pipe(
         concatMap(cuerpo => this.api.post('/articulacion/asignaciones-gasto/', cuerpo)),
         toArray(),
@@ -887,10 +887,11 @@ export class PoauRecursosWizardComponent implements OnInit {
       });
   }
 
-  private cuerpo(r: RequerimientoForm, indice: number): Record<string, unknown> {
+  private cuerpo(r: RequerimientoForm): Record<string, unknown> {
     const segmentos = this.cabecera.categoriaProgramatica.split(/\s+/);
     return {
-      codigo_asignacion: `${this.cabecera.codigoAccion}.G${indice + 1}`,
+      // Sin `codigo_asignacion`: lo asigna el servidor de forma consecutiva
+      // por gestión, a partir del último guardado para la acción.
       gestion: Number(this.cabecera.gestion),
       accion_poa: this.cabecera.accionPoaId,
       operacion: this.cabecera.operacionId,

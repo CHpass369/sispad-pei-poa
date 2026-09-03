@@ -206,9 +206,47 @@ class AsignacionObjetoGastoSerializer(ProgramacionMensualMixin, serializers.Mode
         model = AsignacionObjetoGasto
         fields = '__all__'
         read_only_fields = ['id', 'created_at', 'updated_at', 'created_by', 'updated_by']
+        # DRF arma un UniqueTogetherValidator automático para
+        # (codigo_asignacion, gestion) que exige codigo_asignacion presente
+        # en el payload -aunque abajo se declare required=False-, y tira
+        # "este campo es requerido" antes de llegar a create(). La unicidad
+        # real la garantiza _siguiente_codigo() (consecutivo real, no del
+        # formulario) más la restricción de la base como red de seguridad.
+        validators = []
+        extra_kwargs = {
+            # El código lo asigna el servidor cuando falta: el asistente ya no
+            # lo compone (repetía `.G1` por índice de formulario y desarticulaba
+            # el POAU de recursos del POAU físico).
+            'codigo_asignacion': {'required': False},
+        }
 
     def get_monto_vigente_calculado(self, obj):
         return (obj.monto_programado or 0) + (obj.monto_modificado or 0)
+
+    def create(self, validated_data):
+        if not validated_data.get('codigo_asignacion'):
+            validated_data['codigo_asignacion'] = self._siguiente_codigo(validated_data)
+        return super().create(validated_data)
+
+    def _siguiente_codigo(self, validated_data):
+        """`<codigo_accion>.G<n>` consecutivo por gestión.
+
+        El número sale del máximo numérico ya guardado para la acción en esa
+        gestión, no del orden del formulario: dos guardados seguidos de la
+        misma acción nunca repiten código.
+        """
+        accion = validated_data['accion_poa']
+        gestion = validated_data['gestion']
+        prefijo = f'{accion.codigo_accion}.G'
+        existentes = AsignacionObjetoGasto.objects.filter(
+            gestion=gestion, codigo_asignacion__startswith=prefijo,
+        ).values_list('codigo_asignacion', flat=True)
+        numeros = [
+            int(codigo[len(prefijo):])
+            for codigo in existentes
+            if codigo[len(prefijo):].isdigit()
+        ]
+        return f'{prefijo}{(max(numeros) + 1) if numeros else 1}'
 
 
 class BorradorMatrizPADSerializer(serializers.ModelSerializer):
