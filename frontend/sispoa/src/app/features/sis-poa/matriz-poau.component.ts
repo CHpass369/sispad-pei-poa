@@ -338,7 +338,7 @@ const TODAS_UNIDADES = '__todas_las_unidades__';
           <div class="import-table" *ngIf="previewImport?.filas?.length">
             <table class="tabla tabla-compacta">
               <thead><tr><th>Fila</th><th>Nivel</th><th>Código</th><th>Denominación</th><th>Tipo de operación</th><th>Meta</th></tr></thead>
-              <tbody><tr *ngFor="let f of previewImport!.filas | slice:0:20">
+              <tbody><tr *ngFor="let f of previewImport!.filas">
                 <td>{{ f.fila }}</td><td>{{ f.nivel }}</td>
                 <td>{{ codigoImportado(f) || 'se generará' }}</td><td>{{ f[f.nivel] }}</td>
                 <td>
