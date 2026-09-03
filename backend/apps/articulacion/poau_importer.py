@@ -418,9 +418,10 @@ def _parse_sheet(
             row_number, row_issues,
         )
         if ponderacion is not None and ponderacion > Decimal('100'):
-            row_issues.append(_error(
+            row_issues.append(_warning(
                 row_number, 'ponderacion',
-                'La ponderación no puede superar el 100%.',
+                'La ponderación supera el 100%; se importará igual.',
+                'out_of_range',
             ))
 
         start = _fecha(
@@ -441,8 +442,10 @@ def _parse_sheet(
                 row_number, 'fechas', 'Las fechas están vacías.', 'missing_value',
             ))
         elif start > end:
-            row_issues.append(_error(
-                row_number, 'fecha_fin', 'La fecha final no puede ser anterior al inicio.',
+            row_issues.append(_warning(
+                row_number, 'fecha_fin',
+                'La fecha final es anterior al inicio; se importará igual.',
+                'invalid_range',
             ))
 
         if not context['accion']:
