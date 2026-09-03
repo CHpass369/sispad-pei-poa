@@ -2,6 +2,8 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 import { RouterTestingModule } from '@angular/router/testing';
 import { MatrizPoauComponent } from './matriz-poau.component';
+import { FormsModule } from '@angular/forms';
+import { ComboBoxComponent } from '../../shared/components/combo-box/combo-box.component';
 import { GestionHabilitadaService } from '../../core/services/gestion-habilitada.service';
 import { gestionHabilitadaStub } from '../../core/testing/gestion-habilitada.stub';
 
@@ -16,19 +18,46 @@ const FILAS = [
   { id: 'u|p|a|o|c|t2', padre: 'u|p|a|o|c', nivel: 'tarea', orden_nivel: 5, hijos: 0, tarea: 'T2' },
 ];
 
+/**
+ * Cada `cargar()` dispara tres GET independientes: el catálogo de Unidades
+ * Organizacionales, el presupuesto y la matriz. El catálogo va por su cuenta
+ * justamente para que el selector de la importación siga vivo aunque la matriz
+ * —que pesa megabytes— falle.
+ */
+const CATALOGO = (http: HttpTestingController, unidades: any[] = []) =>
+  http.expectOne(r => r.url.includes('/matriz-poau/unidades/'))
+      .flush({ gestion: 2027, unidades });
+
+const PRESUPUESTO = (http: HttpTestingController) =>
+  http.expectOne(r => r.url.includes('/matriz-poau/presupuesto/'))
+      .flush({ categorias: [], total: 0 });
+
+const MATRIZ = (http: HttpTestingController, cuerpo: any) =>
+  http.expectOne(r => r.url.includes('/matriz-poau/')
+                      && !r.url.includes('/unidades/')
+                      && !r.url.includes('/presupuesto/'))
+      .flush(cuerpo);
+
 describe('MatrizPoauComponent', () => {
   let componente: MatrizPoauComponent;
   let http: HttpTestingController;
 
   const responder = (unidades: any[] = [{ codigo: 'EM-DJR-01', nombre: 'JURÍDICA' }]) => {
-    http.expectOne(r => r.url.includes('matriz-poau'))
-        .flush({ gestion: 2027, unidades, total_filas: FILAS.length, filas: FILAS });
+    CATALOGO(http, unidades);
+    PRESUPUESTO(http);
+    MATRIZ(http, { gestion: 2027, total_filas: FILAS.length, filas: FILAS });
+  };
+
+  /** Recarga con el catálogo ya en memoria: no vuelve a pedirlo. */
+  const recargar = () => {
+    PRESUPUESTO(http);
+    MATRIZ(http, { gestion: 2027, total_filas: FILAS.length, filas: FILAS });
   };
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [HttpClientTestingModule, RouterTestingModule],
-      declarations: [MatrizPoauComponent],
+      imports: [HttpClientTestingModule, RouterTestingModule, FormsModule],
+      declarations: [MatrizPoauComponent, ComboBoxComponent],
       providers: [
         { provide: GestionHabilitadaService, useValue: gestionHabilitadaStub(2027) },
       ],
@@ -68,10 +97,38 @@ describe('MatrizPoauComponent', () => {
     componente.ngOnInit();
     responder();
     componente.filtrar({ target: { value: 'EM-DJR-01' } } as any);
-    responder([]);
+    recargar();
     expect(componente.visibles.length).toBe(FILAS.length);
     // El catálogo de unidades no se pisa con la respuesta filtrada.
     expect(componente.unidades.length).toBe(1);
+  });
+
+  it('el selector se llena del catálogo organizacional, no de la matriz', () => {
+    componente.ngOnInit();
+    CATALOGO(http, [
+      { codigo: 'EM-DJR-01', nombre: 'JURÍDICA', sigla: 'DJR' },
+      { codigo: 'EM-DAF-01', nombre: 'ADMINISTRATIVA', sigla: 'DAF' },
+    ]);
+    PRESUPUESTO(http);
+    // La matriz cae: el catálogo ya llegó por su cuenta y el selector sobrevive.
+    MATRIZ(http, { gestion: 2027, total_filas: 0, filas: [] });
+    expect(componente.opcionesUnidadImport.map(o => o.valor))
+      .toEqual(['EM-DJR-01', 'EM-DAF-01']);
+  });
+
+  it('sin catálogo no deja el selector muerto: reintenta al abrir la importación', () => {
+    componente.ngOnInit();
+    http.expectOne(r => r.url.includes('/matriz-poau/unidades/'))
+        .error(new ProgressEvent('error'));
+    PRESUPUESTO(http);
+    MATRIZ(http, { gestion: 2027, total_filas: 0, filas: [] });
+    expect(componente.opcionesUnidadImport.length).toBe(0);
+    expect(componente.errorCatalogo).toBeTruthy();
+
+    componente.abrirImportacion();
+    CATALOGO(http, [{ codigo: 'EM-DJR-01', nombre: 'JURÍDICA' }]);
+    expect(componente.opcionesUnidadImport.length).toBe(1);
+    expect(componente.errorCatalogo).toBe('');
   });
 
   it('exposes a non-error empty state for a selected authorized unit', () => {
@@ -107,8 +164,8 @@ describe('MatrizPoauComponent · tinta de las cabeceras', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [HttpClientTestingModule, RouterTestingModule],
-      declarations: [MatrizPoauComponent],
+      imports: [HttpClientTestingModule, RouterTestingModule, FormsModule],
+      declarations: [MatrizPoauComponent, ComboBoxComponent],
     });
     componente = TestBed.createComponent(MatrizPoauComponent).componentInstance;
     TestBed.inject(HttpTestingController).verify();
@@ -144,8 +201,8 @@ describe('MatrizPoauComponent · aprovechamiento del ancho', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [HttpClientTestingModule, RouterTestingModule],
-      declarations: [MatrizPoauComponent],
+      imports: [HttpClientTestingModule, RouterTestingModule, FormsModule],
+      declarations: [MatrizPoauComponent, ComboBoxComponent],
     });
     componente = TestBed.createComponent(MatrizPoauComponent).componentInstance;
     TestBed.inject(HttpTestingController).verify();
@@ -211,8 +268,8 @@ describe('MatrizPoauComponent · importación ETL', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [HttpClientTestingModule, RouterTestingModule],
-      declarations: [MatrizPoauComponent],
+      imports: [HttpClientTestingModule, RouterTestingModule, FormsModule],
+      declarations: [MatrizPoauComponent, ComboBoxComponent],
       providers: [
         { provide: GestionHabilitadaService, useValue: gestionHabilitadaStub(2027, 'gestion-2027') },
       ],
@@ -220,13 +277,17 @@ describe('MatrizPoauComponent · importación ETL', () => {
     fixture = TestBed.createComponent(MatrizPoauComponent);
     componente = fixture.componentInstance;
     componente.unidad = 'UO-01';
-    componente.accionImportCodigo = 'ACP-01';
     http = TestBed.inject(HttpTestingController);
   });
 
   afterEach(() => http.verify());
 
   it('ubica el botón de importar antes de las exportaciones y abre un diálogo accesible', () => {
+    fixture.detectChanges();
+    // El botón queda deshabilitado mientras la matriz carga.
+    CATALOGO(http, [{ codigo: 'UO-01', nombre: 'Unidad de prueba' }]);
+    PRESUPUESTO(http);
+    MATRIZ(http, { gestion: 2027, total_filas: 0, filas: [] });
     fixture.detectChanges();
     const buttons = Array.from(fixture.nativeElement.querySelectorAll('.encabezado-acciones button')) as HTMLButtonElement[];
     const labels = buttons.map(button => button.textContent?.trim());
@@ -246,16 +307,16 @@ describe('MatrizPoauComponent · importación ETL', () => {
     componente.previsualizarImportacion();
     const request = http.expectOne(req =>
       req.url.includes('/api/v2/sis-poa/poau-imports/preview/') &&
-      req.params.get('gestion_id') === 'gestion-2027');
+      req.url.includes('gestion_id=gestion-2027'));
     expect(request.request.body instanceof FormData).toBeTrue();
     expect(request.request.body.get('unidad_codigo')).toBe('UO-01');
-    expect(request.request.body.get('accion_codigo')).toBe('ACP-01');
     request.flush(preview);
     expect(componente.previewImport?.resumen.filas_validas).toBe(3);
   });
 
-  it('no previsualiza sin una Acción POA objetivo explícita', () => {
-    componente.accionImportCodigo = '';
+  it('no previsualiza sin una Unidad Organizacional elegida', () => {
+    // El árbol se reconstruye por unidad: sin unidad no hay a qué importarle.
+    componente.unidad = '';
     componente.archivoImport = new File(['xlsx'], 'poau.xlsx', {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     });
@@ -263,7 +324,6 @@ describe('MatrizPoauComponent · importación ETL', () => {
     componente.previsualizarImportacion();
 
     http.expectNone(req => req.url.includes('/poau-imports/preview/'));
-    expect(componente.importError).toContain('Acción POA objetivo');
   });
 
   it('aplica solo con confirmación, conserva el resumen y recarga la matriz', () => {
@@ -275,10 +335,9 @@ describe('MatrizPoauComponent · importación ETL', () => {
       ...preview, estado: 'APLICADO',
       resultado: { creados: 1, actualizados: 2, eliminados: 0, reemplazados: 2, sin_cambios: 0 },
     });
-    http.expectOne(req => req.url.includes('/articulacion/matriz-poau/presupuesto/'))
-      .flush({ categorias: [], total: 0 });
-    http.expectOne(req => req.url.includes('/articulacion/matriz-poau/') && !req.url.includes('/presupuesto/'))
-      .flush({ filas: [], unidades: [] });
+    CATALOGO(http);
+    PRESUPUESTO(http);
+    MATRIZ(http, { filas: [] });
     expect(componente.previewImport?.resultado?.creados).toBe(1);
     expect(componente.aviso).toContain('1 creados');
   });
@@ -296,8 +355,8 @@ describe('MatrizPoauComponent · vista de árbol', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [HttpClientTestingModule, RouterTestingModule],
-      declarations: [MatrizPoauComponent],
+      imports: [HttpClientTestingModule, RouterTestingModule, FormsModule],
+      declarations: [MatrizPoauComponent, ComboBoxComponent],
     });
     componente = TestBed.createComponent(MatrizPoauComponent).componentInstance;
     TestBed.inject(HttpTestingController).verify();
@@ -354,14 +413,15 @@ describe('MatrizPoauComponent · selección y acciones', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [HttpClientTestingModule, RouterTestingModule],
-      declarations: [MatrizPoauComponent],
+      imports: [HttpClientTestingModule, RouterTestingModule, FormsModule],
+      declarations: [MatrizPoauComponent, ComboBoxComponent],
     });
     componente = TestBed.createComponent(MatrizPoauComponent).componentInstance;
     http = TestBed.inject(HttpTestingController);
     componente.ngOnInit();
-    http.expectOne(r => r.url.includes('matriz-poau'))
-        .flush({ gestion: 2027, unidades: [], total_filas: 6, filas: FILAS_ACC });
+    CATALOGO(http);
+    PRESUPUESTO(http);
+    MATRIZ(http, { gestion: 2027, total_filas: 6, filas: FILAS_ACC });
     componente.expandirTodo();
   });
 
@@ -430,8 +490,9 @@ describe('MatrizPoauComponent · selección y acciones', () => {
     spyOn(window, 'confirm').and.returnValue(true);
     componente.eliminar(FILAS_ACC[5]);
     http.expectOne(r => r.url.endsWith('/articulacion/tareas/tar-1/')).flush({});
-    http.expectOne(r => r.url.includes('matriz-poau'))
-        .flush({ gestion: 2027, unidades: [], total_filas: 0, filas: [] });
+    CATALOGO(http);
+    PRESUPUESTO(http);
+    MATRIZ(http, { gestion: 2027, total_filas: 0, filas: [] });
     expect(componente.filas.length).toBe(0);
   });
 
@@ -447,8 +508,8 @@ describe('MatrizPoauComponent · denominación de la categoría programática', 
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [HttpClientTestingModule, RouterTestingModule],
-      declarations: [MatrizPoauComponent],
+      imports: [HttpClientTestingModule, RouterTestingModule, FormsModule],
+      declarations: [MatrizPoauComponent, ComboBoxComponent],
     });
     componente = TestBed.createComponent(MatrizPoauComponent).componentInstance;
     TestBed.inject(HttpTestingController).verify();
@@ -517,15 +578,16 @@ describe('MatrizPoauComponent · layout medido en el navegador', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [HttpClientTestingModule, RouterTestingModule],
-      declarations: [MatrizPoauComponent],
+      imports: [HttpClientTestingModule, RouterTestingModule, FormsModule],
+      declarations: [MatrizPoauComponent, ComboBoxComponent],
     });
     fixture = TestBed.createComponent(MatrizPoauComponent);
     componente = fixture.componentInstance;
     http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
-    http.expectOne(r => r.url.includes('matriz-poau'))
-        .flush({ gestion: 2027, unidades: [], total_filas: 3, filas: FILAS_L });
+    CATALOGO(http);
+    PRESUPUESTO(http);
+    MATRIZ(http, { gestion: 2027, total_filas: 3, filas: FILAS_L });
     componente.expandirTodo();
     fixture.detectChanges();
   });

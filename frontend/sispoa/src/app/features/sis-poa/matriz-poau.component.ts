@@ -191,6 +191,7 @@ const NUMERICAS = new Set(['linea_base', 'meta', 'meta_actual', 'ponderacion',
                            'total_anual', ...MESES.map(m => `mes_${m}`)]);
 const TODAS_UNIDADES = '__todas_las_unidades__';
 
+
 @Component({
   selector: 'app-matriz-poau',
   standalone: false,
@@ -272,10 +273,24 @@ const TODAS_UNIDADES = '__todas_las_unidades__';
             <app-combo-box [opciones]="opcionesUnidadImport"
                            [ngModel]="unidad"
                            (ngModelChange)="cambiarUnidadImport($event)"
+                           [disabled]="cargandoCatalogo"
                            etiqueta="Unidad Organizacional para importar"
                            placeholder="Buscar por código, nombre o sigla"
                            [maximo]="60"></app-combo-box>
           </label>
+          <p class="import-catalogo" *ngIf="cargandoCatalogo" role="status">
+            Cargando el catálogo de Unidades Organizacionales…
+          </p>
+          <p class="import-catalogo error" *ngIf="errorCatalogo" role="alert">
+            {{ errorCatalogo }}
+            <button type="button" class="btn btn-sm btn-secondary"
+                    (click)="cargarCatalogoUnidades()">Reintentar</button>
+          </p>
+          <p class="import-catalogo" *ngIf="!cargandoCatalogo && !errorCatalogo"
+             role="status">
+            {{ opcionesUnidadImport.length }} unidades del catálogo organizacional
+            de la gestión {{ gestion }}.
+          </p>
 
           <div class="import-impact nuevo" *ngIf="unidad && !cargando && !tienePoauSeleccionado" role="status">
             <strong>Esta Unidad Organizacional todavía no tiene un POAU.</strong>
@@ -686,6 +701,11 @@ const TODAS_UNIDADES = '__todas_las_unidades__';
     .import-table .num { text-align: right; }
     .replace-confirm { display: flex; gap: .5rem; align-items: flex-start; margin-top: 1rem; font-size: .8125rem; }
     .apply-result { margin-top: .8rem; padding: .7rem; background: #C8E6C9; color: #1B5E20; border-radius: var(--radius); }
+    .import-catalogo {
+      margin: -.35rem 0 .75rem; font-size: .75rem; color: var(--text-secondary);
+      display: flex; align-items: center; gap: .5rem;
+    }
+    .import-catalogo.error { color: var(--danger, #b3261e); }
     .import-dialog footer { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1rem; }
     @media (max-width: 700px) { .import-fields { grid-template-columns: 1fr; } }
      .msg-box.error {
@@ -746,6 +766,8 @@ export class MatrizPoauComponent implements OnInit, AfterViewInit, OnDestroy {
   get gestion(): number | null { return this.gestionActiva.anio(); }
   cargando = true;
   error = '';
+  cargandoCatalogo = false;
+  errorCatalogo = '';
 
   importAbierto = false;
   fuenteImport: 'excel' | 'google_sheets' = 'excel';
@@ -867,6 +889,9 @@ export class MatrizPoauComponent implements OnInit, AfterViewInit, OnDestroy {
   abrirImportacion(): void {
     this.importAbierto = true;
     this.limpiarPreviewImport();
+    // Sin catálogo no hay unidad a la que importarle: si la primera carga
+    // falló, se reintenta al abrir en lugar de mostrar un selector vacío.
+    this.cargarCatalogoUnidades();
     setTimeout(() => this.importDialog?.nativeElement.focus());
   }
 
@@ -985,9 +1010,10 @@ export class MatrizPoauComponent implements OnInit, AfterViewInit, OnDestroy {
       this.unidad = '';
       this.unidadFiltro = TODAS_UNIDADES;
     }
+    this.cargarCatalogoUnidades();
     this.cargarPresupuesto();
-    const incluirUnidades = !this.catalogoCargado;
-    const parametros = [`incluir_unidades=${incluirUnidades ? '1' : '0'}`];
+    // El catálogo ya no viaja acá: la matriz solo trae filas.
+    const parametros = ['incluir_unidades=0'];
     if (this.unidad) {
       parametros.push(`unidad=${encodeURIComponent(this.unidad)}`);
     }
@@ -997,11 +1023,6 @@ export class MatrizPoauComponent implements OnInit, AfterViewInit, OnDestroy {
       .subscribe({
         next: d => {
           this.filas = d.filas ?? [];
-          if (incluirUnidades) {
-            this.unidades = d.unidades ?? [];
-            this.prepararOpcionesUnidad();
-            this.catalogoCargado = true;
-          }
           const vigentes = new Set(this.filas.map((f: any) => f.id));
           this.seleccion = new Set([...this.seleccion].filter(id => vigentes.has(id)));
           this.conteo = {};
@@ -1016,6 +1037,46 @@ export class MatrizPoauComponent implements OnInit, AfterViewInit, OnDestroy {
         },
         error: () => {
           this.error = 'No se pudo cargar la matriz POAU.';
+          this.cdr.markForCheck();
+        },
+      });
+  }
+
+  /**
+   * Trae el catálogo de Unidades Organizacionales por su cuenta.
+   *
+   * Antes llegaba dentro de la respuesta de la matriz, que pesa megabytes y
+   * trae miles de filas. Esa dependencia se nota justo donde más duele: el
+   * selector de la importación existe para elegir una unidad que **todavía no
+   * tiene árbol**, así que si la matriz falla o vuelve vacía el desplegable se
+   * queda sin opciones y no hay forma de crear ese POAU.
+   *
+   * El endpoint es liviano y comparte candado y alcance con la matriz, así que
+   * el desplegable nunca ofrece una unidad que el usuario no pueda abrir.
+   */
+  cargarCatalogoUnidades(): void {
+    if (this.catalogoCargado || this.cargandoCatalogo) { return; }
+    this.cargandoCatalogo = true;
+    this.errorCatalogo = '';
+    this.http.get<{ unidades: UnidadCatalogo[] }>(
+      `${environment.apiUrl}/articulacion/matriz-poau/unidades/`)
+      .pipe(finalize(() => {
+        this.cargandoCatalogo = false;
+        this.cdr.markForCheck();
+      }))
+      .subscribe({
+        next: d => {
+          this.unidades = d?.unidades ?? [];
+          // Un catálogo vacío no se cachea: se puede reintentar al abrir la
+          // importación en vez de dejar el selector muerto para siempre.
+          this.catalogoCargado = this.unidades.length > 0;
+          this.prepararOpcionesUnidad();
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.catalogoCargado = false;
+          this.errorCatalogo =
+            'No se pudo cargar el catálogo de Unidades Organizacionales.';
           this.cdr.markForCheck();
         },
       });
