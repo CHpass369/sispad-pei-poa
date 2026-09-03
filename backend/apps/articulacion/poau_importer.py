@@ -1079,12 +1079,22 @@ def snapshot_unit_tree(gestion, unidad):
     tasks = list(TareaPOAU.objects.filter(
         actividad__in=activities,
     ).order_by('codigo_tarea'))
+    # Las asignaciones presupuestarias no son parte del árbol POAU, pero el
+    # reemplazo las borra (es la única FK con on_delete=PROTECT sobre esta
+    # jerarquía) — quedan acá para que el monto asignado nunca se pierda,
+    # aunque el registro vivo ya no exista. `schema` se mantiene en 1:
+    # `restore_version()` solo lee las cuatro claves de árbol y no le importa
+    # esta adicional.
+    asignaciones = list(AsignacionPresupuestariaUnidad.objects.filter(
+        Q(operacion__in=operations) | Q(actividad__in=activities) | Q(tarea__in=tasks),
+    ))
     return {
         'schema': 1,
         'acciones': _serialize_queryset(actions),
         'operaciones': _serialize_queryset(operations),
         'actividades': _serialize_queryset(activities),
         'tareas': _serialize_queryset(tasks),
+        'asignaciones_presupuestarias': _serialize_queryset(asignaciones),
     }
 
 
@@ -1231,10 +1241,16 @@ def apply_preview(preview_id, user, confirmation_code='', operation_types=None):
     # deshacer el reemplazo.
     snapshot = snapshot_unit_tree(preview.gestion, preview.unidad)
     old_count = sum(len(items) for items in (actions, operations, activities, tasks))
+    resumen = {
+        'registros': old_count,
+        'asignaciones_presupuestarias': len(
+            snapshot.get('asignaciones_presupuestarias', []),
+        ),
+    }
     history = VersionImportacionPOAU.objects.create(
         gestion=preview.gestion, unidad=preview.unidad, usuario=user,
         tipo_evento=VersionImportacionPOAU.TipoEvento.REEMPLAZO,
-        snapshot=snapshot, resumen={'registros': old_count},
+        snapshot=snapshot, resumen=resumen,
         fuente_nombre=preview.fuente_nombre,
         fuente_sha256=preview.fuente_sha256, hoja=preview.hoja,
     )

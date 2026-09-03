@@ -794,6 +794,15 @@ class PoauImportApplyTests(PoauImportBase):
             str(operation_id),
             [row['id'] for row in version.snapshot['operaciones']],
         )
+        # El monto asignado no se pierde: queda en el snapshot aunque la fila
+        # viva ya no exista, para reconciliar a mano si hace falta.
+        asignaciones_snapshot = version.snapshot['asignaciones_presupuestarias']
+        self.assertEqual(len(asignaciones_snapshot), 1)
+        self.assertEqual(asignaciones_snapshot[0]['id'], str(asignacion.pk))
+        self.assertEqual(
+            Decimal(asignaciones_snapshot[0]['monto_vigente']), Decimal('900.00'),
+        )
+        self.assertEqual(version.resumen['asignaciones_presupuestarias'], 1)
 
     def test_write_failure_rolls_back_all_changes(self):
         content = workbook_bytes(self.rows())
