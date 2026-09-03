@@ -27,6 +27,8 @@ from apps.articulacion.models import (
     AccionPOA, ActividadPOAU, AsignacionObjetoGasto, OperacionPOAU,
     ProductoPEI, ResultadoPEI,
 )
+from apps.articulacion.views_poau import MatrizPOAUViewSet
+from apps.auditoria.models import EventoAuditoria
 from apps.budget.models import CategoriaProgramaticaTecho
 from apps.gestion.testing import habilitar_gestion_para_tests
 from apps.organizacion.models import TipoUnidad, UnidadOrganizacional
@@ -180,6 +182,168 @@ class MatrizPOAUScopeTests(ScopePOAUUnidadBase):
         )
         response = self.cliente(sin_rol).get(MATRIZ)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class MatrizPOAUCatalogoUnidadesTests(ScopePOAUUnidadBase):
+    """A-bis. GET /matriz-poau/unidades/ — el catálogo del selector, solo.
+
+    El selector de la importación existe para elegir la unidad cuyo árbol se va
+    a crear, así que tiene que ofrecer también las que todavía no tienen POAU.
+    Antes el catálogo solo llegaba dentro de la matriz —miles de filas y
+    megabytes—: una lectura pesada que fallara dejaba el desplegable vacío.
+    """
+
+    URL = f'{MATRIZ}unidades/'
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        # Una unidad del catálogo sin una sola AccionPOA colgando.
+        cls.sin_poau = UnidadOrganizacional.objects.create(
+            codigo='SCOPE-SIN-POAU', nombre='Unidad sin POAU',
+            tipo=cls.propia.tipo, padre=None, gestion=cls.gestion,
+            fecha_vigencia_desde=date(2027, 1, 1),
+        )
+
+    def catalogo(self, usuario):
+        response = self.cliente(usuario).get(self.URL)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        return [u['codigo'] for u in response.data['unidades']]
+
+    def test_ofrece_una_unidad_sin_arbol_todavia(self):
+        self.assertIn('SCOPE-SIN-POAU', self.catalogo(self.global_))
+
+    def test_devuelve_la_gestion_habilitada(self):
+        response = self.cliente(self.global_).get(self.URL)
+        self.assertEqual(response.data['gestion'], 2027)
+
+    def test_respeta_el_alcance_organizacional(self):
+        self.assertEqual(self.catalogo(self.acotado), ['SCOPE-PROPIA'])
+
+    def test_sin_alcances_no_ofrece_nada(self):
+        self.assertEqual(self.catalogo(self.sin_alcance), [])
+
+    def test_exige_la_capacidad_poau(self):
+        sin_rol = Usuario.objects.create_user(
+            email='scope-cat-sin-cap@test.gob.bo', password='Clave.Scope.2027',
+        )
+        response = self.cliente(sin_rol).get(self.URL)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class BorrarPOAUDeUnidadTests(ScopePOAUUnidadBase):
+    """A-ter. GET/DELETE /matriz-poau/unidad/<codigo>/ — el botón del admin.
+
+    Un POAU mal importado no se arregla fila por fila: son cientos de tareas
+    colgando de una cadena de cuatro niveles. El administrador tiene que poder
+    tirar el árbol entero de una unidad y volver a construirlo.
+
+    Lo que estos casos fijan:
+
+    - la operación es del administrador, no de la capacidad POAU: tener
+      `sis_poa.poau.*` —incluso con alcance GLOBAL— no alcanza;
+    - el GET cuenta sin tocar nada (vista previa honesta antes de confirmar);
+    - el DELETE se lleva el árbol completo de esa unidad y **solo** de esa;
+    - la Unidad Organizacional sobrevive: se borra su POAU, no la unidad;
+    - queda un evento de auditoría con el actor y lo que se borró.
+    """
+
+    def url(self, codigo):
+        return f'{MATRIZ}unidad/{codigo}/'
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        # Un usuario con toda la capacidad POAU y alcance GLOBAL, pero que NO
+        # es administrador: es el caso que separa capacidad de administración.
+        cls.admin = Usuario.objects.create_superuser(
+            email='scope-admin@test.gob.bo', password='Clave.Scope.2027',
+        )
+
+    def test_el_admin_ve_lo_que_se_borraria_sin_borrar_nada(self):
+        response = self.cliente(self.admin).get(self.url('SCOPE-PROPIA'))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            response.data['eliminaria'],
+            {'articulacion.AccionPOA': 1, 'articulacion.OperacionPOAU': 1},
+        )
+        self.assertEqual(response.data['total'], 2)
+        # La vista previa no toca la base.
+        self.assertTrue(AccionPOA.objects.filter(pk=self.accion_propia.pk).exists())
+
+    def test_el_alcance_global_con_capacidad_poau_no_alcanza(self):
+        """`global_` tiene las 6 capacidades POAU y alcance GLOBAL: 403 igual."""
+        response = self.cliente(self.global_).get(self.url('SCOPE-PROPIA'))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_el_delete_tambien_es_solo_del_admin(self):
+        response = self.cliente(self.global_).delete(self.url('SCOPE-PROPIA'))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(AccionPOA.objects.filter(pk=self.accion_propia.pk).exists())
+
+    def test_borra_el_arbol_completo_de_esa_unidad(self):
+        response = self.cliente(self.admin).delete(self.url('SCOPE-PROPIA'))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['total'], 2)
+        self.assertFalse(
+            AccionPOA.objects.filter(pk=self.accion_propia.pk).exists())
+        self.assertFalse(
+            OperacionPOAU.objects.filter(accion_poa=self.accion_propia).exists())
+
+    def test_no_toca_el_poau_de_la_unidad_de_al_lado(self):
+        self.cliente(self.admin).delete(self.url('SCOPE-PROPIA'))
+        self.assertTrue(
+            AccionPOA.objects.filter(pk=self.accion_ajena.pk).exists())
+        self.assertTrue(
+            OperacionPOAU.objects.filter(accion_poa=self.accion_ajena).exists())
+
+    def test_la_unidad_organizacional_sobrevive(self):
+        """Se borra el POAU, no la unidad: tiene que seguir en el catálogo."""
+        self.cliente(self.admin).delete(self.url('SCOPE-PROPIA'))
+        self.assertTrue(
+            UnidadOrganizacional.objects.filter(pk=self.propia.pk).exists())
+        catalogo = self.cliente(self.admin).get(f'{MATRIZ}unidades/')
+        self.assertIn(
+            'SCOPE-PROPIA', [u['codigo'] for u in catalogo.data['unidades']])
+
+    def test_deja_evento_de_auditoria(self):
+        self.cliente(self.admin).delete(self.url('SCOPE-PROPIA'))
+        evento = EventoAuditoria.objects.filter(
+            entidad='POAU', entidad_id='SCOPE-PROPIA',
+        ).first()
+        self.assertIsNotNone(evento)
+        self.assertEqual(evento.usuario, self.admin)
+        self.assertEqual(evento.accion, EventoAuditoria.Accion.ANULAR)
+        self.assertEqual(evento.datos_previos['articulacion.AccionPOA'], 1)
+
+    def test_una_unidad_sin_poau_no_rompe(self):
+        sin_poau = UnidadOrganizacional.objects.create(
+            codigo='SCOPE-VACIA', nombre='Unidad vacía', tipo=self.propia.tipo,
+            padre=None, gestion=self.gestion,
+            fecha_vigencia_desde=date(2027, 1, 1),
+        )
+        response = self.cliente(self.admin).get(self.url(sin_poau.codigo))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['total'], 0)
+
+    def test_el_bloqueo_llega_con_un_motivo_legible(self):
+        """El 409 tiene que traer `detail`: es lo único que la UI conserva.
+
+        `ErrorInterceptor` del frontend aplana todo error a `{message, status}`
+        leyendo `detail`. Un 409 sin esa clave llega a la pantalla como un
+        mensaje genérico y el administrador no sabe qué desarmar.
+        """
+        bloqueos = [{
+            'modelo': 'presupuesto.AsignacionPresupuestariaUnidad',
+            'registros': 3,
+        }]
+        detalle = MatrizPOAUViewSet._detalle_bloqueo(bloqueos)
+        self.assertEqual(len(detalle), 1)
+        self.assertIn('Asignaciones presupuestarias (3)', detalle[0])
+
+    def test_una_unidad_inexistente_da_404(self):
+        response = self.cliente(self.admin).get(self.url('NO-EXISTE'))
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
 
 class MatrizPOAUDetalleScopeTests(ScopePOAUUnidadBase):

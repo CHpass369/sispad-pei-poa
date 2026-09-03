@@ -7,10 +7,28 @@ import { Router } from '@angular/router';
 import { finalize } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { GestionHabilitadaService } from '../../core/services/gestion-habilitada.service';
+import { PermissionsService } from '../../core/services/permissions.service';
+import { OpcionCombo } from '../../shared/components/combo-box/combo-box.component';
 
 interface ColumnaMatriz { clave: string; etiqueta: string; ancho: number; }
 interface BloqueMatriz {
   etiqueta: string; color: string; columnas: ColumnaMatriz[];
+}
+interface UnidadCatalogo { codigo: string; nombre: string; sigla: string; }
+
+interface PoauImportPreview {
+  id: string;
+  estado: 'VALIDO' | 'INVALIDO' | 'APLICADO';
+  resumen: {
+    filas_leidas: number; filas_validas: number; filas_rechazadas: number;
+    errores: number; registros_preview: number;
+  };
+  errores: { fila: number; campo: string; codigo: string; mensaje: string }[];
+  filas: any[];
+  resultado?: {
+    creados: number; actualizados: number; eliminados: number;
+    reemplazados: number; sin_cambios: number;
+  };
 }
 
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio',
@@ -172,6 +190,20 @@ const FIN_CADENA = 10;  // índice de TAREAS ESPECÍFICAS
 
 const NUMERICAS = new Set(['linea_base', 'meta', 'meta_actual', 'ponderacion',
                            'total_anual', ...MESES.map(m => `mes_${m}`)]);
+const TODAS_UNIDADES = '__todas_las_unidades__';
+
+/** El backend cuenta por modelo; la confirmación se lee en castellano. */
+const ETIQUETA_MODELO: Record<string, string> = {
+  'articulacion.AccionPOA': 'Acciones de corto plazo',
+  'articulacion.OperacionPOAU': 'Operaciones',
+  'articulacion.ActividadPOAU': 'Actividades',
+  'articulacion.TareaPOAU': 'Tareas',
+  'articulacion.ActividadNormativa': 'Actividades normativas',
+  'articulacion.TareaNormativa': 'Tareas normativas',
+  'articulacion.AsignacionObjetoGasto': 'Asignaciones de objeto de gasto',
+  'articulacion.SeguimientoPresupuesto': 'Seguimientos de presupuesto',
+  'presupuesto.AsignacionPresupuestariaUnidad': 'Asignaciones presupuestarias',
+};
 
 @Component({
   selector: 'app-matriz-poau',
@@ -187,12 +219,12 @@ const NUMERICAS = new Set(['linea_base', 'meta', 'meta_actual', 'ponderacion',
           </p>
         </div>
         <div class="encabezado-acciones">
-          <select class="form-control filtro" [value]="unidad" (change)="filtrar($event)">
-            <option value="">Todas las unidades ({{ unidades.length }})</option>
-            <option *ngFor="let u of unidades" [value]="u.codigo">
-              {{ u.codigo }} — {{ u.nombre }}
-            </option>
-          </select>
+          <app-combo-box class="filtro" [opciones]="opcionesUnidadFiltro"
+                         [ngModel]="unidadFiltro"
+                         (ngModelChange)="filtrar($event)"
+                         etiqueta="Filtrar por Unidad Organizacional"
+                         placeholder="Buscar unidad por código, nombre o sigla"
+                         [maximo]="60"></app-combo-box>
           <div class="vistas">
             <button class="btn btn-sm" [class.activa]="modo === 'arbol'"
                     (click)="cambiarModo('arbol')">Árbol</button>
@@ -203,6 +235,11 @@ const NUMERICAS = new Set(['linea_base', 'meta', 'meta_actual', 'ponderacion',
                   [disabled]="!filas.length">Expandir todo</button>
           <button class="btn btn-sm btn-secondary" (click)="contraerTodo()"
                   [disabled]="!filas.length">Contraer</button>
+          <button class="btn btn-sm btn-importar" type="button"
+                  (click)="abrirImportacion()" [disabled]="cargando"
+                  title="Importar programación física">
+            ⇧ Importar
+          </button>
           <button class="btn btn-sm btn-excel" (click)="exportarExcel()"
                   [disabled]="!filas.length">⬇ Excel</button>
           <button class="btn btn-sm btn-pdf" (click)="exportarPdf()"
@@ -225,6 +262,137 @@ const NUMERICAS = new Set(['linea_base', 'meta', 'meta_actual', 'ponderacion',
       <div class="msg-box error" *ngIf="error">{{ error }}</div>
       <div class="msg-box aviso" *ngIf="aviso && !error">{{ aviso }}</div>
 
+      <div class="import-overlay" *ngIf="importAbierto" role="presentation"
+           (keydown.escape)="cerrarImportacion()">
+        <section class="import-dialog" role="dialog" aria-modal="true"
+                 aria-labelledby="import-title" tabindex="-1" #importDialog>
+          <header>
+            <div>
+              <h3 id="import-title">Importar programación física</h3>
+              <p>
+                <ng-container *ngIf="unidad; else elegirUnidadImport">
+                  Unidad {{ unidad }} · gestión {{ gestion }}.
+                </ng-container>
+                <ng-template #elegirUnidadImport>Seleccione una Unidad Organizacional.</ng-template>
+                Primero se valida una vista previa.
+              </p>
+            </div>
+            <button type="button" class="import-close" aria-label="Cerrar importación"
+                    (click)="cerrarImportacion()">×</button>
+          </header>
+
+          <label class="import-unit">
+            Unidad Organizacional
+            <app-combo-box [opciones]="opcionesUnidadImport"
+                           [ngModel]="unidad"
+                           (ngModelChange)="cambiarUnidadImport($event)"
+                           [disabled]="cargandoCatalogo"
+                           etiqueta="Unidad Organizacional para importar"
+                           placeholder="Buscar por código, nombre o sigla"
+                           [maximo]="60"></app-combo-box>
+          </label>
+          <p class="import-catalogo" *ngIf="cargandoCatalogo" role="status">
+            Cargando el catálogo de Unidades Organizacionales…
+          </p>
+          <p class="import-catalogo error" *ngIf="errorCatalogo" role="alert">
+            {{ errorCatalogo }}
+            <button type="button" class="btn btn-sm btn-secondary"
+                    (click)="cargarCatalogoUnidades()">Reintentar</button>
+          </p>
+          <p class="import-catalogo" *ngIf="!cargandoCatalogo && !errorCatalogo"
+             role="status">
+            {{ opcionesUnidadImport.length }} unidades del catálogo organizacional
+            de la gestión {{ gestion }}.
+          </p>
+
+          <div class="import-impact nuevo" *ngIf="unidad && !cargando && !tienePoauSeleccionado" role="status">
+            <strong>Esta Unidad Organizacional todavía no tiene un POAU.</strong>
+            <p>La importación creará un nuevo POAU y llenará su árbol completo con los datos de la matriz.</p>
+          </div>
+          <div class="import-impact reemplazo" *ngIf="unidad && !cargando && tienePoauSeleccionado" role="alert">
+            <strong>Esta Unidad Organizacional ya tiene un POAU.</strong>
+            <p>Al aplicar la importación se reemplazará su árbol completo con los datos de la matriz.</p>
+          </div>
+
+          <div class="source-tabs" role="radiogroup" aria-label="Fuente de importación">
+            <label><input type="radio" name="fuenteImport" value="excel"
+                          [(ngModel)]="fuenteImport" (change)="limpiarPreviewImport()"> Excel</label>
+            <label><input type="radio" name="fuenteImport" value="google_sheets"
+                          [(ngModel)]="fuenteImport" (change)="limpiarPreviewImport()"> Google Sheets</label>
+          </div>
+
+          <div class="import-fields">
+            <label *ngIf="fuenteImport === 'excel'">
+              Archivo Excel (.xlsx)
+              <input type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                     (change)="seleccionarArchivo($event)">
+            </label>
+            <label *ngIf="fuenteImport === 'google_sheets'">
+              Enlace de Google Sheets
+              <input class="form-control" type="url" [(ngModel)]="googleUrl"
+                     placeholder="https://docs.google.com/spreadsheets/d/.../edit?gid=...">
+            </label>
+            <label>
+              Nombre de la hoja <span>(opcional si el enlace incluye gid)</span>
+              <input class="form-control" [(ngModel)]="hojaImport" placeholder="POAU">
+            </label>
+          </div>
+
+          <div class="msg-box error" *ngIf="importError" role="alert">{{ importError }}</div>
+
+          <div class="import-summary" *ngIf="previewImport as p" aria-live="polite">
+            <span>Leídas <strong>{{ p.resumen.filas_leidas }}</strong></span>
+            <span class="ok">Válidas <strong>{{ p.resumen.filas_validas }}</strong></span>
+            <span class="bad">Rechazadas <strong>{{ p.resumen.filas_rechazadas }}</strong></span>
+            <span>Errores <strong>{{ p.resumen.errores }}</strong></span>
+          </div>
+
+          <div class="import-errors" *ngIf="previewImport?.errores?.length">
+            <h4>Errores que bloquean la importación</h4>
+            <ul>
+              <li *ngFor="let e of previewImport!.errores | slice:0:50">
+                <strong>{{ e.fila ? 'Fila ' + e.fila : 'Estructura' }}</strong>
+                · {{ e.campo }}: {{ e.mensaje }}
+              </li>
+            </ul>
+          </div>
+
+          <div class="import-table" *ngIf="previewImport?.filas?.length">
+            <table class="tabla tabla-compacta">
+              <thead><tr><th>Fila</th><th>Nivel</th><th>Código</th><th>Denominación</th><th>Meta</th></tr></thead>
+              <tbody><tr *ngFor="let f of previewImport!.filas | slice:0:20">
+                <td>{{ f.fila }}</td><td>{{ f.nivel }}</td>
+                <td>{{ codigoImportado(f) || 'se generará' }}</td>
+                <td>{{ f[f.nivel] }}</td><td class="num">{{ f.meta }}</td>
+              </tr></tbody>
+            </table>
+          </div>
+
+          <div class="apply-result" *ngIf="previewImport?.resultado as r" role="status">
+            Aplicación completada: {{ r.creados }} creados, {{ r.actualizados }} actualizados,
+            {{ r.eliminados }} eliminados y {{ r.sin_cambios }} sin cambios.
+          </div>
+
+          <label class="replace-confirm" *ngIf="previewImport?.estado === 'VALIDO'">
+            <input type="checkbox" [(ngModel)]="confirmarReemplazo">
+            <span *ngIf="tienePoauSeleccionado">Confirmo que esta vista previa reemplazará el árbol POAU completo de la unidad.</span>
+            <span *ngIf="!tienePoauSeleccionado">Confirmo que deseo crear el nuevo POAU con el árbol completo de esta vista previa.</span>
+          </label>
+
+          <footer>
+            <button class="btn btn-secondary" type="button" (click)="cerrarImportacion()">Cerrar</button>
+            <button class="btn btn-primary" type="button" (click)="previsualizarImportacion()"
+                    [disabled]="!unidad || importando || aplicando">
+              {{ importando ? 'Validando…' : 'Previsualizar' }}
+            </button>
+            <button class="btn btn-importar" type="button" (click)="aplicarImportacion()"
+                    [disabled]="!unidad || aplicando || previewImport?.estado !== 'VALIDO' || !confirmarReemplazo">
+              {{ aplicando ? 'Aplicando…' : (tienePoauSeleccionado ? 'Reemplazar POAU' : 'Crear nuevo POAU') }}
+            </button>
+          </footer>
+        </section>
+      </div>
+
       <div class="sin-datos" *ngIf="cargando">
         <div class="esqueleto" style="width:300px"></div>
         <span>Cargando la matriz POAU…</span>
@@ -232,7 +400,7 @@ const NUMERICAS = new Set(['linea_base', 'meta', 'meta_actual', 'ponderacion',
 
        <div class="poau-empty-state" *ngIf="mostrarEstadoVacio" role="status">
          <strong>Esta unidad todavía no tiene registros POAU.</strong>
-         <p>Puede volver más tarde o consultar al responsable de la unidad para iniciar la formulación.</p>
+         <p>Use el botón Importar para crear un nuevo POAU y cargar su árbol desde Excel o Google Sheets.</p>
        </div>
 
        <div class="tabla-caja" *ngIf="!cargando && !mostrarEstadoVacio">
@@ -302,7 +470,15 @@ const NUMERICAS = new Set(['linea_base', 'meta', 'meta_actual', 'ponderacion',
                   <button class="acc peligro" title="Eliminar"
                           [disabled]="ocupado === f.id" (click)="eliminar(f)">✕</button>
                 </div>
-                <ng-template #sinAcciones><span class="sin-acc">—</span></ng-template>
+                <div class="acciones" *ngIf="!f.objeto_id && puedeBorrarPoau(f)">
+                  <button class="acc peligro borrar-poau"
+                          title="Eliminar el POAU completo de esta Unidad Organizacional"
+                          [disabled]="ocupado === f.id"
+                          (click)="eliminarPoauUnidad(f)">✕ POAU</button>
+                </div>
+                <ng-template #sinAcciones>
+                  <span class="sin-acc" *ngIf="!puedeBorrarPoau(f)">—</span>
+                </ng-template>
               </td>
             </tr>
             <tr *ngIf="!filas.length">
@@ -397,7 +573,7 @@ const NUMERICAS = new Set(['linea_base', 'meta', 'meta_actual', 'ponderacion',
     </div>
   `,
   styles: [`
-    .filtro { max-width: 300px; font-size: 0.8125rem; }
+    .filtro { display: block; width: min(420px, 40vw); font-size: 0.8125rem; }
     .bloque-presupuesto { margin-top: 2rem; padding-top: 1.25rem; border-top: 2px solid var(--border); }
     .bloque-presupuesto h3 { font-size: 1rem; color: var(--primary); margin: 0; }
     .chip.total { background: var(--pip-green-100); color: var(--pip-green-700); font-size: 0.75rem; font-weight: 700; padding: 0.3rem 0.7rem; border-radius: 999px; }
@@ -479,6 +655,11 @@ const NUMERICAS = new Set(['linea_base', 'meta', 'meta_actual', 'ponderacion',
     .td-sel { text-align: center; }
     .mz tbody tr.marcada td { box-shadow: inset 0 0 0 9999px rgba(21,101,192,.09); }
     .acciones { display: flex; align-items: center; gap: 0.15rem; }
+    /* Borra un árbol entero, no una fila: no puede parecerse al ✕ de al lado. */
+    .acc.borrar-poau {
+      width: auto; padding: 0 .35rem; font-size: .6875rem; font-weight: 700;
+      letter-spacing: .02em; white-space: nowrap;
+    }
     .acc {
       border: none; background: rgba(0,0,0,.06); color: #1F2933; cursor: pointer;
       border-radius: 3px; padding: 0.1rem 0.28rem; font-size: 0.625rem; line-height: 1.4;
@@ -509,6 +690,50 @@ const NUMERICAS = new Set(['linea_base', 'meta', 'meta_actual', 'ponderacion',
     }
     .btn-excel { background: #1B5E20; color: #fff; border: none; }
     .btn-pdf { background: #B3261E; color: #fff; border: none; }
+    .btn-importar { background: #0D47A1; color: #fff; border: none; }
+    .import-overlay {
+      position: fixed; inset: 0; z-index: 1000; background: rgba(24, 33, 43, .62);
+      display: grid; place-items: center; padding: 1rem;
+    }
+    .import-dialog {
+      width: min(900px, 100%); max-height: calc(100vh - 2rem); overflow: auto;
+      background: var(--surface); border-radius: var(--radius); padding: 1.25rem;
+      box-shadow: 0 20px 60px rgba(0,0,0,.28); color: var(--text-primary);
+    }
+    .import-dialog > header { display: flex; justify-content: space-between; gap: 1rem; }
+    .import-dialog h3, .import-dialog h4 { margin: 0; color: var(--primary); }
+    .import-dialog header p { margin: .25rem 0 1rem; color: var(--text-secondary); }
+    .import-close { border: 0; background: transparent; font-size: 1.75rem; cursor: pointer; }
+    .import-unit { display: block; margin-bottom: 1rem; font-size: .8125rem; font-weight: 700; }
+    .import-unit app-combo-box { display: block; width: 100%; margin-top: .3rem; }
+    .import-impact { border-left: 4px solid; padding: .7rem .85rem; margin-bottom: 1rem; }
+    .import-impact strong { display: block; margin-bottom: .2rem; }
+    .import-impact p { margin: 0; font-size: .8125rem; }
+    .import-impact.nuevo { background: #E8F5E9; border-color: #2E7D32; color: #1B5E20; }
+    .import-impact.reemplazo { background: #FFF3E0; border-color: #EF6C00; color: #8A3B00; }
+    .source-tabs { display: flex; gap: 1rem; padding: .65rem; background: var(--realce); border-radius: var(--radius); }
+    .source-tabs label { display: flex; align-items: center; gap: .35rem; font-weight: 700; }
+    .import-fields { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; margin: 1rem 0; }
+    .import-fields label { font-size: .8125rem; font-weight: 700; }
+    .import-fields label span { color: var(--text-secondary); font-weight: 400; }
+    .import-fields input { display: block; width: 100%; margin-top: .3rem; }
+    .import-summary { display: flex; flex-wrap: wrap; gap: .5rem; margin: .75rem 0; }
+    .import-summary span { background: var(--realce); border-radius: 999px; padding: .3rem .65rem; font-size: .75rem; }
+    .import-summary .ok { background: #C8E6C9; color: #1B5E20; }
+    .import-summary .bad { background: #FFCDD2; color: #B3261E; }
+    .import-errors { max-height: 180px; overflow: auto; border-left: 4px solid #B3261E; padding: .7rem; background: #FFF5F5; }
+    .import-errors ul { margin: .5rem 0 0; padding-left: 1.2rem; font-size: .75rem; }
+    .import-table { max-height: 240px; overflow: auto; margin-top: .8rem; border: 1px solid var(--border); }
+    .import-table .num { text-align: right; }
+    .replace-confirm { display: flex; gap: .5rem; align-items: flex-start; margin-top: 1rem; font-size: .8125rem; }
+    .apply-result { margin-top: .8rem; padding: .7rem; background: #C8E6C9; color: #1B5E20; border-radius: var(--radius); }
+    .import-catalogo {
+      margin: -.35rem 0 .75rem; font-size: .75rem; color: var(--text-secondary);
+      display: flex; align-items: center; gap: .5rem;
+    }
+    .import-catalogo.error { color: var(--danger, #b3261e); }
+    .import-dialog footer { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1rem; }
+    @media (max-width: 700px) { .import-fields { grid-template-columns: 1fr; } }
      .msg-box.error {
       background: var(--error-fondo); color: var(--error-tinta);
        padding: 0.7rem 0.9rem; border-radius: var(--radius); margin-bottom: var(--e-2);
@@ -555,7 +780,10 @@ export class MatrizPoauComponent implements OnInit, AfterViewInit, OnDestroy {
   visibles: any[] = [];
   conteo: Record<string, number> = {};
   expandidos = new Set<string>();
-  unidades: { codigo: string; nombre: string }[] = [];
+  unidades: UnidadCatalogo[] = [];
+  opcionesUnidadFiltro: OpcionCombo[] = [];
+  opcionesUnidadImport: OpcionCombo[] = [];
+  unidadFiltro = TODAS_UNIDADES;
   seleccion = new Set<string>();
   ocupado = '';
   aviso = '';
@@ -564,14 +792,43 @@ export class MatrizPoauComponent implements OnInit, AfterViewInit, OnDestroy {
   get gestion(): number | null { return this.gestionActiva.anio(); }
   cargando = true;
   error = '';
+  cargandoCatalogo = false;
+  errorCatalogo = '';
+
+  importAbierto = false;
+  fuenteImport: 'excel' | 'google_sheets' = 'excel';
+  archivoImport: File | null = null;
+  googleUrl = '';
+  hojaImport = '';
+  importando = false;
+  aplicando = false;
+  importError = '';
+  previewImport: PoauImportPreview | null = null;
+  confirmarReemplazo = false;
 
   @ViewChild('tabla') tabla?: ElementRef<HTMLTableElement>;
   @ViewChild('bandas') bandas?: ElementRef<HTMLTableRowElement>;
+  @ViewChild('importDialog') importDialog?: ElementRef<HTMLElement>;
   private observador?: ResizeObserver;
+  private gestionCatalogo: number | null | undefined;
+  private catalogoCargado = false;
 
   constructor(private http: HttpClient, private cdr: ChangeDetectorRef,
               private router: Router,
-              private gestionActiva: GestionHabilitadaService) {}
+              private gestionActiva: GestionHabilitadaService,
+              private permisos: PermissionsService) {}
+
+  /**
+   * Borrar el POAU entero de una unidad es destructivo y no se delega con un
+   * rol funcional: lo habilita el administrador de plataforma. El backend es
+   * la autoridad (`EsAdministrador`); esto solo evita mostrar un botón que
+   * igual daría 403.
+   *
+   * Se resuelve una vez en `ngOnInit` y no como getter: la plantilla lo
+   * consulta por fila, y con miles de filas a la vista un getter que recorre
+   * roles se evalúa en cada ciclo de detección.
+   */
+  esAdministrador = false;
 
   /**
    * La fila de columnas se pega justo debajo de la de bandas. Ese desnivel no
@@ -608,6 +865,7 @@ export class MatrizPoauComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.esAdministrador = this.permisos.hasAnyRole(['SUPER_ADMIN', 'superadmin']);
     // El encabezado del formato oficial lleva el año adentro: se resuelve una
     // vez, con la gestión que el candado ya dejó cargada antes de esta ruta.
     this.bloquesMatriz = conGestion(BLOQUES_MATRIZ, this.gestion);
@@ -621,6 +879,10 @@ export class MatrizPoauComponent implements OnInit, AfterViewInit, OnDestroy {
 
   get mostrarEstadoVacio(): boolean {
     return !this.cargando && !this.error && Boolean(this.unidad) && this.filas.length === 0;
+  }
+
+  get tienePoauSeleccionado(): boolean {
+    return Boolean(this.unidad) && this.filas.length > 0;
   }
 
   porId = (_: number, f: any) => f.id;
@@ -664,19 +926,148 @@ export class MatrizPoauComponent implements OnInit, AfterViewInit, OnDestroy {
     return n ? n.toLocaleString('es-BO', { maximumFractionDigits: 0 }) : '0';
   }
 
+  abrirImportacion(): void {
+    this.importAbierto = true;
+    this.limpiarPreviewImport();
+    // Sin catálogo no hay unidad a la que importarle: si la primera carga
+    // falló, se reintenta al abrir en lugar de mostrar un selector vacío.
+    this.cargarCatalogoUnidades();
+    setTimeout(() => this.importDialog?.nativeElement.focus());
+  }
+
+  cambiarUnidadImport(codigo: string): void {
+    if (this.unidad === codigo) { return; }
+    this.unidad = codigo;
+    this.unidadFiltro = codigo || TODAS_UNIDADES;
+    this.filas = [];
+    this.visibles = [];
+    this.limpiarPreviewImport();
+    this.cargar();
+  }
+
+  cerrarImportacion(): void {
+    if (this.importando || this.aplicando) { return; }
+    this.importAbierto = false;
+  }
+
+  limpiarPreviewImport(): void {
+    this.previewImport = null;
+    this.confirmarReemplazo = false;
+    this.importError = '';
+  }
+
+  seleccionarArchivo(event: Event): void {
+    this.archivoImport = (event.target as HTMLInputElement).files?.[0] ?? null;
+    this.limpiarPreviewImport();
+  }
+
+  private importUrl(path: string): string {
+    const gestionId = this.gestionActiva.gestion()?.id;
+    return `${environment.apiUrlV2}/sis-poa/poau-imports/${path}` +
+      (gestionId ? `?gestion_id=${encodeURIComponent(gestionId)}` : '');
+  }
+
+  previsualizarImportacion(): void {
+    if (!this.unidad) { return; }
+    if (this.fuenteImport === 'excel' && !this.archivoImport) {
+      this.importError = 'Seleccione un archivo Excel .xlsx.';
+      return;
+    }
+    if (this.fuenteImport === 'google_sheets' && !this.googleUrl.trim()) {
+      this.importError = 'Pegue el enlace de Google Sheets.';
+      return;
+    }
+    const data = new FormData();
+    data.append('source_type', this.fuenteImport);
+    data.append('unidad_codigo', this.unidad);
+    if (this.hojaImport.trim()) { data.append('sheet_name', this.hojaImport.trim()); }
+    if (this.archivoImport && this.fuenteImport === 'excel') { data.append('file', this.archivoImport); }
+    if (this.fuenteImport === 'google_sheets') { data.append('google_url', this.googleUrl.trim()); }
+    this.importando = true;
+    this.importError = '';
+    this.previewImport = null;
+    this.confirmarReemplazo = false;
+    this.http.post<PoauImportPreview>(this.importUrl('preview/'), data)
+      .pipe(finalize(() => { this.importando = false; this.cdr.markForCheck(); }))
+      .subscribe({
+        next: preview => { this.previewImport = preview; this.cdr.markForCheck(); },
+        error: response => {
+          this.importError = this.mensajeDelBackend(response)
+            || 'No se pudo validar la fuente.';
+          this.cdr.markForCheck();
+        },
+      });
+  }
+
+  aplicarImportacion(): void {
+    if (!this.previewImport || this.previewImport.estado !== 'VALIDO' || !this.confirmarReemplazo) { return; }
+    // El backend reconstruye el árbol entero de la unidad: borra el POAU
+    // anterior —versionándolo— y lo vuelve a crear desde la planilla. Exige el
+    // código tecleado, y sin mandarlo el apply era inalcanzable.
+    const codigo = (window.prompt(
+      `Se reconstruirá el POAU completo de ${this.unidad}. `
+      + `Para confirmar, escriba el código de la unidad: ${this.unidad}`) || '').trim();
+    if (codigo.toUpperCase() !== this.unidad.toUpperCase()) {
+      this.importError = codigo
+        ? 'El código no coincide: la importación no se aplicó.'
+        : 'Importación cancelada.';
+      this.cdr.markForCheck();
+      return;
+    }
+    this.aplicando = true;
+    this.importError = '';
+    this.http.post<PoauImportPreview>(
+      this.importUrl(`${this.previewImport.id}/apply/`),
+      { confirmation_code: codigo },
+    ).pipe(finalize(() => { this.aplicando = false; this.cdr.markForCheck(); }))
+      .subscribe({
+        next: preview => {
+          this.previewImport = preview;
+          const result = preview.resultado;
+          this.aviso = result
+            ? `Importación aplicada: ${result.creados} creados, ${result.reemplazados} reemplazados.`
+            : 'Importación aplicada.';
+          this.confirmarReemplazo = false;
+          this.cargar();
+        },
+        error: response => {
+          this.importError = this.mensajeDelBackend(response)
+            || 'No se pudo aplicar la importación.';
+          this.cdr.markForCheck();
+        },
+      });
+  }
+
+  codigoImportado(row: any): string {
+    return row[`${row.nivel}_codigo`] || '';
+  }
+
   cargar(): void {
-    this.cargarPresupuesto();
     this.cargando = true;
     this.error = '';
-    const filtro = this.unidad ? `&unidad=${encodeURIComponent(this.unidad)}` : '';
+    const gestionActual = this.gestion;
+    if (this.gestionCatalogo !== gestionActual) {
+      this.gestionCatalogo = gestionActual;
+      this.catalogoCargado = false;
+      this.unidades = [];
+      this.opcionesUnidadFiltro = [];
+      this.opcionesUnidadImport = [];
+      this.unidad = '';
+      this.unidadFiltro = TODAS_UNIDADES;
+    }
+    this.cargarCatalogoUnidades();
+    this.cargarPresupuesto();
+    // El catálogo ya no viaja acá: la matriz solo trae filas.
+    const parametros = ['incluir_unidades=0'];
+    if (this.unidad) {
+      parametros.push(`unidad=${encodeURIComponent(this.unidad)}`);
+    }
     this.http.get<any>(
-      `${environment.apiUrl}/articulacion/matriz-poau/${filtro ? '?' + filtro.slice(1) : ''}`)
+      `${environment.apiUrl}/articulacion/matriz-poau/?${parametros.join('&')}`)
       .pipe(finalize(() => { this.cargando = false; this.cdr.markForCheck(); }))
       .subscribe({
         next: d => {
           this.filas = d.filas ?? [];
-          // El catálogo de unidades sale del listado completo, no del filtrado.
-          if (!this.unidad) { this.unidades = d.unidades ?? []; }
           const vigentes = new Set(this.filas.map((f: any) => f.id));
           this.seleccion = new Set([...this.seleccion].filter(id => vigentes.has(id)));
           this.conteo = {};
@@ -694,6 +1085,62 @@ export class MatrizPoauComponent implements OnInit, AfterViewInit, OnDestroy {
           this.cdr.markForCheck();
         },
       });
+  }
+
+  /**
+   * Trae el catálogo de Unidades Organizacionales por su cuenta.
+   *
+   * Antes llegaba dentro de la respuesta de la matriz, que pesa megabytes y
+   * trae miles de filas. Esa dependencia se nota justo donde más duele: el
+   * selector de la importación existe para elegir una unidad que **todavía no
+   * tiene árbol**, así que si la matriz falla o vuelve vacía el desplegable se
+   * queda sin opciones y no hay forma de crear ese POAU.
+   *
+   * El endpoint es liviano y comparte candado y alcance con la matriz, así que
+   * el desplegable nunca ofrece una unidad que el usuario no pueda abrir.
+   */
+  cargarCatalogoUnidades(): void {
+    if (this.catalogoCargado || this.cargandoCatalogo) { return; }
+    this.cargandoCatalogo = true;
+    this.errorCatalogo = '';
+    this.http.get<{ unidades: UnidadCatalogo[] }>(
+      `${environment.apiUrl}/articulacion/matriz-poau/unidades/`)
+      .pipe(finalize(() => {
+        this.cargandoCatalogo = false;
+        this.cdr.markForCheck();
+      }))
+      .subscribe({
+        next: d => {
+          this.unidades = d?.unidades ?? [];
+          // Un catálogo vacío no se cachea: se puede reintentar al abrir la
+          // importación en vez de dejar el selector muerto para siempre.
+          this.catalogoCargado = this.unidades.length > 0;
+          this.prepararOpcionesUnidad();
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.catalogoCargado = false;
+          this.errorCatalogo =
+            'No se pudo cargar el catálogo de Unidades Organizacionales.';
+          this.cdr.markForCheck();
+        },
+      });
+  }
+
+  private prepararOpcionesUnidad(): void {
+    this.opcionesUnidadImport = this.unidades.map(u => ({
+      valor: u.codigo,
+      etiqueta: `${u.codigo} — ${u.nombre}`,
+      detalle: u.sigla || undefined,
+      dato: u,
+    }));
+    this.opcionesUnidadFiltro = [
+      {
+        valor: TODAS_UNIDADES,
+        etiqueta: `Todas las unidades (${this.unidades.length})`,
+      },
+      ...this.opcionesUnidadImport,
+    ];
   }
 
   // --- Selección de filas ----------------------------------------------------
@@ -788,6 +1235,116 @@ export class MatrizPoauComponent implements OnInit, AfterViewInit, OnDestroy {
       });
   }
 
+  /** El botón solo existe en la fila de unidad y solo para el administrador. */
+  puedeBorrarPoau(fila: any): boolean {
+    return !fila.objeto_id && fila.nivel === 'unidad'
+      && Boolean(fila.unidad_codigo) && this.esAdministrador;
+  }
+
+  /**
+   * Elimina el POAU completo de una Unidad Organizacional.
+   *
+   * Dos pasos a propósito. Primero se le pregunta al backend QUÉ se llevaría:
+   * ese conteo lo hace el `Collector` de Django sobre las cascadas reales, no
+   * una estimación de pantalla. Recién con el número a la vista se pide la
+   * confirmación, y encima se exige teclear el código: son cientos de tareas
+   * y no hay deshacer.
+   *
+   * La Unidad Organizacional NO se borra: sigue en el catálogo. Lo que se
+   * borra es su programación de la gestión habilitada.
+   */
+  eliminarPoauUnidad(fila: any): void {
+    const codigo = fila.unidad_codigo;
+    if (!codigo) { return; }
+    this.ocupado = fila.id;
+    this.error = '';
+    this.aviso = '';
+    const url = `${environment.apiUrl}/articulacion/matriz-poau/unidad/`
+      + `${encodeURIComponent(codigo)}/`;
+    this.http.get<any>(url)
+      .pipe(finalize(() => { this.cdr.markForCheck(); }))
+      .subscribe({
+        next: impacto => {
+          this.ocupado = '';
+          if (this.confirmarBorradoPoau(fila, impacto)) {
+            this.borrarPoauUnidad(url, fila);
+          }
+          this.cdr.markForCheck();
+        },
+        error: respuesta => {
+          this.ocupado = '';
+          this.error = this.mensajeDelBackend(respuesta)
+            || 'No se pudo calcular qué se eliminaría.';
+          this.cdr.markForCheck();
+        },
+      });
+  }
+
+  private confirmarBorradoPoau(fila: any, impacto: any): boolean {
+    if (!impacto?.total) {
+      this.aviso = 'Esta unidad no tiene POAU en la gestión habilitada.';
+      return false;
+    }
+    const codigo = impacto.unidad?.codigo || fila.unidad_codigo;
+    const nombre = impacto.unidad?.nombre || fila.unidad || '';
+    const detalle = Object.entries(impacto.eliminaria || {})
+      .map(([modelo, n]) => `  · ${ETIQUETA_MODELO[modelo] || modelo}: ${n}`)
+      .join('\n');
+    const seguro = window.confirm(
+      `Se eliminará el POAU COMPLETO de ${nombre} (${codigo}), `
+      + `gestión ${impacto.gestion}.\n\n${detalle}\n\n`
+      + `Total: ${impacto.total} registros. Esto no se puede deshacer.\n\n`
+      + 'La Unidad Organizacional NO se borra: sigue en el catálogo.');
+    if (!seguro) { return false; }
+    const tecleado = (window.prompt(
+      `Para confirmar, escriba el código de la unidad: ${codigo}`) || '').trim();
+    if (tecleado.toUpperCase() !== String(codigo).toUpperCase()) {
+      this.aviso = 'Eliminación cancelada: el código no coincide.';
+      return false;
+    }
+    return true;
+  }
+
+  private borrarPoauUnidad(url: string, fila: any): void {
+    this.ocupado = fila.id;
+    this.error = '';
+    this.http.delete<any>(url)
+      .pipe(finalize(() => { this.ocupado = ''; this.cdr.markForCheck(); }))
+      .subscribe({
+        next: r => {
+          this.aviso = `POAU de ${r?.unidad?.codigo} eliminado: `
+            + `${r?.total ?? 0} registros.`;
+          this.cargar();
+        },
+        error: respuesta => {
+          this.error = this.mensajeDelBackend(respuesta)
+            || 'No se pudo eliminar el POAU de la unidad.';
+          this.cdr.markForCheck();
+        },
+      });
+  }
+
+  /**
+   * El motivo que mandó el backend, o vacío si no mandó ninguno.
+   *
+   * `ErrorInterceptor` (app.module) aplana TODO error a `{message, status}`
+   * antes de que llegue acá: el cuerpo crudo no existe a esta altura. Leer
+   * `response.error.detail` —como hacía la importación— devuelve siempre
+   * `undefined`, así que cada fallo se veía igual: «No se pudo validar la
+   * fuente», tapando el motivo exacto que el backend sí había mandado.
+   *
+   * Del lado del backend la contrapartida es mandar el motivo en `detail`:
+   * es la única clave que el interceptor conserva.
+   */
+  private mensajeDelBackend(respuesta: any): string {
+    const mensaje = respuesta?.message;
+    if (typeof mensaje !== 'string' || !mensaje.trim()) { return ''; }
+    // El interceptor cae al `err.message` de Angular cuando el cuerpo no trae
+    // motivo; ese texto es ruido de transporte, no algo que mostrarle a nadie.
+    if (/^Http failure/i.test(mensaje)) { return ''; }
+    return mensaje;
+  }
+
   /**
    * Celdas de una fila. Las columnas de la cadena que quedan a la derecha del
    * último dato del nivel se absorben con `colspan`: están vacías por
@@ -848,8 +1405,10 @@ export class MatrizPoauComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  filtrar(evento: Event): void {
-    this.unidad = (evento.target as HTMLSelectElement).value;
+  filtrar(codigo: string): void {
+    this.unidadFiltro = codigo || TODAS_UNIDADES;
+    this.unidad = codigo === TODAS_UNIDADES ? '' : codigo;
+    this.limpiarPreviewImport();
     this.cargar();
   }
 

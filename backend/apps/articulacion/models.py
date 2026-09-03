@@ -875,6 +875,11 @@ class TareaPOAU(CodigoSegmentadoModel):
         max_digits=20, decimal_places=4, null=True, blank=True,
         verbose_name='Metas'
     )
+    indicador = models.TextField(blank=True, verbose_name='Indicador')
+    formula = models.TextField(blank=True, verbose_name='Fórmula')
+    unidad_medida = models.CharField(
+        max_length=100, blank=True, verbose_name='Unidad de medida',
+    )
     programacion_mensual = models.JSONField(null=True, blank=True, verbose_name='Programación mensual')
     requerimientos = models.TextField(blank=True, verbose_name='Requerimientos')
     normativas = models.ManyToManyField(
@@ -1493,4 +1498,121 @@ class BorradorMatrizPOA(TimeStampedModel):
         return (
             f'Borrador POA G{self.gestion} {self.get_estado_display()} '
             f'({self.created_at:%Y-%m-%d %H:%M})'
+        )
+
+
+class ImportacionProgramacionFisica(TimeStampedModel):
+    """Short-lived, normalized preview for a POAU physical-programming import.
+
+    Source bytes are deliberately absent. Excel and Google Sheets workbooks
+    are parsed in memory; only their digest, source metadata, normalized rows,
+    and validation errors survive long enough to support an explicit apply.
+    """
+
+    class Origen(models.TextChoices):
+        EXCEL = 'excel', 'Excel'
+        GOOGLE_SHEETS = 'google_sheets', 'Google Sheets'
+
+    class Estado(models.TextChoices):
+        VALIDO = 'VALIDO', 'Válido'
+        INVALIDO = 'INVALIDO', 'Inválido'
+        APLICADO = 'APLICADO', 'Aplicado'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    gestion = models.ForeignKey(
+        'gestion.GestionFiscal', on_delete=models.CASCADE,
+        related_name='importaciones_programacion_fisica',
+    )
+    unidad = models.ForeignKey(
+        'organizacion.UnidadOrganizacional', on_delete=models.PROTECT,
+        related_name='importaciones_programacion_fisica',
+    )
+    creado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='importaciones_programacion_fisica',
+    )
+    origen = models.CharField(max_length=20, choices=Origen.choices)
+    fuente_nombre = models.CharField(max_length=300, blank=True, default='')
+    hoja = models.CharField(max_length=200, blank=True, default='')
+    fuente_sha256 = models.CharField(max_length=64)
+    filas_normalizadas = models.JSONField(default=list)
+    errores = models.JSONField(default=list)
+    resumen = models.JSONField(default=dict)
+    estado = models.CharField(max_length=12, choices=Estado.choices)
+    expira_en = models.DateTimeField()
+    aplicado_en = models.DateTimeField(null=True, blank=True)
+    resultado = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        db_table = 'articulacion_importacion_programacion_fisica'
+        verbose_name = 'Importación de programación física POAU'
+        verbose_name_plural = 'Importaciones de programación física POAU'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['creado_por', 'estado', 'expira_en']),
+            models.Index(fields=['gestion', 'unidad']),
+        ]
+
+    def __str__(self):
+        return f'{self.unidad.codigo} {self.gestion.anio} ({self.estado})'
+
+
+class VersionImportacionPOAU(TimeStampedModel):
+    """Snapshot append-only de un POAU antes de reemplazarlo o restaurarlo."""
+
+    class TipoEvento(models.TextChoices):
+        REEMPLAZO = 'REEMPLAZO', 'Reemplazo'
+        RESTAURACION = 'RESTAURACION', 'Restauración'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    gestion = models.ForeignKey(
+        'gestion.GestionFiscal', on_delete=models.PROTECT,
+        related_name='versiones_importacion_poau',
+    )
+    unidad = models.ForeignKey(
+        'organizacion.UnidadOrganizacional', on_delete=models.PROTECT,
+        related_name='versiones_importacion_poau',
+    )
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='versiones_importacion_poau',
+    )
+    tipo_evento = models.CharField(
+        max_length=20, choices=TipoEvento.choices,
+    )
+    snapshot = models.JSONField(default=dict)
+    resumen = models.JSONField(default=dict)
+    fuente_nombre = models.CharField(max_length=300, blank=True, default='')
+    fuente_sha256 = models.CharField(max_length=64, blank=True, default='')
+    hoja = models.CharField(max_length=200, blank=True, default='')
+    motivo = models.TextField(blank=True, default='')
+
+    class Meta:
+        db_table = 'articulacion_version_importacion_poau'
+        verbose_name = 'Versión histórica de importación POAU'
+        verbose_name_plural = 'Versiones históricas de importación POAU'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(
+                fields=['gestion', 'unidad', 'created_at'],
+                name='art_poau_ver_guo_cre_idx',
+            ),
+        ]
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            raise ValidationError(
+                'Las versiones históricas del POAU son inmutables.',
+            )
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValidationError(
+            'Las versiones históricas del POAU son inmutables.',
+        )
+
+    def __str__(self):
+        return (
+            f'{self.unidad.codigo} G{self.gestion.anio} '
+            f'{self.get_tipo_evento_display()}'
         )

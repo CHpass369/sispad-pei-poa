@@ -2,6 +2,11 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 import { RouterTestingModule } from '@angular/router/testing';
 import { MatrizPoauComponent } from './matriz-poau.component';
+import { FormsModule } from '@angular/forms';
+import { ComboBoxComponent } from '../../shared/components/combo-box/combo-box.component';
+import { PermissionsService } from '../../core/services/permissions.service';
+import { HTTP_INTERCEPTORS } from '@angular/common/http';
+import { ErrorInterceptor } from '../../core/interceptors/error.interceptor';
 import { GestionHabilitadaService } from '../../core/services/gestion-habilitada.service';
 import { gestionHabilitadaStub } from '../../core/testing/gestion-habilitada.stub';
 
@@ -16,19 +21,46 @@ const FILAS = [
   { id: 'u|p|a|o|c|t2', padre: 'u|p|a|o|c', nivel: 'tarea', orden_nivel: 5, hijos: 0, tarea: 'T2' },
 ];
 
+/**
+ * Cada `cargar()` dispara tres GET independientes: el catálogo de Unidades
+ * Organizacionales, el presupuesto y la matriz. El catálogo va por su cuenta
+ * justamente para que el selector de la importación siga vivo aunque la matriz
+ * —que pesa megabytes— falle.
+ */
+const CATALOGO = (http: HttpTestingController, unidades: any[] = []) =>
+  http.expectOne(r => r.url.includes('/matriz-poau/unidades/'))
+      .flush({ gestion: 2027, unidades });
+
+const PRESUPUESTO = (http: HttpTestingController) =>
+  http.expectOne(r => r.url.includes('/matriz-poau/presupuesto/'))
+      .flush({ categorias: [], total: 0 });
+
+const MATRIZ = (http: HttpTestingController, cuerpo: any) =>
+  http.expectOne(r => r.url.includes('/matriz-poau/')
+                      && !r.url.includes('/unidades/')
+                      && !r.url.includes('/presupuesto/'))
+      .flush(cuerpo);
+
 describe('MatrizPoauComponent', () => {
   let componente: MatrizPoauComponent;
   let http: HttpTestingController;
 
   const responder = (unidades: any[] = [{ codigo: 'EM-DJR-01', nombre: 'JURÍDICA' }]) => {
-    http.expectOne(r => r.url.includes('matriz-poau'))
-        .flush({ gestion: 2027, unidades, total_filas: FILAS.length, filas: FILAS });
+    CATALOGO(http, unidades);
+    PRESUPUESTO(http);
+    MATRIZ(http, { gestion: 2027, total_filas: FILAS.length, filas: FILAS });
+  };
+
+  /** Recarga con el catálogo ya en memoria: no vuelve a pedirlo. */
+  const recargar = () => {
+    PRESUPUESTO(http);
+    MATRIZ(http, { gestion: 2027, total_filas: FILAS.length, filas: FILAS });
   };
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [HttpClientTestingModule, RouterTestingModule],
-      declarations: [MatrizPoauComponent],
+      imports: [HttpClientTestingModule, RouterTestingModule, FormsModule],
+      declarations: [MatrizPoauComponent, ComboBoxComponent],
       providers: [
         { provide: GestionHabilitadaService, useValue: gestionHabilitadaStub(2027) },
       ],
@@ -68,10 +100,38 @@ describe('MatrizPoauComponent', () => {
     componente.ngOnInit();
     responder();
     componente.filtrar({ target: { value: 'EM-DJR-01' } } as any);
-    responder([]);
+    recargar();
     expect(componente.visibles.length).toBe(FILAS.length);
     // El catálogo de unidades no se pisa con la respuesta filtrada.
     expect(componente.unidades.length).toBe(1);
+  });
+
+  it('el selector se llena del catálogo organizacional, no de la matriz', () => {
+    componente.ngOnInit();
+    CATALOGO(http, [
+      { codigo: 'EM-DJR-01', nombre: 'JURÍDICA', sigla: 'DJR' },
+      { codigo: 'EM-DAF-01', nombre: 'ADMINISTRATIVA', sigla: 'DAF' },
+    ]);
+    PRESUPUESTO(http);
+    // La matriz cae: el catálogo ya llegó por su cuenta y el selector sobrevive.
+    MATRIZ(http, { gestion: 2027, total_filas: 0, filas: [] });
+    expect(componente.opcionesUnidadImport.map(o => o.valor))
+      .toEqual(['EM-DJR-01', 'EM-DAF-01']);
+  });
+
+  it('sin catálogo no deja el selector muerto: reintenta al abrir la importación', () => {
+    componente.ngOnInit();
+    http.expectOne(r => r.url.includes('/matriz-poau/unidades/'))
+        .error(new ProgressEvent('error'));
+    PRESUPUESTO(http);
+    MATRIZ(http, { gestion: 2027, total_filas: 0, filas: [] });
+    expect(componente.opcionesUnidadImport.length).toBe(0);
+    expect(componente.errorCatalogo).toBeTruthy();
+
+    componente.abrirImportacion();
+    CATALOGO(http, [{ codigo: 'EM-DJR-01', nombre: 'JURÍDICA' }]);
+    expect(componente.opcionesUnidadImport.length).toBe(1);
+    expect(componente.errorCatalogo).toBe('');
   });
 
   it('exposes a non-error empty state for a selected authorized unit', () => {
@@ -107,8 +167,8 @@ describe('MatrizPoauComponent · tinta de las cabeceras', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [HttpClientTestingModule, RouterTestingModule],
-      declarations: [MatrizPoauComponent],
+      imports: [HttpClientTestingModule, RouterTestingModule, FormsModule],
+      declarations: [MatrizPoauComponent, ComboBoxComponent],
     });
     componente = TestBed.createComponent(MatrizPoauComponent).componentInstance;
     TestBed.inject(HttpTestingController).verify();
@@ -144,8 +204,8 @@ describe('MatrizPoauComponent · aprovechamiento del ancho', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [HttpClientTestingModule, RouterTestingModule],
-      declarations: [MatrizPoauComponent],
+      imports: [HttpClientTestingModule, RouterTestingModule, FormsModule],
+      declarations: [MatrizPoauComponent, ComboBoxComponent],
     });
     componente = TestBed.createComponent(MatrizPoauComponent).componentInstance;
     TestBed.inject(HttpTestingController).verify();
@@ -191,13 +251,133 @@ describe('MatrizPoauComponent · aprovechamiento del ancho', () => {
   });
 });
 
+describe('MatrizPoauComponent · importación ETL', () => {
+  let componente: MatrizPoauComponent;
+  let http: HttpTestingController;
+  let fixture: ComponentFixture<MatrizPoauComponent>;
+
+  const preview: any = {
+    id: 'preview-1', estado: 'VALIDO',
+    resumen: {
+      filas_leidas: 3, filas_validas: 3, filas_rechazadas: 0,
+      errores: 0, registros_preview: 3,
+    },
+    errores: [],
+    filas: [{
+      fila: 2, nivel: 'operacion', operacion_codigo: 'OP-1',
+      operacion: 'Operación importada', meta: '1',
+    }],
+  };
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [HttpClientTestingModule, RouterTestingModule, FormsModule],
+      declarations: [MatrizPoauComponent, ComboBoxComponent],
+      providers: [
+        { provide: GestionHabilitadaService, useValue: gestionHabilitadaStub(2027, 'gestion-2027') },
+        { provide: HTTP_INTERCEPTORS, useClass: ErrorInterceptor, multi: true },
+      ],
+    });
+    fixture = TestBed.createComponent(MatrizPoauComponent);
+    componente = fixture.componentInstance;
+    componente.unidad = 'UO-01';
+    http = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => http.verify());
+
+  it('ubica el botón de importar antes de las exportaciones y abre un diálogo accesible', () => {
+    fixture.detectChanges();
+    // El botón queda deshabilitado mientras la matriz carga.
+    CATALOGO(http, [{ codigo: 'UO-01', nombre: 'Unidad de prueba' }]);
+    PRESUPUESTO(http);
+    MATRIZ(http, { gestion: 2027, total_filas: 0, filas: [] });
+    fixture.detectChanges();
+    const buttons = Array.from(fixture.nativeElement.querySelectorAll('.encabezado-acciones button')) as HTMLButtonElement[];
+    const labels = buttons.map(button => button.textContent?.trim());
+    expect(labels.indexOf('⇧ Importar')).toBeLessThan(labels.indexOf('⬇ Excel'));
+    buttons.find(button => button.textContent?.includes('Importar'))?.click();
+    fixture.detectChanges();
+    const dialog = fixture.nativeElement.querySelector('[role="dialog"]');
+    expect(dialog).toBeTruthy();
+    expect(dialog.getAttribute('aria-modal')).toBe('true');
+  });
+
+  it('envía Excel temporal a preview V2 y muestra su resumen', () => {
+    componente.archivoImport = new File(['xlsx'], 'poau.xlsx', {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    componente.hojaImport = 'POAU';
+    componente.previsualizarImportacion();
+    const request = http.expectOne(req =>
+      req.url.includes('/api/v2/sis-poa/poau-imports/preview/') &&
+      req.url.includes('gestion_id=gestion-2027'));
+    expect(request.request.body instanceof FormData).toBeTrue();
+    expect(request.request.body.get('unidad_codigo')).toBe('UO-01');
+    request.flush(preview);
+    expect(componente.previewImport?.resumen.filas_validas).toBe(3);
+  });
+
+  it('no previsualiza sin una Unidad Organizacional elegida', () => {
+    // El árbol se reconstruye por unidad: sin unidad no hay a qué importarle.
+    componente.unidad = '';
+    componente.archivoImport = new File(['xlsx'], 'poau.xlsx', {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+
+    componente.previsualizarImportacion();
+
+    http.expectNone(req => req.url.includes('/poau-imports/preview/'));
+  });
+
+  it('aplica solo con confirmación, conserva el resumen y recarga la matriz', () => {
+    componente.previewImport = preview;
+    componente.confirmarReemplazo = true;
+    componente.aplicarImportacion();
+    const apply = http.expectOne(req => req.url.includes('/preview-1/apply/'));
+    apply.flush({
+      ...preview, estado: 'APLICADO',
+      resultado: { creados: 1, actualizados: 2, eliminados: 0, reemplazados: 2, sin_cambios: 0 },
+    });
+    CATALOGO(http);
+    PRESUPUESTO(http);
+    MATRIZ(http, { filas: [] });
+    expect(componente.previewImport?.resultado?.creados).toBe(1);
+    expect(componente.aviso).toContain('1 creados');
+  });
+
+  it('muestra el motivo que mandó el backend, no un texto genérico', () => {
+    // El TestBed de este describe registra `ErrorInterceptor`: el error llega
+    // aplanado, igual que en la pantalla. Sin eso el spec verificaría una
+    // forma de error que el componente nunca recibe.
+    componente.archivoImport = new File(['xlsx'], 'poau.xlsx', {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    componente.previsualizarImportacion();
+    http.expectOne(req => req.url.includes('/poau-imports/preview/')).flush(
+      { error: { detail: ['No se encontró una cabecera con Acción de corto plazo.'] },
+        status_code: 400 },
+      { status: 400, statusText: 'Bad Request' },
+    );
+    expect(componente.importError)
+      .toBe('No se encontró una cabecera con Acción de corto plazo.');
+  });
+
+  it('no permite aplicar una vista previa inválida', () => {
+    componente.previewImport = { ...preview, estado: 'INVALIDO' };
+    componente.confirmarReemplazo = true;
+    componente.aplicarImportacion();
+    http.expectNone(req => req.url.includes('/apply/'));
+  });
+});
+
 describe('MatrizPoauComponent · vista de árbol', () => {
   let componente: MatrizPoauComponent;
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [HttpClientTestingModule, RouterTestingModule],
-      declarations: [MatrizPoauComponent],
+      imports: [HttpClientTestingModule, RouterTestingModule, FormsModule],
+      declarations: [MatrizPoauComponent, ComboBoxComponent],
     });
     componente = TestBed.createComponent(MatrizPoauComponent).componentInstance;
     TestBed.inject(HttpTestingController).verify();
@@ -254,14 +434,15 @@ describe('MatrizPoauComponent · selección y acciones', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [HttpClientTestingModule, RouterTestingModule],
-      declarations: [MatrizPoauComponent],
+      imports: [HttpClientTestingModule, RouterTestingModule, FormsModule],
+      declarations: [MatrizPoauComponent, ComboBoxComponent],
     });
     componente = TestBed.createComponent(MatrizPoauComponent).componentInstance;
     http = TestBed.inject(HttpTestingController);
     componente.ngOnInit();
-    http.expectOne(r => r.url.includes('matriz-poau'))
-        .flush({ gestion: 2027, unidades: [], total_filas: 6, filas: FILAS_ACC });
+    CATALOGO(http);
+    PRESUPUESTO(http);
+    MATRIZ(http, { gestion: 2027, total_filas: 6, filas: FILAS_ACC });
     componente.expandirTodo();
   });
 
@@ -330,8 +511,9 @@ describe('MatrizPoauComponent · selección y acciones', () => {
     spyOn(window, 'confirm').and.returnValue(true);
     componente.eliminar(FILAS_ACC[5]);
     http.expectOne(r => r.url.endsWith('/articulacion/tareas/tar-1/')).flush({});
-    http.expectOne(r => r.url.includes('matriz-poau'))
-        .flush({ gestion: 2027, unidades: [], total_filas: 0, filas: [] });
+    CATALOGO(http);
+    PRESUPUESTO(http);
+    MATRIZ(http, { gestion: 2027, total_filas: 0, filas: [] });
     expect(componente.filas.length).toBe(0);
   });
 
@@ -342,13 +524,157 @@ describe('MatrizPoauComponent · selección y acciones', () => {
   });
 });
 
+describe('MatrizPoauComponent · eliminar el POAU de una unidad', () => {
+  let fixture: ComponentFixture<MatrizPoauComponent>;
+  let componente: MatrizPoauComponent;
+  let http: HttpTestingController;
+
+  const FILA_UNIDAD = {
+    id: 'u', padre: null, nivel: 'unidad', orden_nivel: 0, hijos: 1,
+    unidad: 'JURÍDICA', unidad_codigo: 'EM-DJR-01',
+  };
+  const FILA_TAREA = {
+    id: 'u|t', padre: 'u', nivel: 'tarea', orden_nivel: 5, hijos: 0,
+    tarea: 'T1', objeto_id: 'tar-1', tipo: 'tarea', estado: 'BORRADOR',
+  };
+  const IMPACTO = {
+    unidad: { codigo: 'EM-DJR-01', nombre: 'JURÍDICA' },
+    gestion: 2027,
+    eliminaria: {
+      'articulacion.AccionPOA': 2, 'articulacion.OperacionPOAU': 5,
+      'articulacion.TareaPOAU': 140,
+    },
+    total: 147,
+    bloqueado_por: [],
+  };
+
+  const URL_UNIDAD = '/articulacion/matriz-poau/unidad/EM-DJR-01/';
+
+  const montar = (esAdmin: boolean) => {
+    TestBed.configureTestingModule({
+      imports: [HttpClientTestingModule, RouterTestingModule, FormsModule],
+      declarations: [MatrizPoauComponent, ComboBoxComponent],
+      providers: [
+        { provide: PermissionsService, useValue: { hasAnyRole: () => esAdmin } },
+        // El interceptor va acá a propósito: en producción aplana TODO error a
+        // `{message, status}` antes de que el componente lo vea. Sin él, el
+        // spec verificaría una forma de error que la pantalla nunca recibe.
+        { provide: HTTP_INTERCEPTORS, useClass: ErrorInterceptor, multi: true },
+      ],
+    });
+    fixture = TestBed.createComponent(MatrizPoauComponent);
+    componente = fixture.componentInstance;
+    http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    // Con catálogo real queda cacheado: la recarga posterior al borrado no
+    // vuelve a pedirlo, igual que en la pantalla.
+    CATALOGO(http, [{ codigo: 'EM-DJR-01', nombre: 'JURÍDICA' }]);
+    PRESUPUESTO(http);
+    MATRIZ(http, {
+      gestion: 2027, total_filas: 2, filas: [FILA_UNIDAD, FILA_TAREA],
+    });
+    componente.expandirTodo();
+    fixture.detectChanges();
+  };
+
+  afterEach(() => http.verify());
+
+  it('no le ofrece el botón a quien no es administrador', () => {
+    montar(false);
+    expect(componente.puedeBorrarPoau(FILA_UNIDAD)).toBeFalse();
+    expect(fixture.nativeElement.querySelector('.borrar-poau')).toBeNull();
+  });
+
+  it('le da al administrador un botón en la fila de unidad, y solo ahí', () => {
+    montar(true);
+    expect(componente.puedeBorrarPoau(FILA_UNIDAD)).toBeTrue();
+    // Una tarea tiene su propio ✕: el del árbol entero no va ahí.
+    expect(componente.puedeBorrarPoau(FILA_TAREA)).toBeFalse();
+    const botones = fixture.nativeElement.querySelectorAll('.borrar-poau');
+    expect(botones.length).toBe(1);
+  });
+
+  it('consulta el impacto antes de borrar y exige teclear el código', () => {
+    montar(true);
+    spyOn(window, 'confirm').and.returnValue(true);
+    spyOn(window, 'prompt').and.returnValue('em-djr-01');
+
+    componente.eliminarPoauUnidad(FILA_UNIDAD);
+    http.expectOne(r => r.url.includes(URL_UNIDAD) && r.method === 'GET')
+        .flush(IMPACTO);
+
+    // El aviso de confirmación lleva el conteo real, no una estimación.
+    const texto = (window.confirm as jasmine.Spy).calls.mostRecent().args[0];
+    expect(texto).toContain('147');
+    expect(texto).toContain('NO se borra');
+
+    http.expectOne(r => r.url.includes(URL_UNIDAD) && r.method === 'DELETE')
+        .flush({ ...IMPACTO, eliminados: IMPACTO.eliminaria });
+    PRESUPUESTO(http);
+    MATRIZ(http, { gestion: 2027, total_filas: 0, filas: [] });
+    expect(componente.aviso).toContain('147');
+  });
+
+  it('no borra nada si el código tecleado no coincide', () => {
+    montar(true);
+    spyOn(window, 'confirm').and.returnValue(true);
+    spyOn(window, 'prompt').and.returnValue('OTRA-COSA');
+
+    componente.eliminarPoauUnidad(FILA_UNIDAD);
+    http.expectOne(r => r.url.includes(URL_UNIDAD) && r.method === 'GET')
+        .flush(IMPACTO);
+
+    http.expectNone(r => r.method === 'DELETE');
+    expect(componente.aviso).toContain('no coincide');
+  });
+
+  it('no borra nada si se cancela la confirmación', () => {
+    montar(true);
+    spyOn(window, 'confirm').and.returnValue(false);
+
+    componente.eliminarPoauUnidad(FILA_UNIDAD);
+    http.expectOne(r => r.url.includes(URL_UNIDAD) && r.method === 'GET')
+        .flush(IMPACTO);
+
+    http.expectNone(r => r.method === 'DELETE');
+  });
+
+  it('el 409 dice qué está reteniendo el árbol, no «no se pudo»', () => {
+    montar(true);
+    componente.eliminarPoauUnidad(FILA_UNIDAD);
+    http.expectOne(r => r.url.includes(URL_UNIDAD) && r.method === 'GET')
+        .flush(
+          {
+            ...IMPACTO,
+            bloqueado_por: [
+              { modelo: 'presupuesto.AsignacionPresupuestariaUnidad', registros: 3 },
+            ],
+            detail: [
+              'No se puede eliminar: hay registros que dependen de este POAU '
+              + '— Asignaciones presupuestarias (3).',
+            ],
+          },
+          { status: 409, statusText: 'Conflict' },
+        );
+    expect(componente.error).toContain('Asignaciones presupuestarias (3)');
+  });
+
+  it('un error sin motivo no muestra el ruido de transporte de Angular', () => {
+    montar(true);
+    componente.eliminarPoauUnidad(FILA_UNIDAD);
+    http.expectOne(r => r.url.includes(URL_UNIDAD) && r.method === 'GET')
+        .flush(null, { status: 500, statusText: 'Server Error' });
+    expect(componente.error).toBe('No se pudo calcular qué se eliminaría.');
+  });
+});
+
 describe('MatrizPoauComponent · denominación de la categoría programática', () => {
   let componente: MatrizPoauComponent;
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [HttpClientTestingModule, RouterTestingModule],
-      declarations: [MatrizPoauComponent],
+      imports: [HttpClientTestingModule, RouterTestingModule, FormsModule],
+      declarations: [MatrizPoauComponent, ComboBoxComponent],
     });
     componente = TestBed.createComponent(MatrizPoauComponent).componentInstance;
     TestBed.inject(HttpTestingController).verify();
@@ -417,15 +743,16 @@ describe('MatrizPoauComponent · layout medido en el navegador', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [HttpClientTestingModule, RouterTestingModule],
-      declarations: [MatrizPoauComponent],
+      imports: [HttpClientTestingModule, RouterTestingModule, FormsModule],
+      declarations: [MatrizPoauComponent, ComboBoxComponent],
     });
     fixture = TestBed.createComponent(MatrizPoauComponent);
     componente = fixture.componentInstance;
     http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
-    http.expectOne(r => r.url.includes('matriz-poau'))
-        .flush({ gestion: 2027, unidades: [], total_filas: 3, filas: FILAS_L });
+    CATALOGO(http);
+    PRESUPUESTO(http);
+    MATRIZ(http, { gestion: 2027, total_filas: 3, filas: FILAS_L });
     componente.expandirTodo();
     fixture.detectChanges();
   });
