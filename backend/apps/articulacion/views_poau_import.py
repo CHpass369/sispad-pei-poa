@@ -95,8 +95,20 @@ class ImportacionProgramacionFisicaViewSet(viewsets.GenericViewSet):
         # get_object performs the capability/scope object check before locking;
         # apply_preview repeats ownership, scope, state, and expiry checks under lock.
         preview = self.get_object()
+        operation_types = request.data.get('operation_types') or {}
+        if not isinstance(operation_types, dict):
+            raise serializers.ValidationError({
+                'operation_types': ['Debe enviar una selección por operación.'],
+            })
         try:
-            applied = apply_preview(preview.id, request.user)
+            applied = apply_preview(
+                preview.id,
+                request.user,
+                confirmation_code=str(
+                    request.data.get('confirmation_code', ''),
+                ).strip(),
+                operation_types=operation_types,
+            )
         except ImportacionError as exc:
             raise serializers.ValidationError({'detail': exc.messages}) from exc
         return Response(serialize_preview(applied))

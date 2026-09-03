@@ -203,9 +203,13 @@ describe('MatrizPoauComponent · importación ETL', () => {
       errores: 0, registros_preview: 3,
     },
     errores: [],
+    tipos_operacion: [
+      { codigo: 'CORRIENTE', denominacion: 'Operación corriente' },
+      { codigo: 'INVERSION', denominacion: 'Operación de inversión' },
+    ],
     filas: [{
       fila: 2, nivel: 'operacion', operacion_codigo: 'OP-1',
-      operacion: 'Operación importada', meta: '1',
+      operacion: 'Operación importada', tipo_operacion: '', meta: '1',
     }],
   };
 
@@ -220,7 +224,6 @@ describe('MatrizPoauComponent · importación ETL', () => {
     fixture = TestBed.createComponent(MatrizPoauComponent);
     componente = fixture.componentInstance;
     componente.unidad = 'UO-01';
-    componente.accionImportCodigo = 'ACP-01';
     http = TestBed.inject(HttpTestingController);
   });
 
@@ -249,28 +252,21 @@ describe('MatrizPoauComponent · importación ETL', () => {
       req.params.get('gestion_id') === 'gestion-2027');
     expect(request.request.body instanceof FormData).toBeTrue();
     expect(request.request.body.get('unidad_codigo')).toBe('UO-01');
-    expect(request.request.body.get('accion_codigo')).toBe('ACP-01');
     request.flush(preview);
     expect(componente.previewImport?.resumen.filas_validas).toBe(3);
-  });
-
-  it('no previsualiza sin una Acción POA objetivo explícita', () => {
-    componente.accionImportCodigo = '';
-    componente.archivoImport = new File(['xlsx'], 'poau.xlsx', {
-      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    });
-
-    componente.previsualizarImportacion();
-
-    http.expectNone(req => req.url.includes('/poau-imports/preview/'));
-    expect(componente.importError).toContain('Acción POA objetivo');
+    expect(componente.faltanTiposOperacion()).toBeTrue();
   });
 
   it('aplica solo con confirmación, conserva el resumen y recarga la matriz', () => {
     componente.previewImport = preview;
     componente.confirmarReemplazo = true;
+    componente.tiposOperacionImport = { 2: 'CORRIENTE' };
     componente.aplicarImportacion();
     const apply = http.expectOne(req => req.url.includes('/preview-1/apply/'));
+    expect(apply.request.body).toEqual({
+      confirmation_code: 'UO-01',
+      operation_types: { 2: 'CORRIENTE' },
+    });
     apply.flush({
       ...preview, estado: 'APLICADO',
       resultado: { creados: 1, actualizados: 2, eliminados: 0, reemplazados: 2, sin_cambios: 0 },
@@ -286,6 +282,7 @@ describe('MatrizPoauComponent · importación ETL', () => {
   it('no permite aplicar una vista previa inválida', () => {
     componente.previewImport = { ...preview, estado: 'INVALIDO' };
     componente.confirmarReemplazo = true;
+    componente.tiposOperacionImport = { 2: 'CORRIENTE' };
     componente.aplicarImportacion();
     http.expectNone(req => req.url.includes('/apply/'));
   });

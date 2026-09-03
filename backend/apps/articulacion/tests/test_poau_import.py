@@ -32,13 +32,20 @@ from apps.organizacion.models import TipoUnidad, UnidadOrganizacional
 
 
 HEADERS = [
-    'NIVEL', 'CÓDIGO UNIDAD', 'CÓDIGO ACCIÓN',
+    'NIVEL', 'CÓDIGO UNIDAD',
+    'ACCIÓN INSTITUCIONAL ESPECÍFICA (PEI)', 'ACCIÓN DE CORTO PLAZO',
+    'CÓDIGO ACCIÓN',
     'CÓDIGO OPERACIÓN', 'OPERACIÓN', 'CÓDIGO ACTIVIDAD', 'ACTIVIDAD',
     'CÓDIGO TAREA', 'TAREA', 'TIPO OPERACIÓN', 'INDICADOR', 'FÓRMULA',
     'UNIDAD DE MEDIDA', 'META', 'FECHA INICIO', 'FECHA FINAL', 'RESPONSABLE',
     'ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO',
     'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE',
     'TOTAL ANUAL',
+]
+
+MONTH_HEADERS = [
+    'ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO',
+    'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE',
 ]
 
 REAL_LIKE_HEADERS = [
@@ -69,16 +76,81 @@ def workbook_bytes(rows, headers=HEADERS, sheet='POAU', header_row=1):
     return output.getvalue()
 
 
+def official_workbook_bytes(aie='Producto ETL'):
+    workbook = openpyxl.Workbook()
+    worksheet = workbook.active
+    worksheet.title = 'PROPUESTA POAU FINAL'
+    row_one = [None] * 51
+    row_one[0] = 'CODIFICACION DE UNIDADES'
+    row_one[18] = 'FECHA'
+    row_one[23] = 'CRONOGRAMA DE EJECUCIÓN'
+    worksheet.append(row_one)
+    worksheet.append([
+        'PRO', 'SECRETARIA', 'DIRECCION', 'UNIDADES', 'CODIGO UNIDAD',
+        'ACCIÓN INSTITUCIONAL ESPECIFICA (PEI) 2026-2030',
+        'ACCIÓN DE CORTO PLAZO GESTIÓN 2027 (PRODUCTO INSTITUCIONAL ANUAL)',
+        'CATEGORIA PROGRAMATICA', 'DENOMINACIÓN (CATEGORIA PROGRAMATICA)',
+        'OPERACIONES', 'ACTIVIDADES', 'TAREAS ESPECIFICAS', 'INDICADOR',
+        'FORMULA', 'UNIDAD DE MEDIDA', 'LINEA BASE (2026)',
+        'ESTIMACION LINEA BASE (2027)', 'META 2027', 'INICIO', 'FINAL',
+        '% PONDERACIÓN', 'UNIDAD ORGANIZACIONAL EJECUTORA',
+        'RESPONSABLE REACP',
+        'ENERO', None, 'FEBRERO', None, 'MARZO', None, 'ABRIL', None,
+        'MAYO', None, 'JUNIO', None, 'JULIO', None, 'AGOSTO', None,
+        'SEPTIEMBRE', None, 'OCTUBRE', None, 'NOVIEMBRE', None,
+        'DICIEMBRE', None, 'TOTAL ANUAL', None, None,
+        'MEDIO DE VERIFICACIÓN',
+    ])
+    subheaders = [None] * 51
+    for column in range(23, 49, 2):
+        subheaders[column] = 'PROGRAMADO'
+        subheaders[column + 1] = 'EJECUTADO'
+    subheaders[49] = '% AVANCE'
+    worksheet.append(subheaders)
+
+    unit = [None] * 51
+    unit[3:6] = ['Unidad importadora', 'UO-ETL', aie]
+    worksheet.append(unit)
+    action = [None] * 51
+    action[6] = 'Acción ETL importada'
+    worksheet.append(action)
+    for level_column, name in (
+        (9, 'Operación oficial'),
+        (10, 'Actividad oficial'),
+        (11, 'Tarea oficial'),
+    ):
+        row = [None] * 51
+        row[level_column] = name
+        row[12:15] = ['Avance físico', 'Ejecutado / programado', 'PORC']
+        row[17:20] = [1, '2027-01-01', '2027-12-31']
+        row[22] = 'Responsable ETL'
+        row[23] = 1
+        for column in range(25, 47, 2):
+            row[column] = 0
+        row[47] = 1
+        worksheet.append(row)
+    output = io.BytesIO()
+    workbook.save(output)
+    workbook.close()
+    return output.getvalue()
+
+
 def physical_row(level, **values):
     row = {
         'NIVEL': level,
+        'CÓDIGO UNIDAD': 'UO-ETL',
+        'ACCIÓN INSTITUCIONAL ESPECÍFICA (PEI)': 'Producto ETL',
+        'ACCIÓN DE CORTO PLAZO': 'Acción ETL importada',
+        'INDICADOR': 'Avance físico',
+        'FÓRMULA': 'Ejecutado / programado',
+        'UNIDAD DE MEDIDA': 'PORC',
         'META': 1,
         'FECHA INICIO': '2027-01-01',
         'FECHA FINAL': '2027-12-31',
         'ENERO': 1,
         'TOTAL ANUAL': 1,
     }
-    for month in HEADERS[18:29]:
+    for month in MONTH_HEADERS[1:]:
         row[month] = 0
     row.update(values)
     return row
@@ -188,11 +260,11 @@ class PoauImportBase(TestCase):
             ))
         return rows
 
-    def preview_excel(self, rows=None, content=None, action_code=''):
+    def preview_excel(self, rows=None, content=None, action_code='', sheet='POAU'):
         content = content or workbook_bytes(rows or self.rows())
         data = {
             'source_type': 'excel', 'unidad_codigo': self.unit.codigo,
-            'sheet_name': 'POAU',
+            'sheet_name': sheet,
             'file': SimpleUploadedFile(
                 'poau.xlsx', content,
                 content_type=(
@@ -211,11 +283,28 @@ class PoauImportBase(TestCase):
 
 
 class PoauImportPreviewTests(PoauImportBase):
+    def test_official_three_row_header_builds_complete_preview(self):
+        response = self.preview_excel(
+            content=official_workbook_bytes(), sheet='PROPUESTA POAU FINAL',
+        )
+
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data['estado'], 'VALIDO')
+        self.assertEqual(response.data['resumen']['filas_validas'], 4)
+        self.assertEqual(
+            [row['nivel'] for row in response.data['filas']],
+            ['accion', 'operacion', 'actividad', 'tarea'],
+        )
+        self.assertEqual(
+            response.data['filas'][0]['producto_pei_codigo'],
+            self.action.producto_pei.codigo_producto,
+        )
+
     def test_excel_preview_is_read_only_and_does_not_store_bytes(self):
         response = self.preview_excel()
         self.assertEqual(response.status_code, 201, response.data)
         self.assertEqual(response.data['estado'], 'VALIDO')
-        self.assertEqual(response.data['resumen']['filas_validas'], 3)
+        self.assertEqual(response.data['resumen']['filas_validas'], 4)
         self.operation.refresh_from_db()
         self.assertEqual(self.operation.denominacion, 'Operación anterior')
         preview = ImportacionProgramacionFisica.objects.get(pk=response.data['id'])
@@ -265,12 +354,13 @@ class PoauImportPreviewTests(PoauImportBase):
         self.assertEqual(response.status_code, 400)
         self.assertIn('Faltan columnas mensuales', str(response.data))
 
-    def test_real_sheet_headers_on_row_two_use_explicit_action_fallback(self):
+    def test_real_sheet_headers_on_row_two_build_complete_action_tree(self):
         rows = [
             {
                 'Código codificación unidades': 'UO-ETL',
+                'ACCIÓN INSTITUCIONAL ESPECÍFICA (PEI)': 'Producto ETL',
                 'Acción de corto plazo gestión 2027 / Producto institucional anual': (
-                    'Acción ETL'
+                    'Acción ETL importada'
                 ),
                 'OPERACIONES (PRODUCTO INTERMEDIO)': 'Operación nueva',
                 'TIPO DE OPERACIÓN': 'FUNC', 'UNIDAD DE MEDIDA': 'PORC',
@@ -286,7 +376,8 @@ class PoauImportPreviewTests(PoauImportBase):
             },
             {
                 'TAREAS ESPECÍFICAS': 'Tarea nueva',
-                'RESPONSABLE': 'Responsable ETL', 'META': 1,
+                'RESPONSABLE': 'Responsable ETL',
+                'UNIDAD DE MEDIDA': 'PORC', 'META': 1,
                 'FECHA INICIO': '2027-01-01', 'FECHA FINAL': '2027-12-31',
                 'ENERO': 1, 'TOTAL ANUAL': 1,
             },
@@ -295,18 +386,16 @@ class PoauImportPreviewTests(PoauImportBase):
             rows, headers=REAL_LIKE_HEADERS, header_row=2,
         )
 
-        response = self.preview_excel(
-            content=content, action_code=self.action.codigo_accion,
-        )
+        response = self.preview_excel(content=content)
 
         self.assertEqual(response.status_code, 201, response.data)
         self.assertEqual(response.data['estado'], 'VALIDO')
-        self.assertEqual(response.data['resumen']['filas_validas'], 3)
+        self.assertEqual(response.data['resumen']['filas_validas'], 4)
         self.assertEqual(response.data['filas'][0]['fila'], 3)
-        self.assertTrue(all(
-            row['accion_codigo'] == self.action.codigo_accion
-            for row in response.data['filas']
-        ))
+        self.assertEqual(
+            [row['nivel'] for row in response.data['filas']],
+            ['accion', 'operacion', 'actividad', 'tarea'],
+        )
 
     def test_real_sheet_without_unit_code_header_uses_selected_unit(self):
         headers = [
@@ -314,6 +403,10 @@ class PoauImportPreviewTests(PoauImportBase):
             if header != 'Código codificación unidades'
         ]
         row = {
+            'ACCIÓN INSTITUCIONAL ESPECÍFICA (PEI)': 'Producto ETL',
+            'Acción de corto plazo gestión 2027 / Producto institucional anual': (
+                'Acción ETL importada'
+            ),
             'OPERACIONES (PRODUCTO INTERMEDIO)': 'Operación nueva',
             'TIPO DE OPERACIÓN': 'FUNC',
             'UNIDAD DE MEDIDA': 'PORC',
@@ -336,6 +429,10 @@ class PoauImportPreviewTests(PoauImportBase):
     def test_explicit_conflicting_unit_code_remains_invalid(self):
         row = {
             'Código codificación unidades': 'UO-OTRA',
+            'ACCIÓN INSTITUCIONAL ESPECÍFICA (PEI)': 'Producto ETL',
+            'Acción de corto plazo gestión 2027 / Producto institucional anual': (
+                'Acción ETL importada'
+            ),
             'OPERACIONES (PRODUCTO INTERMEDIO)': 'Operación nueva',
             'TIPO DE OPERACIÓN': 'FUNC',
             'UNIDAD DE MEDIDA': 'PORC',
@@ -368,6 +465,10 @@ class PoauImportPreviewTests(PoauImportBase):
         ]
         row = {
             'Código codificación unidades': 'UO-ETL',
+            'ACCIÓN INSTITUCIONAL ESPECÍFICA (PEI)': 'Producto ETL',
+            'Acción de corto plazo gestión 2027 / Producto institucional anual': (
+                'Acción ETL importada'
+            ),
             'OPERACIONES (PRODUCTO INTERMEDIO)': 'Operación porcentual',
             'TIPO DE OPERACIÓN': 'FUNC',
             'UNIDAD DE MEDIDA': 'PORC',
@@ -387,12 +488,19 @@ class PoauImportPreviewTests(PoauImportBase):
 
         self.assertEqual(response.status_code, 201, response.data)
         self.assertEqual(response.data['estado'], 'VALIDO')
-        self.assertEqual(response.data['filas'][0]['meta'], '100')
-        self.assertEqual(response.data['filas'][0]['fecha_fin'], '2027-12-31')
+        operation = next(
+            row for row in response.data['filas'] if row['nivel'] == 'operacion'
+        )
+        self.assertEqual(operation['meta'], '100')
+        self.assertEqual(operation['fecha_fin'], '2027-12-31')
 
     def test_real_sheet_with_empty_months_remains_invalid(self):
         row = {
             'Código codificación unidades': 'UO-ETL',
+            'ACCIÓN INSTITUCIONAL ESPECÍFICA (PEI)': 'Producto ETL',
+            'Acción de corto plazo gestión 2027 / Producto institucional anual': (
+                'Acción ETL importada'
+            ),
             'OPERACIONES (PRODUCTO INTERMEDIO)': 'Operación sin meses',
             'TIPO DE OPERACIÓN': 'FUNC',
             'UNIDAD DE MEDIDA': 'PORC',
@@ -406,13 +514,13 @@ class PoauImportPreviewTests(PoauImportBase):
         )
 
         self.assertEqual(response.status_code, 201, response.data)
-        self.assertEqual(response.data['estado'], 'INVALIDO')
+        self.assertEqual(response.data['estado'], 'VALIDO')
         self.assertTrue(any(
             error['campo'] == 'programacion_mensual'
             for error in response.data['errores']
         ))
         self.assertTrue(all(
-            value is None
+            value == '0'
             for value in response.data['filas'][0]['programacion_mensual'].values()
         ))
 
@@ -429,8 +537,12 @@ class PoauImportPreviewTests(PoauImportBase):
 
         response = self.preview_excel(content=content)
 
-        self.assertEqual(response.status_code, 400)
-        self.assertIn('Acción POA objetivo', str(response.data))
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data['estado'], 'INVALIDO')
+        self.assertTrue(any(
+            error['campo'] == 'accion'
+            for error in response.data['errores']
+        ))
 
     def test_explicit_action_must_belong_to_unit_and_year(self):
         content = workbook_bytes(
@@ -452,23 +564,50 @@ class PoauImportPreviewTests(PoauImportBase):
 
 
 class PoauImportApplyTests(PoauImportBase):
-    def test_apply_updates_in_place_and_creates_missing_rows(self):
+    def test_apply_creates_provisional_pei_reference_for_unknown_aie(self):
+        aie = 'AIE ficticia pendiente de la matriz PEI'
+        response = self.preview_excel(
+            content=official_workbook_bytes(aie),
+            sheet='PROPUESTA POAU FINAL',
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data['estado'], 'VALIDO')
+
+        applied = self.client.post(
+            reverse('v2-poau-imports-apply', args=[response.data['id']]) + self.query,
+            {
+                'confirmation_code': self.unit.codigo,
+                'operation_types': {'6': 'FUNC'},
+            },
+            format='json',
+        )
+
+        self.assertEqual(applied.status_code, 200, applied.data)
+        product = ProductoPEI.objects.get(denominacion=aie)
+        self.assertEqual(product.estado_codigo, 'provisional')
+        self.assertTrue(
+            AccionPOA.objects.filter(
+                producto_pei=product,
+                unidad_responsable=self.unit,
+                estado='BORRADOR',
+            ).exists()
+        )
+
+    def test_apply_replaces_complete_unit_tree(self):
         response = self.preview_excel(self.rows(include_new=True))
         operation_id = self.operation.id
         task_id = self.task.id
         applied = self.client.post(
             reverse('v2-poau-imports-apply', args=[response.data['id']]) + self.query,
-            {}, format='json',
+            {'confirmation_code': self.unit.codigo}, format='json',
         )
         self.assertEqual(applied.status_code, 200, applied.data)
-        self.operation.refresh_from_db()
-        self.task.refresh_from_db()
-        self.assertEqual(self.operation.id, operation_id)
-        self.assertEqual(self.task.id, task_id)
-        self.assertEqual(self.operation.denominacion, 'Operación nueva')
-        self.assertEqual(self.task.denominacion, 'Tarea nueva')
-        self.assertTrue(TareaPOAU.objects.filter(codigo_tarea='ACP-ETL.1.1.2').exists())
-        self.assertEqual(applied.data['resultado']['creados'], 1)
+        self.assertFalse(OperacionPOAU.objects.filter(pk=operation_id).exists())
+        self.assertFalse(TareaPOAU.objects.filter(pk=task_id).exists())
+        self.assertTrue(OperacionPOAU.objects.filter(denominacion='Operación nueva').exists())
+        self.assertTrue(TareaPOAU.objects.filter(denominacion='Tarea adicional').exists())
+        self.assertEqual(applied.data['resultado']['eliminados'], 4)
+        self.assertEqual(applied.data['resultado']['creados'], 5)
 
     def test_write_failure_rolls_back_all_changes(self):
         content = workbook_bytes(self.rows())
@@ -477,29 +616,27 @@ class PoauImportApplyTests(PoauImportBase):
             request=request, origin='excel', unit_code=self.unit.codigo,
             content=content, source_name='rollback.xlsx', sheet_name='POAU',
         )
-        original_save = TareaPOAU.save
-
-        def failing_save(instance, *args, **kwargs):
-            if instance.pk == self.task.pk:
-                raise RuntimeError('injected failure')
-            return original_save(instance, *args, **kwargs)
-
-        with patch.object(TareaPOAU, 'save', failing_save):
+        with patch.object(
+            TareaPOAU.objects, 'create', side_effect=RuntimeError('injected failure'),
+        ):
             with self.assertRaises(RuntimeError):
-                apply_preview(preview.id, self.user)
+                apply_preview(
+                    preview.id, self.user,
+                    confirmation_code=self.unit.codigo,
+                )
         self.operation.refresh_from_db()
         preview.refresh_from_db()
         self.assertEqual(self.operation.denominacion, 'Operación anterior')
         self.assertEqual(preview.estado, 'VALIDO')
 
-    def test_approved_record_blocks_replacement_without_mutation(self):
+    def test_approved_record_is_replaced_and_new_tree_returns_to_draft(self):
         self.task.estado = 'APROBADO'
         self.task.save(update_fields=['estado'])
         response = self.preview_excel()
         applied = self.client.post(
             reverse('v2-poau-imports-apply', args=[response.data['id']]) + self.query,
-            {}, format='json',
+            {'confirmation_code': self.unit.codigo}, format='json',
         )
-        self.assertEqual(applied.status_code, 400)
-        self.operation.refresh_from_db()
-        self.assertEqual(self.operation.denominacion, 'Operación anterior')
+        self.assertEqual(applied.status_code, 200, applied.data)
+        self.assertFalse(TareaPOAU.objects.filter(pk=self.task.pk).exists())
+        self.assertTrue(TareaPOAU.objects.filter(estado='BORRADOR').exists())

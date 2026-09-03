@@ -31,6 +31,7 @@ from .models import (
     ImportacionProgramacionFisica,
     OperacionPOAU,
     ProductoPEI,
+    ResultadoPEI,
     TareaPOAU,
     VersionImportacionPOAU,
 )
@@ -177,7 +178,17 @@ for _mes in MESES:
 
 def _canonical_header(value):
     normalized = _clave(value)
-    normalized = re.sub(r'\b(?:19|20)\d{2}\b', '', normalized).strip()
+    normalized = re.sub(r'\b(?:19|20)\d{2}\b', '', normalized)
+    normalized = re.sub(r'\s+', ' ', normalized).strip()
+    # La matriz oficial agrega gestión, horizonte y descripciones entre
+    # paréntesis a estas dos columnas. Esos textos son parte de la etiqueta
+    # visual, no cambian el significado del campo que consume el importador.
+    if normalized.startswith('accion institucional especifica pei'):
+        return 'aie'
+    if normalized.startswith('accion de corto plazo gestion'):
+        return 'accion'
+    if normalized.startswith('responsable reacp'):
+        return 'responsable'
     for field, aliases in HEADER_ALIASES.items():
         if normalized in aliases:
             return field
@@ -234,6 +245,7 @@ def _parse_sheet(
     context = {
         'aie': '', 'accion': '', 'operacion': '', 'actividad': '',
         'operacion_codigo': '', 'actividad_codigo': '',
+        'unidad_codigo': fallback_unit_code.upper(),
     }
 
     for row_number, values in enumerate(
@@ -245,6 +257,9 @@ def _parse_sheet(
             continue
         rows_read += 1
         row_issues = []
+        unit_code = _texto(_cell(values, mapping, 'unidad_codigo')).upper()
+        if unit_code:
+            context['unidad_codigo'] = unit_code
         aie = _texto(_cell(values, mapping, 'aie'))
         action = _texto(_cell(values, mapping, 'accion'))
         if aie and _clave(aie) != _clave(context['aie']):
@@ -280,6 +295,7 @@ def _parse_sheet(
                 nodes.append({
                     'fila': row_number, 'nivel': 'accion',
                     'aie': context['aie'], 'accion': context['accion'],
+                    'unidad_codigo': context['unidad_codigo'],
                     'accion_clave': action_key,
                     'indicador': '', 'formula': '', 'unidad_medida': '',
                     'meta': '0', 'fecha_inicio': None, 'fecha_fin': None,
@@ -393,6 +409,7 @@ def _parse_sheet(
             node = {
                 'fila': row_number, 'nivel': level,
                 'aie': context['aie'], 'accion': context['accion'],
+                'unidad_codigo': context['unidad_codigo'],
                 'accion_clave': action_key,
                 'operacion_codigo': context['operacion_codigo'],
                 'operacion': context['operacion'],
@@ -607,6 +624,13 @@ def _database_errors_v2(nodes, gestion, unidad):
     }
     for node in nodes:
         row, level, key = node['fila'], node['nivel'], _node_key(node)
+        if node.get('unidad_codigo') != unidad.codigo.upper():
+            issues.append(_error(
+                row, 'unidad_codigo',
+                f'La fila pertenece a {node.get("unidad_codigo") or "otra unidad"}, '
+                f'no a {unidad.codigo}.',
+                'mixed_unit',
+            ))
         if key in seen:
             issues.append(_error(
                 row, level,
@@ -620,10 +644,12 @@ def _database_errors_v2(nodes, gestion, unidad):
             if not node.get('aie'):
                 issues.append(_error(row, 'aie', 'La AIE (PEI) es obligatoria.'))
             elif not matches:
-                issues.append(_error(
+                node['producto_pei_provisional'] = True
+                issues.append(_warning(
                     row, 'aie',
-                    'La AIE no coincide con ningún Producto PEI vigente.',
-                    'foreign_key',
+                    'La AIE no existe todavía en la matriz PEI; se creará con '
+                    'código provisional al aplicar la importación.',
+                    'provisional_foreign_key',
                 ))
             elif len(matches) > 1:
                 issues.append(_error(
@@ -873,6 +899,11 @@ def serialize_preview(preview):
         'resumen': preview.resumen,
         'errores': preview.errores,
         'filas': preview.filas_normalizadas[:100],
+        'tipos_operacion': list(
+            TipoOperacion.objects.filter(
+                gestion=preview.gestion, activo=True,
+            ).order_by('denominacion').values('codigo', 'denominacion')
+        ),
         'expira_en': preview.expira_en.isoformat(),
         'resultado': preview.resultado,
     }
@@ -1057,6 +1088,47 @@ def _action_values(node, gestion, unidad, product):
         'fecha_fin': date.fromisoformat(node['fecha_fin']) if node.get('fecha_fin') else None,
         'cargo_responsable': node.get('responsable', ''),
     }
+
+
+def _create_provisional_product(aie, gestion, unidad, result=None):
+    """Create the temporary PEI references authorized for matrix-first POAUs."""
+    if result is None:
+        start = gestion.anio - 1
+        institutional = ResultadoPEI.objects.order_by(
+            'vigencia_desde', 'codigo_resultado',
+        ).values('cod_entidad', 'entidad').first() or {}
+        code, corr, segment = _next_identity(
+            ResultadoPEI, {'vigencia_desde': start}, f'PROV-RI-{start}',
+            'codigo_resultado', '',
+        )
+        result = ResultadoPEI.objects.create(
+            codigo_resultado=code,
+            correlativo=corr,
+            segmento=segment,
+            codigo_fuente=f'POAU-{gestion.anio}-{unidad.codigo}',
+            denominacion=(
+                f'Resultado PEI provisional para {unidad.codigo}, '
+                f'gestión {gestion.anio}'
+            ),
+            cod_entidad=institutional.get('cod_entidad') or 'PROV',
+            entidad=institutional.get('entidad') or 'Entidad pendiente de matriz PEI',
+            vigencia_desde=start,
+            vigencia_hasta=start + 4,
+        )
+    code, corr, segment = _next_identity(
+        ProductoPEI, {'resultado_pei': result}, result.codigo_resultado,
+        'codigo_producto', '',
+    )
+    product = ProductoPEI.objects.create(
+        codigo_producto=code,
+        correlativo=corr,
+        segmento=segment,
+        codigo_fuente=f'POAU-{gestion.anio}-{unidad.codigo}',
+        denominacion=aie,
+        resultado_pei=result,
+        tipo_producto='INTERMEDIO',
+    )
+    return product, result
 
 
 @transaction.atomic
@@ -1263,14 +1335,29 @@ def _apply_preview_v2(preview_id, user, confirmation_code='', operation_types=No
     )
     _delete_tree(actions, operations, activities, tasks)
     resolved_actions, resolved_ops, resolved_acts = {}, {}, {}
+    provisional_products = {}
+    provisional_result = None
     created = 0
     for node in preview.filas_normalizadas:
         key = _node_key(node)
         if node['nivel'] == 'accion':
-            try:
-                product = ProductoPEI.objects.get(pk=node['producto_pei_id'])
-            except (KeyError, ProductoPEI.DoesNotExist) as exc:
-                raise ImportacionError('La AIE cambió desde la vista previa.') from exc
+            product_id = node.get('producto_pei_id')
+            if product_id:
+                try:
+                    product = ProductoPEI.objects.get(pk=product_id)
+                except ProductoPEI.DoesNotExist as exc:
+                    raise ImportacionError('La AIE cambió desde la vista previa.') from exc
+            elif node.get('producto_pei_provisional'):
+                product_key = _clave(node['aie'])
+                product = provisional_products.get(product_key)
+                if product is None:
+                    product, provisional_result = _create_provisional_product(
+                        node['aie'], preview.gestion, preview.unidad,
+                        provisional_result,
+                    )
+                    provisional_products[product_key] = product
+            else:
+                raise ImportacionError('La AIE cambió desde la vista previa.')
             code, corr, segment = _next_identity(
                 AccionPOA,
                 {'producto_pei': product, 'gestion': preview.gestion.anio},

@@ -24,6 +24,7 @@ interface PoauImportPreview {
   };
   errores: { fila: number; campo: string; codigo: string; mensaje: string }[];
   filas: any[];
+  tipos_operacion?: { codigo: string; denominacion: string }[];
   resultado?: {
     creados: number; actualizados: number; eliminados: number;
     reemplazados: number; sin_cambios: number;
@@ -331,11 +332,20 @@ const TODAS_UNIDADES = '__todas_las_unidades__';
 
           <div class="import-table" *ngIf="previewImport?.filas?.length">
             <table class="tabla tabla-compacta">
-              <thead><tr><th>Fila</th><th>Nivel</th><th>Código</th><th>Denominación</th><th>Meta</th></tr></thead>
+              <thead><tr><th>Fila</th><th>Nivel</th><th>Código</th><th>Denominación</th><th>Tipo de operación</th><th>Meta</th></tr></thead>
               <tbody><tr *ngFor="let f of previewImport!.filas | slice:0:20">
                 <td>{{ f.fila }}</td><td>{{ f.nivel }}</td>
-                <td>{{ codigoImportado(f) || 'se generará' }}</td>
-                <td>{{ f[f.nivel] }}</td><td class="num">{{ f.meta }}</td>
+                <td>{{ codigoImportado(f) || 'se generará' }}</td><td>{{ f[f.nivel] }}</td>
+                <td>
+                  <select *ngIf="f.nivel === 'operacion'" [(ngModel)]="tiposOperacionImport[f.fila]"
+                          aria-label="Tipo de operación de la fila {{ f.fila }}">
+                    <option value="">Seleccione</option>
+                    <option *ngFor="let tipo of previewImport!.tipos_operacion"
+                            [value]="tipo.codigo">{{ tipo.denominacion }}</option>
+                  </select>
+                  <span *ngIf="f.nivel !== 'operacion'">—</span>
+                </td>
+                <td class="num">{{ f.meta }}</td>
               </tr></tbody>
             </table>
           </div>
@@ -358,7 +368,7 @@ const TODAS_UNIDADES = '__todas_las_unidades__';
               {{ importando ? 'Validando…' : 'Previsualizar' }}
             </button>
             <button class="btn btn-importar" type="button" (click)="aplicarImportacion()"
-                    [disabled]="!unidad || aplicando || previewImport?.estado !== 'VALIDO' || !confirmarReemplazo">
+                    [disabled]="!unidad || aplicando || previewImport?.estado !== 'VALIDO' || !confirmarReemplazo || faltanTiposOperacion()">
               {{ aplicando ? 'Aplicando…' : (tienePoauSeleccionado ? 'Reemplazar POAU' : 'Crear nuevo POAU') }}
             </button>
           </footer>
@@ -757,6 +767,7 @@ export class MatrizPoauComponent implements OnInit, AfterViewInit, OnDestroy {
   importError = '';
   previewImport: PoauImportPreview | null = null;
   confirmarReemplazo = false;
+  tiposOperacionImport: Record<number, string> = {};
 
   @ViewChild('tabla') tabla?: ElementRef<HTMLTableElement>;
   @ViewChild('bandas') bandas?: ElementRef<HTMLTableRowElement>;
@@ -888,6 +899,7 @@ export class MatrizPoauComponent implements OnInit, AfterViewInit, OnDestroy {
   limpiarPreviewImport(): void {
     this.previewImport = null;
     this.confirmarReemplazo = false;
+    this.tiposOperacionImport = {};
     this.importError = '';
   }
 
@@ -925,7 +937,15 @@ export class MatrizPoauComponent implements OnInit, AfterViewInit, OnDestroy {
     this.http.post<PoauImportPreview>(this.importUrl('preview/'), data)
       .pipe(finalize(() => { this.importando = false; this.cdr.markForCheck(); }))
       .subscribe({
-        next: preview => { this.previewImport = preview; this.cdr.markForCheck(); },
+        next: preview => {
+          this.previewImport = preview;
+          this.tiposOperacionImport = Object.fromEntries(
+            preview.filas
+              .filter(f => f.nivel === 'operacion')
+              .map(f => [f.fila, f.tipo_operacion || '']),
+          );
+          this.cdr.markForCheck();
+        },
         error: response => {
           this.importError = this.importMessage(response, 'No se pudo validar la fuente.');
           this.cdr.markForCheck();
@@ -934,11 +954,15 @@ export class MatrizPoauComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   aplicarImportacion(): void {
-    if (!this.previewImport || this.previewImport.estado !== 'VALIDO' || !this.confirmarReemplazo) { return; }
+    if (!this.previewImport || this.previewImport.estado !== 'VALIDO' ||
+        !this.confirmarReemplazo || this.faltanTiposOperacion()) { return; }
     this.aplicando = true;
     this.importError = '';
     this.http.post<PoauImportPreview>(
-      this.importUrl(`${this.previewImport.id}/apply/`), {},
+      this.importUrl(`${this.previewImport.id}/apply/`), {
+        confirmation_code: this.unidad,
+        operation_types: this.tiposOperacionImport,
+      },
     ).pipe(finalize(() => { this.aplicando = false; this.cdr.markForCheck(); }))
       .subscribe({
         next: preview => {
@@ -959,6 +983,12 @@ export class MatrizPoauComponent implements OnInit, AfterViewInit, OnDestroy {
 
   codigoImportado(row: any): string {
     return row[`${row.nivel}_codigo`] || '';
+  }
+
+  faltanTiposOperacion(): boolean {
+    return !!this.previewImport?.filas.some(
+      fila => fila.nivel === 'operacion' && !this.tiposOperacionImport[fila.fila],
+    );
   }
 
   private importMessage(response: any, fallback: string): string {
