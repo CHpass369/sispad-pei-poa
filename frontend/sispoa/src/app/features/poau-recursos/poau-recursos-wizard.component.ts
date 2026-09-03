@@ -6,6 +6,11 @@ import { ApiService } from '../../core/services/api.service';
 import { OpcionCombo } from '../../shared/components/combo-box/combo-box.component';
 import { GestionHabilitadaService } from '../../core/services/gestion-habilitada.service';
 import {
+  SaldoUnidadCategoria,
+  saldoDisponible,
+  saldosDeUnidad,
+} from '../../shared/catalogos/saldos-unidad-categoria.catalogo';
+import {
   CabeceraRecursos,
   FilaMatrizRecursos,
   Hallazgo,
@@ -17,10 +22,26 @@ import {
   grupoDePartida,
   requerimientoVacio,
   tieneErrores,
+  saldoRestante,
   totalAnual,
   totalGeneral,
   validarMatriz,
 } from './poau-recursos.model';
+
+/** Unidad organizacional tal como la publica la matriz POAU. */
+interface UnidadCatalogo { codigo: string; nombre: string; sigla: string; }
+
+/**
+ * Normaliza el código de categoría antes de compararlo.
+ *
+ * La categoría viaja con espaciado irregular según de dónde se cargó —la
+ * planilla escribe `100 0 008` y el POAU puede traer `100  0 008`—, así que
+ * comparar los códigos crudos deja fuera operaciones que sí corresponden.
+ * Es la misma normalización que aplica el backend en `_codigo_categoria`.
+ */
+function _codigoCategoria(valor: string): string {
+  return String(valor || '').replace(/\s+/g, ' ').trim().toUpperCase();
+}
 
 /**
  * Asistente de programación presupuestaria del POAU.
@@ -55,61 +76,85 @@ import {
 
       <!-- PASO 0: ARTICULACIÓN -->
       <div *ngIf="paso === 0" class="step-content card">
-        <h3>Paso 1: Actividad del POAU a presupuestar</h3>
+        <h3>Paso 1: Operación del POAU a presupuestar</h3>
         <p>
-          Los requerimientos cuelgan de una actividad ya programada físicamente en el POAU.
-          Elija la cadena y el asistente hereda su clasificación.
+          Los requerimientos cuelgan de una operación ya programada físicamente en el POAU.
+          Elija la unidad, la categoría con saldo y la operación.
         </p>
         <div class="form-2col">
           <div class="field"><label>Gestión</label>
             <input [ngModel]="cabecera.gestion" name="gestion" type="number" class="form-control" readonly
                    title="La fija la habilitación de gestión fiscal"></div>
-          <div class="field"><label for="cmb-accion">Acción de corto plazo</label>
-            <app-combo-box [opciones]="opcionesAccion" [(ngModel)]="accionSel"
-                                   [maximo]="opcionesAccion.length"
-                           etiqueta="Acción de corto plazo"
-                           placeholder="Escriba el código o parte de la denominación…"
-                           (seleccionado)="onAccion()"></app-combo-box>
+          <div class="field"><label for="cmb-unidad">Unidad organizacional</label>
+            <app-combo-box [opciones]="opcionesUnidad" [(ngModel)]="unidadSel"
+                           [maximo]="opcionesUnidad.length"
+                           etiqueta="Unidad organizacional"
+                           placeholder="Escriba el código o parte del nombre…"
+                           (seleccionado)="onUnidad()"></app-combo-box>
           </div>
         </div>
         <div class="form-2col">
-          <div class="field"><label>Operación</label>
+          <div class="field"><label>Categoría programática</label>
+            <select [(ngModel)]="categoriaSel" class="form-control" (change)="onCategoria()"
+                    [disabled]="!categoriasDeUnidad.length">
+              <option value="">Seleccione...</option>
+              <option *ngFor="let c of categoriasDeUnidad" [value]="c.categoriaProgramatica">
+                {{ c.categoriaProgramatica }} — {{ moneda(c.saldo) }} Bs. disponibles
+              </option>
+            </select>
+            <!-- El saldo va también fuera del desplegable: cerrado, la opción
+                 elegida deja de leerse y el techo es justamente el dato que
+                 hay que tener a la vista mientras se programa. -->
+            <small class="saldo-nota" *ngIf="cabecera.categoriaProgramatica">
+              {{ cabecera.denominacionCategoria }} ·
+              <strong [class.saldo-negativo]="(cabecera.saldoDisponible || 0) < 0">
+                {{ moneda(cabecera.saldoDisponible || 0) }} Bs.
+              </strong>
+              disponibles para programar
+            </small>
+          </div>
+          <div class="field"><label>Operación (POAU físico)</label>
             <select [(ngModel)]="operacionSel" class="form-control" (change)="onOperacion()"
                     [disabled]="!operacionesFiltradas.length">
               <option value="">Seleccione...</option>
-              <option *ngFor="let o of operacionesFiltradas" [value]="o.id">
-                {{ o.codigo_operacion }} — {{ (o.denominacion || '') | slice:0:60 }}
-              </option>
-            </select>
-          </div>
-          <div class="field"><label>Actividad</label>
-            <select [(ngModel)]="actividadSel" class="form-control" (change)="onActividad()"
-                    [disabled]="!actividadesFiltradas.length">
-              <option value="">Seleccione...</option>
-              <option *ngFor="let ac of actividadesFiltradas" [value]="ac.id">
-                {{ ac.codigo_actividad }} — {{ (ac.denominacion || '') | slice:0:60 }}
+              <option *ngFor="let o of operacionesFiltradas" [value]="o.objeto_id">
+                {{ o.codigo }} — {{ (o.operacion || '') | slice:0:60 }}
               </option>
             </select>
           </div>
         </div>
 
-        <div class="aviso-vacio" *ngIf="!cargando && !acciones.length">
-          No hay acciones de corto plazo registradas. Formule primero el POA y el POAU.
+        <div class="aviso-vacio" *ngIf="!cargando && !unidades.length">
+          No hay unidades con POAU a su alcance. Formule primero el POA y el POAU.
           <a routerLink="/poau" class="btn btn-sm btn-primary">Ir a la formulación POAU</a>
         </div>
+        <div class="aviso-catalogo" *ngIf="cabecera.codigoUnidad && !cargando &&
+                                           !categoriasDeUnidad.length">
+          La unidad <strong>{{ cabecera.codigoUnidad }}</strong> no figura en la planilla
+          de saldos: no hay monto disponible que ofrecer para programar.
+        </div>
+        <div class="aviso-catalogo" *ngIf="cabecera.categoriaProgramatica && !cargando &&
+                                           !operacionesFiltradas.length">
+          La categoría <strong>{{ cabecera.categoriaProgramatica }}</strong> tiene saldo
+          pero ninguna operación programada físicamente en el POAU de esta unidad.
+        </div>
 
-        <div class="heredado" *ngIf="cabecera.actividadId">
+        <div class="heredado" *ngIf="cabecera.operacionId">
           <h4>Clasificación de la cadena</h4>
-          <!-- Código y denominación salen de la categoría programática de la
-               acción, cruzada contra el catálogo. No se tipean: si se pudieran
-               editar, la matriz diría una categoría y el catálogo otra. -->
-          <div class="form-2col">
-            <div class="field"><label>Categoría programática</label>
-              <input [ngModel]="cabecera.categoriaProgramatica" class="form-control derivada"
-                     readonly title="La hereda la acción de corto plazo elegida"></div>
+          <!-- Denominación y acción salen de la operación elegida, cruzada
+               contra el catálogo. No se tipean: si se pudieran editar, la
+               matriz diría una cosa y el POAU físico otra. -->
+          <div class="form-3col">
             <div class="field"><label>Denominación de la categoría</label>
               <input [ngModel]="cabecera.denominacionCategoria" class="form-control derivada"
                      readonly title="Del catálogo de categorías programáticas"></div>
+            <div class="field"><label>Acción de corto plazo</label>
+              <input [ngModel]="cabecera.codigoAccion" class="form-control derivada"
+                     readonly title="La de la operación elegida en el POAU físico"></div>
+            <div class="field"><label>Saldo disponible</label>
+              <input [ngModel]="moneda(cabecera.saldoDisponible || 0) + ' Bs.'"
+                     class="form-control derivada" readonly
+                     title="Saldo de la categoría en esta unidad"></div>
           </div>
           <div class="aviso-catalogo" *ngIf="cabecera.categoriaProgramatica &&
                                              !cabecera.denominacionCategoria">
@@ -135,7 +180,7 @@ import {
 
         <div class="step-nav">
           <span></span>
-          <button class="btn btn-primary" [disabled]="!cabecera.actividadId" (click)="paso = 1">
+          <button class="btn btn-primary" [disabled]="!cabecera.operacionId" (click)="paso = 1">
             Siguiente → Requerimientos
           </button>
         </div>
@@ -143,6 +188,27 @@ import {
 
       <!-- PASO 1: REQUERIMIENTOS -->
       <div *ngIf="paso === 1" class="step-content card">
+        <!-- El perchero es pegajoso y de alto cero: arranca en el borde
+             superior derecho de la tarjeta, no empuja al título, y sigue a la
+             vista al bajar. Los requerimientos se cargan con la pantalla
+             corrida bien abajo, y un contador que se pierde al hacer scroll no
+             cumple su función. El globo además se arrastra, porque en una
+             pantalla chica cualquier posición fija termina tapando un campo.
+             El límite es el body: sin eso se puede soltar fuera y no vuelve. -->
+        <div class="globo-perchero" *ngIf="cabecera.saldoDisponible !== null">
+        <div class="globo-saldo"
+             cdkDrag cdkDragBoundary="body"
+             [class.deficit]="enDeficit" role="status" aria-live="polite"
+             title="Arrástrelo a donde no le estorbe">
+          <span class="globo-asa" aria-hidden="true"></span>
+          <span class="globo-rotulo">{{ enDeficit ? 'Déficit' : 'Saldo por programar' }}</span>
+          <strong class="globo-monto">{{ moneda(montoGlobo) }} Bs.</strong>
+          <span class="globo-detalle">
+            {{ moneda(total) }} de {{ moneda(cabecera.saldoDisponible || 0) }}
+          </span>
+        </div>
+        </div>
+
         <h3>Paso 2: Bienes y servicios demandados</h3>
         <p>
           Para cada requerimiento: qué se necesita, con qué partida se paga, de qué fuente
@@ -331,6 +397,45 @@ import {
     .meses-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 0.3rem; margin-bottom: 0.5rem; }
     .meses-grid input { font-size: 0.6875rem; padding: 0.2rem 0.25rem; text-align: right; }
     .meses-grid label { font-size: 0.5625rem; text-align: center; }
+    /* Perchero de alto cero: ubica el globo arriba a la derecha de la
+       tarjeta sin ocupar lugar ni correr el título. */
+    .globo-perchero {
+      position: sticky; top: 0.75rem; z-index: 40;
+      height: 0; display: flex; justify-content: flex-end;
+      /* Sin esto el stretch por omisión aplasta el globo contra el alto cero
+         del perchero y el texto sale disparado fuera del fondo. */
+      align-items: flex-start;
+    }
+    /* Globo del saldo: arrastrable, fuera del camino del formulario. */
+    .globo-saldo {
+      display: flex; flex-direction: column; gap: 0.15rem;
+      min-width: 13.5rem; padding: 0.8rem 1.15rem;
+      background: var(--ok-fondo, #e8f5e9); color: var(--success, #2e7d32);
+      border: 1px solid currentColor; border-radius: 10px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+      transition: background 0.2s ease, color 0.2s ease;
+      cursor: grab; touch-action: none; user-select: none;
+    }
+    /* Mientras se arrastra: sin transición de color, que la sombra siga al dedo. */
+    .globo-saldo.cdk-drag-dragging { cursor: grabbing; transition: none; box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28); }
+    /* Asa: dos rayitas que anuncian que el globo se puede mover. */
+    .globo-asa {
+      align-self: center; width: 1.6rem; height: 3px; margin-bottom: 0.25rem;
+      border-top: 2px solid currentColor; border-bottom: 2px solid currentColor;
+      opacity: 0.4;
+    }
+    .globo-saldo.deficit { background: var(--error-fondo, #fdecea); color: var(--warn, #c62828); }
+    .globo-rotulo { font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.85; }
+    .globo-monto { font-size: 1.5rem; line-height: 1.15; font-variant-numeric: tabular-nums; }
+    .globo-detalle { font-size: 0.6875rem; opacity: 0.75; font-variant-numeric: tabular-nums; }
+    @media (max-width: 768px) {
+      .globo-saldo { min-width: 0; padding: 0.55rem 0.8rem; }
+      .globo-monto { font-size: 1.25rem; }
+      .globo-detalle { display: none; }
+    }
+
+    .saldo-nota { display: block; margin-top: 0.3rem; font-size: 0.6875rem; color: var(--texto-suave, #666); }
+    .saldo-nota .saldo-negativo { color: var(--warn); }
     .acciones-fila { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.6rem; }
     .btn-heredar { background: transparent; border: 1px dashed var(--primary); color: var(--primary); border-radius: 4px; cursor: pointer; padding: 0.3rem 0.6rem; font-size: 0.6875rem; }
     .btn-heredar:hover:not([disabled]) { background: var(--ok-fondo); border-style: solid; }
@@ -377,26 +482,28 @@ import {
 })
 export class PoauRecursosWizardComponent implements OnInit {
   paso = 0;
-  pasos = ['Actividad del POAU', 'Requerimientos', 'Registro'];
+  pasos = ['Operación del POAU', 'Requerimientos', 'Registro'];
   meses = MESES;
 
   cabecera: CabeceraRecursos = cabeceraVacia();
   requerimientos: RequerimientoForm[] = [requerimientoVacio()];
 
-  acciones: any[] = [];
+  unidades: UnidadCatalogo[] = [];
+  /** Filas de nivel `operacion` de la matriz POAU de la unidad elegida. */
   operaciones: any[] = [];
-  actividades: any[] = [];
-  accionSel = '';
+  /** Categorías con saldo de la unidad elegida, de la planilla de revisión. */
+  categoriasDeUnidad: SaldoUnidadCategoria[] = [];
+  unidadSel = '';
+  categoriaSel = '';
   operacionSel = '';
-  actividadSel = '';
   cargando = true;
 
   /** Catálogos maestros que alimentan los combos de la cabecera.
    *
    * Las opciones se arman al cargar y no en un getter: un `map` sobre todas las
-   * acciones en cada ciclo de detección de cambios es basura que se recolecta
+   * unidades en cada ciclo de detección de cambios es basura que se recolecta
    * sesenta veces por segundo. */
-  opcionesAccion: OpcionCombo[] = [];
+  opcionesUnidad: OpcionCombo[] = [];
   opcionesDa: OpcionCombo[] = [];
   opcionesUe: OpcionCombo[] = [];
   opcionesFuente: OpcionCombo[] = [];
@@ -420,17 +527,8 @@ export class PoauRecursosWizardComponent implements OnInit {
   ngOnInit(): void {
     // Los recursos del POAU son de la gestión habilitada (ADR-007).
     this.cabecera.gestion = this.gestionActiva.anio() ?? 0;
-    this.cargar('/articulacion/acciones-poa/', v => {
-      this.acciones = v;
-      this.opcionesAccion = v.map((a: any) => ({
-        valor: a.id,
-        etiqueta: `${a.codigo_accion} — ${a.denominacion || ''}`,
-        detalle: a.categoria_programatica || '',
-        dato: a,
-      }));
-      this.cargando = false;
-    });
-    // Operaciones y actividades se cargan bajo demanda según la cadena elegida.
+    this.cargarUnidades();
+    // Las operaciones se cargan bajo demanda según la unidad elegida.
     // Así evitamos descargar toda la matriz POAU al abrir el asistente.
     // DA y UE son cinco y once filas: entran enteras en una página y se
     // filtran en memoria.
@@ -456,7 +554,9 @@ export class PoauRecursosWizardComponent implements OnInit {
     // catálogo. Este endpoint devuelve la lista completa del año, sin paginar.
     this.cargar('/priorizacion/categorias-programaticas/', v => {
       this.denominacionPorCategoria = new Map(
-        v.map((c: any) => [String(c.codigo), String(c.denominacion || '')]));
+        v.map((c: any) => [
+          _codigoCategoria(c.codigo), String(c.denominacion || ''),
+        ]));
       // La acción pudo elegirse antes de que llegara el catálogo.
       this.completarDenominacion();
     });
@@ -464,12 +564,12 @@ export class PoauRecursosWizardComponent implements OnInit {
 
   // --- Derivados ------------------------------------------------------------
 
+  /** Las operaciones del POAU físico que caen en la categoría elegida. */
   get operacionesFiltradas(): any[] {
-    return this.operaciones.filter(o => o.accion_poa === this.cabecera.accionPoaId);
-  }
-
-  get actividadesFiltradas(): any[] {
-    return this.actividades.filter(a => a.operacion === this.cabecera.operacionId);
+    const categoria = this.cabecera.categoriaProgramatica;
+    if (!categoria) { return []; }
+    return this.operaciones.filter(
+      o => _codigoCategoria(o.categoria_programatica) === _codigoCategoria(categoria));
   }
 
   get filas(): FilaMatrizRecursos[] {
@@ -483,89 +583,151 @@ export class PoauRecursosWizardComponent implements OnInit {
   get bloqueado(): boolean { return tieneErrores(this.hallazgos); }
   get total(): number { return totalGeneral(this.requerimientos); }
 
+  /** Lo que queda del saldo de la categoría, o `null` si no se conoce. */
+  get restante(): number | null {
+    return saldoRestante(this.cabecera.saldoDisponible, this.requerimientos);
+  }
+
+  get enDeficit(): boolean {
+    const resto = this.restante;
+    return resto !== null && resto < 0;
+  }
+
+  /** En déficit el globo muestra cuánto falta, no un negativo con signo. */
+  get montoGlobo(): number {
+    return Math.abs(this.restante ?? 0);
+  }
+
   // --- Selección ------------------------------------------------------------
 
   irAPaso(p: number): void { if (p <= this.paso) this.paso = p; }
 
-  onAccion(): void {
-    const accion = this.acciones.find(a => a.id === this.accionSel);
+  /**
+   * El catálogo de unidades y las filas de la matriz salen del mismo endpoint.
+   *
+   * `matriz-poau` ya recorta la respuesta al alcance organizacional del
+   * usuario (ADR-003), así que el desplegable nunca ofrece una unidad que
+   * después no podría abrir. Sin `unidad=` la respuesta trae el árbol entero;
+   * acá solo interesa el catálogo, y las filas llegan al elegir la unidad.
+   */
+  private cargarUnidades(): void {
+    this.api.get<any>('/articulacion/matriz-poau/?incluir_unidades=1')
+      .subscribe({
+        next: (d: any) => {
+          this.unidades = d?.unidades ?? [];
+          this.opcionesUnidad = this.unidades.map(u => ({
+            valor: u.codigo,
+            etiqueta: `${u.codigo} — ${u.nombre}`,
+            detalle: u.sigla || '',
+            dato: u,
+          }));
+          this.cargando = false;
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.unidades = [];
+          this.opcionesUnidad = [];
+          this.cargando = false;
+          this.cdr.markForCheck();
+        },
+      });
+  }
 
-    this.cabecera.accionPoaId = accion?.id || null;
-    this.cabecera.codigoAccion = accion?.codigo_accion || '';
-    this.cabecera.categoriaProgramatica = accion?.categoria_programatica || '';
-    this.cabecera.cargoReacp = accion?.cargo_responsable || '';
+  onUnidad(): void {
+    const unidad = this.unidades.find(u => u.codigo === this.unidadSel);
 
-    this.completarDenominacion();
+    this.cabecera.codigoUnidad = unidad?.codigo || '';
+    this.cabecera.nombreUnidad = unidad?.nombre || '';
 
-    if (accion?.gestion) {
-      this.cabecera.gestion = accion.gestion;
-    }
-
-    // Cambiar de ACP invalida toda la cadena dependiente anterior.
+    // Cambiar de unidad invalida toda la cadena dependiente anterior.
+    this.categoriaSel = '';
     this.operacionSel = '';
-    this.actividadSel = '';
-    this.cabecera.operacionId = null;
-    this.cabecera.actividadId = null;
+    this.limpiarCategoria();
     this.operaciones = [];
-    this.actividades = [];
+    this.categoriasDeUnidad = saldosDeUnidad(this.cabecera.codigoUnidad);
 
-    if (!accion?.id) {
+    if (!unidad?.codigo) {
       return;
     }
 
-    // La API conserva el scope organizacional y el candado de gestión.
-    // Se recuperan únicamente las operaciones que cuelgan de esta ACP.
-    const accionId = accion.id;
+    // Las operaciones se traen de una sola vez para la unidad: la matriz ya
+    // viene acotada por el candado de gestión y por el alcance del usuario.
+    const codigo = unidad.codigo;
+    this.api.get<any>(
+      `/articulacion/matriz-poau/?incluir_unidades=0&unidad=${encodeURIComponent(codigo)}`)
+      .subscribe({
+        next: (d: any) => {
+          // Evita que una respuesta tardía de la unidad anterior ensucie la
+          // selección en curso.
+          if (this.cabecera.codigoUnidad !== codigo) { return; }
+          this.operaciones = (d?.filas ?? [])
+            .filter((f: any) => f.nivel === 'operacion' && f.objeto_id);
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          if (this.cabecera.codigoUnidad === codigo) { this.operaciones = []; }
+          this.cdr.markForCheck();
+        },
+      });
+  }
 
-    this.cargar(
-      `/articulacion/operaciones/?accion_poa=${encodeURIComponent(String(accionId))}`,
-      v => {
-        // Evita que una respuesta tardía de la ACP anterior ensucie la selección.
-        if (this.cabecera.accionPoaId === accionId) {
-          this.operaciones = v;
-        }
-      },
-    );
+  onCategoria(): void {
+    const entrada = this.categoriasDeUnidad.find(
+      c => c.categoriaProgramatica === this.categoriaSel);
+
+    this.cabecera.categoriaProgramatica = entrada?.categoriaProgramatica || '';
+    this.cabecera.saldoDisponible = entrada
+      ? saldoDisponible(this.cabecera.codigoUnidad, entrada.categoriaProgramatica)
+      : null;
+
+    // La denominación oficial es la del catálogo de categorías; la planilla de
+    // saldos solo se usa de respaldo cuando el catálogo no la tiene.
+    this.completarDenominacion();
+    if (!this.cabecera.denominacionCategoria) {
+      this.cabecera.denominacionCategoria = entrada?.denominacion || '';
+    }
+
+    // Cambiar de categoría invalida la operación elegida en la anterior.
+    this.operacionSel = '';
+    this.cabecera.operacionId = null;
+    this.cabecera.codigoOperacion = '';
+    this.cabecera.accionPoaId = null;
+    this.cabecera.codigoAccion = '';
   }
 
   onOperacion(): void {
     const operacion = this.operacionesFiltradas.find(
-      o => o.id === this.operacionSel,
+      o => o.objeto_id === this.operacionSel,
     );
 
-    this.cabecera.operacionId = operacion?.id || null;
-
-    // Cambiar de operación invalida las actividades de la anterior.
-    this.actividadSel = '';
+    this.cabecera.operacionId = operacion?.objeto_id || null;
+    this.cabecera.codigoOperacion = operacion?.codigo || '';
+    // La acción de corto plazo ya no se elige: la trae la operación. Sigue
+    // haciendo falta porque la asignación de gasto cuelga de ella.
+    this.cabecera.accionPoaId = operacion?.accion_id || null;
+    this.cabecera.codigoAccion = operacion?.cod_accion_corto_plazo || '';
+    // La actividad quedó fuera del asistente: la programación cuelga de la
+    // operación y el backend ya no la exige.
     this.cabecera.actividadId = null;
-    this.actividades = [];
-
-    if (!operacion?.id) {
-      return;
-    }
-
-    const operacionId = operacion.id;
-
-    this.cargar(
-      `/articulacion/actividades/?operacion=${encodeURIComponent(String(operacionId))}`,
-      v => {
-        // Evita respuestas tardías provenientes de otra operación.
-        if (this.cabecera.operacionId === operacionId) {
-          this.actividades = v;
-        }
-      },
-    );
   }
 
-  onActividad(): void {
-    const actividad = this.actividadesFiltradas.find(a => a.id === this.actividadSel);
-    this.cabecera.actividadId = actividad?.id || null;
+  /** Deja la categoría y su saldo en blanco sin tocar la unidad. */
+  private limpiarCategoria(): void {
+    this.cabecera.categoriaProgramatica = '';
+    this.cabecera.denominacionCategoria = '';
+    this.cabecera.saldoDisponible = null;
+    this.cabecera.operacionId = null;
+    this.cabecera.codigoOperacion = '';
+    this.cabecera.accionPoaId = null;
+    this.cabecera.codigoAccion = '';
+    this.cabecera.actividadId = null;
   }
 
   /** La denominación es del catálogo, no de lo que alguien tipeó en la acción. */
   private completarDenominacion(): void {
     this.cabecera.denominacionCategoria =
-      this.denominacionPorCategoria.get(this.cabecera.categoriaProgramatica) || '';
+      this.denominacionPorCategoria.get(
+        _codigoCategoria(this.cabecera.categoriaProgramatica)) || '';
   }
 
   onDa(opcion: OpcionCombo | null): void {

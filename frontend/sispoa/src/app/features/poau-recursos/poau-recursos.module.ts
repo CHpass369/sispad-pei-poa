@@ -1,5 +1,6 @@
 import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { DragDropModule } from '@angular/cdk/drag-drop';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, Routes } from '@angular/router';
 import { SharedModule } from '../../shared/shared.module';
@@ -28,6 +29,9 @@ const routes: Routes = [
 
 @NgModule({
   declarations: [PoauRecursosWizardComponent, PoauRecursosViewerComponent],
-  imports: [CommonModule, FormsModule, SharedModule, RouterModule.forChild(routes)],
+  imports: [
+    CommonModule, FormsModule, SharedModule, DragDropModule,
+    RouterModule.forChild(routes),
+  ],
 })
 export class PoauRecursosModule {}

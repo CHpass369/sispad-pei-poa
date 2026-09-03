@@ -49,24 +49,43 @@ export function totalAnual(programacion: ProgramacionMensual): number {
   return MESES.reduce((t, mes) => t + (Number(programacion[mes]) || 0), 0);
 }
 
-/** Cabecera heredada de la acción de corto plazo y su categoría programática. */
+/** Cabecera heredada de la unidad, su categoría programática y la operación. */
 export interface CabeceraRecursos {
+  /** Código de la unidad organizacional que programa. */
+  codigoUnidad: string;
+  nombreUnidad: string;
   categoriaProgramatica: string;
   denominacionCategoria: string;
+  /**
+   * Saldo de la categoría dentro de la unidad, en bolivianos.
+   *
+   * `null` cuando el par no figura en la planilla de revisión: sin techo
+   * conocido no se puede afirmar que un monto quepa ni que se pase.
+   */
+  saldoDisponible: number | null;
   cargoReacp: string;
   da: string;
   ue: string;
   gestion: number;
   accionPoaId: string | null;
   operacionId: string | null;
+  /**
+   * Actividad del POAU, si la operación la desagrega.
+   *
+   * Ya no se elige en el asistente: la programación cuelga de la operación.
+   */
   actividadId: string | null;
   codigoAccion: string;
+  codigoOperacion: string;
 }
 
 export function cabeceraVacia(): CabeceraRecursos {
   return {
+    codigoUnidad: '',
+    nombreUnidad: '',
     categoriaProgramatica: '',
     denominacionCategoria: '',
+    saldoDisponible: null,
     cargoReacp: '',
     da: '',
     ue: '',
@@ -77,6 +96,7 @@ export function cabeceraVacia(): CabeceraRecursos {
     operacionId: null,
     actividadId: null,
     codigoAccion: '',
+    codigoOperacion: '',
   };
 }
 
@@ -149,6 +169,22 @@ export function totalGeneral(requerimientos: RequerimientoForm[]): number {
   return requerimientos.reduce((t, r) => t + totalAnual(r.programacion), 0);
 }
 
+/**
+ * Lo que queda del saldo después de lo ya programado.
+ *
+ * Devuelve `null` cuando no se conoce el saldo de la categoría: sin techo no
+ * hay resto que mostrar, y un cero ahí se leería como «no queda nada».
+ * Negativo significa déficit, y se devuelve tal cual: recortarlo a cero
+ * escondería justo el dato que hay que corregir.
+ */
+export function saldoRestante(
+  saldoDisponible: number | null,
+  requerimientos: RequerimientoForm[],
+): number | null {
+  if (saldoDisponible === null) { return null; }
+  return saldoDisponible - totalGeneral(requerimientos);
+}
+
 // ---------------------------------------------------------------------------
 // Validaciones
 // ---------------------------------------------------------------------------
@@ -167,12 +203,11 @@ export function validarMatriz(
 ): Hallazgo[] {
   const hallazgos: Hallazgo[] = [];
 
-  if (!cabecera.actividadId) {
+  if (!cabecera.codigoUnidad.trim()) {
     hallazgos.push({
       severidad: 'error',
       seccion: 'Articulación POAU',
-      mensaje:
-        'Los requerimientos cuelgan de una actividad del POAU: seleccione operación y actividad.',
+      mensaje: 'Elija la unidad organizacional que programa los recursos.',
     });
   }
   if (!cabecera.categoriaProgramatica.trim()) {
@@ -180,6 +215,14 @@ export function validarMatriz(
       severidad: 'error',
       seccion: 'Articulación POAU',
       mensaje: 'Falta la categoría programática que clasifica el gasto.',
+    });
+  }
+  if (!cabecera.operacionId) {
+    hallazgos.push({
+      severidad: 'error',
+      seccion: 'Articulación POAU',
+      mensaje:
+        'Los requerimientos cuelgan de una operación del POAU físico: seleccione una.',
     });
   }
   if (!cabecera.da.trim() || !cabecera.ue.trim()) {
@@ -253,6 +296,24 @@ export function validarMatriz(
       });
     }
   });
+
+  // El techo de la categoría se controla acá y no requerimiento por
+  // requerimiento: el saldo lo consume la suma de todos, no cada uno suelto.
+  if (cabecera.saldoDisponible !== null && requerimientos.length) {
+    const programado = totalGeneral(requerimientos);
+    if (programado > cabecera.saldoDisponible) {
+      const exceso = programado - cabecera.saldoDisponible;
+      hallazgos.push({
+        severidad: 'error',
+        seccion: 'Articulación POAU',
+        mensaje:
+          `Lo programado (${programado.toLocaleString('es-BO')} Bs.) supera en ` +
+          `${exceso.toLocaleString('es-BO')} Bs. el saldo disponible de la ` +
+          `categoría ${cabecera.categoriaProgramatica} ` +
+          `(${cabecera.saldoDisponible.toLocaleString('es-BO')} Bs.).`,
+      });
+    }
+  }
 
   return hallazgos;
 }

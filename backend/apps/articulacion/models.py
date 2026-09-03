@@ -1109,8 +1109,12 @@ class AsignacionObjetoGasto(TimeStampedModel):
         OperacionPOAU, on_delete=models.CASCADE,
         related_name='asignaciones_og', verbose_name='Operación'
     )
+    # Opcional desde que la programación de recursos cuelga de la operación.
+    # El POAU físico no siempre desagrega la operación en actividades, y
+    # exigir una acá obligaba al asistente a elegir cualquiera con tal de
+    # guardar: una actividad inventada es peor que ninguna.
     actividad = models.ForeignKey(
-        ActividadPOAU, on_delete=models.CASCADE,
+        ActividadPOAU, on_delete=models.CASCADE, null=True, blank=True,
         related_name='asignaciones_og', verbose_name='Actividad'
     )
     tarea = models.ForeignKey(
