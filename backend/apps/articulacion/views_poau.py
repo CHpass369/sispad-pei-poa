@@ -420,9 +420,9 @@ class MatrizPOAUViewSet(viewsets.ViewSet):
                 'indicador': obj.indicador or '',
                 'formula': obj.formula or 'N/A',
                 'unidadMedida': obj.unidad_medida or '',
-                # La línea base no existe en los modelos POAU todavía.
-                'lineaBase': None,
+                'lineaBase': _num(obj.linea_base),
                 'meta': _num(obj.meta_anual),
+                'metaActual': _num(obj.meta_actual),
             }
 
         def fechas(obj):
@@ -443,7 +443,7 @@ class MatrizPOAUViewSet(viewsets.ViewSet):
                     'denominacion': act.denominacion,
                     'productoIntermedio': act.producto_entregable or '',
                     'indicador': indicador(act), **fechas(act),
-                    'ponderacion': None,
+                    'ponderacion': _num(act.ponderacion),
                     'programacion': _plan(act.programacion_mensual),
                     'tareas': [{
                         'id': str(t.id), 'codigo': t.codigo_tarea,
@@ -461,7 +461,7 @@ class MatrizPOAUViewSet(viewsets.ViewSet):
                 'productoIntermedio': op.producto_entregable or '',
                 'unidadEjecutora': op.unidad_ejecutora or '',
                 'indicador': indicador(op), **fechas(op),
-                'ponderacion': None,
+                'ponderacion': _num(op.ponderacion),
                 'programacion': _plan(op.programacion_mensual),
                 'actividades': actividades,
             })

@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { concatMap, from, of, switchMap, toArray } from 'rxjs';
+import { Observable, catchError, concatMap, from, of, switchMap, tap, throwError, toArray } from 'rxjs';
 import { ApiService } from '../../../core/services/api.service';
 import { GestionHabilitadaService } from '../../../core/services/gestion-habilitada.service';
 import { environment } from '../../../../environments/environment';
@@ -183,6 +183,8 @@ import {
               <input [(ngModel)]="o.indicador.lineaBase" type="number" class="form-control"></div>
             <div class="field"><label>Meta</label>
               <input [(ngModel)]="o.indicador.meta" type="number" class="form-control"></div>
+            <div class="field"><label>Meta actual</label>
+              <input [(ngModel)]="o.indicador.metaActual" type="number" class="form-control"></div>
             <div class="field"><label>Total programado</label>
               <input [ngModel]="total(o.programacion)" class="form-control derivada" readonly></div>
           </div>
@@ -255,6 +257,14 @@ import {
                 <input [(ngModel)]="ac.indicador.unidadMedida" class="form-control"></div>
               <div class="field"><label>Meta</label>
                 <input [(ngModel)]="ac.indicador.meta" type="number" class="form-control"></div>
+            </div>
+            <div class="form-3col">
+              <div class="field"><label>Línea base</label>
+                <input [(ngModel)]="ac.indicador.lineaBase" type="number" class="form-control"></div>
+              <div class="field"><label>Meta actual</label>
+                <input [(ngModel)]="ac.indicador.metaActual" type="number" class="form-control"></div>
+              <div class="field"><label>% Ponderación</label>
+                <input [(ngModel)]="ac.ponderacion" type="number" class="form-control"></div>
             </div>
 
             <div class="fechas-fila">
@@ -482,6 +492,16 @@ export class PoauWizardComponent implements OnInit {
   /** Registro sobre el que se pulsó "editar" en la matriz, para resaltarlo. */
   foco = '';
   cargandoEdicion = false;
+  /**
+   * Ids presentes al cargar la acción para editar. Al guardar, lo que esté
+   * acá y ya no esté en el formulario se elimina; lo que esté en ambos se
+   * actualiza (PATCH) y solo lo nuevo se crea (POST).
+   */
+  private idsCargados = {
+    operaciones: new Set<string>(),
+    actividades: new Set<string>(),
+    tareas: new Set<string>(),
+  };
 
   constructor(
     private api: ApiService,
@@ -537,6 +557,8 @@ export class PoauWizardComponent implements OnInit {
           }));
           // Sin operaciones el wizard necesita una fila en blanco donde escribir.
           if (!this.operaciones.length) { this.operaciones = [operacionVacia()]; }
+          // Registra los ids cargados: distingue actualizar de crear al guardar.
+          this.registrarIdsCargados();
           this.paso = 1;
           this.cargandoEdicion = false;
           this.cdr.markForCheck();
@@ -642,43 +664,62 @@ export class PoauWizardComponent implements OnInit {
     this.msg = 'Registrando el POAU…';
     this.msgClass = '';
 
-    from(this.operaciones.map((o, i) => ({ operacion: o, indice: i })))
+    this.eliminarRetirados()
       .pipe(
-        concatMap(({ operacion, indice }) =>
-          this.api.post<any>('/articulacion/operaciones/', this.cuerpoOperacion(operacion, indice)).pipe(
-            switchMap((creada: any) =>
-              operacion.actividades.length
-                ? from(operacion.actividades.map((a, j) => ({ actividad: a, j }))).pipe(
-                    concatMap(({ actividad, j }) =>
-                      this.api.post<any>('/articulacion/actividades/',
-                        this.cuerpoActividad(creada.id, actividad, indice, j),
-                      ).pipe(
-                        switchMap((actCreada: any) =>
-                          actividad.tareas.length
-                            ? from(actividad.tareas.map((t, k) => ({ tarea: t, k }))).pipe(
-                                concatMap(({ tarea, k }) =>
-                                  this.api.post('/articulacion/tareas/',
-                                    this.cuerpoTarea(actCreada.id, tarea, indice, j, k),
-                                  ),
-                                ),
-                                toArray(),
-                              )
-                            : of([]),
-                        ),
-                      ),
-                    ),
-                    toArray(),
-                  )
-                : of([]),
-            ),
+        switchMap(() =>
+          from(this.operaciones.map((o, i) => ({ operacion: o, indice: i }))).pipe(
+            concatMap(({ operacion, indice }) => {
+              const cuerpo = this.cuerpoOperacion(operacion, indice);
+              // El nodo persistido se actualiza; el nuevo se crea. Re-crear un
+              // nodo existente choca con el código único (unique global).
+              const guardado$ = operacion.id
+                ? this.api.patch<any>(`/articulacion/operaciones/${operacion.id}/`, cuerpo)
+                : this.api.post<any>('/articulacion/operaciones/', cuerpo);
+              return guardado$.pipe(
+                tap((op: any) => { operacion.id = op.id; }),
+                switchMap((op: any) =>
+                  operacion.actividades.length
+                    ? from(operacion.actividades.map((a, j) => ({ actividad: a, j }))).pipe(
+                        concatMap(({ actividad, j }) => {
+                          const cuerpoAct = this.cuerpoActividad(op.id, actividad, indice, j);
+                          const act$ = actividad.id
+                            ? this.api.patch<any>(`/articulacion/actividades/${actividad.id}/`, cuerpoAct)
+                            : this.api.post<any>('/articulacion/actividades/', cuerpoAct);
+                          return act$.pipe(
+                            tap((act: any) => { actividad.id = act.id; }),
+                            switchMap((act: any) =>
+                              actividad.tareas.length
+                                ? from(actividad.tareas.map((t, k) => ({ tarea: t, k }))).pipe(
+                                    concatMap(({ tarea, k }) => {
+                                      const cuerpoTar = this.cuerpoTarea(act.id, tarea, indice, j, k);
+                                      return tarea.id
+                                        ? this.api.patch(`/articulacion/tareas/${tarea.id}/`, cuerpoTar)
+                                        : this.api.post<any>('/articulacion/tareas/', cuerpoTar).pipe(
+                                            tap((tar: any) => { tarea.id = tar.id; }),
+                                          );
+                                    }),
+                                    toArray(),
+                                  )
+                                : of([]),
+                            ),
+                          );
+                        }),
+                        toArray(),
+                      )
+                    : of([]),
+                ),
+              );
+            }),
+            toArray(),
           ),
         ),
-        toArray(),
       )
       .subscribe({
         next: () => {
           this.guardando = false;
-          this.msg = `✅ POAU registrado: ${this.operaciones.length} operación(es) y ${this.totalActividades} actividad(es) sobre ${this.cabecera.codigoAccionCortoPlazo}.`;
+          this.registrarIdsCargados();
+          const verbo = this.editandoAccion ? 'actualizado' : 'registrado';
+          this.msg = `✅ POAU ${verbo}: ${this.operaciones.length} operación(es) y ${this.totalActividades} actividad(es) sobre ${this.cabecera.codigoAccionCortoPlazo}.`;
           this.msgClass = 'exito';
           this.cdr.markForCheck();
         },
@@ -691,9 +732,55 @@ export class PoauWizardComponent implements OnInit {
       });
   }
 
+  /**
+   * Elimina lo persistido que ya no está en el formulario: primero tareas,
+   * luego actividades, luego operaciones. El 404 se tolera porque el borrado
+   * en cascada de un padre puede haber eliminado ya al hijo.
+   */
+  private eliminarRetirados(): Observable<unknown> {
+    const opsActuales = new Set(this.operaciones.map(o => o.id).filter(Boolean) as string[]);
+    const actsActuales = new Set<string>();
+    const tareasActuales = new Set<string>();
+    for (const o of this.operaciones) {
+      for (const a of o.actividades) {
+        if (a.id) actsActuales.add(a.id);
+        for (const t of a.tareas) if (t.id) tareasActuales.add(t.id);
+      }
+    }
+    const retirados = (cargados: Set<string>, actuales: Set<string>, ruta: string) =>
+      [...cargados].filter(id => !actuales.has(id))
+        .map(id => this.api.delete(`${ruta}${id}/`).pipe(
+          catchError((err: any) => (err?.status === 404 ? of(null) : throwError(() => err))),
+        ));
+    const peticiones = [
+      ...retirados(this.idsCargados.tareas, tareasActuales, '/articulacion/tareas/'),
+      ...retirados(this.idsCargados.actividades, actsActuales, '/articulacion/actividades/'),
+      ...retirados(this.idsCargados.operaciones, opsActuales, '/articulacion/operaciones/'),
+    ];
+    return peticiones.length
+      ? from(peticiones).pipe(concatMap(peticion => peticion), toArray())
+      : of([]);
+  }
+
+  /** Reinicia el registro de ids presentes tras cargar o guardar. */
+  private registrarIdsCargados(): void {
+    const ids = {
+      operaciones: new Set<string>(),
+      actividades: new Set<string>(),
+      tareas: new Set<string>(),
+    };
+    for (const o of this.operaciones) {
+      if (o.id) ids.operaciones.add(o.id);
+      for (const a of o.actividades) {
+        if (a.id) ids.actividades.add(a.id);
+        for (const t of a.tareas) if (t.id) ids.tareas.add(t.id);
+      }
+    }
+    this.idsCargados = ids;
+  }
+
   private cuerpoOperacion(operacion: OperacionForm, indice: number): Record<string, unknown> {
-    return {
-      codigo_operacion: this.codigoDeOperacion(indice),
+    const cuerpo: Record<string, unknown> = {
       denominacion: operacion.denominacion,
       tipo_operacion: operacion.tipoOperacion,
       producto_entregable: operacion.productoIntermedio,
@@ -704,11 +791,18 @@ export class PoauWizardComponent implements OnInit {
       indicador: operacion.indicador.indicador,
       formula: operacion.indicador.formula,
       unidad_medida: operacion.indicador.unidadMedida,
+      linea_base: operacion.indicador.lineaBase,
+      meta_actual: operacion.indicador.metaActual,
+      ponderacion: operacion.ponderacion,
       fecha_inicio: operacion.fechaInicio || null,
       fecha_fin: operacion.fechaFin || null,
       programacion_mensual: operacion.programacion,
       total_programado: totalAnual(operacion.programacion),
     };
+    // El código se genera solo para nodos nuevos: el persistido conserva el
+    // suyo (es unique global y un reordenamiento no debe reescribirlo).
+    if (!operacion.id) cuerpo['codigo_operacion'] = this.codigoDeOperacion(indice);
+    return cuerpo;
   }
 
   private cuerpoActividad(
@@ -717,8 +811,7 @@ export class PoauWizardComponent implements OnInit {
     i: number,
     j: number,
   ): Record<string, unknown> {
-    return {
-      codigo_actividad: this.codigoDeActividad(i, j),
+    const cuerpo: Record<string, unknown> = {
       denominacion: actividad.denominacion,
       operacion: operacionId,
       producto_entregable: actividad.productoIntermedio,
@@ -726,11 +819,16 @@ export class PoauWizardComponent implements OnInit {
       indicador: actividad.indicador.indicador,
       formula: actividad.indicador.formula,
       unidad_medida: actividad.indicador.unidadMedida,
+      linea_base: actividad.indicador.lineaBase,
+      meta_actual: actividad.indicador.metaActual,
+      ponderacion: actividad.ponderacion,
       fecha_inicio: actividad.fechaInicio || null,
       fecha_fin: actividad.fechaFin || null,
       programacion_mensual: actividad.programacion,
       total_programado: totalAnual(actividad.programacion),
     };
+    if (!actividad.id) cuerpo['codigo_actividad'] = this.codigoDeActividad(i, j);
+    return cuerpo;
   }
 
   private cuerpoTarea(
@@ -740,8 +838,7 @@ export class PoauWizardComponent implements OnInit {
     j: number,
     k: number,
   ): Record<string, unknown> {
-    return {
-      codigo_tarea: this.codigoDeTarea(i, j, k),
+    const cuerpo: Record<string, unknown> = {
       denominacion: tarea.denominacion,
       actividad: actividadId,
       responsable: tarea.responsable,
@@ -749,6 +846,8 @@ export class PoauWizardComponent implements OnInit {
       fecha_fin: tarea.fechaFin || null,
       programacion_mensual: tarea.programacion,
     };
+    if (!tarea.id) cuerpo['codigo_tarea'] = this.codigoDeTarea(i, j, k);
+    return cuerpo;
   }
 
   private detalleError(err: any): string {

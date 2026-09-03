@@ -80,6 +80,7 @@ export interface IndicadorPoau {
   unidadMedida: string;
   lineaBase: number | null;
   meta: number | null;
+  metaActual: number | null;
 }
 
 export function indicadorVacio(): IndicadorPoau {
@@ -89,11 +90,14 @@ export function indicadorVacio(): IndicadorPoau {
     unidadMedida: '',
     lineaBase: null,
     meta: null,
+    metaActual: null,
   };
 }
 
 /** Tarea específica: el nivel más desagregado del POAU. */
 export interface TareaForm {
+  /** Id del nodo persistido; ausente mientras la tarea es nueva en el formulario. */
+  id?: string;
   denominacion: string;
   responsable: string;
   fechaInicio: string;
@@ -113,6 +117,8 @@ export function tareaVacia(): TareaForm {
 
 /** Actividad: desagregación opcional de la operación. */
 export interface ActividadForm {
+  /** Id del nodo persistido; ausente mientras la actividad es nueva en el formulario. */
+  id?: string;
   denominacion: string;
   productoIntermedio: string;
   indicador: IndicadorPoau;
@@ -138,6 +144,8 @@ export function actividadVacia(): ActividadForm {
 
 /** Operación: producto intermedio que conduce al resultado de la acción. */
 export interface OperacionForm {
+  /** Id del nodo persistido; ausente mientras la operación es nueva en el formulario. */
+  id?: string;
   denominacion: string;
   tipoOperacion: string;
   productoIntermedio: string;
