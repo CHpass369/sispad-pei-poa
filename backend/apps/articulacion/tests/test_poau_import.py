@@ -2,6 +2,7 @@
 
 import io
 from datetime import date
+from decimal import Decimal
 from unittest.mock import patch
 
 import openpyxl
@@ -19,6 +20,7 @@ from apps.articulacion.models import (
     ProductoPEI,
     ResultadoPEI,
     TareaPOAU,
+    VersionImportacionPOAU,
 )
 from apps.articulacion.poau_importer import (
     ImportacionError,
@@ -26,9 +28,30 @@ from apps.articulacion.poau_importer import (
     create_preview,
     download_google_sheet,
 )
-from apps.catalogos.models import TipoOperacion, UnidadMedida
+from apps.catalogos.models import (
+    ClasificadorInstitucional,
+    FuenteFinanciamiento,
+    ObjetoGasto,
+    OrganismoFinanciador,
+    TipoOperacion,
+    UnidadMedida,
+    VersionClasificador,
+)
 from apps.gestion.testing import habilitar_gestion_para_tests
-from apps.organizacion.models import TipoUnidad, UnidadOrganizacional
+from apps.organizacion.models import (
+    DireccionAdministrativa,
+    TipoUnidad,
+    UnidadEjecutora,
+    UnidadOrganizacional,
+)
+from apps.presupuesto.models import (
+    ActividadPresupuestaria,
+    AsignacionPresupuestariaUnidad,
+    CategoriaProgramatica,
+    ProgramaPresupuestario,
+    ProyectoPresupuestario,
+)
+from apps.presupuesto.test_t4_asignaciones import crear_version
 
 
 HEADERS = [
@@ -172,6 +195,78 @@ def physical_row(level, **values):
         row[month] = 0
     row.update(values)
     return row
+
+
+def crear_asignacion_presupuestaria(gestion, unidad, operacion):
+    """Cadena mínima real para una `AsignacionPresupuestariaUnidad` de prueba.
+
+    Reusa `crear_version` de `test_t4_asignaciones` en vez de reinventarla;
+    el resto de la cadena de catálogos es exclusiva de este test porque
+    `CategoriaProgramatica` exige entidad/da/ue/programa/proyecto/actividad
+    reales y `full_clean()`-validados.
+    """
+    inicio = date(gestion.anio, 1, 1)
+    entidad = ClasificadorInstitucional.objects.create(
+        # CategoriaProgramatica.clean() exige entidad.codigo == '1312'.
+        codigo='1312', denominacion='Entidad ETL', gestion=gestion,
+        fecha_vigencia_desde=inicio,
+    )
+    da = DireccionAdministrativa.objects.create(
+        codigo='DA-ETL', nombre='DA ETL', gestion=gestion,
+        fecha_vigencia_desde=inicio,
+    )
+    ue = UnidadEjecutora.objects.create(
+        codigo='UE-ETL', nombre='UE ETL', da=da, gestion=gestion,
+        fecha_vigencia_desde=inicio,
+    )
+    programa = ProgramaPresupuestario.objects.create(
+        codigo='ETL-PRG', nombre='Programa ETL', gestion=gestion.anio,
+    )
+    proyecto = ProyectoPresupuestario.objects.create(
+        codigo='ETL-PRY', nombre='Proyecto ETL', programa=programa,
+        gestion=gestion.anio,
+    )
+    actividad_presupuestaria = ActividadPresupuestaria.objects.create(
+        codigo='ETL-ACT', nombre='Actividad presupuestaria ETL',
+        proyecto=proyecto, gestion=gestion.anio,
+    )
+    categoria_version = crear_version(
+        VersionClasificador.TIPO_CATEGORIA_PROGRAMATICA, gestion=gestion.anio,
+    )
+    categoria = CategoriaProgramatica.objects.create(
+        version_clasificador=categoria_version, entidad=entidad, da=da, ue=ue,
+        programa=programa, proyecto=proyecto, actividad=actividad_presupuestaria,
+        codigo_fuente='1312-ETL|DA-ETL|UE-ETL|ETL-PRG|ETL-PRY|ETL-ACT',
+        procedencia_normativa='Prueba ETL',
+    )
+    fuente = FuenteFinanciamiento.objects.create(
+        # ANCHO_CODIGO_OFICIAL exige 2/3/5 dígitos exactos en fuente/organismo/objeto.
+        codigo='20', denominacion='Fuente ETL', gestion=gestion,
+        fecha_vigencia_desde=inicio,
+        version_clasificador=crear_version(
+            VersionClasificador.TIPO_FUENTE_FINANCIAMIENTO, gestion=gestion.anio,
+        ),
+    )
+    organismo = OrganismoFinanciador.objects.create(
+        codigo='210', denominacion='Organismo ETL', gestion=gestion,
+        fecha_vigencia_desde=inicio,
+        version_clasificador=crear_version(
+            VersionClasificador.TIPO_ORGANISMO_FINANCIADOR, gestion=gestion.anio,
+        ),
+    )
+    objeto = ObjetoGasto.objects.create(
+        codigo='11210', denominacion='Objeto de gasto ETL', gestion=gestion,
+        fecha_vigencia_desde=inicio, nivel=ObjetoGasto.NIVEL_DETALLE,
+        version_clasificador=crear_version(
+            VersionClasificador.TIPO_OBJETO_GASTO, gestion=gestion.anio,
+        ),
+    )
+    return AsignacionPresupuestariaUnidad.objects.create(
+        categoria_programatica=categoria, fuente=fuente, organismo=organismo,
+        objeto_gasto=objeto, unidad=unidad, operacion=operacion,
+        gestion=gestion.anio, monto_formulado=Decimal('1000.00'),
+        monto_vigente=Decimal('900.00'), monto_ejecutado=Decimal('0'),
+    )
 
 
 class PoauImportBase(TestCase):
@@ -667,6 +762,38 @@ class PoauImportApplyTests(PoauImportBase):
         self.assertEqual(operation.ponderacion, 25)
         self.assertEqual(applied.data['resultado']['eliminados'], 4)
         self.assertEqual(applied.data['resultado']['creados'], 5)
+
+    def test_apply_replaces_operation_with_existing_budget_assignment(self):
+        """Reproduce el 400 real de producción: la operación que el nuevo
+
+        árbol reemplaza ya tiene una `AsignacionPresupuestariaUnidad`
+        (on_delete=PROTECT). Antes del fix esto bloqueaba todo el `apply`;
+        ahora debe reemplazar igual, dejando la asignación en el historial
+        auditado en vez de simplemente borrarla sin dejar rastro.
+        """
+        asignacion = crear_asignacion_presupuestaria(
+            self.gestion, self.unit, self.operation,
+        )
+        response = self.preview_excel(self.rows(include_new=True))
+        operation_id = self.operation.id
+
+        applied = self.client.post(
+            reverse('v2-poau-imports-apply', args=[response.data['id']]) + self.query,
+            {'confirmation_code': self.unit.codigo}, format='json',
+        )
+
+        self.assertEqual(applied.status_code, 200, applied.data)
+        self.assertFalse(OperacionPOAU.objects.filter(pk=operation_id).exists())
+        self.assertFalse(
+            AsignacionPresupuestariaUnidad.objects.filter(pk=asignacion.pk).exists(),
+        )
+        version = VersionImportacionPOAU.objects.get(
+            unidad=self.unit, tipo_evento=VersionImportacionPOAU.TipoEvento.REEMPLAZO,
+        )
+        self.assertIn(
+            str(operation_id),
+            [row['id'] for row in version.snapshot['operaciones']],
+        )
 
     def test_write_failure_rolls_back_all_changes(self):
         content = workbook_bytes(self.rows())

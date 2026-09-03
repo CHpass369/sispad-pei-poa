@@ -16,7 +16,7 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 import openpyxl
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import connection, transaction
-from django.db.models import Max
+from django.db.models import Max, Q
 from django.utils import timezone
 from django.utils.dateparse import parse_date, parse_datetime
 
@@ -24,6 +24,7 @@ from apps.accounts.services_scope import ScopeResolver
 from apps.catalogos.models import TipoOperacion, UnidadMedida
 from apps.gestion.mixins import gestion_del_candado
 from apps.organizacion.models import UnidadOrganizacional
+from apps.presupuesto.models import AsignacionPresupuestariaUnidad
 
 from .models import (
     AccionPOA,
@@ -1198,173 +1199,6 @@ def _create_provisional_product(aie, gestion, unidad, result=None):
 def apply_preview(preview_id, user, confirmation_code='', operation_types=None):
     preview = (
         ImportacionProgramacionFisica.objects.select_for_update()
-        .select_related('gestion', 'unidad')
-        .get(pk=preview_id)
-    )
-    if preview.creado_por_id != user.id and not user.is_superuser:
-        raise ImportacionError('La vista previa pertenece a otro usuario.')
-    if preview.estado == ImportacionProgramacionFisica.Estado.APLICADO:
-        raise ImportacionError('La vista previa ya fue aplicada.')
-    if preview.estado != ImportacionProgramacionFisica.Estado.VALIDO or any(
-        _is_blocking(issue) for issue in preview.errores
-    ):
-        raise ImportacionError('No se puede aplicar una vista previa con errores.')
-    if preview.expira_en <= timezone.now():
-        raise ImportacionError('La vista previa expiró; genere una nueva.')
-    if not user.is_superuser and not ScopeResolver.puede_operar(
-        user, preview.unidad_id, preview.gestion_id,
-    ):
-        raise ImportacionError('La unidad está fuera de su alcance organizacional.')
-    if _texto(confirmation_code).upper() != preview.unidad.codigo.upper():
-        raise ImportacionError('Para reconstruir el POAU escriba exactamente el código de la unidad.')
-
-    actions_qs = (
-        AccionPOA.objects.select_for_update()
-        .filter(gestion=preview.gestion.anio, unidad_responsable=preview.unidad)
-    )
-    actions = {action.codigo_accion.upper(): action for action in actions_qs}
-    operations_qs = OperacionPOAU.objects.select_for_update().filter(accion_poa__in=actions_qs)
-    activities_qs = ActividadPOAU.objects.select_for_update().filter(operacion__in=operations_qs)
-    tasks_qs = TareaPOAU.objects.select_for_update().filter(actividad__in=activities_qs)
-    protected = [
-        obj for obj in [*actions.values(), *operations_qs, *activities_qs, *tasks_qs]
-        if str(obj.estado).upper() in {'OFICIAL', EstadosPOAU.APROBADO}
-    ]
-    if protected:
-        raise ImportacionError(
-            'La unidad contiene registros oficiales o aprobados; deben volver a '
-            'borrador/observado antes de reemplazar su programación.',
-        )
-
-    existing_ops = defaultdict(list)
-    existing_acts = defaultdict(list)
-    existing_tasks = defaultdict(list)
-    for obj in operations_qs:
-        existing_ops[obj.accion_poa_id].append(obj)
-    for obj in activities_qs:
-        existing_acts[obj.operacion_id].append(obj)
-    for obj in tasks_qs:
-        existing_tasks[obj.actividad_id].append(obj)
-
-    kept_ops, kept_acts, kept_tasks = set(), set(), set()
-    resolved_ops, resolved_acts = {}, {}
-    counts = {'creados': 0, 'actualizados': 0, 'eliminados': 0, 'sin_cambios': 0}
-
-    for node in preview.filas_normalizadas:
-        action = actions.get(node['accion_codigo'])
-        if action is None:
-            raise ImportacionError('La jerarquía cambió desde la vista previa.')
-        key = _node_key(node)
-        values = _fields_for(node)
-        if node['nivel'] == 'operacion':
-            obj = _match_child(
-                existing_ops[action.id], 'codigo_operacion',
-                node['operacion_codigo'], node['operacion'],
-            )
-            if obj is None:
-                code, corr, segment = _next_identity(
-                    OperacionPOAU, {'accion_poa': action}, action.codigo_accion,
-                    'codigo_operacion', node['operacion_codigo'],
-                )
-                obj = OperacionPOAU.objects.create(
-                    codigo_operacion=code, correlativo=corr, segmento=segment,
-                    accion_poa=action, **values,
-                )
-                counts['creados'] += 1
-            elif _apply_values(obj, values):
-                counts['actualizados'] += 1
-            else:
-                counts['sin_cambios'] += 1
-            resolved_ops[key] = obj
-            kept_ops.add(obj.id)
-        elif node['nivel'] == 'actividad':
-            op_key = _node_key({**node, 'nivel': 'operacion'})
-            operation = resolved_ops.get(op_key)
-            if operation is None:
-                raise ImportacionError('La actividad no tiene una operación importada válida.')
-            obj = _match_child(
-                existing_acts[operation.id], 'codigo_actividad',
-                node['actividad_codigo'], node['actividad'],
-            )
-            if obj is None:
-                code, corr, segment = _next_identity(
-                    ActividadPOAU, {'operacion': operation}, operation.codigo_operacion,
-                    'codigo_actividad', node['actividad_codigo'],
-                )
-                obj = ActividadPOAU.objects.create(
-                    codigo_actividad=code, correlativo=corr, segmento=segment,
-                    operacion=operation, **values,
-                )
-                counts['creados'] += 1
-            elif _apply_values(obj, values):
-                counts['actualizados'] += 1
-            else:
-                counts['sin_cambios'] += 1
-            resolved_acts[key] = obj
-            kept_acts.add(obj.id)
-        else:
-            act_key = _node_key({**node, 'nivel': 'actividad'})
-            activity = resolved_acts.get(act_key)
-            if activity is None:
-                raise ImportacionError('La tarea no tiene una actividad importada válida.')
-            obj = _match_child(
-                existing_tasks[activity.id], 'codigo_tarea',
-                node['tarea_codigo'], node['tarea'],
-            )
-            if obj is None:
-                code, corr, segment = _next_identity(
-                    TareaPOAU, {'actividad': activity}, activity.codigo_actividad,
-                    'codigo_tarea', node['tarea_codigo'],
-                )
-                obj = TareaPOAU.objects.create(
-                    codigo_tarea=code, correlativo=corr, segmento=segment,
-                    actividad=activity, **values,
-                )
-                counts['creados'] += 1
-            elif _apply_values(obj, values):
-                counts['actualizados'] += 1
-            else:
-                counts['sin_cambios'] += 1
-            kept_tasks.add(obj.id)
-
-    stale_tasks = list(tasks_qs.exclude(pk__in=kept_tasks))
-    stale_activities = list(activities_qs.exclude(pk__in=kept_acts))
-    stale_operations = list(operations_qs.exclude(pk__in=kept_ops))
-    for obj, ignored in (
-        *((obj, ()) for obj in stale_tasks),
-        *((obj, (TareaPOAU,)) for obj in stale_activities),
-        *((obj, (ActividadPOAU,)) for obj in stale_operations),
-    ):
-        dependencies = _has_external_dependencies(obj, ignored)
-        if dependencies:
-            raise ImportacionError(
-                f'No se puede eliminar {obj}: tiene dependencias en '
-                f'{", ".join(dependencies)}.',
-            )
-    for queryset in (
-        tasks_qs.exclude(pk__in=kept_tasks),
-        activities_qs.exclude(pk__in=kept_acts),
-        operations_qs.exclude(pk__in=kept_ops),
-    ):
-        deleted, _ = queryset.delete()
-        counts['eliminados'] += deleted
-
-    result = {
-        **counts,
-        'reemplazados': counts['actualizados'] + counts['eliminados'],
-        'filas_aplicadas': len(preview.filas_normalizadas),
-    }
-    preview.estado = ImportacionProgramacionFisica.Estado.APLICADO
-    preview.aplicado_en = timezone.now()
-    preview.resultado = result
-    preview.save(update_fields=['estado', 'aplicado_en', 'resultado', 'updated_at'])
-    return preview
-
-
-@transaction.atomic
-def _apply_preview_v2(preview_id, user, confirmation_code='', operation_types=None):
-    preview = (
-        ImportacionProgramacionFisica.objects.select_for_update()
         .select_related('gestion', 'unidad').get(pk=preview_id)
     )
     if preview.creado_por_id != user.id and not user.is_superuser:
@@ -1386,7 +1220,15 @@ def _apply_preview_v2(preview_id, user, confirmation_code='', operation_types=No
 
     operation_types = operation_types or {}
     actions, operations, activities, tasks = _locked_tree(preview.gestion, preview.unidad)
-    _assert_replaceable(actions, operations, activities, tasks)
+
+    # Reemplaza también registros OFICIAL/APROBADO: la decisión confirmada es
+    # "avisar y reconstruir todo", sin bloqueo manual previo — cubierto por
+    # test_approved_record_is_replaced_and_new_tree_returns_to_draft.
+
+    # Auditoría inmutable ANTES de tocar nada: cubre ejecución, presupuesto y
+    # normativa que el reemplazo va a borrar, sin bloquear por su existencia.
+    # `VersionImportacionPOAU` es append-only; `restore_version()` la usa para
+    # deshacer el reemplazo.
     snapshot = snapshot_unit_tree(preview.gestion, preview.unidad)
     old_count = sum(len(items) for items in (actions, operations, activities, tasks))
     history = VersionImportacionPOAU.objects.create(
@@ -1396,7 +1238,22 @@ def _apply_preview_v2(preview_id, user, confirmation_code='', operation_types=No
         fuente_nombre=preview.fuente_nombre,
         fuente_sha256=preview.fuente_sha256, hoja=preview.hoja,
     )
-    _delete_tree(actions, operations, activities, tasks)
+
+    # Borrado por ORM, no SQL crudo: `AsignacionPresupuestariaUnidad` es la
+    # única dependencia externa con on_delete=PROTECT sobre operación/
+    # actividad/tarea, así que hay que borrarla primero explícitamente (ya
+    # quedó en el snapshot de arriba, no se pierde). Las otras dependencias
+    # externas (seguimiento de ejecución, asignación de objeto de gasto,
+    # normativa) son CASCADE: el delete() del ORM las arrastra solo.
+    AsignacionPresupuestariaUnidad.objects.filter(
+        Q(tarea_id__in=[obj.id for obj in tasks])
+        | Q(actividad_id__in=[obj.id for obj in activities])
+        | Q(operacion_id__in=[obj.id for obj in operations]),
+    ).delete()
+    TareaPOAU.objects.filter(pk__in=[obj.id for obj in tasks]).delete()
+    ActividadPOAU.objects.filter(pk__in=[obj.id for obj in activities]).delete()
+    OperacionPOAU.objects.filter(pk__in=[obj.id for obj in operations]).delete()
+    AccionPOA.objects.filter(pk__in=[obj.id for obj in actions]).delete()
     resolved_actions, resolved_ops, resolved_acts = {}, {}, {}
     provisional_products = {}
     provisional_result = None
@@ -1491,9 +1348,6 @@ def _apply_preview_v2(preview_id, user, confirmation_code='', operation_types=No
     preview.resultado = result
     preview.save(update_fields=['estado', 'aplicado_en', 'resultado', 'updated_at'])
     return preview
-
-
-apply_preview = _apply_preview_v2
 
 
 def _decode_value(field, value):
