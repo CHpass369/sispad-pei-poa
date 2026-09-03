@@ -707,6 +707,18 @@ class OperacionPOAU(CodigoSegmentadoModel):
     indicador = models.TextField(blank=True, verbose_name='Indicador')
     formula = models.TextField(blank=True, verbose_name='Fórmula')
     unidad_medida = models.CharField(max_length=100, blank=True, verbose_name='Unidad de medida')
+    linea_base = models.DecimalField(
+        max_digits=20, decimal_places=4, null=True, blank=True,
+        verbose_name='Línea base',
+    )
+    meta_actual = models.DecimalField(
+        max_digits=20, decimal_places=4, null=True, blank=True,
+        verbose_name='Meta actual',
+    )
+    ponderacion = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True,
+        verbose_name='Ponderación',
+    )
     fecha_inicio = models.DateField(null=True, blank=True, verbose_name='Fecha inicio')
     fecha_fin = models.DateField(null=True, blank=True, verbose_name='Fecha fin')
     programacion_mensual = models.JSONField(null=True, blank=True, verbose_name='Programación mensual')
@@ -777,6 +789,18 @@ class ActividadPOAU(CodigoSegmentadoModel):
     indicador = models.TextField(blank=True, verbose_name='Indicador')
     formula = models.TextField(blank=True, verbose_name='Fórmula')
     unidad_medida = models.CharField(max_length=100, blank=True, verbose_name='Unidad de medida')
+    linea_base = models.DecimalField(
+        max_digits=20, decimal_places=4, null=True, blank=True,
+        verbose_name='Línea base',
+    )
+    meta_actual = models.DecimalField(
+        max_digits=20, decimal_places=4, null=True, blank=True,
+        verbose_name='Meta actual',
+    )
+    ponderacion = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True,
+        verbose_name='Ponderación',
+    )
     fecha_inicio = models.DateField(null=True, blank=True, verbose_name='Fecha inicio')
     fecha_fin = models.DateField(null=True, blank=True, verbose_name='Fecha fin')
     programacion_mensual = models.JSONField(null=True, blank=True, verbose_name='Programación mensual')
@@ -879,6 +903,18 @@ class TareaPOAU(CodigoSegmentadoModel):
     formula = models.TextField(blank=True, verbose_name='Fórmula')
     unidad_medida = models.CharField(
         max_length=100, blank=True, verbose_name='Unidad de medida',
+    )
+    linea_base = models.DecimalField(
+        max_digits=20, decimal_places=4, null=True, blank=True,
+        verbose_name='Línea base',
+    )
+    meta_actual = models.DecimalField(
+        max_digits=20, decimal_places=4, null=True, blank=True,
+        verbose_name='Meta actual',
+    )
+    ponderacion = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True,
+        verbose_name='Ponderación',
     )
     programacion_mensual = models.JSONField(null=True, blank=True, verbose_name='Programación mensual')
     requerimientos = models.TextField(blank=True, verbose_name='Requerimientos')

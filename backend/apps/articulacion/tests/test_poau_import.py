@@ -37,7 +37,9 @@ HEADERS = [
     'CÓDIGO ACCIÓN',
     'CÓDIGO OPERACIÓN', 'OPERACIÓN', 'CÓDIGO ACTIVIDAD', 'ACTIVIDAD',
     'CÓDIGO TAREA', 'TAREA', 'TIPO OPERACIÓN', 'INDICADOR', 'FÓRMULA',
-    'UNIDAD DE MEDIDA', 'META', 'FECHA INICIO', 'FECHA FINAL', 'RESPONSABLE',
+    'UNIDAD DE MEDIDA', 'LÍNEA BASE (2026)', 'META', 'META ACTUAL',
+    '% PONDERACIÓN', 'CATEGORÍA PROGRAMÁTICA',
+    'FECHA INICIO', 'FECHA FINAL', 'RESPONSABLE',
     'ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO',
     'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE',
     'TOTAL ANUAL',
@@ -53,7 +55,9 @@ REAL_LIKE_HEADERS = [
     'ACCIÓN INSTITUCIONAL ESPECÍFICA (PEI)',
     'Acción de corto plazo gestión 2027 / Producto institucional anual',
     'OPERACIONES (PRODUCTO INTERMEDIO)', 'ACTIVIDADES', 'TAREAS ESPECÍFICAS',
-    'TIPO DE OPERACIÓN', 'INDICADOR', 'FÓRMULA', 'UNIDAD DE MEDIDA', 'META',
+    'TIPO DE OPERACIÓN', 'INDICADOR', 'FÓRMULA', 'UNIDAD DE MEDIDA',
+    'LÍNEA BASE (2026)', 'META', 'META ACTUAL', '% PONDERACIÓN',
+    'CATEGORÍA PROGRAMÁTICA',
     'FECHA INICIO', 'FECHA FINAL', 'RESPONSABLE',
     'ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO',
     'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE',
@@ -112,7 +116,7 @@ def official_workbook_bytes(aie='Producto ETL'):
     unit[3:6] = ['Unidad importadora', 'UO-ETL', aie]
     worksheet.append(unit)
     action = [None] * 51
-    action[6] = 'Acción ETL importada'
+    action[6:8] = ['Acción ETL importada', '000 0 001']
     worksheet.append(action)
     for level_column, name in (
         (9, 'Operación oficial'),
@@ -122,7 +126,7 @@ def official_workbook_bytes(aie='Producto ETL'):
         row = [None] * 51
         row[level_column] = name
         row[12:15] = ['Avance físico', 'Ejecutado / programado', 'PORC']
-        row[17:20] = [1, '2027-01-01', '2027-12-31']
+        row[15:21] = [0.25, 0.50, 1, '2027-01-01', '2027-12-31', 25]
         row[22] = 'Responsable ETL'
         row[23] = 1
         for column in range(25, 47, 2):
@@ -144,7 +148,11 @@ def physical_row(level, **values):
         'INDICADOR': 'Avance físico',
         'FÓRMULA': 'Ejecutado / programado',
         'UNIDAD DE MEDIDA': 'PORC',
+        'LÍNEA BASE (2026)': 0.25,
         'META': 1,
+        'META ACTUAL': 0.50,
+        '% PONDERACIÓN': 25,
+        'CATEGORÍA PROGRAMÁTICA': '000 0 001',
         'FECHA INICIO': '2027-01-01',
         'FECHA FINAL': '2027-12-31',
         'ENERO': 1,
@@ -299,6 +307,13 @@ class PoauImportPreviewTests(PoauImportBase):
             response.data['filas'][0]['producto_pei_codigo'],
             self.action.producto_pei.codigo_producto,
         )
+        self.assertEqual(
+            response.data['filas'][0]['categoria_programatica'], '000 0 001',
+        )
+        operation = response.data['filas'][1]
+        self.assertEqual(operation['linea_base'], '0.25')
+        self.assertEqual(operation['meta_actual'], '0.5')
+        self.assertEqual(operation['ponderacion'], '25')
 
     def test_excel_preview_is_read_only_and_does_not_store_bytes(self):
         response = self.preview_excel()
@@ -606,6 +621,12 @@ class PoauImportApplyTests(PoauImportBase):
         self.assertFalse(TareaPOAU.objects.filter(pk=task_id).exists())
         self.assertTrue(OperacionPOAU.objects.filter(denominacion='Operación nueva').exists())
         self.assertTrue(TareaPOAU.objects.filter(denominacion='Tarea adicional').exists())
+        action = AccionPOA.objects.get(denominacion='Acción ETL importada')
+        operation = OperacionPOAU.objects.get(denominacion='Operación nueva')
+        self.assertEqual(action.categoria_programatica, '000 0 001')
+        self.assertEqual(operation.linea_base, 0.25)
+        self.assertEqual(operation.meta_actual, 0.50)
+        self.assertEqual(operation.ponderacion, 25)
         self.assertEqual(applied.data['resultado']['eliminados'], 4)
         self.assertEqual(applied.data['resultado']['creados'], 5)
 

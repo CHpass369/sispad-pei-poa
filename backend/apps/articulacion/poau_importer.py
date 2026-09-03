@@ -156,6 +156,9 @@ HEADER_ALIASES = {
         'codigo accion', 'codigo accion de corto plazo',
         'cod accion corto plazo', 'accion codigo',
     },
+    'categoria_programatica': {
+        'categoria programatica', 'categoria programatica poa',
+    },
     'operacion_codigo': {'codigo operacion', 'cod operacion'},
     'operacion': {'operacion', 'operaciones', 'operaciones producto intermedio'},
     'actividad_codigo': {'codigo actividad', 'cod actividad'},
@@ -166,7 +169,12 @@ HEADER_ALIASES = {
     'indicador': {'indicador'},
     'formula': {'formula'},
     'unidad_medida': {'unidad de medida', 'unidad medida'},
+    'linea_base': {'linea base'},
     'meta': {'meta', 'meta anual'},
+    'meta_actual': {
+        'meta actual', 'estimacion linea base', 'estimacion de linea base',
+    },
+    'ponderacion': {'ponderacion', 'porcentaje ponderacion'},
     'fecha_inicio': {'fecha inicio', 'inicio'},
     'fecha_fin': {'fecha final', 'fecha fin', 'fin', 'final'},
     'responsable': {'responsable', 'cargo responsable'},
@@ -241,10 +249,11 @@ def _parse_sheet(
     header_row, mapping = _find_header(sheet, fallback_action_code, fallback_unit_code)
     nodes, issues = [], []
     rows_read = 0
-    emitted_actions = set()
+    emitted_actions = {}
     context = {
         'aie': '', 'accion': '', 'operacion': '', 'actividad': '',
         'operacion_codigo': '', 'actividad_codigo': '',
+        'categoria_programatica': '',
         'unidad_codigo': fallback_unit_code.upper(),
     }
 
@@ -263,9 +272,18 @@ def _parse_sheet(
         aie = _texto(_cell(values, mapping, 'aie'))
         action = _texto(_cell(values, mapping, 'accion'))
         if aie and _clave(aie) != _clave(context['aie']):
-            context.update(aie=aie, accion='', operacion='', actividad='')
+            context.update(
+                aie=aie, accion='', operacion='', actividad='',
+                categoria_programatica='',
+            )
         if action and _clave(action) != _clave(context['accion']):
-            context.update(accion=action, operacion='', actividad='')
+            context.update(
+                accion=action, operacion='', actividad='',
+                categoria_programatica='',
+            )
+        category = _texto(_cell(values, mapping, 'categoria_programatica'))
+        if category:
+            context['categoria_programatica'] = category
 
         raw = {
             level: _texto(_cell(values, mapping, level))
@@ -285,6 +303,10 @@ def _parse_sheet(
 
         if context['accion']:
             action_key = f"{_clave(context['aie'])}|{_clave(context['accion'])}"
+            if action_key in emitted_actions and context['categoria_programatica']:
+                emitted_actions[action_key]['categoria_programatica'] = (
+                    context['categoria_programatica']
+                )
             if action_key not in emitted_actions:
                 if not context['aie']:
                     row_issues.append(_error(
@@ -297,13 +319,14 @@ def _parse_sheet(
                     'aie': context['aie'], 'accion': context['accion'],
                     'unidad_codigo': context['unidad_codigo'],
                     'accion_clave': action_key,
+                    'categoria_programatica': context['categoria_programatica'],
                     'indicador': '', 'formula': '', 'unidad_medida': '',
                     'meta': '0', 'fecha_inicio': None, 'fecha_fin': None,
                     'responsable': '',
                     'programacion_mensual': {month: '0' for month in MESES},
                     'total_anual': '0',
                 })
-                emitted_actions.add(action_key)
+                emitted_actions[action_key] = nodes[-1]
         else:
             action_key = ''
 
@@ -371,6 +394,24 @@ def _parse_sheet(
                 'missing_value',
             ))
 
+        linea_base = _decimal(
+            _cell(values, mapping, 'linea_base'), 'linea_base',
+            row_number, row_issues,
+        )
+        meta_actual = _decimal(
+            _cell(values, mapping, 'meta_actual'), 'meta_actual',
+            row_number, row_issues,
+        )
+        ponderacion = _decimal(
+            _cell(values, mapping, 'ponderacion'), 'ponderacion',
+            row_number, row_issues,
+        )
+        if ponderacion is not None and ponderacion > Decimal('100'):
+            row_issues.append(_error(
+                row_number, 'ponderacion',
+                'La ponderación no puede superar el 100%.',
+            ))
+
         start = _fecha(
             _cell(values, mapping, 'fecha_inicio'), 'fecha_inicio',
             row_number, gestion, row_issues,
@@ -421,7 +462,10 @@ def _parse_sheet(
                 'indicador': _texto(_cell(values, mapping, 'indicador')),
                 'formula': _texto(_cell(values, mapping, 'formula')),
                 'unidad_medida': _texto(_cell(values, mapping, 'unidad_medida')),
+                'linea_base': str(linea_base) if linea_base is not None else None,
                 'meta': str(meta),
+                'meta_actual': str(meta_actual) if meta_actual is not None else None,
+                'ponderacion': str(ponderacion) if ponderacion is not None else None,
                 'fecha_inicio': start.isoformat() if start else None,
                 'fecha_fin': end.isoformat() if end else None,
                 'responsable': _texto(_cell(values, mapping, 'responsable')),
@@ -917,6 +961,9 @@ def _fields_for(node):
         'programacion_mensual': node['programacion_mensual'],
         'estado': EstadosPOAU.BORRADOR,
         'observacion': '',
+        'linea_base': Decimal(node['linea_base']) if node.get('linea_base') is not None else None,
+        'meta_actual': Decimal(node['meta_actual']) if node.get('meta_actual') is not None else None,
+        'ponderacion': Decimal(node['ponderacion']) if node.get('ponderacion') is not None else None,
     }
     if node['nivel'] == 'operacion':
         return {
@@ -1087,6 +1134,7 @@ def _action_values(node, gestion, unidad, product):
         'fecha_inicio': date.fromisoformat(node['fecha_inicio']) if node.get('fecha_inicio') else None,
         'fecha_fin': date.fromisoformat(node['fecha_fin']) if node.get('fecha_fin') else None,
         'cargo_responsable': node.get('responsable', ''),
+        'categoria_programatica': node.get('categoria_programatica', ''),
     }
 
 

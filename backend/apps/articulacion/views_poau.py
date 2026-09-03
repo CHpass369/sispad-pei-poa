@@ -146,12 +146,15 @@ class MatrizPOAUViewSet(viewsets.ViewSet):
             'indicador': getattr(obj, 'indicador', '') or '',
             'formula': getattr(obj, 'formula', '') or '',
             'unidad_medida': getattr(obj, 'unidad_medida', '') or '',
+            'linea_base': _num(getattr(obj, 'linea_base', None)),
             'meta': _num(meta),
+            'meta_actual': _num(getattr(obj, 'meta_actual', None)),
             'fecha_inicio': obj.fecha_inicio.isoformat() if obj.fecha_inicio else '',
             'fecha_fin': obj.fecha_fin.isoformat() if obj.fecha_fin else '',
             'responsable': getattr(obj, 'responsable', '') or '',
             'estado': getattr(obj, 'estado', '') or '',
             'total_anual': total or None,
+            'ponderacion': _num(getattr(obj, 'ponderacion', None)),
             **{f'mes_{m}': _num(v) for m, v in meses.items()},
         }
 
