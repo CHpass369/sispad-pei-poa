@@ -22,14 +22,29 @@
  * planilla lo marca «SALDO NEGATIVO – revisar» y se traslada tal cual, porque
  * redondearlo a cero inventaría un margen que la unidad no tiene.
  *
- * Una corrección que se aparta de la planilla, verificada contra producción el
- * 2026-09-04: los 500.000,00 Bs. de `344 0 024` figuraban en `SF-DRT-38`
- * (COBRANZA COACTIVA) y aquí van en `SF-DRT-35` (FISCALIZACIÓN). La única
- * `AccionPOA` con esa categoría en la gestión 2027 es `PROV-2027-SF-DRT-35.2`,
- * de FISCALIZACIÓN; `SF-DRT-38` solo tiene `000 0 001`, así que en su unidad
- * original el saldo no alcanzaba ninguna operación del POAU físico. Al
- * regenerar este catálogo desde la planilla hay que rehacer este movimiento, o
- * corregir la planilla en el origen.
+ * Tres correcciones se apartan de la planilla, todas verificadas contra
+ * `gams_pip_prod` el 2026-09-04 y todas por la misma causa: la planilla asignó
+ * el saldo a una unidad que no ejecuta esa categoría. Al regenerar este
+ * catálogo desde la planilla hay que rehacerlas, o corregir la planilla en el
+ * origen.
+ *
+ * - `344 0 024` (500.000,00 Bs.): de `SF-DRT-38` (COBRANZA COACTIVA) a
+ *   `SF-DRT-35` (FISCALIZACIÓN). La única `AccionPOA` de la gestión 2027 con
+ *   esa categoría es `PROV-2027-SF-DRT-35.2`, de FISCALIZACIÓN; `SF-DRT-38`
+ *   solo tiene `000 0 001`.
+ * - `210 0 042` (2.900.000,00 Bs.): de `SD-DDH-53-6` (SERVICIOS DE EDUCACIÓN)
+ *   a `SD-DDH-53-2` (MANTENIMIENTO DE SISTEMAS DE EDUCACIÓN), que la ejecuta en
+ *   `PROV-2027-SD-DDH-53-2.1.1`. Las operaciones de `SD-DDH-53-6` cubren
+ *   `210 0 001`, `210 0 028` y `210 0 039`, ninguna `210 0 042`.
+ * - `331 0 022` (150.000,00 Bs.): de `SD-000-54` (SEGURIDAD CIUDADANA) a
+ *   `SD-DDH-53-2`, que la ejecuta en `PROV-2027-SD-DDH-53-2.2.1` — sistemas de
+ *   vigilancia para unidades educativas. El programa 331 es de seguridad, pero
+ *   la unidad que ejecuta es de educación.
+ *
+ * Las denominaciones salen del catálogo oficial de categorías 2027 cuando
+ * existen: `210 0 042` pasa a SERVICIOS DE SISTEMAS INFORMATICOS PARA UNIDADES
+ * EDUCATIVAS. `331 0 022` no tiene entrada en ese catálogo y conserva la de la
+ * planilla.
  */
 
 export interface SaldoUnidadCategoria {
@@ -55,7 +70,6 @@ export const SALDOS_UNIDAD_CATEGORIA: SaldoUnidadCategoria[] = [
   { codigoUnidad: 'SD-000-54', nombreUnidad: 'ADMINISTRACIÓN SEGURIDAD CIUDADANA Y MOVILIDAD MUNICIPAL', categoriaProgramatica: '331 0 014', denominacion: 'SEGURIDAD CIUDADANA', saldo: 480000, filasOrigen: 1 },
   { codigoUnidad: 'SD-000-54', nombreUnidad: 'ADMINISTRACIÓN SEGURIDAD CIUDADANA Y MOVILIDAD MUNICIPAL', categoriaProgramatica: '331 0 015', denominacion: 'SEGURIDAD CIUDADANA', saldo: 740400, filasOrigen: 1 },
   { codigoUnidad: 'SD-000-54', nombreUnidad: 'ADMINISTRACIÓN SEGURIDAD CIUDADANA Y MOVILIDAD MUNICIPAL', categoriaProgramatica: '331 0 016', denominacion: 'SEGURIDAD CIUDADANA', saldo: 1011940, filasOrigen: 1 },
-  { codigoUnidad: 'SD-000-54', nombreUnidad: 'ADMINISTRACIÓN SEGURIDAD CIUDADANA Y MOVILIDAD MUNICIPAL', categoriaProgramatica: '331 0 022', denominacion: 'SEGURIDAD CIUDADANA', saldo: 150000, filasOrigen: 1 },
   { codigoUnidad: 'SD-000-54', nombreUnidad: 'ADMINISTRACIÓN SEGURIDAD CIUDADANA Y MOVILIDAD MUNICIPAL', categoriaProgramatica: '332 0 007', denominacion: 'SEGURIDAD CIUDADANA', saldo: 50000, filasOrigen: 1 },
   { codigoUnidad: 'SD-000-54-1', nombreUnidad: 'REGULACIÓN Y ORDENAMIENTO DE LA MOVILIDAD', categoriaProgramatica: '271 0 008', denominacion: 'REGULACIÓN Y ORDENAMIENTO DE MOVILIDAD MUNICIPAL', saldo: 31000, filasOrigen: 1 },
   { codigoUnidad: 'SD-000-55', nombreUnidad: 'INTENDENCIA MUNICIPAL', categoriaProgramatica: '280 0 004', denominacion: 'INTENDENCIA MUNICIPAL', saldo: -11521, filasOrigen: 1 },
@@ -81,6 +95,8 @@ export const SALDOS_UNIDAD_CATEGORIA: SaldoUnidadCategoria[] = [
   { codigoUnidad: 'SD-DDH-52-5', nombreUnidad: 'ASUNTOS DE GÉNERO', categoriaProgramatica: '252 0 030', denominacion: 'ASUNTOS DE GENERO', saldo: 29000, filasOrigen: 1 },
   { codigoUnidad: 'SD-DDH-52-6', nombreUnidad: 'ATENCIÓN A LA INFANCIA Y JUVENTUDES', categoriaProgramatica: '255 0 010', denominacion: 'JUVENTUDES', saldo: 80000, filasOrigen: 1 },
   { codigoUnidad: 'SD-DDH-53-1', nombreUnidad: 'ALIMENTO COMPLEMENTARIO', categoriaProgramatica: '211 0 004', denominacion: 'ALIMENTO COMPLEMENTARIO', saldo: 36239000, filasOrigen: 1 },
+  { codigoUnidad: 'SD-DDH-53-2', nombreUnidad: 'MANTENIMIENTO DE SISTEMAS DE EDUCACIÓN', categoriaProgramatica: '210 0 042', denominacion: 'SERVICIOS DE SISTEMAS INFORMATICOS PARA UNIDADES EDUCATIVAS', saldo: 2900000, filasOrigen: 1 },
+  { codigoUnidad: 'SD-DDH-53-2', nombreUnidad: 'MANTENIMIENTO DE SISTEMAS DE EDUCACIÓN', categoriaProgramatica: '331 0 022', denominacion: 'SEGURIDAD CIUDADANA', saldo: 150000, filasOrigen: 1 },
   { codigoUnidad: 'SD-DDH-53-3', nombreUnidad: 'PROGRAMAS EDUCACIÓN', categoriaProgramatica: '215 0 015', denominacion: 'PROGRAMAS EDUCACION', saldo: 6786695, filasOrigen: 1 },
   { codigoUnidad: 'SD-DDH-53-4', nombreUnidad: 'EQUIPAMIENTO U.E.', categoriaProgramatica: '214 0 034', denominacion: 'EQUIPAMIENTO DE U.E.', saldo: 60000, filasOrigen: 1 },
   { codigoUnidad: 'SD-DDH-53-4', nombreUnidad: 'EQUIPAMIENTO U.E.', categoriaProgramatica: '214 0 038', denominacion: 'EQUIPAMIENTO DE U.E.', saldo: 8500000, filasOrigen: 1 },
@@ -93,7 +109,6 @@ export const SALDOS_UNIDAD_CATEGORIA: SaldoUnidadCategoria[] = [
   { codigoUnidad: 'SD-DDH-53-6', nombreUnidad: 'SERVICIOS DE EDUCACIÓN', categoriaProgramatica: '210 0 029', denominacion: 'SERVICIOS DE EDUCACIÓN', saldo: 72000, filasOrigen: 1 },
   { codigoUnidad: 'SD-DDH-53-6', nombreUnidad: 'SERVICIOS DE EDUCACIÓN', categoriaProgramatica: '210 0 039', denominacion: 'SERVICIOS DE EDUCACIÓN', saldo: 2814828, filasOrigen: 1 },
   { codigoUnidad: 'SD-DDH-53-6', nombreUnidad: 'SERVICIOS DE EDUCACIÓN', categoriaProgramatica: '210 0 041', denominacion: 'SERVICIOS DE EDUCACIÓN', saldo: 546400, filasOrigen: 2 },
-  { codigoUnidad: 'SD-DDH-53-6', nombreUnidad: 'SERVICIOS DE EDUCACIÓN', categoriaProgramatica: '210 0 042', denominacion: 'SERVICIOS DE EDUCACIÓN', saldo: 2900000, filasOrigen: 1 },
   { codigoUnidad: 'SD-DDH-53-6', nombreUnidad: 'SERVICIOS DE EDUCACIÓN', categoriaProgramatica: '210 0 044', denominacion: 'SERVICIOS DE EDUCACIÓN', saldo: 179200, filasOrigen: 1 },
   { codigoUnidad: 'SD-DDH-53-7', nombreUnidad: 'UAIN@', categoriaProgramatica: '212 0 005', denominacion: 'UAIN@', saldo: 2573727, filasOrigen: 1 },
   { codigoUnidad: 'SD-DDH-56', nombreUnidad: 'DEPORTES Y PROMOCIÓN', categoriaProgramatica: '220 0 003', denominacion: 'DEPORTES Y PROMOCIÓN', saldo: 500000, filasOrigen: 1 },
