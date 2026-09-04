@@ -314,7 +314,16 @@ def _parse_sheet(
 
         if context['accion']:
             action_key = f"{_clave(context['aie'])}|{_clave(context['accion'])}"
-            if action_key in emitted_actions and context['categoria_programatica']:
+            # Sólo se completa si la acción todavía no tiene categoría. Antes
+            # se reasignaba en cada fila que trajera una, así que con una
+            # matriz de varias categorías —una por operación, que es el caso
+            # real— la acción terminaba con la ÚLTIMA y las demás se perdían.
+            # La categoría de cada operación viaja ahora en su propio nodo.
+            if (
+                action_key in emitted_actions
+                and context['categoria_programatica']
+                and not emitted_actions[action_key]['categoria_programatica']
+            ):
                 emitted_actions[action_key]['categoria_programatica'] = (
                     context['categoria_programatica']
                 )
@@ -466,6 +475,10 @@ def _parse_sheet(
                 'aie': context['aie'], 'accion': context['accion'],
                 'unidad_codigo': context['unidad_codigo'],
                 'accion_clave': action_key,
+                # La categoría vigente en esta fila. La columna la trae la fila
+                # de la operación, y las de actividad/tarea que cuelgan de ella
+                # la heredan del contexto hasta que aparezca otra.
+                'categoria_programatica': context['categoria_programatica'],
                 'operacion_codigo': context['operacion_codigo'],
                 'operacion': context['operacion'],
                 'actividad_codigo': context['actividad_codigo'],
@@ -987,6 +1000,7 @@ def _fields_for(node):
     if node['nivel'] == 'operacion':
         return {
             **common,
+            'categoria_programatica': node.get('categoria_programatica', ''),
             'tipo_operacion': node['tipo_operacion'],
             'indicador': node['indicador'],
             'formula': node['formula'],

@@ -303,13 +303,24 @@ class MatrizPOAUViewSet(viewsets.ViewSet):
                          cod_producto_pei=cod_pei, codigo=cod_pei,
                          accion_institucional=producto.denominacion if producto else '')
 
-            denominacion_cat, origen_cat = self._denominacion_categoria(
-                accion.categoria_programatica, exacto, programa)
-            categoria = {
-                'categoria_programatica': accion.categoria_programatica or '',
-                'denominacion_categoria': denominacion_cat,
-                'origen_categoria': origen_cat,
-            }
+            def _categoria(codigo):
+                denominacion, origen = self._denominacion_categoria(
+                    codigo, exacto, programa)
+                return {
+                    'categoria_programatica': codigo or '',
+                    'denominacion_categoria': denominacion,
+                    'origen_categoria': origen,
+                }
+
+            categoria = _categoria(accion.categoria_programatica)
+            # Una acción agrupa operaciones de categorías distintas, así que la
+            # categoría de la rama es la de la operación cuando la tiene; la de
+            # la acción queda de respaldo para los POAU cargados antes de que
+            # `OperacionPOAU.categoria_programatica` existiera.
+            categoria_op = (
+                _categoria(op.categoria_programatica)
+                if op.categoria_programatica else categoria
+            )
 
             k_acc = rama(f'{k_pei}|a:{accion.codigo_accion}', 'accion', k_pei,
                          cod_accion_corto_plazo=accion.codigo_accion,
@@ -318,21 +329,21 @@ class MatrizPOAUViewSet(viewsets.ViewSet):
                          **categoria)
 
             k_op = rama(f'{k_acc}|o:{op.codigo_operacion}', 'operacion', k_acc,
-                        **categoria,
+                        **categoria_op,
                         operacion=op.denominacion, codigo=op.codigo_operacion,
                         tipo='operacion', accion_id=str(accion.id),
                         **self._programacion(op))
 
             for act in op.actividades.all():
                 k_act = rama(f'{k_op}|c:{act.codigo_actividad}', 'actividad', k_op,
-                             **categoria,
+                             **categoria_op,
                              actividad=act.denominacion,
                              codigo=act.codigo_actividad,
                              tipo='actividad', accion_id=str(accion.id),
                              **self._programacion(act))
                 for tarea in act.tareas.all():
                     rama(f'{k_act}|t:{tarea.codigo_tarea}', 'tarea', k_act,
-                         **categoria,
+                         **categoria_op,
                          tarea=tarea.denominacion, codigo=tarea.codigo_tarea,
                          tipo='tarea', accion_id=str(accion.id),
                          **self._programacion(tarea))

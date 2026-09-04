@@ -103,7 +103,16 @@ def workbook_bytes(rows, headers=HEADERS, sheet='POAU', header_row=1):
     return output.getvalue()
 
 
-def official_workbook_bytes(aie='Producto ETL', trailing_legacy_section=False):
+def official_workbook_bytes(
+    aie='Producto ETL', trailing_legacy_section=False, extra_categories=(),
+):
+    """Matriz con el layout oficial.
+
+    `extra_categories` agrega una operación más por cada categoría, con la
+    categoría escrita en la fila de la operación —que es donde la trae la
+    matriz real: una acción de corto plazo agrupa operaciones financiadas
+    desde categorías programáticas distintas.
+    """
     workbook = openpyxl.Workbook()
     worksheet = workbook.active
     worksheet.title = 'PROPUESTA POAU FINAL'
@@ -148,6 +157,18 @@ def official_workbook_bytes(aie='Producto ETL', trailing_legacy_section=False):
     ):
         row = [None] * 51
         row[level_column] = name
+        row[12:15] = ['Avance físico', 'Ejecutado / programado', 'PORC']
+        row[15:21] = [0.25, 0.50, 1, '2027-01-01', '2027-12-31', 25]
+        row[22] = 'Responsable ETL'
+        row[23] = 1
+        for column in range(25, 47, 2):
+            row[column] = 0
+        row[47] = 1
+        worksheet.append(row)
+    for index, categoria in enumerate(extra_categories, start=2):
+        row = [None] * 51
+        row[7] = categoria
+        row[9] = f'Operación oficial {index}'
         row[12:15] = ['Avance físico', 'Ejecutado / programado', 'PORC']
         row[15:21] = [0.25, 0.50, 1, '2027-01-01', '2027-12-31', 25]
         row[22] = 'Responsable ETL'
@@ -768,6 +789,58 @@ class PoauImportApplyTests(PoauImportBase):
                 estado='BORRADOR',
             ).exists()
         )
+
+    def test_preview_keeps_one_category_per_operation(self):
+        """La matriz real trae una categoría por operación, no una por acción.
+
+        Antes se guardaba sólo en la acción y cada fila con categoría pisaba a
+        la anterior: con ocho operaciones la acción terminaba con la última y
+        las otras siete desaparecían sin ningún error.
+        """
+        response = self.preview_excel(
+            content=official_workbook_bytes(
+                extra_categories=('252 0 028', '252 0 009'),
+            ),
+            sheet='PROPUESTA POAU FINAL',
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+
+        filas = response.data['filas']
+        operaciones = [f for f in filas if f['nivel'] == 'operacion']
+        self.assertEqual(
+            [f['categoria_programatica'] for f in operaciones],
+            ['000 0 001', '252 0 028', '252 0 009'],
+        )
+        accion = next(f for f in filas if f['nivel'] == 'accion')
+        self.assertEqual(accion['categoria_programatica'], '000 0 001')
+
+    def test_apply_persists_the_category_of_each_operation(self):
+        response = self.preview_excel(
+            content=official_workbook_bytes(
+                extra_categories=('252 0 028', '252 0 009'),
+            ),
+            sheet='PROPUESTA POAU FINAL',
+        )
+        applied = self.client.post(
+            reverse('v2-poau-imports-apply', args=[response.data['id']]) + self.query,
+            {
+                'confirmation_code': self.unit.codigo,
+                'operation_types': {'6': 'FUNC', '9': 'FUNC', '10': 'FUNC'},
+            },
+            format='json',
+        )
+
+        self.assertEqual(applied.status_code, 200, applied.data)
+        categorias = dict(
+            OperacionPOAU.objects.filter(
+                accion_poa__unidad_responsable=self.unit,
+            ).values_list('denominacion', 'categoria_programatica')
+        )
+        self.assertEqual(categorias, {
+            'Operación oficial': '000 0 001',
+            'Operación oficial 2': '252 0 028',
+            'Operación oficial 3': '252 0 009',
+        })
 
     def test_apply_replaces_complete_unit_tree(self):
         response = self.preview_excel(self.rows(include_new=True))

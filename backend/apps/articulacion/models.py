@@ -687,6 +687,13 @@ class OperacionPOAU(CodigoSegmentadoModel):
     codigo_operacion = models.CharField(max_length=50, unique=True, verbose_name='Código operación')
     denominacion = models.TextField(verbose_name='Denominación')
     tipo_operacion = models.CharField(max_length=50, verbose_name='Tipo de operación')
+    # La categoría programática se clasifica por operación, no por acción: una
+    # misma acción de corto plazo agrupa operaciones que se financian desde
+    # categorías distintas (la matriz real trae ocho para una sola acción).
+    # Guardarla sólo en `AccionPOA` obligaba a elegir una y descartar el resto.
+    categoria_programatica = models.CharField(
+        max_length=50, blank=True, verbose_name='Categoría programática'
+    )
     producto_entregable = models.TextField(blank=True, verbose_name='Producto/Entregable')
     accion_poa = models.ForeignKey(
         AccionPOA, on_delete=models.CASCADE,

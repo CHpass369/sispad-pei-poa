@@ -337,10 +337,12 @@ const TODAS_UNIDADES = '__todas_las_unidades__';
 
           <div class="import-table" *ngIf="previewImport?.filas?.length">
             <table class="tabla tabla-compacta">
-              <thead><tr><th>Fila</th><th>Nivel</th><th>Código</th><th>Denominación</th><th>Tipo de operación</th><th>Meta</th></tr></thead>
+              <thead><tr><th>Fila</th><th>Nivel</th><th>Código</th><th>Cat. programática</th><th>Denominación</th><th>Tipo de operación</th><th>Meta</th></tr></thead>
               <tbody><tr *ngFor="let f of previewImport!.filas">
                 <td>{{ f.fila }}</td><td>{{ f.nivel }}</td>
-                <td>{{ codigoImportado(f) || 'se generará' }}</td><td>{{ f[f.nivel] }}</td>
+                <td>{{ codigoImportado(f) || 'se generará' }}</td>
+                <td>{{ f.categoria_programatica || '—' }}</td>
+                <td>{{ f[f.nivel] }}</td>
                 <td>
                   <select *ngIf="f.nivel === 'operacion'" [(ngModel)]="tiposOperacionImport[f.fila]"
                           aria-label="Tipo de operación de la fila {{ f.fila }}">
