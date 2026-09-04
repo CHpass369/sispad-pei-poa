@@ -8,13 +8,50 @@ aprobada no puede quedar rehén de otra que todavía se discute.
         ▲                     │
         └──────observar───────┘  (vuelve como OBSERVADO, editable)
 
-`validar` lo hace quien formula; `aprobar` y `observar`, la jefatura. Un
-registro APROBADO deja de admitir cambios y no se puede borrar.
+`validar` lo hace quien formula —alcanza con poder escribir el registro, que es
+lo que ya exige el viewset—; `aprobar` y `observar` los cierra quien tiene
+`sis_poa.poau.approve`.
+
+En los perfiles POAU de unidad eso reparte así:
+
+| Rol              | Formula y valida | Aprueba y observa |
+| ---------------- | ---------------- | ----------------- |
+| FORMULADOR_POAU  | sí               | no                |
+| VALIDADOR_POAU   | sí               | no                |
+| ENCARGADO_UO     | sí               | **sí**            |
+
+Un registro APROBADO deja de admitir cambios y no se puede borrar.
 """
 from django.db import models
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+
+#: Capacidad que cierra el circuito POAU. La tiene ENCARGADO_UO y no la tienen
+#: VALIDADOR_POAU ni FORMULADOR_POAU (accounts.0016), que es exactamente el
+#: reparto que pide el reglamento: valida la unidad, aprueba su encargado.
+CAPACIDAD_APROBAR_POAU = 'sis_poa.poau.approve'
+
+
+def puede_aprobar_poau(usuario):
+    """Quién cierra un registro POAU.
+
+    Dos vías, y basta con una:
+
+    1. `sis_poa.poau.approve`, que es la que trae ENCARGADO_UO.
+    2. `es_aprobador`, la jefatura histórica de SIS-PE.
+
+    La segunda se conserva a propósito: `ROLES_APROBADORES` gobierna también la
+    revisión de las Matrices PAD y la aprobación de actas de priorización, así
+    que quitarla acá para «dejar solo al encargado» le sacaría la aprobación a
+    jefaturas que hoy la ejercen en otros instrumentos. Entre los tres perfiles
+    POAU de unidad, el único que aprueba sigue siendo ENCARGADO_UO.
+    """
+    from apps.accounts.permissions import tiene_capacidad
+
+    from .permissions import es_aprobador
+
+    return tiene_capacidad(usuario, CAPACIDAD_APROBAR_POAU) or es_aprobador(usuario)
 
 
 class EstadosPOAU(models.TextChoices):
@@ -62,10 +99,11 @@ class RevisionPOAUMixin:
 
     @action(detail=True, methods=['post'])
     def aprobar(self, request, pk=None):
-        """La jefatura cierra el registro."""
-        from .permissions import es_aprobador
-        if not es_aprobador(request.user):
-            return self._denegar('Solo la jefatura puede aprobar registros POAU.')
+        """El encargado de la unidad cierra el registro."""
+        if not puede_aprobar_poau(request.user):
+            return self._denegar(
+                'Solo el encargado de la unidad puede aprobar registros POAU.',
+            )
         obj = self.get_object()
         if obj.estado != EstadosPOAU.VALIDADO:
             return self._rechazar(
@@ -77,10 +115,16 @@ class RevisionPOAUMixin:
 
     @action(detail=True, methods=['post'])
     def observar(self, request, pk=None):
-        """La jefatura devuelve el registro con el motivo."""
-        from .permissions import es_aprobador
-        if not es_aprobador(request.user):
-            return self._denegar('Solo la jefatura puede observar registros POAU.')
+        """Quien aprueba devuelve el registro con el motivo.
+
+        Observar es la contracara de aprobar —devolver en vez de cerrar—, así
+        que lo ejerce el mismo perfil: un encargado que puede aprobar pero no
+        puede devolver solo tiene la salida de aprobar.
+        """
+        if not puede_aprobar_poau(request.user):
+            return self._denegar(
+                'Solo el encargado de la unidad puede observar registros POAU.',
+            )
         comentario = str(request.data.get('comentario', '')).strip()
         if not comentario:
             return self._rechazar('Se requiere un comentario para observar.')
