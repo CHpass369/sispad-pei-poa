@@ -21,6 +21,15 @@
  * `SD-000-55` en `280 0 004` queda con saldo negativo (-11.521,00 Bs.): la
  * planilla lo marca «SALDO NEGATIVO – revisar» y se traslada tal cual, porque
  * redondearlo a cero inventaría un margen que la unidad no tiene.
+ *
+ * Una corrección que se aparta de la planilla, verificada contra producción el
+ * 2026-09-04: los 500.000,00 Bs. de `344 0 024` figuraban en `SF-DRT-38`
+ * (COBRANZA COACTIVA) y aquí van en `SF-DRT-35` (FISCALIZACIÓN). La única
+ * `AccionPOA` con esa categoría en la gestión 2027 es `PROV-2027-SF-DRT-35.2`,
+ * de FISCALIZACIÓN; `SF-DRT-38` solo tiene `000 0 001`, así que en su unidad
+ * original el saldo no alcanzaba ninguna operación del POAU físico. Al
+ * regenerar este catálogo desde la planilla hay que rehacer este movimiento, o
+ * corregir la planilla en el origen.
  */
 
 export interface SaldoUnidadCategoria {
@@ -104,11 +113,11 @@ export const SALDOS_UNIDAD_CATEGORIA: SaldoUnidadCategoria[] = [
   { codigoUnidad: 'SF-DRH-26', nombreUnidad: 'ADMINISTRACIÓN Y DESARROLLO DE PERSONAL', categoriaProgramatica: '099 0 001', denominacion: 'ADMINISTRACIÓN DE PERSONAL (SAP)', saldo: 39999, filasOrigen: 1 },
   { codigoUnidad: 'SF-DRH-26-1', nombreUnidad: 'ORGANIZACIÓN Y ADMINISTRATIVA', categoriaProgramatica: '344 0 022', denominacion: 'ORGANIZACIÓN ADMINISTRATIVA SOA', saldo: 50000, filasOrigen: 1 },
   { codigoUnidad: 'SF-DRH-26-3', nombreUnidad: 'ADMINISTRACIÓN DE PERSONAL', categoriaProgramatica: '341 0 001', denominacion: 'ADMINISTRACIÓN DE PERSONAL SOA', saldo: 364089, filasOrigen: 1 },
+  { codigoUnidad: 'SF-DRT-35', nombreUnidad: 'FISCALIZACIÓN', categoriaProgramatica: '344 0 024', denominacion: 'FORTALECIMIENTO DIRECCION DE INGRESOS MUNICIPALES', saldo: 500000, filasOrigen: 1 },
   { codigoUnidad: 'SF-DRT-37', nombreUnidad: 'ADMINISTRACIÓN DE SERVICIOS MUNICIPALES', categoriaProgramatica: '300 0 003', denominacion: 'ADMINISTRACIÓN DE SERVICIOS MUNICIPALES', saldo: 162183, filasOrigen: 1 },
   { codigoUnidad: 'SF-DRT-37', nombreUnidad: 'ADMINISTRACIÓN DE SERVICIOS MUNICIPALES', categoriaProgramatica: '301 0 002', denominacion: 'ADMINISTRACIÓN DE SERVICIOS MUNICIPALES', saldo: 50000, filasOrigen: 1 },
   { codigoUnidad: 'SF-DRT-37', nombreUnidad: 'ADMINISTRACIÓN DE SERVICIOS MUNICIPALES', categoriaProgramatica: '350 0 003', denominacion: 'ADMINISTRACIÓN DE SERVICIOS MUNICIPALES', saldo: 114753, filasOrigen: 1 },
   { codigoUnidad: 'SF-DRT-37', nombreUnidad: 'ADMINISTRACIÓN DE SERVICIOS MUNICIPALES', categoriaProgramatica: '351 0 002', denominacion: 'ADMINISTRACIÓN DE SERVICIOS MUNICIPALES', saldo: 50000, filasOrigen: 1 },
-  { codigoUnidad: 'SF-DRT-38', nombreUnidad: 'COBRANZA COACTIVA', categoriaProgramatica: '344 0 024', denominacion: 'RECAUDACIÓN DE TRIBUTOS EN MORA', saldo: 500000, filasOrigen: 1 },
   { codigoUnidad: 'SI-DOP-41', nombreUnidad: 'INFRAESTRUCTURA VIAL Y SEÑALIZACIÓN', categoriaProgramatica: '180 0 001', denominacion: 'PLANTA DE ASFALTO Y SEÑALIZACION VIAL-LABORATORIO', saldo: 50000, filasOrigen: 1 },
   { codigoUnidad: 'SI-DOP-41', nombreUnidad: 'INFRAESTRUCTURA VIAL Y SEÑALIZACIÓN', categoriaProgramatica: '180 0 002', denominacion: 'PLANTA DE ASFALTO Y SEÑALIZACION VIAL-LABORATORIO', saldo: 50000, filasOrigen: 1 },
   { codigoUnidad: 'SI-DOP-41', nombreUnidad: 'INFRAESTRUCTURA VIAL Y SEÑALIZACIÓN', categoriaProgramatica: '180 0 005', denominacion: 'PLANTA DE ASFALTO Y SEÑALIZACION VIAL-LABORATORIO', saldo: 20000, filasOrigen: 1 },
