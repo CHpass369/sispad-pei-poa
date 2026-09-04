@@ -100,3 +100,31 @@ class ScopeActividadPOAUMixin(ScopePOAUUnidadMixin):
         )
         accion = getattr(operacion, 'accion_poa', None)
         return getattr(accion, 'unidad_responsable_id', None)
+
+
+class ScopeTareaPOAUMixin(ScopePOAUUnidadMixin):
+    scope_unidad_lookup = 'actividad__operacion__accion_poa__unidad_responsable_id'
+
+    def _unidad_objetivo(self, serializer):
+        actividad = serializer.validated_data.get(
+            'actividad', getattr(serializer.instance, 'actividad', None),
+        )
+        operacion = getattr(actividad, 'operacion', None)
+        accion = getattr(operacion, 'accion_poa', None)
+        return getattr(accion, 'unidad_responsable_id', None)
+
+
+class ScopeAsignacionObjetoGastoMixin(ScopePOAUUnidadMixin):
+    """La programación de recursos cuelga de la acción de corto plazo.
+
+    `accion_poa` es obligatoria en el modelo, así que la unidad siempre se
+    resuelve: no hay rama donde la asignación quede sin UO y se cuele.
+    """
+
+    scope_unidad_lookup = 'accion_poa__unidad_responsable_id'
+
+    def _unidad_objetivo(self, serializer):
+        accion = serializer.validated_data.get(
+            'accion_poa', getattr(serializer.instance, 'accion_poa', None),
+        )
+        return getattr(accion, 'unidad_responsable_id', None)

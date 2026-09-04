@@ -37,7 +37,9 @@ from .revision_poau import EstadosPOAU, RevisionPOAUMixin
 from .scope_poau import (
     ScopeAccionPOAMixin,
     ScopeActividadPOAUMixin,
+    ScopeAsignacionObjetoGastoMixin,
     ScopeOperacionPOAUMixin,
+    ScopeTareaPOAUMixin,
 )
 from .permissions import ArticulacionPermisos, permisos_revision_matriz
 from .services import (
@@ -277,6 +279,17 @@ class IndicadorCadenaViewSet(viewsets.ModelViewSet):
     ordering_fields = ['nivel_indicador', 'indicador']
 
 
+# Capacidad que gobierna la escritura de la cadena POAU (ADR-003). La declaran
+# los viewsets del POAU para que `ArticulacionPermisos` autorice por capacidad y
+# no por código de rol: los perfiles de unidad —ENCARGADO_UO, VALIDADOR_POAU—
+# la tienen sembrada desde accounts.0016, pero no figuran en la lista histórica
+# `ROLES_FORMULADORES` y por eso recibían 403 al registrar.
+#
+# El límite territorial NO viaja en la capacidad: lo aplican los mixins de
+# `scope_poau`, que todo viewset con esta capacidad debe incluir.
+CAPACIDAD_ESCRITURA_POAU = 'sis_poa.poau.edit'
+
+
 class AccionPOAViewSet(
     ScopeAccionPOAMixin, CandadoSisPoaMixin, EstadoActionsMixin,
     viewsets.ModelViewSet,
@@ -286,6 +299,7 @@ class AccionPOAViewSet(
     queryset = AccionPOA.objects.all()
     serializer_class = AccionPOASerializer
     permission_classes = [ArticulacionPermisos]
+    capacidad_escritura = CAPACIDAD_ESCRITURA_POAU
     filterset_fields = ['estado', 'producto_pei', 'unidad_responsable']
     search_fields = ['codigo_accion', 'denominacion', 'programa']
     ordering_fields = ['codigo_accion', 'gestion', 'denominacion']
@@ -302,6 +316,7 @@ class OperacionPOAUViewSet(
     queryset = OperacionPOAU.objects.all()
     serializer_class = OperacionPOAUSerializer
     permission_classes = [ArticulacionPermisos]
+    capacidad_escritura = CAPACIDAD_ESCRITURA_POAU
     filterset_fields = ['accion_poa', 'tipo_operacion', 'estado']
     search_fields = ['codigo_operacion', 'denominacion']
     ordering_fields = ['codigo_operacion', 'denominacion']
@@ -316,6 +331,7 @@ class ActividadPOAUViewSet(
     queryset = ActividadPOAU.objects.all()
     serializer_class = ActividadPOAUSerializer
     permission_classes = [ArticulacionPermisos]
+    capacidad_escritura = CAPACIDAD_ESCRITURA_POAU
     filterset_fields = ['operacion', 'estado']
     search_fields = ['codigo_actividad', 'denominacion']
     ordering_fields = ['codigo_actividad', 'denominacion']
@@ -330,13 +346,15 @@ class ActividadNormativaViewSet(viewsets.ModelViewSet):
 
 
 class TareaPOAUViewSet(
-    GestionHabilitadaFilterMixin, RevisionPOAUMixin, viewsets.ModelViewSet,
+    ScopeTareaPOAUMixin, GestionHabilitadaFilterMixin, RevisionPOAUMixin,
+    viewsets.ModelViewSet,
 ):
     campo_gestion = 'actividad__operacion__accion_poa__gestion'
 
     queryset = TareaPOAU.objects.all()
     serializer_class = TareaPOAUSerializer
     permission_classes = [ArticulacionPermisos]
+    capacidad_escritura = CAPACIDAD_ESCRITURA_POAU
     filterset_fields = ['actividad', 'estado']
     search_fields = ['codigo_tarea', 'denominacion']
     ordering_fields = ['codigo_tarea', 'denominacion']
@@ -362,11 +380,13 @@ class SeguimientoPresupuestoViewSet(
 
 
 class AsignacionObjetoGastoViewSet(
-    CandadoSisPoaMixin, EstadoActionsMixin, viewsets.ModelViewSet,
+    ScopeAsignacionObjetoGastoMixin, CandadoSisPoaMixin, EstadoActionsMixin,
+    viewsets.ModelViewSet,
 ):
     queryset = AsignacionObjetoGasto.objects.all()
     serializer_class = AsignacionObjetoGastoSerializer
     permission_classes = [ArticulacionPermisos]
+    capacidad_escritura = CAPACIDAD_ESCRITURA_POAU
     filterset_fields = ['estado', 'accion_poa', 'operacion', 'actividad', 'tipo_gasto']
     search_fields = ['codigo_asignacion', 'descripcion_objeto']
     ordering_fields = ['codigo_asignacion', 'gestion']
@@ -406,6 +426,12 @@ class AsignacionObjetoGastoViewSet(
             for item in items:
                 serializer = self.get_serializer(data=item)
                 serializer.is_valid(raise_exception=True)
+                # `bulk` no pasa por `perform_create`, así que el alcance
+                # territorial hay que aplicarlo acá: sin esto, tener la
+                # capacidad alcanzaba para programar recursos sobre la acción
+                # de cualquier unidad, que es justo lo que el alcance impide en
+                # el alta de a uno.
+                self._autorizar_unidad(self._unidad_objetivo(serializer))
                 serializer.save()
                 creados.append(serializer.data)
         return Response(creados, status=status.HTTP_201_CREATED)
