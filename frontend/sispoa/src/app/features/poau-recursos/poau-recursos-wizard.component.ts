@@ -836,14 +836,25 @@ export class PoauRecursosWizardComponent implements OnInit {
 
   totalDe(r: RequerimientoForm): number { return totalAnual(r.programacion); }
 
-  /** Reparte el presupuesto en doce cuotas, ajustando el redondeo en diciembre. */
+  /**
+   * Reparte el presupuesto en doce cuotas, ajustando el redondeo en el último mes.
+   *
+   * El mes del ajuste sale de `MESES` y no de un literal. Las claves de
+   * `programacion` son las del jsonb canónico —los doce meses en minúscula—,
+   * así que escribir `'DICIEMBRE'` a mano no corregía diciembre: agregaba una
+   * decimotercera clave. La API, que normaliza a minúscula antes de guardar,
+   * veía el mismo mes dos veces y rechazaba la programación entera con un 400;
+   * y mientras tanto `totalAnual`, que sólo lee `MESES`, mostraba una suma
+   * corta por el resto del redondeo.
+   */
   repartirEnDoce(r: RequerimientoForm): void {
     const monto = Number(r.presupuestoProgramado) || 0;
     if (!monto) return;
     const cuota = Math.floor((monto / 12) * 100) / 100;
     MESES.forEach(mes => { r.programacion[mes] = cuota; });
     const repartido = cuota * 12;
-    r.programacion['DICIEMBRE'] = Math.round((cuota + (monto - repartido)) * 100) / 100;
+    const ultimoMes = MESES[MESES.length - 1];
+    r.programacion[ultimoMes] = Math.round((cuota + (monto - repartido)) * 100) / 100;
   }
 
   /** Concentra todo el monto en el mes en que se requiere el pago. */

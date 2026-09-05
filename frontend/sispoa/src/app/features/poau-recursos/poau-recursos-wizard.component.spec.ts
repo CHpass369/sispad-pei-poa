@@ -431,4 +431,41 @@ describe('PoauRecursosWizardComponent · combos de catálogo', () => {
         .toEqual(['Funcionamiento', 'Inversión']);
     });
   });
+
+  describe('repartir en doce meses', () => {
+    /** Un monto que no divide exacto: obliga al ajuste del último mes. */
+    const conMonto = (monto: number) => {
+      const r = requerimientoVacio();
+      r.presupuestoProgramado = monto;
+      componente.repartirEnDoce(r);
+      return r;
+    };
+
+    it('deja exactamente los doce meses canónicos', () => {
+      // El ajuste del redondeo se escribía como 'DICIEMBRE' y agregaba una
+      // clave número trece. La API normaliza a minúscula, veía diciembre dos
+      // veces y devolvía 400 sin guardar nada.
+      responderCatalogos();
+      expect(Object.keys(conMonto(100000).programacion).sort())
+        .toEqual([...MESES].sort());
+    });
+
+    it('las doce cuotas suman el presupuesto programado', () => {
+      responderCatalogos();
+      expect(componente.totalDe(conMonto(100000))).toBeCloseTo(100000, 2);
+    });
+
+    it('el resto del redondeo cae en diciembre', () => {
+      responderCatalogos();
+      const r = conMonto(100000);
+      expect(r.programacion['enero']).toBeCloseTo(8333.33, 2);
+      expect(r.programacion['diciembre']).toBeCloseTo(8333.37, 2);
+    });
+
+    it('un monto que divide exacto reparte doce cuotas iguales', () => {
+      responderCatalogos();
+      const r = conMonto(12000);
+      expect(MESES.map(mes => r.programacion[mes])).toEqual(new Array(12).fill(1000));
+    });
+  });
 });
