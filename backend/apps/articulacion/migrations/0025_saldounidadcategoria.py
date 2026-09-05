@@ -9,7 +9,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('articulacion', '0023_operacion_categoria_programatica'),
+        ('articulacion', '0024_ampliar_responsable_a_1000'),
         ('catalogos', '0012_catalogos_alineados_a_gestion_2027'),
         ('organizacion', '0003_area_y_clase_de_unidad'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
