@@ -10,6 +10,7 @@ Acá se administra desde la base. La lectura la comparte con la matriz POAU
 tiene que poder consultarla; la escritura es solo de administrador.
 """
 import re
+from decimal import Decimal, InvalidOperation
 
 from django.db.models import ProtectedError
 from rest_framework import serializers, status, viewsets
@@ -61,6 +62,13 @@ class SaldoUnidadCategoriaSerializer(serializers.ModelSerializer):
         source='organismo.denominacion', read_only=True, default=None,
     )
 
+    # Lo que ya consumió esta categoría y lo que queda. El asistente mostraba
+    # el techo entero como disponible aunque la unidad ya hubiera programado
+    # contra él: así se podía programar el 100%, guardar, volver a entrar y
+    # programar otro 100% sin una sola advertencia.
+    programado = serializers.SerializerMethodField()
+    disponible = serializers.SerializerMethodField()
+
     class Meta:
         model = SaldoUnidadCategoria
         fields = [
@@ -68,10 +76,27 @@ class SaldoUnidadCategoriaSerializer(serializers.ModelSerializer):
             'categoria_programatica', 'denominacion',
             'fuente', 'fuente_codigo', 'fuente_denominacion',
             'organismo', 'organismo_codigo', 'organismo_denominacion',
-            'saldo', 'filas_origen', 'observacion', 'activo',
+            'saldo', 'programado', 'disponible',
+            'filas_origen', 'observacion', 'activo',
             'created_at', 'updated_at',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def _consumido(self, obj):
+        """Bs. ya programados en esta unidad y categoría.
+
+        Sale del mapa que arma el viewset en una sola consulta: calcularlo por
+        fila serían 175 consultas para listar el catálogo entero.
+        """
+        consumo = self.context.get('consumo_por_categoria') or {}
+        clave = (obj.unidad_id, (obj.categoria_programatica or '').strip().upper())
+        return consumo.get(clave, Decimal('0'))
+
+    def get_programado(self, obj):
+        return str(self._consumido(obj))
+
+    def get_disponible(self, obj):
+        return str((obj.saldo or Decimal('0')) - self._consumido(obj))
 
     def validate_categoria_programatica(self, valor):
         """Normaliza como el resto del sistema: espacios colapsados, mayúsculas.
@@ -164,6 +189,47 @@ class SaldoUnidadCategoriaViewSet(viewsets.ModelViewSet):
         if unidad:
             qs = qs.filter(unidad__codigo=unidad)
         return qs
+
+    def get_serializer_context(self):
+        """Suma en UNA consulta lo ya programado por unidad y categoría.
+
+        El consumo se calcula de la programación mensual y no de
+        `monto_programado`: ese campo se desincronizaba de sus propios meses,
+        así que no sirve para decir cuánto techo queda.
+        """
+        contexto = super().get_serializer_context()
+        if getattr(self, 'swagger_fake_view', False):
+            return contexto
+
+        from .models import AsignacionObjetoGasto
+
+        consumo: dict = {}
+        filas = (
+            AsignacionObjetoGasto.objects
+            .filter(gestion=gestion_del_candado(self.request).anio)
+            .values_list(
+                'accion_poa__unidad_responsable_id',
+                'categoria_programatica',
+                'programacion_mensual',
+            )
+        )
+        for unidad_id, categoria, plan in filas:
+            if unidad_id is None:
+                continue
+            total = Decimal('0')
+            if isinstance(plan, dict):
+                for valor in plan.values():
+                    if valor is None:
+                        continue
+                    try:
+                        total += Decimal(str(valor))
+                    except (InvalidOperation, TypeError, ValueError):
+                        continue
+            clave = (unidad_id, re.sub(r'\s+', ' ', categoria or '').strip().upper())
+            consumo[clave] = consumo.get(clave, Decimal('0')) + total
+
+        contexto['consumo_por_categoria'] = consumo
+        return contexto
 
     def perform_create(self, serializer):
         # `AsignacionObjetoGasto` se guardaba sin autor y dejó trece filas sin

@@ -109,7 +109,15 @@ class RegistroRecursosPorCapacidadTests(ScopePOAUUnidadBase):
         )
 
     def requerimiento(self, accion, codigo):
-        """Un renglón del asistente, con la forma que manda el frontend."""
+        """Un renglón del asistente, con la forma que manda el frontend.
+
+        La descripción lleva el código porque `bulk` rechaza una tanda cuyas
+        filas coincidan una a una con las ya guardadas —operación, partida,
+        descripción, fuente, organismo y cronograma—, que es como se detecta el
+        doble clic en Registrar. `codigo_asignacion` no entra en esa
+        comparación: en el flujo real lo genera el servidor, así que dos cargas
+        repetidas nunca difieren por ahí.
+        """
         actividad = self.actividades[accion.pk]
         return {
             'gestion': 2027,
@@ -122,7 +130,7 @@ class RegistroRecursosPorCapacidadTests(ScopePOAUUnidadBase):
             'ue': '001',
             'programa': '170',
             'cod_objeto_gasto': '25200',
-            'descripcion_objeto': 'Estudios e Investigaciones',
+            'descripcion_objeto': f'Estudios e Investigaciones {codigo}',
             'grupo_gasto': '20000',
             'tipo_gasto': 'Funcionamiento',
             'fuente_financiamiento': '20',

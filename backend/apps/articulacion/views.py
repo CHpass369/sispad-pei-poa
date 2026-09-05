@@ -1,3 +1,4 @@
+from decimal import Decimal, InvalidOperation
 from uuid import UUID
 
 from rest_framework import viewsets, status, serializers
@@ -5,7 +6,9 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db import transaction
-from django.db.models import Case, Count, IntegerField, Subquery, Value, When
+from django.db.models import (
+    Case, Count, IntegerField, Subquery, Sum, Value, When,
+)
 from django.utils import timezone
 from .models import (
     BorradorMatrizPEI, BorradorMatrizPOA,
@@ -489,6 +492,7 @@ class AsignacionObjetoGastoViewSet(
 
         creados = []
         with transaction.atomic():
+            validados = []
             for item in items:
                 serializer = self.get_serializer(data=item)
                 serializer.is_valid(raise_exception=True)
@@ -498,9 +502,174 @@ class AsignacionObjetoGastoViewSet(
                 # de cualquier unidad, que es justo lo que el alcance impide en
                 # el alta de a uno.
                 self._autorizar_unidad(self._unidad_objetivo(serializer))
+                validados.append(serializer)
+
+            # Los dos controles van con la tanda entera ya validada y ANTES de
+            # guardar nada: rechazan todo junto, que es la única forma de que
+            # «todo o nada» siga siendo cierto.
+            self._rechazar_tanda_repetida(validados)
+            self._verificar_techo(validados)
+
+            for serializer in validados:
                 serializer.save()
                 creados.append(serializer.data)
         return Response(creados, status=status.HTTP_201_CREATED)
+
+    # ---- Controles de la tanda -------------------------------------------
+
+    @staticmethod
+    def _total_mensual(plan):
+        """Suma de la programación mensual, que es el monto que consume techo.
+
+        Se usa el plan y no `monto_programado`: ese campo se desincronizaba de
+        sus propios meses, así que no sirve para controlar nada.
+        """
+        if not isinstance(plan, dict):
+            return Decimal('0')
+        total = Decimal('0')
+        for valor in plan.values():
+            if valor is None:
+                continue
+            try:
+                total += Decimal(str(valor))
+            except (InvalidOperation, TypeError, ValueError):
+                continue
+        return total
+
+    @staticmethod
+    def _huella(datos):
+        """Identidad de un requerimiento a los ojos de quien lo cargó.
+
+        Dos filas con la misma operación, partida, descripción, fuente,
+        organismo y el mismo cronograma exacto no son dos requerimientos: son
+        el mismo cargado dos veces.
+        """
+        plan = datos.get('programacion_mensual') or {}
+        meses = tuple(sorted(
+            (str(m).lower(), str(v)) for m, v in plan.items() if v is not None
+        ))
+        return (
+            str(datos.get('operacion').pk if datos.get('operacion') else ''),
+            str(datos.get('cod_objeto_gasto') or ''),
+            (datos.get('descripcion_objeto') or '').strip().upper(),
+            str(datos.get('fuente_financiamiento') or ''),
+            str(datos.get('organismo_financiador') or ''),
+            datos.get('gestion'),
+            meses,
+        )
+
+    def _rechazar_tanda_repetida(self, validados):
+        """Rechaza una tanda que ya está guardada, fila por fila.
+
+        El asistente deja el formulario cargado tras un guardado exitoso y
+        vuelve a habilitar el botón: un segundo clic manda exactamente la misma
+        tanda, y como `codigo_asignacion` lo genera el servidor, nada la
+        reconocía como repetida. Se comparaba contra sí misma y entraba de
+        nuevo. Las unidades terminaron con requerimientos duplicados.
+
+        Solo se rechaza cuando **todas** las filas de la tanda ya existen: una
+        coincidencia parcial puede ser una carga legítima que comparte partida
+        con otra anterior.
+        """
+        entrantes = [self._huella(s.validated_data) for s in validados]
+        operaciones = {
+            s.validated_data.get('operacion') for s in validados
+        } - {None}
+        if not operaciones:
+            return
+
+        existentes = {
+            self._huella({
+                'operacion': fila.operacion,
+                'cod_objeto_gasto': fila.cod_objeto_gasto,
+                'descripcion_objeto': fila.descripcion_objeto,
+                'fuente_financiamiento': fila.fuente_financiamiento,
+                'organismo_financiador': fila.organismo_financiador,
+                'gestion': fila.gestion,
+                'programacion_mensual': fila.programacion_mensual,
+            })
+            for fila in AsignacionObjetoGasto.objects.filter(
+                operacion__in=operaciones,
+                gestion=validados[0].validated_data.get('gestion'),
+            )
+        }
+        if all(h in existentes for h in entrantes):
+            raise serializers.ValidationError({
+                'detail': [
+                    'Esta programación ya está registrada: los '
+                    f'{len(entrantes)} requerimientos de la tanda coinciden uno '
+                    'a uno con los que ya están guardados. Si quiere corregir '
+                    'lo cargado, edítelo desde la matriz de programación '
+                    'presupuestaria; si de verdad necesita repetir un '
+                    'requerimiento, cambie su descripción o su cronograma.'
+                ],
+            })
+
+    def _verificar_techo(self, validados):
+        """Impide programar por encima del techo de la categoría.
+
+        El asistente ya avisaba del exceso, pero **solo contra lo que había en
+        el formulario abierto**: nada impedía programar el 100% del saldo,
+        guardar, volver a entrar y programar otro 100%. Cada tanda pasaba sola.
+        Acá se suma lo que YA está en la base, que es lo único que refleja el
+        consumo real del techo, y además atrapa dos cargas simultáneas de
+        usuarios distintos que el navegador no puede ver.
+
+        Sin fila de techo declarada no se bloquea: `saldo` ausente significa
+        «esta combinación no fue revisada», no «cero disponible».
+        """
+        from apps.organizacion.models import UnidadOrganizacional
+
+        from .models import SaldoUnidadCategoria
+        from .views_poau import _codigo_categoria
+
+        por_categoria = {}
+        for s in validados:
+            datos = s.validated_data
+            unidad = self._unidad_objetivo(s)
+            clave = (unidad, _codigo_categoria(datos.get('categoria_programatica')))
+            por_categoria.setdefault(clave, Decimal('0'))
+            por_categoria[clave] += self._total_mensual(
+                datos.get('programacion_mensual'))
+
+        for (unidad, categoria), entrante in por_categoria.items():
+            if unidad is None or not categoria:
+                continue
+            techo = (
+                SaldoUnidadCategoria.objects
+                .filter(unidad=unidad, categoria_programatica=categoria,
+                        activo=True)
+                .aggregate(t=Sum('saldo'))['t']
+            )
+            if techo is None:
+                continue
+
+            ya = sum(
+                (self._total_mensual(f.programacion_mensual)
+                 for f in AsignacionObjetoGasto.objects.filter(
+                     accion_poa__unidad_responsable=unidad,
+                     gestion=validados[0].validated_data.get('gestion'),
+                     categoria_programatica=categoria)),
+                Decimal('0'),
+            )
+            if ya + entrante > techo:
+                exceso = ya + entrante - techo
+                # `_unidad_objetivo` devuelve la clave, no la instancia: para
+                # los filtros alcanza, pero el mensaje necesita el código.
+                codigo_unidad = (
+                    UnidadOrganizacional.objects
+                    .filter(pk=unidad).values_list('codigo', flat=True)
+                    .first() or 'la unidad'
+                )
+                raise serializers.ValidationError({
+                    'detail': [
+                        f'La categoría {categoria} de {codigo_unidad} tiene un '
+                        f'techo de {techo:,.2f} Bs. y ya hay {ya:,.2f} Bs. '
+                        f'programados. Esta tanda agrega {entrante:,.2f} Bs. y '
+                        f'se pasa por {exceso:,.2f} Bs. Reduzca los montos o '
+                        'pida que se amplíe el techo de la categoría.'
+                    ],
+                })
 
 
 class RevisionMatrizMixin:

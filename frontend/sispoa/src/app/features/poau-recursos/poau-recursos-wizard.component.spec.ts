@@ -115,7 +115,9 @@ describe('PoauRecursosWizardComponent · combos de catálogo', () => {
     categoria_programatica: '340 0 099', denominacion: 'TRANSPARENCIA',
     fuente: null, fuente_codigo: null, fuente_denominacion: null,
     organismo: null, organismo_codigo: null, organismo_denominacion: null,
-    saldo: '250000.00', filas_origen: 1, observacion: '', activo: true,
+    // `disponible` es lo que el asistente lee: el techo menos lo ya programado.
+    saldo: '250000.00', programado: '0.00', disponible: '250000.00',
+    filas_origen: 1, observacion: '', activo: true,
   }];
 
   const responderCatalogos = () => {

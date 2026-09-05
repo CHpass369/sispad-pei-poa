@@ -96,7 +96,7 @@ function _codigoCategoria(valor: string): string {
                     [disabled]="!categoriasDeUnidad.length">
               <option value="">Seleccione...</option>
               <option *ngFor="let c of categoriasDeUnidad" [value]="c.categoria_programatica">
-                {{ c.categoria_programatica }} — {{ moneda(numero(c.saldo)) }} Bs. disponibles
+                {{ c.categoria_programatica }} — {{ moneda(numero(c.disponible)) }} Bs. disponibles
               </option>
             </select>
             <!-- El saldo va también fuera del desplegable: cerrado, la opción
@@ -337,8 +337,12 @@ function _codigoCategoria(valor: string): string {
 
         <div class="step-nav">
           <button class="btn btn-outline" (click)="paso = 1">← Anterior</button>
-          <button class="btn btn-success" [disabled]="bloqueado || guardando" (click)="guardar()">
+          <button class="btn btn-success" *ngIf="!registrado"
+                  [disabled]="bloqueado || guardando" (click)="guardar()">
             {{ guardando ? 'Registrando…' : '✓ Registrar programación presupuestaria' }}
+          </button>
+          <button class="btn btn-primary" *ngIf="registrado" (click)="nuevaProgramacion()">
+            + Nueva programación
           </button>
         </div>
         <div *ngIf="msg" class="msg-box" [class.error]="msgClass === 'error'"
@@ -516,6 +520,8 @@ export class PoauRecursosWizardComponent implements OnInit {
   daId = '';
 
   guardando = false;
+  /** La tanda ya se guardó: el botón no vuelve, para no reenviarla. */
+  registrado = false;
   msg = '';
   msgClass = '';
 
@@ -699,10 +705,13 @@ export class PoauRecursosWizardComponent implements OnInit {
       c => c.categoria_programatica === this.categoriaSel);
 
     this.cabecera.categoriaProgramatica = entrada?.categoria_programatica || '';
+    // Se usa `disponible` y no `saldo`: el techo entero ignoraba lo que la
+    // unidad ya programó contra esa categoría, así que se podía cargar el 100%,
+    // guardar, volver a entrar y cargar otro 100% sin una sola advertencia.
     // Null y no cero cuando la categoría no está declarada: no es lo mismo «no
-    // hay nada disponible» que «esta combinación no fue revisada». El saldo
-    // llega como cadena porque DRF serializa los decimales en texto.
-    this.cabecera.saldoDisponible = entrada ? Number(entrada.saldo) : null;
+    // hay nada disponible» que «esta combinación no fue revisada». Llega como
+    // cadena porque DRF serializa los decimales en texto.
+    this.cabecera.saldoDisponible = entrada ? Number(entrada.disponible) : null;
 
     // La denominación oficial es la del catálogo de categorías; la planilla de
     // saldos solo se usa de respaldo cuando el catálogo no la tiene.
@@ -885,7 +894,7 @@ export class PoauRecursosWizardComponent implements OnInit {
   // --- Persistencia ---------------------------------------------------------
 
   guardar(): void {
-    if (this.bloqueado || this.guardando) return;
+    if (this.bloqueado || this.guardando || this.registrado) return;
     this.guardando = true;
     this.msg = 'Registrando la programación presupuestaria…';
     this.msgClass = '';
@@ -900,7 +909,13 @@ export class PoauRecursosWizardComponent implements OnInit {
       .subscribe({
         next: () => {
           this.guardando = false;
-          this.msg = `✅ Programación registrada: ${this.requerimientos.length} requerimiento(s) por ${this.moneda(this.total)} Bs.`;
+          // La tanda queda marcada como registrada y el botón no vuelve a
+          // habilitarse. Antes el formulario quedaba cargado y el botón vivo:
+          // un segundo clic mandaba exactamente lo mismo y, como el código lo
+          // genera el servidor, entraba duplicado. El servidor ahora también lo
+          // rechaza; esto evita que el usuario llegue siquiera al error.
+          this.registrado = true;
+          this.msg = `✅ Programación registrada: ${this.requerimientos.length} requerimiento(s) por ${this.moneda(this.total)} Bs. Para cargar otra, use «Nueva programación».`;
           this.msgClass = 'exito';
           this.cdr.markForCheck();
         },
@@ -911,6 +926,33 @@ export class PoauRecursosWizardComponent implements OnInit {
           this.cdr.markForCheck();
         },
       });
+  }
+
+  /**
+   * Deja el asistente listo para otra carga, sin recargar la página.
+   *
+   * Vuelve al paso 1 y limpia los requerimientos, pero relee los saldos: la
+   * tanda recién guardada consumió techo y seguir mostrando el anterior
+   * invitaría a pasarse otra vez.
+   */
+  nuevaProgramacion(): void {
+    this.registrado = false;
+    this.requerimientos = [requerimientoVacio()];
+    this.msg = '';
+    this.msgClass = '';
+    this.paso = 0;
+    const unidad = this.cabecera.codigoUnidad;
+    if (unidad) {
+      this.saldos.listar(unidad).subscribe({
+        next: filas => {
+          this.categoriasDeUnidad = filas.filter(f => f.activo);
+          this.onCategoria();
+          this.cdr.markForCheck();
+        },
+        error: () => this.cdr.markForCheck(),
+      });
+    }
+    this.cdr.markForCheck();
   }
 
   private cuerpo(r: RequerimientoForm): Record<string, unknown> {

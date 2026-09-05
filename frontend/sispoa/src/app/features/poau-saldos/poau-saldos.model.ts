@@ -24,6 +24,10 @@ export interface SaldoUnidadCategoria {
   organismo_denominacion: string | null;
   /** Llega como cadena: DRF serializa `DecimalField` en texto para no perder precisión. */
   saldo: string;
+  /** Bs. ya programados contra esta categoría, según lo guardado en la base. */
+  programado: string;
+  /** `saldo` menos `programado`: lo que de verdad queda para programar. */
+  disponible: string;
   filas_origen: number;
   observacion: string;
   activo: boolean;
