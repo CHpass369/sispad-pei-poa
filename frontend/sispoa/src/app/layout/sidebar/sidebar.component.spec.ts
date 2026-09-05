@@ -6,6 +6,7 @@ import {
   Banknote,
   Bell,
   Boxes,
+  Coins,
   CalendarCheck,
   CalendarDays,
   ChartColumn,
@@ -69,6 +70,7 @@ describe('SidebarComponent', () => {
         LucideAngularModule.pick({
           Activity,
           Banknote,
+          Coins,
           Bell,
           Boxes,
           CalendarCheck,
