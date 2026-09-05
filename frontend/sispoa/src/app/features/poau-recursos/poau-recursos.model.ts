@@ -13,6 +13,15 @@ export const MESES = [
 ] as const;
 
 /**
+ * Los doce meses en su grafía canónica: la misma que guarda el `jsonb`.
+ *
+ * Existe para que `ProgramacionMensual` no sea indexable por `string` suelto.
+ * Con un índice libre, `programacion['DICIEMBRE']` compilaba sin una queja y
+ * el error recién aparecía como un 400 del servidor sobre la tanda completa.
+ */
+export type Mes = (typeof MESES)[number];
+
+/**
  * Tipos de gasto de la clasificación presupuestaria boliviana.
  *
  * Es una convención escrita acá y no un catálogo importado: `tipo_gasto` es un
@@ -36,17 +45,40 @@ export function grupoDePartida(codPartida: string): string {
   return `${codigo[0]}0000`;
 }
 
-export type ProgramacionMensual = Record<string, number | null>;
+export type ProgramacionMensual = Record<Mes, number | null>;
 
 export function programacionVacia(): ProgramacionMensual {
   return MESES.reduce<ProgramacionMensual>((acc, mes) => {
     acc[mes] = null;
     return acc;
-  }, {});
+  }, {} as ProgramacionMensual);
 }
 
 export function totalAnual(programacion: ProgramacionMensual): number {
   return MESES.reduce((t, mes) => t + (Number(programacion[mes]) || 0), 0);
+}
+
+/**
+ * Proyecta la programación sobre los doce meses canónicos antes de enviarla.
+ *
+ * El backend normaliza cada clave a minúscula antes de guardar. Si el objeto
+ * arrastra una clave fuera del canon —`'DICIEMBRE'`, `'dic'`— choca con la
+ * canónica y rechaza la tanda completa con
+ * `400 · El mes «diciembre» llegó dos veces con distinta grafía`.
+ *
+ * Tipar el `Record` con `Mes` no alcanza para impedirlo: el proyecto compila
+ * con `noImplicitAny` apagado, así que indexar con una clave inválida devuelve
+ * `any` sin una sola queja. Por eso el filtro va acá, en el borde de salida:
+ * se manda exactamente lo que la pantalla suma en `totalAnual`, ni una clave
+ * más, venga de donde venga.
+ */
+export function programacionCanonica(
+  programacion: ProgramacionMensual,
+): ProgramacionMensual {
+  return MESES.reduce<ProgramacionMensual>((acc, mes) => {
+    acc[mes] = programacion?.[mes] ?? null;
+    return acc;
+  }, {} as ProgramacionMensual);
 }
 
 /** Cabecera heredada de la unidad, su categoría programática y la operación. */
@@ -109,7 +141,8 @@ export interface RequerimientoForm {
   tipoGasto: string;
   fuenteFinanciamiento: string;
   organismoFinanciador: string;
-  fechaRequerimiento: string;
+  /** Mes estimado de pago. Es un `Mes` porque además indexa la programación. */
+  fechaRequerimiento: Mes | '';
   presupuestoProgramado: number | null;
   programacion: ProgramacionMensual;
   medioVerificacion: string;

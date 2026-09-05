@@ -17,6 +17,7 @@ import {
   cabeceraVacia,
   construirFilas,
   grupoDePartida,
+  programacionCanonica,
   requerimientoVacio,
   tieneErrores,
   saldoRestante,
@@ -876,7 +877,11 @@ export class PoauRecursosWizardComponent implements OnInit {
     const cuota = Math.floor((monto / 12) * 100) / 100;
     MESES.forEach(mes => { r.programacion[mes] = cuota; });
     const repartido = cuota * 12;
-    r.programacion['DICIEMBRE'] = Math.round((cuota + (monto - repartido)) * 100) / 100;
+    // El residuo va al último mes. Indexar con el literal 'DICIEMBRE' agregaba
+    // una clave fuera del canon: el backend normaliza a minúscula, chocaba con
+    // `diciembre` y rechazaba la tanda entera con un 400.
+    const ultimo = MESES[MESES.length - 1];
+    r.programacion[ultimo] = Math.round((cuota + (monto - repartido)) * 100) / 100;
   }
 
   /** Concentra todo el monto en el mes en que se requiere el pago. */
@@ -980,7 +985,7 @@ export class PoauRecursosWizardComponent implements OnInit {
       monto_vigente: totalAnual(r.programacion),
       cargo_reacp: this.cabecera.cargoReacp,
       fecha_requerimiento: r.fechaRequerimiento,
-      programacion_mensual: r.programacion,
+      programacion_mensual: programacionCanonica(r.programacion),
       medio_verificacion: r.medioVerificacion,
       justificacion: r.bienServicio,
     };

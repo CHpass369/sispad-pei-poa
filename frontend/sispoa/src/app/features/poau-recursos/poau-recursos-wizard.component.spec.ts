@@ -8,7 +8,8 @@ import { gestionHabilitadaStub } from '../../core/testing/gestion-habilitada.stu
 import { PoauRecursosWizardComponent } from './poau-recursos-wizard.component';
 import { PoauRecursosViewerComponent } from './poau-recursos-viewer.component';
 import {
-  MESES, grupoDePartida, requerimientoVacio, saldoRestante,
+  MESES, grupoDePartida, programacionCanonica, programacionVacia,
+  requerimientoVacio, saldoRestante, totalAnual,
 } from './poau-recursos.model';
 
 describe('grupoDePartida', () => {
@@ -61,6 +62,71 @@ describe('saldoRestante', () => {
 
   it('sin requerimientos el resto es el saldo entero', () => {
     expect(saldoRestante(250000, [])).toBe(250000);
+  });
+});
+
+describe('programacionCanonica', () => {
+  // El backend normaliza las claves a minúscula antes de guardar: una clave
+  // fuera del canon choca con la canónica y devuelve
+  // `400 · El mes «diciembre» llegó dos veces con distinta grafía`, que
+  // rechaza la tanda entera sin señalar la fila. Este filtro es el que impide
+  // que esa clave salga del navegador.
+  it('devuelve exactamente los doce meses canónicos', () => {
+    expect(Object.keys(programacionCanonica(programacionVacia()))).toEqual([...MESES]);
+  });
+
+  it('descarta cualquier clave fuera del canon', () => {
+    const sucia = { ...programacionVacia(), DICIEMBRE: 99, dic: 5 } as any;
+    expect(Object.keys(programacionCanonica(sucia))).toEqual([...MESES]);
+  });
+
+  it('conserva los montos de los meses válidos', () => {
+    const p = programacionVacia();
+    p[MESES[0]] = 1200;
+    p[MESES[11]] = 800;
+    const canonica = programacionCanonica(p);
+    expect(canonica[MESES[0]]).toBe(1200);
+    expect(canonica[MESES[11]]).toBe(800);
+    expect(canonica[MESES[5]]).toBeNull();
+  });
+});
+
+describe('PoauRecursosWizardComponent · repartirEnDoce', () => {
+  let fixture: ComponentFixture<PoauRecursosWizardComponent>;
+  let componente: PoauRecursosWizardComponent;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      declarations: [PoauRecursosWizardComponent, PoauRecursosViewerComponent],
+      imports: [HttpClientTestingModule, RouterTestingModule, FormsModule, SharedModule],
+      providers: [
+        { provide: GestionHabilitadaService, useValue: gestionHabilitadaStub() },
+      ],
+    });
+    fixture = TestBed.createComponent(PoauRecursosWizardComponent);
+    componente = fixture.componentInstance;
+  });
+
+  it('reparte sobre los doce meses canónicos, sin agregar claves', () => {
+    // El residuo del redondeo iba a un literal `'DICIEMBRE'`: una clave
+    // trece que el backend rechazaba con un 400 sobre la tanda completa.
+    const r = requerimientoVacio();
+    r.presupuestoProgramado = 1000;
+    componente.repartirEnDoce(r);
+    expect(Object.keys(r.programacion)).toEqual([...MESES]);
+  });
+
+  it('el residuo del redondeo cae en diciembre y la suma cuadra', () => {
+    const r = requerimientoVacio();
+    r.presupuestoProgramado = 1000;
+    componente.repartirEnDoce(r);
+    // 1000 / 12 = 83,33 truncado; 83,33 × 12 = 999,96 y faltan 0,04.
+    expect(r.programacion[MESES[0]]).toBe(83.33);
+    expect(r.programacion[MESES[11]]).toBe(83.37);
+    // `toBeCloseTo` y no `toBe`: sumar los doce con el `+` de JavaScript
+    // devuelve 1000.0000000000001. La cola binaria es un problema aparte
+    // —ver `redondear()` en la rama de decimales—, no del reparto.
+    expect(totalAnual(r.programacion)).toBeCloseTo(1000, 2);
   });
 });
 

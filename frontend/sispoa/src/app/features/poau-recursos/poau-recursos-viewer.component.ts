@@ -3,6 +3,7 @@ import {
   FilaMatrizRecursos,
   Hallazgo,
   MESES,
+  Mes,
   ProgramacionMensual,
 } from './poau-recursos.model';
 
@@ -137,11 +138,11 @@ export class PoauRecursosViewerComponent {
   vista: 'matriz' = 'matriz';
   meses = MESES;
 
-  valor(programacion: ProgramacionMensual, mes: string): number {
+  valor(programacion: ProgramacionMensual, mes: Mes): number {
     return Number(programacion?.[mes]) || 0;
   }
 
-  totalMes(mes: string): number {
+  totalMes(mes: Mes): number {
     return this.filas.reduce((t, f) => t + (Number(f.programacion?.[mes]) || 0), 0);
   }
 
