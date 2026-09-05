@@ -35,14 +35,23 @@ export interface SaldoUnidadCategoria {
   updated_at?: string;
 }
 
-/** Lo que se manda al crear o editar. */
+/**
+ * Lo que edita el formulario.
+ *
+ * `saldo` NO es `string`: el campo se pinta con `<input type="number">` y el
+ * `NumberValueAccessor` de Angular escribe en el modelo `parseFloat(valor)` —o
+ * `null` si se vacía—, nunca la cadena que se tipeó. Declararlo `string` hacía
+ * que `saldo.trim()` reventara con `TypeError` en cuanto alguien escribía un
+ * monto, y como la excepción sale del handler del click, el botón Guardar no
+ * hacía absolutamente nada: ni petición, ni mensaje.
+ */
 export interface SaldoUnidadCategoriaForm {
   unidad: string;
   categoria_programatica: string;
   denominacion: string;
   fuente: string | null;
   organismo: string | null;
-  saldo: string;
+  saldo: string | number | null;
   observacion: string;
   activo: boolean;
 }
@@ -103,13 +112,48 @@ export function erroresDeFormulario(form: SaldoUnidadCategoriaForm): string[] {
   if (!form.unidad) {
     errores.push('Elija la unidad organizacional.');
   }
-  if (!form.categoria_programatica.trim()) {
+  if (!(form.categoria_programatica ?? '').trim()) {
     errores.push('Escriba la categoría programática.');
   }
   // Se permite el negativo a propósito: la planilla marca saldos negativos y
   // redondearlos a cero inventaría un margen que la unidad no tiene.
-  if (form.saldo.trim() === '' || !Number.isFinite(Number(form.saldo))) {
+  if (montoDelFormulario(form.saldo) === null) {
     errores.push('El saldo tiene que ser un número.');
   }
   return errores;
+}
+
+/**
+ * El monto del formulario como número, o `null` si no hay un monto utilizable.
+ *
+ * El campo llega como número cuando el usuario tipeó, como `null` cuando lo
+ * vació, y como cadena cuando lo escribió el backend al abrir la edición. Los
+ * tres casos pasan por acá para que nadie vuelva a suponer un `string`.
+ */
+export function montoDelFormulario(valor: string | number | null): number | null {
+  if (valor === null || valor === undefined) { return null; }
+  if (typeof valor === 'number') {
+    return Number.isFinite(valor) ? valor : null;
+  }
+  const texto = valor.trim();
+  if (texto === '') { return null; }
+  const numero = Number(texto);
+  return Number.isFinite(numero) ? numero : null;
+}
+
+/**
+ * El formulario listo para viajar en el JSON.
+ *
+ * El monto sale como cadena de dos decimales a propósito. `<input
+ * type="number">` entrega un float del navegador y el `DecimalField` de DRF
+ * valida la precisión ANTES de redondear: un `1489783.005` mandado crudo muere
+ * en un 400 por «no más de 2 decimales» en vez de guardarse. Fijar la cola acá
+ * es lo mismo que hace el resto de los montos del POAU.
+ */
+export function aPayload(form: SaldoUnidadCategoriaForm): SaldoUnidadCategoriaForm {
+  const monto = montoDelFormulario(form.saldo);
+  return {
+    ...form,
+    saldo: monto === null ? '' : monto.toFixed(2),
+  };
 }

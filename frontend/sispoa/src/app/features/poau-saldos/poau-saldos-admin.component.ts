@@ -5,6 +5,7 @@ import {
   SaldoUnidadCategoria,
   SaldoUnidadCategoriaForm,
   aFormulario,
+  aPayload,
   erroresDeFormulario,
   formularioVacio,
   totalDeSaldos,
@@ -371,13 +372,28 @@ export class PoauSaldosAdminComponent implements OnInit {
 
   guardar(): void {
     if (!this.formulario) { return; }
-    this.erroresForm = erroresDeFormulario(this.formulario);
-    if (this.erroresForm.length) { return; }
+
+    // El try/catch no es decorativo: una excepción acá sale del handler del
+    // click y muere en la consola, así que el botón queda mudo y el usuario no
+    // tiene forma de saber que algo falló. Es justo lo que pasaba cuando la
+    // validación llamaba `.trim()` sobre el monto, que `<input type="number">`
+    // entrega como número.
+    let payload: SaldoUnidadCategoriaForm;
+    try {
+      this.erroresForm = erroresDeFormulario(this.formulario);
+      if (this.erroresForm.length) { return; }
+      payload = aPayload(this.formulario);
+    } catch (e: any) {
+      this.erroresForm = [
+        `No se pudo preparar el saldo para guardarlo: ${e?.message ?? e}`,
+      ];
+      return;
+    }
 
     this.guardando = true;
     const peticion = this.editandoId
-      ? this.servicio.editar(this.editandoId, this.formulario)
-      : this.servicio.crear(this.formulario);
+      ? this.servicio.editar(this.editandoId, payload)
+      : this.servicio.crear(payload);
 
     peticion.subscribe({
       next: () => {
