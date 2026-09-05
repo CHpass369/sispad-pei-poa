@@ -1663,3 +1663,103 @@ class VersionImportacionPOAU(TimeStampedModel):
             f'{self.unidad.codigo} G{self.gestion.anio} '
             f'{self.get_tipo_evento_display()}'
         )
+
+
+class SaldoUnidadCategoria(TimeStampedModel):
+    """Techo presupuestario de una unidad en una categoría programática.
+
+    Es el monto que el asistente de recursos (`/poau_recursos`) ofrece para
+    programar. Hasta la gestión 2027 vivía en un arreglo estático del bundle de
+    Angular, trasladado a mano desde una planilla: cambiar un monto costaba un
+    build y un despliegue completos, y nada garantizaba que la unidad o la
+    categoría existieran de verdad. Acá las llaves foráneas lo garantizan.
+
+    La identidad es el par (unidad, categoría) **más la fuente y el organismo**:
+    una misma categoría se financia desde fuentes distintas y cada tramo tiene su
+    propio techo. Sumarlos en una sola fila perdería de dónde sale cada peso.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    unidad = models.ForeignKey(
+        'organizacion.UnidadOrganizacional', on_delete=models.PROTECT,
+        related_name='saldos_categoria', verbose_name='Unidad organizacional',
+    )
+    categoria_programatica = models.CharField(
+        max_length=50, verbose_name='Categoría programática',
+    )
+    denominacion = models.CharField(
+        max_length=500, blank=True, verbose_name='Denominación',
+    )
+    # Nulos a propósito: las 175 filas heredadas de la planilla no declaran
+    # fuente ni organismo. Inventárselos sería peor que dejar el hueco a la
+    # vista para que administración lo complete.
+    fuente = models.ForeignKey(
+        'catalogos.FuenteFinanciamiento', on_delete=models.PROTECT,
+        null=True, blank=True, related_name='saldos_unidad_categoria',
+        verbose_name='Fuente de financiamiento',
+    )
+    organismo = models.ForeignKey(
+        'catalogos.OrganismoFinanciador', on_delete=models.PROTECT,
+        null=True, blank=True, related_name='saldos_unidad_categoria',
+        verbose_name='Organismo financiador',
+    )
+    # Sin MinValueValidator: la planilla marca saldos negativos («SALDO
+    # NEGATIVO – revisar») y redondearlos a cero inventaría un margen que la
+    # unidad no tiene.
+    saldo = models.DecimalField(
+        max_digits=20, decimal_places=2, verbose_name='Saldo disponible',
+    )
+    # Cuántas filas de la planilla de origen se sumaron en esta entrada. Cero
+    # significa «esto no viene de la planilla»: una regeneración desde el
+    # origen la perdería, y este campo permite detectar cuáles.
+    filas_origen = models.PositiveIntegerField(
+        default=0, verbose_name='Filas de la planilla de origen',
+    )
+    observacion = models.TextField(
+        blank=True, verbose_name='Observación',
+        help_text='Por qué esta fila se aparta de la planilla, si es el caso.',
+    )
+    activo = models.BooleanField(default=True, verbose_name='Activo')
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
+        blank=True, related_name='saldos_unidad_categoria_creados',
+        verbose_name='Creado por',
+    )
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
+        blank=True, related_name='saldos_unidad_categoria_actualizados',
+        verbose_name='Actualizado por',
+    )
+
+    class Meta:
+        verbose_name = 'Saldo por unidad y categoría'
+        verbose_name_plural = 'Saldos por unidad y categoría'
+        ordering = ['unidad__codigo', 'categoria_programatica']
+        constraints = [
+            # `nulls_distinct=False` es deliberado: sin él PostgreSQL trata cada
+            # NULL como distinto y la restricción deja de morder justo en las
+            # filas heredadas, que son todas de fuente nula. Es la misma trampa
+            # que dejó entrar organismos duplicados en los catálogos.
+            models.UniqueConstraint(
+                fields=['unidad', 'categoria_programatica', 'fuente', 'organismo'],
+                name='uniq_saldo_unidad_categoria_fuente_organismo',
+                nulls_distinct=False,
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=['unidad', 'categoria_programatica'],
+                name='art_saldo_uni_cat_idx',
+            ),
+        ]
+
+    @property
+    def gestion(self):
+        """Año de la gestión, heredado de la unidad: no se declara dos veces."""
+        return self.unidad.gestion.anio
+
+    def __str__(self):
+        return (
+            f'{self.unidad.codigo} · {self.categoria_programatica} · '
+            f'{self.saldo} Bs.'
+        )
