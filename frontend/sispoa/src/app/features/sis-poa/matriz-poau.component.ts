@@ -552,12 +552,16 @@ const TODAS_UNIDADES = '__todas_las_unidades__';
               <ng-container *ngFor="let cat of presupuesto">
                 <!-- La categoría encabeza su grupo, como en la planilla. -->
                 <tr class="fila-categoria">
-                  <td [attr.colspan]="columnasPresupuesto.length - 1">
+                  <!-- Dos columnas quedan fuera del colspan: el total y las
+                       acciones. Si se cuenta una sola, el total se corre bajo
+                       los botones y la tabla se desalinea. -->
+                  <td [attr.colspan]="columnasPresupuesto.length - 2">
                     <strong>{{ cat.categoria || 'SIN CATEGORÍA' }}</strong>
                     <span class="denominacion">{{ cat.denominacion }}</span>
                     <span class="cuenta">{{ cat.filas.length }} requerimiento(s)</span>
                   </td>
                   <td class="num"><strong>{{ moneda(cat.total) }}</strong></td>
+                  <td></td>
                 </tr>
                 <tr *ngFor="let f of cat.filas">
                   <td>{{ f.codigo_asignacion }}</td>
@@ -570,22 +574,145 @@ const TODAS_UNIDADES = '__todas_las_unidades__';
                     {{ f['mes_' + m] ? moneda(f['mes_' + m]) : '' }}
                   </td>
                   <td class="num">{{ moneda(f.total_anual) }}</td>
+                  <td class="acciones-fila">
+                    <button type="button" class="btn-icono" title="Editar el requerimiento"
+                            (click)="abrirEdicionRequerimiento(f)"
+                            [disabled]="ocupado">✎</button>
+                    <button type="button" class="btn-icono peligro"
+                            title="Eliminar el requerimiento"
+                            (click)="pedirBorradoRequerimiento(f)"
+                            [disabled]="ocupado">✕</button>
+                  </td>
                 </tr>
               </ng-container>
               <tr class="fila-total">
-                <td [attr.colspan]="columnasPresupuesto.length - 1">
+                <td [attr.colspan]="columnasPresupuesto.length - 2">
                   TOTAL PROGRAMADO GESTIÓN {{ gestion }}
                 </td>
                 <td class="num">{{ moneda(totalPresupuesto) }}</td>
+                <td></td>
               </tr>
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <!-- ===== Editar un requerimiento ===== -->
+      <div class="modal-fondo" *ngIf="edicionRequerimiento">
+        <div class="modal-panel">
+          <h3>Editar requerimiento</h3>
+          <p class="modal-sub">
+            <strong>{{ edicionRequerimiento.codigo_asignacion }}</strong> ·
+            partida {{ edicionRequerimiento.cod_objeto_gasto }}
+          </p>
+
+          <div class="msg-box error" *ngIf="erroresRequerimiento.length">
+            <div *ngFor="let e of erroresRequerimiento">{{ e }}</div>
+          </div>
+
+          <label>Descripción de la partida
+            <input type="text" [(ngModel)]="edicionRequerimiento.descripcion_objeto" />
+          </label>
+          <div class="modal-2col">
+            <label>Fuente (FTE)
+              <input type="text" [(ngModel)]="edicionRequerimiento.fuente_financiamiento" />
+            </label>
+            <label>Organismo (ORG)
+              <input type="text" [(ngModel)]="edicionRequerimiento.organismo_financiador" />
+            </label>
+          </div>
+          <label>Mes requerido
+            <input type="date" [(ngModel)]="edicionRequerimiento.fecha_requerimiento" />
+          </label>
+
+          <fieldset class="meses">
+            <legend>Programación mensual (Bs.)</legend>
+            <div class="grilla-meses">
+              <label *ngFor="let m of meses">
+                {{ m.slice(0, 3).toUpperCase() }}
+                <input type="number" step="0.01"
+                       [(ngModel)]="edicionRequerimiento.programacion[m]" />
+              </label>
+            </div>
+            <!-- El total sale de los meses y no del monto_programado
+                 guardado: era justamente el campo que se desincronizaba al
+                 programar. Sin comillas invertidas acá dentro: cierran el
+                 template inline y el componente deja de compilar. -->
+            <p class="total-meses">
+              Total anual: <strong>{{ moneda(totalMesesEdicion) }} Bs.</strong>
+            </p>
+          </fieldset>
+
+          <div class="modal-pie">
+            <button type="button" class="btn btn-sm"
+                    (click)="cerrarEdicionRequerimiento()"
+                    [disabled]="guardandoRequerimiento">Cancelar</button>
+            <button type="button" class="btn btn-sm btn-primary"
+                    (click)="guardarRequerimiento()"
+                    [disabled]="guardandoRequerimiento">
+              {{ guardandoRequerimiento ? 'Guardando…' : 'Guardar' }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== Confirmar el borrado ===== -->
+      <div class="modal-fondo" *ngIf="borradoRequerimiento">
+        <div class="modal-panel">
+          <h3>Eliminar requerimiento</h3>
+          <p>
+            <strong>{{ borradoRequerimiento.codigo_asignacion }}</strong> ·
+            {{ borradoRequerimiento.descripcion_objeto }} ·
+            <strong>{{ moneda(borradoRequerimiento.total_anual) }} Bs.</strong>
+          </p>
+          <p class="advertencia">
+            El borrado es definitivo: la programación presupuestaria no tiene
+            historial y esta fila no se puede recuperar. Queda un evento de
+            auditoría con su contenido, nada más.
+          </p>
+          <div class="modal-pie">
+            <button type="button" class="btn btn-sm"
+                    (click)="borradoRequerimiento = null"
+                    [disabled]="guardandoRequerimiento">Cancelar</button>
+            <button type="button" class="btn btn-sm btn-peligro"
+                    (click)="confirmarBorradoRequerimiento()"
+                    [disabled]="guardandoRequerimiento">
+              {{ guardandoRequerimiento ? 'Eliminando…' : 'Eliminar' }}
+            </button>
+          </div>
         </div>
       </div>
     </div>
   `,
   styles: [`
     .filtro { display: block; width: min(420px, 40vw); font-size: 0.8125rem; }
+    .acciones-fila { white-space: nowrap; text-align: center; }
+    .btn-icono { border: 1px solid var(--border); background: #fff; border-radius: 4px;
+                 cursor: pointer; padding: 0.1rem 0.4rem; font-size: 0.8125rem;
+                 line-height: 1.4; color: var(--primary); }
+    .btn-icono:hover:not(:disabled) { background: var(--pip-green-100); }
+    .btn-icono:disabled { opacity: .45; cursor: default; }
+    .btn-icono.peligro { color: #b91c1c; }
+    .btn-icono.peligro:hover:not(:disabled) { background: #fee2e2; }
+    .modal-fondo { position: fixed; inset: 0; background: rgba(15,23,42,.45);
+                   display: flex; align-items: center; justify-content: center; z-index: 60; }
+    .modal-panel { background: #fff; border-radius: .5rem; padding: 1.25rem;
+                   width: min(40rem, 94vw); max-height: 90vh; overflow: auto; }
+    .modal-panel h3 { margin: 0 0 .25rem; font-size: 1rem; color: var(--primary); }
+    .modal-sub { color: #64748b; font-size: .8125rem; margin: 0 0 .75rem; }
+    .modal-panel label { display: flex; flex-direction: column; gap: .2rem;
+                         font-size: .75rem; margin-bottom: .6rem; }
+    .modal-panel input { padding: .35rem; font: inherit; font-size: .8125rem; }
+    .modal-2col { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
+    .meses { border: 1px solid var(--border); border-radius: .375rem;
+             padding: .6rem; margin: .5rem 0; }
+    .meses legend { font-size: .75rem; color: #64748b; padding: 0 .3rem; }
+    .grilla-meses { display: grid; grid-template-columns: repeat(6, 1fr); gap: .4rem; }
+    .grilla-meses input { text-align: right; }
+    .total-meses { margin: .6rem 0 0; font-size: .8125rem; text-align: right; }
+    .advertencia { color: #b45309; font-size: .8125rem; }
+    .btn-peligro { background: #dc2626; color: #fff; border-color: #dc2626; }
+    .modal-pie { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1rem; }
     .bloque-presupuesto { margin-top: 2rem; padding-top: 1.25rem; border-top: 2px solid var(--border); }
     .bloque-presupuesto h3 { font-size: 1rem; color: var(--primary); margin: 0; }
     .chip.total { background: var(--pip-green-100); color: var(--pip-green-700); font-size: 0.75rem; font-weight: 700; padding: 0.3rem 0.7rem; border-radius: 999px; }
@@ -807,6 +934,7 @@ export class MatrizPoauComponent implements OnInit, AfterViewInit, OnDestroy {
     { etiqueta: 'MES REQUERIDO', ancho: 88, num: false },
     ...MESES.map(m => ({ etiqueta: m.slice(0, 3).toUpperCase(), ancho: 68, num: true })),
     { etiqueta: 'TOTAL ANUAL', ancho: 92, num: true },
+    { etiqueta: 'ACCIONES', ancho: 96, num: false },
   ];
   visibles: any[] = [];
   conteo: Record<string, number> = {};
@@ -950,6 +1078,149 @@ export class MatrizPoauComponent implements OnInit, AfterViewInit, OnDestroy {
           this.cdr.markForCheck();
         },
       });
+  }
+
+  // ===================== Editar y borrar un requerimiento =====================
+  // La matriz de abajo era de solo lectura: corregir un monto obligaba a
+  // rehacer el requerimiento desde el asistente. El endpoint ya existía
+  // (`/asignaciones-gasto/<id>/`), con su capacidad y su alcance por unidad.
+
+  edicionRequerimiento: any = null;
+  borradoRequerimiento: any = null;
+  guardandoRequerimiento = false;
+  erroresRequerimiento: string[] = [];
+
+  /** El total se recalcula de los meses, que es lo que el usuario edita. */
+  get totalMesesEdicion(): number {
+    const plan = this.edicionRequerimiento?.programacion ?? {};
+    return this.meses.reduce((suma, m) => {
+      const v = Number(plan[m]);
+      return Number.isFinite(v) ? suma + v : suma;
+    }, 0);
+  }
+
+  abrirEdicionRequerimiento(fila: any): void {
+    // Se edita una copia: si el guardado falla, la tabla no queda mostrando
+    // valores que la base nunca aceptó.
+    const programacion: Record<string, number | null> = {};
+    this.meses.forEach(m => { programacion[m] = fila['mes_' + m] ?? null; });
+    this.edicionRequerimiento = {
+      id: fila.id,
+      codigo_asignacion: fila.codigo_asignacion,
+      cod_objeto_gasto: fila.cod_objeto_gasto,
+      descripcion_objeto: fila.descripcion_objeto || '',
+      fuente_financiamiento: fila.fuente_financiamiento || '',
+      organismo_financiador: fila.organismo_financiador || '',
+      fecha_requerimiento: fila.fecha_requerimiento || '',
+      programacion,
+    };
+    this.erroresRequerimiento = [];
+  }
+
+  cerrarEdicionRequerimiento(): void {
+    this.edicionRequerimiento = null;
+    this.erroresRequerimiento = [];
+  }
+
+  guardarRequerimiento(): void {
+    const e = this.edicionRequerimiento;
+    if (!e) { return; }
+
+    this.erroresRequerimiento = [];
+    if (!e.descripcion_objeto.trim()) {
+      this.erroresRequerimiento.push('La descripción de la partida es obligatoria.');
+    }
+    if (!e.fuente_financiamiento.trim() || !e.organismo_financiador.trim()) {
+      this.erroresRequerimiento.push('Registre la fuente (FTE) y el organismo (ORG).');
+    }
+    if (this.erroresRequerimiento.length) {
+      this.cdr.markForCheck();
+      return;
+    }
+
+    // Solo viajan los meses con monto: mandar los doce con null hace que el
+    // backend normalice un plan lleno de huecos.
+    const programacion: Record<string, number> = {};
+    this.meses.forEach(m => {
+      const v = Number(e.programacion[m]);
+      if (Number.isFinite(v) && v !== 0) { programacion[m] = v; }
+    });
+
+    this.guardandoRequerimiento = true;
+    this.http.patch(
+      `${environment.apiUrl}/articulacion/asignaciones-gasto/${e.id}/`,
+      {
+        descripcion_objeto: e.descripcion_objeto.trim(),
+        fuente_financiamiento: e.fuente_financiamiento.trim(),
+        organismo_financiador: e.organismo_financiador.trim(),
+        fecha_requerimiento: e.fecha_requerimiento || null,
+        programacion_mensual: programacion,
+        // Se manda recalculado a propósito: `monto_programado` se
+        // desincronizaba de sus meses, y editar es la ocasión de corregirlo.
+        monto_programado: this.totalMesesEdicion,
+      },
+    ).subscribe({
+      next: () => {
+        this.guardandoRequerimiento = false;
+        this.cerrarEdicionRequerimiento();
+        this.cargarPresupuesto();
+      },
+      error: err => {
+        this.guardandoRequerimiento = false;
+        this.erroresRequerimiento = this.mensajesDeError(
+          err, 'No se pudo guardar el requerimiento.');
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  pedirBorradoRequerimiento(fila: any): void {
+    this.borradoRequerimiento = fila;
+  }
+
+  confirmarBorradoRequerimiento(): void {
+    const fila = this.borradoRequerimiento;
+    if (!fila) { return; }
+    this.guardandoRequerimiento = true;
+    this.http.delete(
+      `${environment.apiUrl}/articulacion/asignaciones-gasto/${fila.id}/`,
+    ).subscribe({
+      next: () => {
+        this.guardandoRequerimiento = false;
+        this.borradoRequerimiento = null;
+        this.cargarPresupuesto();
+      },
+      error: err => {
+        this.guardandoRequerimiento = false;
+        this.borradoRequerimiento = null;
+        this.errorPresupuesto = this.mensajesDeError(
+          err, 'No se pudo eliminar el requerimiento.')[0];
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  /**
+   * Despliega los errores de campo del backend.
+   *
+   * `apps.core.exceptions.api_exception_handler` los envuelve en
+   * `{ error: {...} }`; leer `err.error` a secas muestra «[object Object]».
+   */
+  private mensajesDeError(err: any, porDefecto: string): string[] {
+    if (err?.status === 403) {
+      return ['No tiene permiso para modificar la programación de esta unidad.'];
+    }
+    const cuerpo = err?.error?.error ?? err?.error ?? {};
+    if (typeof cuerpo === 'string') { return [cuerpo]; }
+    const mensajes: string[] = [];
+    Object.values(cuerpo).forEach(valor => {
+      if (Array.isArray(valor)) {
+        valor.forEach(v => mensajes.push(String(v)));
+      } else if (typeof valor === 'string') {
+        mensajes.push(valor);
+      }
+    });
+    return mensajes.length ? mensajes : [porDefecto];
   }
 
   moneda(valor: number | null | undefined): string {

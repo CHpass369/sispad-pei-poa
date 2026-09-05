@@ -391,6 +391,72 @@ class AsignacionObjetoGastoViewSet(
     search_fields = ['codigo_asignacion', 'descripcion_objeto']
     ordering_fields = ['codigo_asignacion', 'gestion']
 
+    def perform_update(self, serializer):
+        """Deja constancia de quién corrigió el requerimiento.
+
+        Ni el alta por `bulk` ni la de `perform_create` estampaban autor, así
+        que no había forma de saber quién cargó cada fila. En la edición sí se
+        registra desde el principio.
+        """
+        serializer.save(updated_by=self.request.user)
+
+    def destroy(self, request, *args, **kwargs):
+        """Borra el requerimiento dejando un evento de auditoría.
+
+        El borrado es físico y no hay historial: sin este evento, una fila
+        eliminada no deja absolutamente ningún rastro de haber existido. Ya
+        ocurrió —una importación de POAU se llevó 62 requerimientos por
+        cascada el 2026-09-04, irrecuperables—, así que el monto, la partida y
+        el código se guardan ANTES de borrar: después ya no hay de dónde
+        leerlos.
+        """
+        from apps.auditoria.models import EventoAuditoria
+
+        instancia = self.get_object()
+        unidad = (
+            instancia.accion_poa.unidad_responsable.codigo
+            if instancia.accion_poa and instancia.accion_poa.unidad_responsable
+            else ''
+        )
+        # El evento se arma con `datos_previos`, que es el campo pensado para
+        # esto, en vez de pasar por `registrar_auditoria`: esa función solo
+        # guarda texto y acá hace falta la fila entera, estructurada.
+        # `anular` y no `eliminar`: es la acción del catálogo, y la misma que
+        # usa el borrado del árbol POAU.
+        previos = {
+            'codigo_asignacion': instancia.codigo_asignacion,
+            'gestion': instancia.gestion,
+            'unidad': unidad,
+            'categoria_programatica': instancia.categoria_programatica,
+            'cod_objeto_gasto': instancia.cod_objeto_gasto,
+            'descripcion_objeto': instancia.descripcion_objeto,
+            'fuente_financiamiento': instancia.fuente_financiamiento,
+            'organismo_financiador': instancia.organismo_financiador,
+            'monto_programado': str(instancia.monto_programado or ''),
+            'programacion_mensual': instancia.programacion_mensual,
+        }
+        identidad = instancia.pk
+        codigo = instancia.codigo_asignacion
+
+        respuesta = super().destroy(request, *args, **kwargs)
+        try:
+            EventoAuditoria.objects.create(
+                usuario=request.user,
+                accion=EventoAuditoria.Accion.ANULAR,
+                entidad='AsignacionObjetoGasto',
+                entidad_id=str(identidad),
+                resumen=(
+                    f'Se eliminó el requerimiento {codigo}'
+                    f'{" de " + unidad if unidad else ""}.'
+                ),
+                datos_previos=previos,
+            )
+        except Exception:
+            # La auditoría no puede tumbar un borrado ya confirmado: si fallara,
+            # el 204 sería mentira y la fila estaría igualmente ida.
+            pass
+        return respuesta
+
     @action(detail=False, methods=['post'], url_path='bulk')
     def bulk(self, request):
         """Crea varios requerimientos en una sola transacción: todo o nada.
