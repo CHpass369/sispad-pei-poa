@@ -610,7 +610,7 @@ class AccionPOA(CodigoSegmentadoModel):
         verbose_name='Meta de gestión'
     )
     codigo_rea = models.CharField(max_length=20, blank=True, verbose_name='Código REA')
-    cargo_responsable = models.CharField(max_length=200, blank=True, verbose_name='Cargo responsable')
+    cargo_responsable = models.CharField(max_length=1000, blank=True, verbose_name='Cargo responsable')
     fecha_inicio = models.DateField(null=True, blank=True, verbose_name='Fecha inicio')
     fecha_fin = models.DateField(null=True, blank=True, verbose_name='Fecha fin')
     tipo_operacion = models.CharField(max_length=50, blank=True, verbose_name='Tipo de operación')
@@ -703,7 +703,7 @@ class OperacionPOAU(CodigoSegmentadoModel):
     codigo_unidad_ejecutora = models.CharField(
         max_length=20, blank=True, verbose_name='Código unidad ejecutora'
     )
-    responsable = models.CharField(max_length=200, blank=True, verbose_name='Responsable')
+    responsable = models.CharField(max_length=1000, blank=True, verbose_name='Responsable')
     codigo_responsable = models.CharField(
         max_length=20, blank=True, verbose_name='Código responsable'
     )
@@ -899,7 +899,7 @@ class TareaPOAU(CodigoSegmentadoModel):
         ActividadPOAU, on_delete=models.CASCADE,
         related_name='tareas', verbose_name='Actividad'
     )
-    responsable = models.CharField(max_length=200, blank=True, verbose_name='Responsable')
+    responsable = models.CharField(max_length=1000, blank=True, verbose_name='Responsable')
     fecha_inicio = models.DateField(null=True, blank=True, verbose_name='Fecha inicio')
     fecha_fin = models.DateField(null=True, blank=True, verbose_name='Fecha fin')
     metas = models.DecimalField(

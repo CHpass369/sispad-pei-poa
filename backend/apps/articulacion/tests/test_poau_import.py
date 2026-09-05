@@ -486,6 +486,42 @@ class PoauImportPreviewTests(PoauImportBase):
         operaciones = [row['operacion'] for row in filas if row['nivel'] == 'operacion']
         self.assertIn('Operación tardía', operaciones)
 
+    def test_text_longer_than_its_column_blocks_with_row_and_field(self):
+        """Un texto que no entra en su columna tiene que frenar acá, con fila y
+        campo. Si pasa, `objects.create()` lo manda a PostgreSQL sin
+        `full_clean()` y vuelve como `DataError` — un 500 que el navegador
+        muestra como «No se pudo aplicar la importación»."""
+        rows = self.rows()
+        rows[2] = {**rows[2], 'RESPONSABLE': 'X' * 1200}
+
+        response = self.preview_excel(rows)
+
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data['estado'], 'INVALIDO')
+        error = next(
+            e for e in response.data['errores'] if e['codigo'] == 'too_long'
+        )
+        self.assertEqual(error['severidad'], 'error')
+        self.assertEqual(error['campo'], 'responsable')
+        self.assertIn('1200', error['mensaje'])
+        self.assertIn('1000', error['mensaje'])
+
+    def test_reacp_responsible_list_of_318_chars_fits_after_widening(self):
+        """La matriz real lista varios cargos REACP por tarea: 318 caracteres
+        medidos en `SP-DGU-20-2`. Con la columna en 1000 tiene que entrar."""
+        responsable = ('PROFESIONAL III ASESOR JURIDICO D-3, ' * 9)[:318]
+        self.assertEqual(len(responsable), 318)  # el largo medido en producción
+        rows = self.rows()
+        rows[2] = {**rows[2], 'RESPONSABLE': responsable}
+
+        response = self.preview_excel(rows)
+
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data['estado'], 'VALIDO')
+        self.assertEqual(
+            [e for e in response.data['errores'] if e['codigo'] == 'too_long'], [],
+        )
+
     def test_missing_unit_of_measure_is_a_warning_not_a_blocking_error(self):
         rows = self.rows()
         rows[0] = {**rows[0], 'UNIDAD DE MEDIDA': ''}

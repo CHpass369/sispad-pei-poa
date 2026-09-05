@@ -14,7 +14,9 @@ from urllib.parse import parse_qs, urlencode, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 import openpyxl
-from django.core.exceptions import ObjectDoesNotExist, ValidationError
+from django.core.exceptions import (
+    FieldDoesNotExist, ObjectDoesNotExist, ValidationError,
+)
 from django.db import connection, transaction
 from django.db.models import Max, Q
 from django.utils import timezone
@@ -805,7 +807,66 @@ def _database_errors_v2(nodes, gestion, unidad):
             issues.append(_warning(
                 row, 'responsable', 'Falta responsable.', 'missing_value',
             ))
+        issues.extend(_length_errors(node))
     return issues
+
+
+# El alta del árbol usa `objects.create()` sin `full_clean()`, así que un texto
+# más largo que su columna no se detiene en Django: llega a PostgreSQL y vuelve
+# como `DataError: value too long`, es decir un 500 sin número de fila ni campo.
+# Acá se compara contra el `max_length` real del modelo, no contra una lista de
+# campos escrita a mano: ampliar una columna ajusta el límite solo.
+_MODELO_POR_NIVEL = {
+    'accion': AccionPOA, 'operacion': OperacionPOAU,
+    'actividad': ActividadPOAU, 'tarea': TareaPOAU,
+}
+
+# Espejo de los textos que escriben `_action_values()` y `_fields_for()`. Se
+# arma aparte a propósito: aquellas construyen `Decimal` y fechas, y una
+# excepción durante la validación sería otro 500 en lugar de un aviso.
+def _textos_a_guardar(node):
+    nivel = node['nivel']
+    if nivel == 'accion':
+        return {
+            'denominacion': node.get('accion', ''),
+            'indicador': node.get('indicador', ''),
+            'formula': node.get('formula', ''),
+            'unidad_medida': node.get('unidad_medida', ''),
+            'cargo_responsable': node.get('responsable', ''),
+            'categoria_programatica': node.get('categoria_programatica', ''),
+        }
+    textos = {
+        'denominacion': node.get(nivel, ''),
+        'indicador': node.get('indicador', ''),
+        'formula': node.get('formula', ''),
+        'unidad_medida': node.get('unidad_medida', ''),
+    }
+    if nivel == 'operacion':
+        textos['categoria_programatica'] = node.get('categoria_programatica', '')
+        textos['tipo_operacion'] = node.get('tipo_operacion', '')
+    if nivel in ('operacion', 'tarea'):
+        textos['responsable'] = node.get('responsable', '')
+    return textos
+
+
+def _length_errors(node):
+    modelo = _MODELO_POR_NIVEL[node['nivel']]
+    errors = []
+    for campo, valor in _textos_a_guardar(node).items():
+        if not isinstance(valor, str):
+            continue
+        try:
+            maximo = modelo._meta.get_field(campo).max_length
+        except FieldDoesNotExist:
+            continue
+        if maximo and len(valor) > maximo:
+            errors.append(_error(
+                node['fila'], campo,
+                f'El texto tiene {len(valor)} caracteres y el campo admite '
+                f'{maximo}. Acórtelo en la matriz.',
+                'too_long',
+            ))
+    return errors
 
 
 def parse_workbook(content, sheet_name, gestion, unidad, fallback_action_code=''):
