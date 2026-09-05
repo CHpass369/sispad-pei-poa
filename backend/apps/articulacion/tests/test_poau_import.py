@@ -456,6 +456,36 @@ class PoauImportPreviewTests(PoauImportBase):
         }
         self.assertNotIn('Operación legado', denominaciones)
 
+    def test_preview_returns_every_row_including_operations_past_row_100(self):
+        """La vista previa no se recorta: el asistente pide el tipo de cada
+        operación en su propia fila, así que una operación que no se serializa
+        es una operación que nadie puede tipar."""
+        rows = self.rows()
+        for index in range(100):
+            rows.append(physical_row(
+                'tarea', **{
+                    'CÓDIGO TAREA': f'ACP-ETL.1.1.R{index}',
+                    'TAREA': f'Tarea de relleno {index}',
+                    'RESPONSABLE': 'Responsable ETL',
+                },
+            ))
+        rows.append(physical_row(
+            'operacion', **{
+                'CÓDIGO OPERACIÓN': 'ACP-ETL.2', 'OPERACIÓN': 'Operación tardía',
+                'TIPO OPERACIÓN': 'FUNC', 'INDICADOR': 'Avance',
+                'UNIDAD DE MEDIDA': 'PORC',
+            },
+        ))
+
+        response = self.preview_excel(rows)
+
+        self.assertEqual(response.status_code, 201, response.data)
+        filas = response.data['filas']
+        self.assertGreater(len(filas), 100)
+        self.assertEqual(len(filas), response.data['resumen']['registros_preview'])
+        operaciones = [row['operacion'] for row in filas if row['nivel'] == 'operacion']
+        self.assertIn('Operación tardía', operaciones)
+
     def test_missing_unit_of_measure_is_a_warning_not_a_blocking_error(self):
         rows = self.rows()
         rows[0] = {**rows[0], 'UNIDAD DE MEDIDA': ''}

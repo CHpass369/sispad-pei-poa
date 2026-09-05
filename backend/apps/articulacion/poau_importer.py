@@ -974,7 +974,11 @@ def serialize_preview(preview):
         'hoja': preview.hoja,
         'resumen': preview.resumen,
         'errores': preview.errores,
-        'filas': preview.filas_normalizadas[:100],
+        # Se manda la vista previa completa. El recorte anterior a 100 filas
+        # escondía las operaciones que caían más abajo, y el asistente pide el
+        # tipo de cada operación en su propia fila: una operación fuera del
+        # corte no tenía desplegable y no había forma de tiparla.
+        'filas': preview.filas_normalizadas,
         'tipos_operacion': list(
             TipoOperacion.objects.filter(
                 gestion=preview.gestion, activo=True,
