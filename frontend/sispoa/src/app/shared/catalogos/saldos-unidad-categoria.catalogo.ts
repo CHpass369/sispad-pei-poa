@@ -22,7 +22,7 @@
  * planilla lo marca «SALDO NEGATIVO – revisar» y se traslada tal cual, porque
  * redondearlo a cero inventaría un margen que la unidad no tiene.
  *
- * Tres correcciones se apartan de la planilla, todas verificadas contra
+ * Siete correcciones se apartan de la planilla, todas verificadas contra
  * `gams_pip_prod` el 2026-09-04 y todas por la misma causa: la planilla asignó
  * el saldo a una unidad que no ejecuta esa categoría. Al regenerar este
  * catálogo desde la planilla hay que rehacerlas, o corregir la planilla en el
@@ -41,10 +41,23 @@
  *   vigilancia para unidades educativas. El programa 331 es de seguridad, pero
  *   la unidad que ejecuta es de educación.
  *
+ * - Las cuatro filas de `SF-DRT-37` (ADMINISTRACIÓN DE SERVICIOS MUNICIPALES)
+ *   bajan a sus dos unidades hijas, que son las que ejecutan: `300 0 003`
+ *   (162.183,00 Bs.) y `301 0 002` (50.000,00 Bs.) a `SF-DRT-37-1`
+ *   (CEMENTERIO); `350 0 003` (114.753,00 Bs.) y `351 0 002` (50.000,00 Bs.) a
+ *   `SF-DRT-37-2` (TERMINAL). Cada una de las cuatro categorías tiene una sola
+ *   unidad dueña en 2027 y ninguna es `SF-DRT-37`, cuyas cuatro operaciones no
+ *   declaran categoría programática. Por eso `SF-DRT-37` ya no tiene filas
+ *   acá: no le queda saldo que ninguna operación pueda alcanzar.
+ *
  * Las denominaciones salen del catálogo oficial de categorías 2027 cuando
  * existen: `210 0 042` pasa a SERVICIOS DE SISTEMAS INFORMATICOS PARA UNIDADES
- * EDUCATIVAS. `331 0 022` no tiene entrada en ese catálogo y conserva la de la
- * planilla.
+ * EDUCATIVAS, y las cuatro de `SF-DRT-37` a las suyas. `331 0 022` no tiene
+ * entrada en ese catálogo y conserva la de la planilla.
+ *
+ * `351 0 002` se copia textual del catálogo oficial, con su error de tipeo
+ * incluido (MANTEMINIENTO). No es un descuido de este archivo: corregirlo acá
+ * lo separaría de la fuente.
  */
 
 export interface SaldoUnidadCategoria {
@@ -129,10 +142,10 @@ export const SALDOS_UNIDAD_CATEGORIA: SaldoUnidadCategoria[] = [
   { codigoUnidad: 'SF-DRH-26-1', nombreUnidad: 'ORGANIZACIÓN Y ADMINISTRATIVA', categoriaProgramatica: '344 0 022', denominacion: 'ORGANIZACIÓN ADMINISTRATIVA SOA', saldo: 50000, filasOrigen: 1 },
   { codigoUnidad: 'SF-DRH-26-3', nombreUnidad: 'ADMINISTRACIÓN DE PERSONAL', categoriaProgramatica: '341 0 001', denominacion: 'ADMINISTRACIÓN DE PERSONAL SOA', saldo: 364089, filasOrigen: 1 },
   { codigoUnidad: 'SF-DRT-35', nombreUnidad: 'FISCALIZACIÓN', categoriaProgramatica: '344 0 024', denominacion: 'FORTALECIMIENTO DIRECCION DE INGRESOS MUNICIPALES', saldo: 500000, filasOrigen: 1 },
-  { codigoUnidad: 'SF-DRT-37', nombreUnidad: 'ADMINISTRACIÓN DE SERVICIOS MUNICIPALES', categoriaProgramatica: '300 0 003', denominacion: 'ADMINISTRACIÓN DE SERVICIOS MUNICIPALES', saldo: 162183, filasOrigen: 1 },
-  { codigoUnidad: 'SF-DRT-37', nombreUnidad: 'ADMINISTRACIÓN DE SERVICIOS MUNICIPALES', categoriaProgramatica: '301 0 002', denominacion: 'ADMINISTRACIÓN DE SERVICIOS MUNICIPALES', saldo: 50000, filasOrigen: 1 },
-  { codigoUnidad: 'SF-DRT-37', nombreUnidad: 'ADMINISTRACIÓN DE SERVICIOS MUNICIPALES', categoriaProgramatica: '350 0 003', denominacion: 'ADMINISTRACIÓN DE SERVICIOS MUNICIPALES', saldo: 114753, filasOrigen: 1 },
-  { codigoUnidad: 'SF-DRT-37', nombreUnidad: 'ADMINISTRACIÓN DE SERVICIOS MUNICIPALES', categoriaProgramatica: '351 0 002', denominacion: 'ADMINISTRACIÓN DE SERVICIOS MUNICIPALES', saldo: 50000, filasOrigen: 1 },
+  { codigoUnidad: 'SF-DRT-37-1', nombreUnidad: 'CEMENTERIO', categoriaProgramatica: '300 0 003', denominacion: 'UNIDAD CEMENTERIO MUNICIPAL', saldo: 162183, filasOrigen: 1 },
+  { codigoUnidad: 'SF-DRT-37-1', nombreUnidad: 'CEMENTERIO', categoriaProgramatica: '301 0 002', denominacion: 'MANTENIMIENTO Y MEJORAMIENTO DE CEMENTERIOS', saldo: 50000, filasOrigen: 1 },
+  { codigoUnidad: 'SF-DRT-37-2', nombreUnidad: 'TERMINAL', categoriaProgramatica: '350 0 003', denominacion: 'UNIDAD TERMINAL DE BUSES', saldo: 114753, filasOrigen: 1 },
+  { codigoUnidad: 'SF-DRT-37-2', nombreUnidad: 'TERMINAL', categoriaProgramatica: '351 0 002', denominacion: 'MANTEMINIENTO MEJORAMIENTO TERMINAL DE BUSES', saldo: 50000, filasOrigen: 1 },
   { codigoUnidad: 'SI-DOP-41', nombreUnidad: 'INFRAESTRUCTURA VIAL Y SEÑALIZACIÓN', categoriaProgramatica: '180 0 001', denominacion: 'PLANTA DE ASFALTO Y SEÑALIZACION VIAL-LABORATORIO', saldo: 50000, filasOrigen: 1 },
   { codigoUnidad: 'SI-DOP-41', nombreUnidad: 'INFRAESTRUCTURA VIAL Y SEÑALIZACIÓN', categoriaProgramatica: '180 0 002', denominacion: 'PLANTA DE ASFALTO Y SEÑALIZACION VIAL-LABORATORIO', saldo: 50000, filasOrigen: 1 },
   { codigoUnidad: 'SI-DOP-41', nombreUnidad: 'INFRAESTRUCTURA VIAL Y SEÑALIZACIÓN', categoriaProgramatica: '180 0 005', denominacion: 'PLANTA DE ASFALTO Y SEÑALIZACION VIAL-LABORATORIO', saldo: 20000, filasOrigen: 1 },
