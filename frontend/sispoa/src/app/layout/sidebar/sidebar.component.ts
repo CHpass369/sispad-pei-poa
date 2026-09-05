@@ -4,6 +4,7 @@ import { Subject, filter, takeUntil } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
 import { CapabilitiesService } from '../../core/services/capabilities.service';
 import { GestionHabilitadaService } from '../../core/services/gestion-habilitada.service';
+import { PermissionsService } from '../../core/services/permissions.service';
 import { LEGACY_MENU_VISIBLE } from '../../core/config/cutover.config';
 import { POAU_CAPABILITIES } from '../../core/config/poau-capabilities';
 
@@ -24,6 +25,10 @@ interface NavItem {
   /** Módulo estabilizado (chip "V1") que no forma parte del cutover legacy.
    *  A diferencia de `legacy`, no queda sujeto a LEGACY_MENU_VISIBLE. */
   v1?: boolean;
+  /** Reservado a administración. Espeja `IsSuperAdmin` del backend, no
+   *  `isAdmin()`: ese incluye `tecnico_admin`, que el backend rechaza, y la
+   *  entrada aparecería para quien después come 403 en cada guardado. */
+  soloAdmin?: boolean;
 }
 
 interface NavSection {
@@ -43,6 +48,7 @@ const RUTAS_POR_SISTEMA: Record<string, string> = {
   '/priorizacion': 'sis-poa',
   '/poau': 'sis-poa',
   '/poau_recursos': 'sis-poa',
+  '/poau_saldos': 'sis-poa',
   '/planificacion': 'sis-poa',
   '/seguimiento': 'sis-poa',
   '/modificaciones': 'sis-poa',
@@ -339,6 +345,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         { route: '/sis-poa/poaus', label: 'POAU', icon: 'list-tree', capacidades: SIS_POA_POAU_CAPABILITIES, v1: true },
         { route: '/poau', label: 'POAU (Físico)', icon: 'list-todo', capacidades: SIS_POA_POAU_FISICO_CAPABILITIES, legacy: true },
         { route: '/poau_recursos', label: 'POAU (Recursos)', icon: 'boxes', capacidades: SIS_POA_POAU_RECURSOS_CAPABILITIES, legacy: true },
+        { route: '/poau_saldos', label: 'Presupuesto por Unidad y Categoría', icon: 'coins', soloAdmin: true, v1: true },
         { route: '/sis-poa/seguimiento', label: 'Seguimiento y Evaluación', icon: 'activity', capacidades: SIS_POA_SEGUIMIENTO_CAPABILITIES, beta: true },
       ],
     },
@@ -355,6 +362,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
   constructor(
     public auth: AuthService,
     private capabilities: CapabilitiesService,
+    private permissions: PermissionsService,
     public gestion: GestionHabilitadaService,
     private router: Router,
     private cdr: ChangeDetectorRef,
@@ -442,6 +450,9 @@ export class SidebarComponent implements OnInit, OnDestroy {
       // Cutover V2 (ADR-004 / WP-14): los módulos legacy se ocultan según la
       // palanca LEGACY_MENU_VISIBLE (ver core/config/cutover.config.ts).
       if (item.legacy && LEGACY_MENU_VISIBLE[item.route] === false) {
+        return false;
+      }
+      if (item.soloAdmin && !this.permissions.hasRole('superadmin')) {
         return false;
       }
       return !item.capacidades?.length || this.capabilities.tieneAlguna(item.capacidades);

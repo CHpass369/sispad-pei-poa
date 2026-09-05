@@ -393,8 +393,11 @@ class MatrizPOAUViewSet(viewsets.ViewSet):
         )
         if en_alcance is not None:
             catalogo = catalogo.filter(codigo__in=en_alcance)
+        # `id` va incluido porque la administración de saldos necesita la clave
+        # foránea para crear un techo; el resto de los consumidores solo lee
+        # `codigo` y `nombre`, y una clave de más no los afecta.
         return list(
-            catalogo.values('codigo', 'nombre', 'sigla').order_by('codigo')
+            catalogo.values('id', 'codigo', 'nombre', 'sigla').order_by('codigo')
         )
 
     def retrieve(self, request, pk=None):

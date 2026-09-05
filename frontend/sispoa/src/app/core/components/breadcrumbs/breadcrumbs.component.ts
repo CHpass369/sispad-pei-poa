@@ -164,6 +164,7 @@ export class BreadcrumbsComponent implements OnInit, OnDestroy {
       'poas': 'POA',
       'poaus': 'POAUs',
       'poau_recursos': 'POAU (Recursos)',
+      'poau_saldos': 'Presupuesto por Unidad y Categoría',
       'poau-recursos': 'POAU (Recursos)',
       'budget': 'Presupuesto',
       'presupuesto-recursos': 'Presupuesto de Recursos',

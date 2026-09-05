@@ -69,8 +69,9 @@ describe('PoauRecursosWizardComponent · combos de catálogo', () => {
   let componente: PoauRecursosWizardComponent;
   let http: HttpTestingController;
 
-  // `EM-000-05` con la categoría `340 0 099` está en la planilla de saldos con
-  // 250.000,00 Bs.: el caso se apoya en el catálogo real y no en un doble.
+  // El techo salía de un arreglo estático del bundle; desde que se administra
+  // en la base llega por HTTP, así que `EM-000-05` / `340 0 099` con 250.000,00
+  // Bs. es ahora un doble explícito y no el catálogo real.
   const UNIDADES = [
     { codigo: 'EM-000-05', nombre: 'TRANSPARENCIA', sigla: 'TRANSP' },
     { codigo: 'EM-D01', nombre: 'SUBALCALDÍA DISTRITO 1', sigla: 'SD1' },
@@ -105,6 +106,17 @@ describe('PoauRecursosWizardComponent · combos de catálogo', () => {
     { id: 'g-2', codigo: '20000', denominacion: 'SERVICIOS NO PERSONALES' },
     { id: 'g-3', codigo: '30000', denominacion: 'MATERIALES Y SUMINISTROS' },
   ];
+
+  // El saldo llega como cadena: DRF serializa los decimales en texto para no
+  // perder precisión, y el componente lo convierte al leerlo.
+  const SALDOS = [{
+    id: 's-1', unidad: 'u-1', unidad_codigo: 'EM-000-05',
+    unidad_nombre: 'TRANSPARENCIA', gestion: 2027,
+    categoria_programatica: '340 0 099', denominacion: 'TRANSPARENCIA',
+    fuente: null, fuente_codigo: null, fuente_denominacion: null,
+    organismo: null, organismo_codigo: null, organismo_denominacion: null,
+    saldo: '250000.00', filas_origen: 1, observacion: '', activo: true,
+  }];
 
   const responderCatalogos = () => {
     http.expectOne(r => r.url.includes('/matriz-poau/'))
@@ -148,11 +160,16 @@ describe('PoauRecursosWizardComponent · combos de catálogo', () => {
 
   describe('unidad, categoría y operación', () => {
     /** Elige la unidad y responde la matriz que pide su cascada. */
-    const elegirUnidad = (codigo: string, filas: any[] = [OPERACION]) => {
+    const elegirUnidad = (
+      codigo: string, filas: any[] = [OPERACION], saldos: any[] = SALDOS,
+    ) => {
       componente.unidadSel = codigo;
       componente.onUnidad();
+      // Elegir unidad dispara dos peticiones: la matriz física y el techo.
       http.expectOne(r => r.url.includes('/matriz-poau/'))
           .flush({ gestion: 2027, unidades: [], filas });
+      http.expectOne(r => r.url.includes('/saldos-unidad-categoria/'))
+          .flush({ results: saldos, next: null });
     };
 
     it('ofrece las unidades con su código y su nombre', () => {
@@ -162,13 +179,13 @@ describe('PoauRecursosWizardComponent · combos de catálogo', () => {
       expect(componente.opcionesUnidad[0].detalle).toBe('TRANSP');
     });
 
-    it('la unidad elegida trae sus categorías con saldo de la planilla', () => {
+    it('la unidad elegida trae sus categorías con su techo', () => {
       responderCatalogos();
       elegirUnidad('EM-000-05');
       expect(componente.cabecera.codigoUnidad).toBe('EM-000-05');
-      expect(componente.categoriasDeUnidad.map(c => c.categoriaProgramatica))
+      expect(componente.categoriasDeUnidad.map(c => c.categoria_programatica))
         .toEqual(['340 0 099']);
-      expect(componente.categoriasDeUnidad[0].saldo).toBe(250000);
+      expect(componente.categoriasDeUnidad[0].saldo).toBe('250000.00');
     });
 
     it('elegir la categoría fija el saldo disponible para programar', () => {
@@ -227,17 +244,17 @@ describe('PoauRecursosWizardComponent · combos de catálogo', () => {
       componente.operacionSel = 'op-1';
       componente.onOperacion();
 
-      elegirUnidad('EM-D01', []);
+      elegirUnidad('EM-D01', [], []);
       expect(componente.cabecera.categoriaProgramatica).toBe('');
       expect(componente.cabecera.saldoDisponible).toBeNull();
       expect(componente.cabecera.operacionId).toBeNull();
       expect(componente.cabecera.accionPoaId).toBeNull();
     });
 
-    it('una unidad que no está en la planilla no ofrece categorías', () => {
+    it('una unidad sin presupuesto asignado no ofrece categorías', () => {
       responderCatalogos();
       componente.unidades = [...UNIDADES, { codigo: 'XX-99', nombre: 'NUEVA', sigla: '' }];
-      elegirUnidad('XX-99', []);
+      elegirUnidad('XX-99', [], []);
       expect(componente.categoriasDeUnidad).toEqual([]);
     });
   });
@@ -249,6 +266,8 @@ describe('PoauRecursosWizardComponent · combos de catálogo', () => {
       componente.onUnidad();
       http.expectOne(r => r.url.includes('/matriz-poau/'))
           .flush({ gestion: 2027, unidades: [], filas: [] });
+      http.expectOne(r => r.url.includes('/saldos-unidad-categoria/'))
+          .flush({ results: SALDOS, next: null });
       componente.categoriaSel = '340 0 099';
       componente.onCategoria();
     };

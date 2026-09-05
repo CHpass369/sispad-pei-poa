@@ -11,7 +11,11 @@ export class PermissionsService {
 
   /** Superuser tiene acceso a todo, sin importar roles asignados */
   private get isSuperuser(): boolean {
-    return this.authService['userSubject'].value?.is_superuser ?? false;
+    // `userSubject` es privado y se alcanza por índice: un doble de
+    // `AuthService` que no lo declare hacía reventar todo el filtrado del menú
+    // con «Cannot read properties of undefined». Ausente equivale a «no es
+    // superusuario», que es la respuesta segura.
+    return this.authService['userSubject']?.value?.is_superuser ?? false;
   }
 
   hasRole(role: string): boolean {

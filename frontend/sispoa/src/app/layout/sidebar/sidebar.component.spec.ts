@@ -35,9 +35,11 @@ describe('SidebarComponent', () => {
   let fixture: ComponentFixture<SidebarComponent>;
   let capabilitiesSubject: BehaviorSubject<boolean>;
   let granted: Set<string>;
+  let roles: Set<string>;
 
   beforeEach(async () => {
     granted = new Set<string>();
+    roles = new Set<string>();
     capabilitiesSubject = new BehaviorSubject<boolean>(false);
     const capabilitiesSpy = jasmine.createSpyObj<CapabilitiesService>(
       'CapabilitiesService',
@@ -47,7 +49,10 @@ describe('SidebarComponent', () => {
     capabilitiesSpy.tieneAlguna.and.callFake(codigos =>
       codigos.some(codigo => granted.has(codigo)),
     );
-    const authSpy = jasmine.createSpyObj('AuthService', [], { user$: of(null) });
+    const authSpy = jasmine.createSpyObj(
+      'AuthService', ['hasRole'], { user$: of(null) },
+    );
+    authSpy.hasRole.and.callFake((codigo: string) => roles.has(codigo));
     const routerSpy = jasmine.createSpyObj('Router', [
       'createUrlTree', 'serializeUrl', 'isActive',
     ], {
@@ -291,6 +296,42 @@ describe('SidebarComponent', () => {
     expect(seccion('TRANSVERSAL')?.items.length).toBe(1);
     expect(JSON.stringify(component.visibleSections)).not.toContain('sis-pro');
     expect(JSON.stringify(component.visibleSections)).not.toContain('sis_pro');
+  });
+
+  /**
+   * La administración del presupuesto por unidad y categoría decide cuánto puede
+   * programar cada unidad, así que va reservada a `superadmin`. El backend la
+   * cierra con `IsSuperAdmin`; si el menú la ofreciera con un permiso más ancho,
+   * la pantalla abriría y cada guardado moriría con 403.
+   */
+  describe('entradas reservadas a administración', () => {
+    const CAPACIDADES_POAU = new Set([
+      'sis_poa.poa.view', 'sis_poa.poau.view', 'sis_poa.techos.view',
+      'sis_poa.distribuciones.view', 'sis_poa.programacion.view',
+      'sis_poa.seguimiento.view',
+    ]);
+
+    const rutasDePoa = () =>
+      seccion('SIS-POA')?.items.map(item => item.route) ?? [];
+
+    it('un administrador ve el presupuesto por unidad y categoría', () => {
+      granted = CAPACIDADES_POAU;
+      roles = new Set(['superadmin']);
+
+      navegarA('/sis-poa/dashboard');
+
+      expect(rutasDePoa()).toContain('/poau_saldos');
+    });
+
+    it('quien tiene todas las capacidades POAU pero no es administrador, no la ve', () => {
+      // El caso que importa: capacidad de POAU no es atribución de decidir el techo.
+      granted = CAPACIDADES_POAU;
+      roles = new Set(['tecnico_admin', 'planificador', 'jefe_ue']);
+
+      navegarA('/sis-poa/dashboard');
+
+      expect(rutasDePoa()).not.toContain('/poau_saldos');
+    });
   });
 
   it('contains only SIS-PE and SIS-POA system definitions', () => {

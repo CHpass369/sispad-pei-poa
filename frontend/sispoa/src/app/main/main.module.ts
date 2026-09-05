@@ -42,6 +42,7 @@ export const MAIN_ROUTES: Routes = [
       { path: 'normativa', loadChildren: () => import('../features/normativa/normativa.module').then(m => m.NormativaModule) },
       { path: 'priorizacion', loadChildren: () => import('../features/priorizacion/priorizacion.module').then(m => m.PriorizacionModule) },
       { path: 'poau_recursos', loadChildren: () => import('../features/poau-recursos/poau-recursos.module').then(m => m.PoauRecursosModule) },
+      { path: 'poau_saldos', loadChildren: () => import('../features/poau-saldos/poau-saldos.module').then(m => m.PoauSaldosModule) },
     ],
   },
 ];

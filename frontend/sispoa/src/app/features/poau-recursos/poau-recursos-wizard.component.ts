@@ -5,11 +5,8 @@ import { catchError, map } from 'rxjs/operators';
 import { ApiService } from '../../core/services/api.service';
 import { OpcionCombo } from '../../shared/components/combo-box/combo-box.component';
 import { GestionHabilitadaService } from '../../core/services/gestion-habilitada.service';
-import {
-  SaldoUnidadCategoria,
-  saldoDisponible,
-  saldosDeUnidad,
-} from '../../shared/catalogos/saldos-unidad-categoria.catalogo';
+import { SaldoUnidadCategoria } from '../poau-saldos/poau-saldos.model';
+import { PoauSaldosService } from '../poau-saldos/poau-saldos.service';
 import {
   CabeceraRecursos,
   FilaMatrizRecursos,
@@ -98,8 +95,8 @@ function _codigoCategoria(valor: string): string {
             <select [(ngModel)]="categoriaSel" class="form-control" (change)="onCategoria()"
                     [disabled]="!categoriasDeUnidad.length">
               <option value="">Seleccione...</option>
-              <option *ngFor="let c of categoriasDeUnidad" [value]="c.categoriaProgramatica">
-                {{ c.categoriaProgramatica }} — {{ moneda(c.saldo) }} Bs. disponibles
+              <option *ngFor="let c of categoriasDeUnidad" [value]="c.categoria_programatica">
+                {{ c.categoria_programatica }} — {{ moneda(numero(c.saldo)) }} Bs. disponibles
               </option>
             </select>
             <!-- El saldo va también fuera del desplegable: cerrado, la opción
@@ -130,8 +127,9 @@ function _codigoCategoria(valor: string): string {
         </div>
         <div class="aviso-catalogo" *ngIf="cabecera.codigoUnidad && !cargando &&
                                            !categoriasDeUnidad.length">
-          La unidad <strong>{{ cabecera.codigoUnidad }}</strong> no figura en la planilla
-          de saldos: no hay monto disponible que ofrecer para programar.
+          La unidad <strong>{{ cabecera.codigoUnidad }}</strong> no tiene presupuesto
+          asignado: no hay monto disponible que ofrecer para programar. Adminístrelo
+          en «Presupuesto por Unidad y Categoría».
         </div>
         <div class="aviso-catalogo" *ngIf="cabecera.categoriaProgramatica && !cargando &&
                                            !operacionesFiltradas.length">
@@ -522,7 +520,14 @@ export class PoauRecursosWizardComponent implements OnInit {
   msgClass = '';
 
   constructor(private api: ApiService, private cdr: ChangeDetectorRef,
-              private gestionActiva: GestionHabilitadaService) {}
+              private gestionActiva: GestionHabilitadaService,
+              private saldos: PoauSaldosService) {}
+
+  /** El saldo viaja como cadena: DRF serializa los decimales en texto. */
+  numero(valor: string): number {
+    const n = Number(valor);
+    return Number.isFinite(n) ? n : 0;
+  }
 
   ngOnInit(): void {
     // Los recursos del POAU son de la gestión habilitada (ADR-007).
@@ -644,11 +649,29 @@ export class PoauRecursosWizardComponent implements OnInit {
     this.operacionSel = '';
     this.limpiarCategoria();
     this.operaciones = [];
-    this.categoriasDeUnidad = saldosDeUnidad(this.cabecera.codigoUnidad);
+    this.categoriasDeUnidad = [];
 
     if (!unidad?.codigo) {
       return;
     }
+
+    // El techo salía de un arreglo estático del bundle: consultarlo era una
+    // llamada a función y cambiarlo costaba un despliegue. Ahora viene de la
+    // base, así que la lectura es asíncrona y necesita el mismo resguardo
+    // contra respuestas tardías que las operaciones.
+    this.saldos.listar(unidad.codigo).subscribe({
+      next: filas => {
+        if (this.cabecera.codigoUnidad !== unidad.codigo) { return; }
+        this.categoriasDeUnidad = filas.filter(f => f.activo);
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        if (this.cabecera.codigoUnidad === unidad.codigo) {
+          this.categoriasDeUnidad = [];
+        }
+        this.cdr.markForCheck();
+      },
+    });
 
     // Las operaciones se traen de una sola vez para la unidad: la matriz ya
     // viene acotada por el candado de gestión y por el alcance del usuario.
@@ -673,12 +696,13 @@ export class PoauRecursosWizardComponent implements OnInit {
 
   onCategoria(): void {
     const entrada = this.categoriasDeUnidad.find(
-      c => c.categoriaProgramatica === this.categoriaSel);
+      c => c.categoria_programatica === this.categoriaSel);
 
-    this.cabecera.categoriaProgramatica = entrada?.categoriaProgramatica || '';
-    this.cabecera.saldoDisponible = entrada
-      ? saldoDisponible(this.cabecera.codigoUnidad, entrada.categoriaProgramatica)
-      : null;
+    this.cabecera.categoriaProgramatica = entrada?.categoria_programatica || '';
+    // Null y no cero cuando la categoría no está declarada: no es lo mismo «no
+    // hay nada disponible» que «esta combinación no fue revisada». El saldo
+    // llega como cadena porque DRF serializa los decimales en texto.
+    this.cabecera.saldoDisponible = entrada ? Number(entrada.saldo) : null;
 
     // La denominación oficial es la del catálogo de categorías; la planilla de
     // saldos solo se usa de respaldo cuando el catálogo no la tiene.
