@@ -112,14 +112,12 @@ LOGGING = {
 STATIC_ROOT = os.environ.get('STATIC_ROOT', '/var/www/sispoa/static')
 MEDIA_ROOT = os.environ.get('MEDIA_ROOT', '/var/www/sispoa/media')
 
-# Rate limiting
+# Rate limiting global deshabilitado — ver la nota en config/settings.py.
+# Se mantiene el override explícito para que el módulo de producción no
+# reintroduzca los cubos horarios heredados.
 REST_FRAMEWORK.update({  # noqa: F405
-    'DEFAULT_THROTTLE_CLASSES': [
-        'rest_framework.throttling.AnonRateThrottle',
-        'rest_framework.throttling.UserRateThrottle',
-    ],
+    'DEFAULT_THROTTLE_CLASSES': [],
     'DEFAULT_THROTTLE_RATES': {
-        'anon': '100/hour',
-        'user': '1000/hour',
+        'login': '5/minute',
     },
 })

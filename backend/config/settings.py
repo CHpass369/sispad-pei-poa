@@ -212,13 +212,12 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'EXCEPTION_HANDLER': 'apps.core.exceptions.api_exception_handler',
-    'DEFAULT_THROTTLE_CLASSES': [
-        'rest_framework.throttling.AnonRateThrottle',
-        'rest_framework.throttling.UserRateThrottle',
-    ],
+    # Rate limiting global deshabilitado. La plataforma se sirve detrás de nginx
+    # con proxy_pass a 127.0.0.1 y sin NUM_PROXIES, así que DRF identifica a
+    # todos los clientes con la misma IP: un único cubo horario dejaba fuera a
+    # toda la institución a la vez. El throttle de login sigue activo.
+    'DEFAULT_THROTTLE_CLASSES': [],
     'DEFAULT_THROTTLE_RATES': {
-        'anon': '50/hour',
-        'user': '200/hour',
         'login': '5/minute',
     },
 }
