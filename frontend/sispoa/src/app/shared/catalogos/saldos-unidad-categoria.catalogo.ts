@@ -58,6 +58,19 @@
  * `351 0 002` se copia textual del catálogo oficial, con su error de tipeo
  * incluido (MANTEMINIENTO). No es un descuido de este archivo: corregirlo acá
  * lo separaría de la fuente.
+ *
+ * Un alta que NO viene de la planilla, cargada el 2026-09-04 a pedido de
+ * Planificación: `251 0 013` en `SD-DDH-52-3` (SLIM) por 60.000,00 Bs. La
+ * unidad tiene tres operaciones en 2027 —`250 0 060`, `251 0 013` y
+ * `251 0 017`— y la planilla solo le declaraba saldo para dos, así que
+ * `PROV-2027-SD-DDH-52-3.3.1` no tenía con qué programarse. **A diferencia de
+ * las siete correcciones de arriba, esta suma: sube el techo declarado del
+ * municipio en 60.000,00 Bs.** Va con `filasOrigen: 0` justamente para eso: es
+ * la marca de que no tiene respaldo en la planilla y de que una regeneración
+ * desde el origen la perdería. `251 0 013` también la ejecuta la unidad madre
+ * `SD-DDH-52` (GENERO GENERACIONAL Y FAMILIA), que tampoco tiene fila acá; si
+ * alguna vez necesita programar sobre esa categoría, hay que decidir cómo se
+ * reparte el saldo entre madre e hija en vez de duplicarlo.
  */
 
 export interface SaldoUnidadCategoria {
@@ -95,6 +108,7 @@ export const SALDOS_UNIDAD_CATEGORIA: SaldoUnidadCategoria[] = [
   { codigoUnidad: 'SD-DDH-52-2', nombreUnidad: 'UMADIS', categoriaProgramatica: '250 0 089', denominacion: 'UMADIS', saldo: 3687000, filasOrigen: 1 },
   { codigoUnidad: 'SD-DDH-52-2', nombreUnidad: 'UMADIS', categoriaProgramatica: '254 0 006', denominacion: 'UMADIS', saldo: 163532, filasOrigen: 1 },
   { codigoUnidad: 'SD-DDH-52-3', nombreUnidad: 'SERVICIO LEGAL INTEGRAL MUNICIPAL (SLIM)', categoriaProgramatica: '250 0 060', denominacion: 'SLIM', saldo: 365515, filasOrigen: 1 },
+  { codigoUnidad: 'SD-DDH-52-3', nombreUnidad: 'SERVICIO LEGAL INTEGRAL MUNICIPAL (SLIM)', categoriaProgramatica: '251 0 013', denominacion: 'SERVICIOS Y EQUIPAMIENTO CENTRO DE ACOGIDA TEMPORAL A LA NIÑEZ Y LA MUJER', saldo: 60000, filasOrigen: 0 },
   { codigoUnidad: 'SD-DDH-52-3', nombreUnidad: 'SERVICIO LEGAL INTEGRAL MUNICIPAL (SLIM)', categoriaProgramatica: '251 0 017', denominacion: 'SLIM', saldo: 163780, filasOrigen: 1 },
   { codigoUnidad: 'SD-DDH-52-4', nombreUnidad: 'DEFENSORÍA DE LA NIÑEZ Y ADOLESCENCIA (DNA)', categoriaProgramatica: '260 0 003', denominacion: 'DNA', saldo: 70098, filasOrigen: 1 },
   { codigoUnidad: 'SD-DDH-52-4', nombreUnidad: 'DEFENSORÍA DE LA NIÑEZ Y ADOLESCENCIA (DNA)', categoriaProgramatica: '260 0 004', denominacion: 'DNA', saldo: 344683, filasOrigen: 1 },
